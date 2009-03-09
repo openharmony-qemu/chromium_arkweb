@@ -12,6 +12,10 @@
     {
       "matches": ["http://*.yahoo.com/*"],
       "js": ["script2.js"]
+    },
+    {
+      "matches": ["http://*.news.com/*"],
+      "js": ["js_files/script3.js"]
     }
   ]
 }
