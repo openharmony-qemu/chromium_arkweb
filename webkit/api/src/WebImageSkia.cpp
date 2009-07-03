@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,65 +31,51 @@
 #include "config.h"
 #include "WebImage.h"
 
-#include <SkBitmap.h>
+#include "WebData.h"
+#include "WebSize.h"
+
+#include "ImageSourceSkia.h"
+#include "NativeImageSkia.h"
+#include "SharedBuffer.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassRefPtr.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
-class WebImagePrivate : public SkBitmap {
-public:
-    WebImagePrivate(const SkBitmap& bitmap) : SkBitmap(bitmap) { }
-};
+WebImage WebImage::fromData(const WebData& data, const WebSize& desiredSize)
+{
+    ImageSourceSkia source;
+    source.setData(PassRefPtr<SharedBuffer>(data).get(), true, desiredSize);
+    if (!source.isSizeAvailable())
+        return WebImage();
+
+    OwnPtr<NativeImageSkia> frame0(source.createFrameAtIndex(0));
+    if (!frame0.get())
+        return WebImage();
+
+    return WebImage(*frame0);
+}
 
 void WebImage::reset()
 {
-    delete m_private;
-    m_private = 0;
-}
-
-WebSize WebImage::size() const
-{
-    if (!m_private)
-        return WebSize();
-
-    return WebSize(m_private->width(), m_private->height());
+    m_bitmap.reset();
 }
 
 void WebImage::assign(const WebImage& image)
 {
-    if (m_private)
-        delete m_private;
-
-    if (image.m_private)
-        m_private = new WebImagePrivate(*image.m_private);
-    else
-        m_private = 0;
+    m_bitmap = image.m_bitmap;
 }
 
-WebImage::operator SkBitmap() const
+bool WebImage::isNull() const
 {
-    if (!m_private)
-        return SkBitmap();
-
-    return *m_private;
+    return m_bitmap.isNull();
 }
 
-void WebImage::assign(const SkBitmap& bitmap)
+WebSize WebImage::size() const
 {
-    if (m_private)
-        delete m_private;
-
-    m_private = new WebImagePrivate(bitmap);
-}
-
-const void* WebImage::lockPixels()
-{
-    m_private->lockPixels();
-    return static_cast<void*>(m_private->getPixels());
-}
-
-void WebImage::unlockPixels()
-{
-    m_private->unlockPixels();
+    return WebSize(m_bitmap.width(), m_bitmap.height());
 }
 
 } // namespace WebKit
