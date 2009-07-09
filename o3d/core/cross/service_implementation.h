@@ -57,6 +57,10 @@ class ServiceImplementation {
     service_locator_->RemoveService(Interface::kInterfaceId, service_);
   }
 
+  ServiceLocator* service_locator() const {
+    return service_locator_;
+  }
+
  private:
   ServiceLocator* service_locator_;
   Interface* service_;
