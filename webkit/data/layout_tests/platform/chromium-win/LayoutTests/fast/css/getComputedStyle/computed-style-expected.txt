@@ -1,8 +1,10 @@
 Attributes that are exposed in the CSS computed style object:
 
 background-attachment: scroll;
+background-clip: border-box;
 background-color: rgba(0, 0, 0, 0);
 background-image: none;
+background-origin: padding-box;
 background-position: 0% 0%;
 background-repeat: repeat;
 border-bottom-color: rgb(0, 0, 0);
@@ -209,4 +211,3 @@ overflow: visible;
 -webkit-mask-position-y: 0%;
 -webkit-match-nearest-mail-blockquote-color: normal;
 -webkit-text-size-adjust: auto;
-
