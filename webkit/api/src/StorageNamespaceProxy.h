@@ -30,7 +30,23 @@
 
 #include "StorageNamespace.h"
 
-// FIXME: Implement the StorageNamespaceProxy
+namespace WebKit { class WebStorageNamespace; }
+
+namespace WebCore {
+
+    class StorageNamespaceProxy : public StorageNamespace {
+    public:
+        StorageNamespaceProxy(WebKit::WebStorageNamespace* storageNamespace);
+        virtual ~StorageNamespaceProxy();
+        virtual PassRefPtr<StorageArea> storageArea(SecurityOrigin*);
+        virtual PassRefPtr<StorageNamespace> copy();
+        virtual void close();
+
+    private:
+        OwnPtr<WebKit::WebStorageNamespace> m_storageNamespace;
+    };
+
+} // namespace WebCore
 
 #endif // ENABLE(DOM_STORAGE)
 

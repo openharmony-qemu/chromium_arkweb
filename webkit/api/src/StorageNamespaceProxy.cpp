@@ -28,18 +28,47 @@
 
 #if ENABLE(DOM_STORAGE)
 
+#include "SecurityOrigin.h"
+#include "StorageAreaProxy.h"
+#include "WebKit.h"
+#include "WebKitClient.h"
+#include "WebStorageNamespace.h"
+#include "WebString.h"
+
 namespace WebCore {
 
 PassRefPtr<StorageNamespace> StorageNamespace::localStorageNamespace(const String& path)
 {
-    ASSERT_NOT_REACHED();
-    return NULL;
+    return new StorageNamespaceProxy(WebKit::webKitClient()->createLocalStorageNamespace(path));
 }
 
 PassRefPtr<StorageNamespace> StorageNamespace::sessionStorageNamespace()
 {
-    ASSERT_NOT_REACHED();
-    return NULL;
+    return new StorageNamespaceProxy(WebKit::webKitClient()->createSessionStorageNamespace());
+}
+
+StorageNamespaceProxy::StorageNamespaceProxy(WebKit::WebStorageNamespace* storageNamespace)
+    : m_storageNamespace(storageNamespace)
+{
+}
+
+StorageNamespaceProxy::~StorageNamespaceProxy()
+{
+}
+
+PassRefPtr<StorageNamespace> StorageNamespaceProxy::copy()
+{
+    return adoptRef(new StorageNamespaceProxy(m_storageNamespace->copy()));
+}
+
+PassRefPtr<StorageArea> StorageNamespaceProxy::storageArea(SecurityOrigin* origin)
+{
+    return adoptRef(new StorageAreaProxy(m_storageNamespace->createStorageArea(origin->toString())));
+}
+
+void StorageNamespaceProxy::close()
+{
+    m_storageNamespace->close();
 }
 
 } // namespace WebCore
