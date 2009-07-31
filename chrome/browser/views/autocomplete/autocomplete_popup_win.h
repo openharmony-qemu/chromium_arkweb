@@ -7,7 +7,7 @@
 
 #include "views/widget/widget_win.h"
 
-class AutocompleteEditViewWin;
+class AutocompleteEditView;
 class AutocompletePopupContentsView;
 
 class AutocompletePopupWin : public views::WidgetWin {
@@ -17,10 +17,16 @@ class AutocompletePopupWin : public views::WidgetWin {
 
   // Creates the popup and shows it for the first time. |edit_view| is the edit
   // that created us.
-  void Init(AutocompleteEditViewWin* edit_view, views::View* contents);
+  void Init(AutocompleteEditView* edit_view, views::View* contents);
 
   // Shows the popup and moves it to the right position.
   void Show();
+
+  // Returns true if the popup is open.
+  bool IsOpen() const;
+
+  // Returns true if the popup has been created.
+  bool IsCreated() const;
 
  protected:
   // Overridden from WidgetWin:
