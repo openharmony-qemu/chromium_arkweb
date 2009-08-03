@@ -49,7 +49,7 @@ if env.Bit('linux'):
 
 if env.Bit('mac'):
   inputs += [
-      "mac/testing_common.cc",
+      "mac/testing_common.mm",
   ]
 
 o3dcore_lib = env.ComponentLibrary("testing_common", inputs)
