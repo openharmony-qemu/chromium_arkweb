@@ -42,10 +42,13 @@ namespace WebCore {
 namespace WebKit {
     class WebMediaPlayer;
     class WebMediaPlayerClient;
+    struct WebCursorInfo;
 
     class TemporaryGlue {
     public:
         static WebMediaPlayer* createWebMediaPlayer(WebMediaPlayerClient*, WebCore::Frame*);
+
+        static void setCursorForPlugin(const WebCursorInfo&, WebCore::Frame*);
     };
 
 } // namespace WebKit
