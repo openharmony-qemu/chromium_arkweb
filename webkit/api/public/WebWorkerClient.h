@@ -34,6 +34,7 @@
 #include "WebMessagePortChannel.h"
 
 namespace WebKit {
+    class WebNotificationPresenter;
     class WebString;
     class WebWorker;
 
@@ -63,6 +64,10 @@ namespace WebKit {
         virtual void reportPendingActivity(bool hasPendingActivity) = 0;
 
         virtual void workerContextDestroyed() = 0;
+
+        // Returns the notification presenter for this worker context.  Pointer
+        // is owned by the object implementing WebWorkerClient.
+        virtual WebNotificationPresenter* notificationPresenter() = 0;
 
         // This can be called on any thread to create a nested worker.
         virtual WebWorker* createWorker(WebWorkerClient* client) = 0;
