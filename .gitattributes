@@ -1,1 +1,2 @@
 /chrome/tools/test/reference_build/chrome/chrome_dll.pdb filter=lfs diff=lfs merge=lfs -text
+/chrome_frame/tools/test/reference_build/chrome/chrome_dll.pdb filter=lfs diff=lfs merge=lfs -text
