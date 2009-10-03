@@ -46,7 +46,8 @@ void StorageEventDispatcher::dispatch(const String& key, const String& oldValue,
                                       const String& newValue, StorageType storageType,
                                       SecurityOrigin* origin, Frame* sourceFrame)
 {
-    // FIXME: Implement.
+    ASSERT(!sourceFrame);  // Sad, but true.
+    WebKit::webKitClient()->dispatchStorageEvent(key, oldValue, newValue, origin->toString(), storageType == LocalStorage);
 }
 
 } // namespace WebCore
