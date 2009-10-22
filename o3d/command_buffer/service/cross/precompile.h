@@ -42,18 +42,6 @@
 #include <windows.h>
 #endif
 
-#if defined(CB_SERVICE_D3D9)
-#include <d3d9.h>
-#include <d3dx9.h>
-#endif // defined(CB_SERVICE_D3D9)
-
-#if defined(CB_SERVICE_GL)
-#include <GL/glew.h>
-#include <GL/wglew.h>
-#include <Cg/cg.h>
-#include <Cg/cgGL.h>
-#endif // defined(CB_SERVICE_GL)
-
 #include <assert.h>
 #include <algorithm>
 #include <map>
