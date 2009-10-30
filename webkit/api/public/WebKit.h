@@ -54,20 +54,9 @@ namespace WebKit {
     WEBKIT_API void setLayoutTestMode(bool);
     WEBKIT_API bool layoutTestMode();
 
-    // Enables HTML5 media support.
-    WEBKIT_API void enableMediaPlayer();
-
     // Purge the plugin list cache. If |reloadPages| is true, any pages
     // containing plugins will be reloaded after refreshing the plugin list.
     WEBKIT_API void resetPluginCache(bool reloadPages);
-
-    // Enables HTML5 database support.
-    WEBKIT_API void enableDatabases();
-    WEBKIT_API bool databasesEnabled();
-
-    // Enables HTML5 Web Sockets support.
-    WEBKIT_API void enableWebSockets();
-    WEBKIT_API bool webSocketsEnabled();
 
 } // namespace WebKit
 
