@@ -43,11 +43,10 @@ class WebView;
 // direct and delegate Apis to the host.
 class WebDevToolsFrontend {
 public:
-    static WebDevToolsFrontend* create(WebView* view,
-                                       WebDevToolsFrontendClient* client,
-                                       const WebString& applicationLocale);
+    WEBKIT_API static WebDevToolsFrontend* create(WebView* view,
+                                                  WebDevToolsFrontendClient* client,
+                                                  const WebString& applicationLocale);
 
-    WebDevToolsFrontend() {}
     virtual ~WebDevToolsFrontend() {}
 
     virtual void dispatchMessageFromAgent(const WebString& className,
