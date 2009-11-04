@@ -4,6 +4,7 @@ navigator.appCodeName is OK
 navigator.appName is OK
 navigator.appVersion is OK
 navigator.cookieEnabled is OK
+navigator.getStorageUpdates() is OK
 navigator.javaEnabled() is OK
 navigator.language is OK
 navigator.mimeTypes is OK
@@ -12,6 +13,8 @@ navigator.platform is OK
 navigator.plugins is OK
 navigator.product is OK
 navigator.productSub is OK
+navigator.registerContentHandler() is OK
+navigator.registerProtocolHandler() is OK
 navigator.userAgent is OK
 navigator.vendor is OK
 navigator.vendorSub is OK
@@ -19,6 +22,7 @@ navigator.appCodeName is OK
 navigator.appName is OK
 navigator.appVersion is OK
 navigator.cookieEnabled is OK
+navigator.getStorageUpdates() is OK
 navigator.javaEnabled() is OK
 navigator.language is OK
 navigator.mimeTypes is OK
@@ -27,7 +31,8 @@ navigator.platform is OK
 navigator.plugins is OK
 navigator.product is OK
 navigator.productSub is OK
+navigator.registerContentHandler() is OK
+navigator.registerProtocolHandler() is OK
 navigator.userAgent is OK
 navigator.vendor is OK
 navigator.vendorSub is OK
-
