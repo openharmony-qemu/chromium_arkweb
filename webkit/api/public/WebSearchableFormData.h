@@ -41,10 +41,11 @@ class WebForm;
 // corresponds to a searchable form request.
 class WebSearchableFormData {
 public:
-    // If the provided form is suitable for automated searching, |m_url| and
-    // |m_encoding| are set appropriately.  Otherwise |m_url| will be left
-    // invalid.
+    // If the provided form is suitable for automated searching, isValid()
+    // will return false.
     WebSearchableFormData(const WebForm&);
+
+    bool isValid() { return m_url.isValid(); }
 
     // URL for the searchable form request.
     const WebURL& url() const
