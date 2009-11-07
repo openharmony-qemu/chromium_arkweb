@@ -31,7 +31,13 @@
 #include "config.h"
 #include "WebNode.h"
 
+#include "Document.h"
+#include "Frame.h"
 #include "Node.h"
+
+#include "FrameLoaderClientImpl.h"
+#include "WebFrameImpl.h"
+#include "WebString.h"
 #include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
@@ -86,6 +92,14 @@ void WebNode::assign(WebNodePrivate* p)
     if (m_private)
         m_private->deref();
     m_private = p;
+}
+
+WebFrame* WebNode::frame()
+{
+    FrameLoaderClientImpl* frame_loader_client =
+        static_cast<FrameLoaderClientImpl*>(m_private->document()->
+                                            frame()->loader()->client());
+    return static_cast<WebFrame*>(frame_loader_client->webFrame());
 }
 
 } // namespace WebKit
