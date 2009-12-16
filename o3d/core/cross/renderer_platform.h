@@ -48,6 +48,9 @@
 #elif defined(OS_WIN) && defined(RENDERER_GL)
 #include "core/cross/gl/gl_headers.h"
 #include <gl/GL.h>
+#elif defined(OS_WIN) && defined(RENDERER_GLES2)
+#include "core/cross/gles2/gles2_headers.h"
+#include <gl/GL.h>
 #endif
 
 #if defined(OS_WIN)
@@ -64,6 +67,8 @@
 #include "core/win/d3d9/renderer_d3d9.h"
 #elif defined(RENDERER_GL)
 #include "core/cross/gl/renderer_gl.h"
+#elif defined(RENDERER_GLES2)
+#include "core/cross/gles2/renderer_gles2.h"
 #else
 #error Renderer not recognized.
 #endif
