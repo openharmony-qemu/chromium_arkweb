@@ -31,6 +31,27 @@ class Delegate : public menus::SimpleMenuModel::Delegate {
 class AppMenuModelTest : public BrowserWithTestWindowTest {
 };
 
+// Recursively checks the enabled state and executes a command on every item
+// that's not a separator or a submenu parent item. The returned count should
+// match the number of times the delegate is called to ensure every item works.
+static void CountEnabledExecutable(menus::MenuModel* model, int* count) {
+  for (int i = 0; i < model->GetItemCount(); ++i) {
+    menus::MenuModel::ItemType type = model->GetTypeAt(i);
+    switch (type) {
+      case menus::MenuModel::TYPE_SEPARATOR:
+        continue;
+      case menus::MenuModel::TYPE_SUBMENU:
+        CountEnabledExecutable(model->GetSubmenuModelAt(i), count);
+        break;
+      default:
+        model->IsEnabledAt(i);  // Check if it's enabled (ignore answer).
+        model->ActivatedAt(i);  // Execute it.
+        (*count)++;  // Increment the count of executable items seen.
+        break;
+    }
+  }
+}
+
 TEST_F(AppMenuModelTest, Basics) {
   Delegate delegate;
   AppMenuModel model(&delegate, browser());
@@ -39,14 +60,9 @@ TEST_F(AppMenuModelTest, Basics) {
   // the exact number.
   EXPECT_GT(model.GetItemCount(), 5);
 
-  // Execute a couple of the items and make sure it gets back to our delegate.
-  model.ActivatedAt(0);
-  EXPECT_TRUE(model.IsEnabledAt(0));
-  model.ActivatedAt(3);
-  EXPECT_TRUE(model.IsEnabledAt(4));
-  EXPECT_EQ(delegate.execute_count_, 2);
-  EXPECT_EQ(delegate.enable_count_, 2);
-
-  delegate.execute_count_ = 0;
-  delegate.enable_count_ = 0;
+  int item_count = 0;
+  CountEnabledExecutable(&model, &item_count);
+  EXPECT_GT(item_count, 0);
+  EXPECT_EQ(item_count, delegate.execute_count_);
+  EXPECT_EQ(item_count, delegate.enable_count_);
 }
