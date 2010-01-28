@@ -4,9 +4,9 @@
 
 #include "chrome/browser/autofill/autofill_dialog.h"
 
-// TODO(georgey, dhollowa): Remove these as each platform implements this
+// TODO(dhollowa): Remove these as each platform implements this
 // function.  The last one to implement the function should remove this file.
-#if defined(OS_WIN) || defined(OS_MACOSX)
+#if defined(OS_MACOSX)
 void ShowAutoFillDialog(AutoFillDialogObserver* observer,
                         const std::vector<AutoFillProfile*>& profiles,
                         const std::vector<CreditCard*>& credit_cards) {
