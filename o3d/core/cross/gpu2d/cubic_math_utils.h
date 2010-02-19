@@ -80,6 +80,22 @@ inline bool ApproxEqual(float f0, float f1) {
   return fabsf(f0 - f1) < kEpsilon;
 }
 
+// Determines whether the line segment between (p1, q1) intersects
+// that between (p2, q2).
+bool LinesIntersect(float p1x, float p1y,
+                    float q1x, float q1y,
+                    float p2x, float p2y,
+                    float q2x, float q2y);
+
+// Determines whether the 2D point defined by (px, py) is inside the
+// 2D triangle defined by vertices (ax, ay), (bx, by), and (cx, cy).
+// This test defines that points exactly on an edge are not considered
+// to be inside the triangle.
+bool PointInTriangle(float px, float py,
+                     float ax, float ay,
+                     float bx, float by,
+                     float cx, float cy);
+
 }  // namespace cubic
 }  // namespace gpu2d
 }  // namespace o3d
