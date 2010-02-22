@@ -26,9 +26,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
                                public views::ButtonListener,
                                public TabIconView::TabIconViewModel {
  public:
-  // Constructs a non-client view for an BrowserFrame. |is_otr| specifies if the
-  // frame was created "off-the-record" and as such different bitmaps should be
-  // used to render the frame.
+  // Constructs a non-client view for an BrowserFrame.
   OpaqueBrowserFrameView(BrowserFrame* frame, BrowserView* browser_view);
   virtual ~OpaqueBrowserFrameView();
 
