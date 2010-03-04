@@ -40,6 +40,11 @@
 
 #include "chrome/third_party/mozilla_security_manager/nsNSSCertificate.h"
 
+#include <pk11func.h>
+
+#include "app/l10n_util.h"
+#include "grit/generated_resources.h"
+
 namespace mozilla_security_manager {
 
 std::string GetCertTitle(CERTCertificate* cert) {
@@ -60,6 +65,14 @@ std::string GetCertTitle(CERTCertificate* cert) {
   // TODO(mattm): Should we return something other than an empty string when all
   // the checks fail?
   return rv;
+}
+
+std::string GetCertTokenName(CERTCertificate* cert) {
+  std::string token;
+  if (cert->slot) {
+    token = PK11_GetTokenName(cert->slot);
+  }
+  return token;
 }
 
 }  // namespace mozilla_security_manager
