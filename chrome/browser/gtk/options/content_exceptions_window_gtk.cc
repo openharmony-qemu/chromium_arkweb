@@ -42,7 +42,7 @@ void ContentExceptionsWindowGtk::ShowExceptionsWindow(
     ContentSettingsType type) {
   DCHECK(map);
   DCHECK(type < CONTENT_SETTINGS_NUM_TYPES);
-  // TODO(joth): remove once fully implemented.
+  // Geolocation exceptions are handled by GeolocationContentExceptionsWindow.
   DCHECK(type != CONTENT_SETTINGS_TYPE_GEOLOCATION);
 
   if (!instances[type]) {
@@ -112,8 +112,7 @@ ContentExceptionsWindowGtk::ContentExceptionsWindowGtk(
   GtkWidget* hbox = gtk_hbox_new(FALSE, gtk_util::kControlSpacing);
   gtk_container_add(GTK_CONTAINER(GTK_DIALOG(dialog_)->vbox), hbox);
 
-  // Create a scrolled window to wrap the treeview widget in order to have a
-  // frame.
+  // Create a scrolled window to wrap the treeview widget.
   GtkWidget* scrolled = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scrolled),
                                       GTK_SHADOW_ETCHED_IN);
@@ -126,27 +125,23 @@ ContentExceptionsWindowGtk::ContentExceptionsWindowGtk(
 
   GtkWidget* add_button = BuildDialogButton(dialog_, IDS_EXCEPTIONS_ADD_BUTTON,
                                             GTK_STOCK_ADD);
-  g_signal_connect(add_button, "clicked",
-                   G_CALLBACK(&ContentExceptionsWindowGtk::AddThunk), this);
+  g_signal_connect(add_button, "clicked", G_CALLBACK(AddThunk), this);
   gtk_box_pack_start(GTK_BOX(button_box), add_button, FALSE, FALSE, 0);
 
   edit_button_ = BuildDialogButton(dialog_, IDS_EXCEPTIONS_EDIT_BUTTON,
                                    GTK_STOCK_EDIT);
-  g_signal_connect(edit_button_, "clicked",
-                   G_CALLBACK(&ContentExceptionsWindowGtk::EditThunk), this);
+  g_signal_connect(edit_button_, "clicked", G_CALLBACK(EditThunk), this);
   gtk_box_pack_start(GTK_BOX(button_box), edit_button_, FALSE, FALSE, 0);
 
   remove_button_ = BuildDialogButton(dialog_, IDS_EXCEPTIONS_REMOVE_BUTTON,
                                      GTK_STOCK_REMOVE);
-  g_signal_connect(remove_button_, "clicked",
-                   G_CALLBACK(&ContentExceptionsWindowGtk::RemoveThunk), this);
+  g_signal_connect(remove_button_, "clicked", G_CALLBACK(RemoveThunk), this);
   gtk_box_pack_start(GTK_BOX(button_box), remove_button_, FALSE, FALSE, 0);
 
   remove_all_button_ = BuildDialogButton(dialog_,
                                          IDS_EXCEPTIONS_REMOVEALL_BUTTON,
                                          GTK_STOCK_CLEAR);
-  g_signal_connect(remove_all_button_, "clicked",
-                   G_CALLBACK(&ContentExceptionsWindowGtk::RemoveAllThunk),
+  g_signal_connect(remove_all_button_, "clicked", G_CALLBACK(RemoveAllThunk),
                    this);
   gtk_box_pack_start(GTK_BOX(button_box), remove_all_button_, FALSE, FALSE, 0);
 
