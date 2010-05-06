@@ -1950,7 +1950,6 @@ function loadShaders() {
     'diffuse_bump_specular',
     'imageshader',
     'just_color',
-    'particleshader',
     'proxy',
     'simpleshader',
     'skydomeshader',
