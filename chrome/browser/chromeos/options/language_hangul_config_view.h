@@ -18,7 +18,8 @@
 namespace chromeos {
 
 class HangulKeyboardComboboxModel;
-// A dialog box for showing a password textfield.
+
+// A dialog box for showing Korean input method preferences.
 class LanguageHangulConfigView : public views::Combobox::Listener,
                                  public views::DialogDelegate,
                                  public OptionsPageView {
