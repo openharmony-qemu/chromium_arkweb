@@ -1,8 +1,12 @@
 {
   "name": "test",
   "version": "1",
-  "web_content": {
-    "enabled": true,
-    "origin": "wiggity"
+  "app": {
+    "web_content": {
+      "origin": "wiggity"
+    },
+    "launch": {
+      "web_url": "foo.html"
+    }
   }
 }
