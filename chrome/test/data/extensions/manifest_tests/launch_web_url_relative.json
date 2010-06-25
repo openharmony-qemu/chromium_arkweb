@@ -2,9 +2,9 @@
   "name": "test",
   "version": "1",
   "app": {
-    "web_content": {
-      "origin": "http://www.google.com/"
-    },
+    "urls": [
+      "http://www.google.com/"
+    ],
     "launch": {
       "web_url": "launch.html"
     }
