@@ -36,7 +36,7 @@ class HttpListenSocket : public ListenSocket,
 
   // ListenSocketDelegate
   virtual void DidAccept(ListenSocket* server, ListenSocket* connection);
-  virtual void DidRead(ListenSocket* connection, const std::string& data);
+  virtual void DidRead(ListenSocket* connection, const char* data, int len);
   virtual void DidClose(ListenSocket* sock);
 
  private:
