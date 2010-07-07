@@ -35,39 +35,28 @@ CompressorZlib::~CompressorZlib() {
   deflateEnd(stream_.get());
 }
 
-void CompressorZlib::Write(const uint8* input_data, int input_size,
-                           uint8* output_data, int output_size,
-                           int* consumed, int* written) {
+bool CompressorZlib::Process(const uint8* input_data, int input_size,
+                             uint8* output_data, int output_size,
+                             int* consumed, int* written) {
+  DCHECK_GT(output_size, 0);
+
   // Setup I/O parameters.
   stream_->avail_in = input_size;
   stream_->next_in = (Bytef*)input_data;
   stream_->avail_out = output_size;
   stream_->next_out = (Bytef*)output_data;
 
-  int ret = deflate(stream_.get(), Z_NO_FLUSH);
+  int ret = deflate(stream_.get(), input_size ? Z_NO_FLUSH : Z_FINISH);
   if (ret == Z_STREAM_ERROR) {
     NOTREACHED() << "zlib compression failed";
   }
 
   *consumed = input_size - stream_->avail_in;
   *written = output_size - stream_->avail_out;
-}
 
-bool CompressorZlib::Flush(uint8* output_data, int output_size,
-                           int* written) {
-  // Setup I/O parameters.
-  stream_->avail_in = 0;
-  stream_->next_in = NULL;
-  stream_->avail_out = output_size;
-  stream_->next_out = (Bytef*)output_data;
-
-  int ret = deflate(stream_.get(), Z_FINISH);
-  if (ret == Z_STREAM_ERROR) {
-    NOTREACHED() << "zlib compression failed";
-  }
-
-  *written = output_size - stream_->avail_out;
-  return ret == Z_OK;
+  // Return true when we get Z_BUF_ERROR, this way we can feed more data
+  // to zlib.
+  return ret == Z_OK || ret == Z_BUF_ERROR;
 }
 
 }  // namespace remoting
