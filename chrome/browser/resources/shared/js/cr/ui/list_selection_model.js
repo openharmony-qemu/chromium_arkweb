@@ -101,7 +101,7 @@ cr.define('cr.ui', function() {
      * Selects all indexes.
      */
     selectAll: function() {
-      this.selectRange(0, this.length);
+      this.selectRange(0, this.length - 1);
     },
 
     /**
@@ -193,8 +193,7 @@ cr.define('cr.ui', function() {
           }, this);
           this.dispatchEvent(e);
         }
-        delete this.changedIndexes_;
-        delete this.changeCount_;
+        this.changedIndexes_ = {};
       }
     },
 
@@ -236,6 +235,14 @@ cr.define('cr.ui', function() {
     },
 
     /**
+     * Whether the selection model supports multiple selected items.
+     * @type {boolean}
+     */
+    get multiple() {
+      return true;
+    },
+
+    /**
      * Adjust the selection by adding or removing a certain numbers of items.
      * This should be called by the owner of the selection model as items are
      * added and removed from the underlying data model.
@@ -245,10 +252,10 @@ cr.define('cr.ui', function() {
      */
     adjust: function(index, itemsRemoved, itemsAdded) {
       function getNewAdjustedIndex(i) {
-        if (i > index && i < index + itemsRemoved) {
+        if (i >= index && i < index + itemsRemoved) {
           return index
         } else if (i >= index) {
-          return i + itemsAdded - itemsRemoved;
+          return i - itemsRemoved + itemsAdded;
         }
         return i;
       }
@@ -257,12 +264,13 @@ cr.define('cr.ui', function() {
 
       var newMap = [];
       for (var i in this.selectedIndexes_) {
+        i = Number(i);
         if (i < index) {
           newMap[i] = true;
         } else if (i < index + itemsRemoved) {
           // noop
         } else {
-          newMap[Number(i) + itemsAdded - itemsRemoved] = true;
+          newMap[i + itemsAdded - itemsRemoved] = true;
         }
       }
       this.selectedIndexes_ = newMap;
