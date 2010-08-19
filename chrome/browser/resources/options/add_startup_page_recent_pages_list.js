@@ -7,8 +7,8 @@ cr.define('options.add_startup_page', function() {
   const ListItem = cr.ui.ListItem;
 
   /**
-   * Creates a new search engine list item.
-   * @param {Object} searchEnigne The search engine this represents.
+   * Creates a new recent page list item.
+   * @param {Object} pageInfo The page this item represents.
    * @constructor
    * @extends {cr.ui.ListItem}
    */
@@ -20,7 +20,7 @@ cr.define('options.add_startup_page', function() {
   }
 
   /**
-   * Decorates an element as a search engine list item.
+   * Decorates an element as a recent page list item.
    * @param {!HTMLElement} el The element to decorate.
    */
   RecentPageListItem.decorate = function(el) {
@@ -37,6 +37,7 @@ cr.define('options.add_startup_page', function() {
 
       var titleEl = this.ownerDocument.createElement('span');
       titleEl.className = 'title';
+      titleEl.classList.add('favicon-cell');
       titleEl.textContent = this.pageInfo['title'];
       titleEl.style.backgroundImage = url('chrome://favicon/' +
                                          this.pageInfo['url']);
