@@ -32,10 +32,6 @@ class RtpWriter {
   // Returns number of packets queued in the buffer.
   int GetPendingPackets();
 
-  // Stop writing and drop pending data. Must be called from the same thread as
-  // Init().
-  void Close();
-
  private:
   uint32 last_packet_number_;
 
