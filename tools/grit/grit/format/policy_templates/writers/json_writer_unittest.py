@@ -34,7 +34,7 @@ class JsonWriterUnittest(writer_unittest_common.WriterUnittestCommon):
         expected_output.strip())
 
   def testEmpty(self):
-    # Test PListWriter in case of empty polices.
+    # Test the handling of an empty policy list.
     grd = self.PrepareTest(
         '{'
         '  "policy_definitions": [],'
@@ -107,12 +107,12 @@ class JsonWriterUnittest(writer_unittest_common.WriterUnittestCommon):
         '      "name": "EnumPolicy",'
         '      "type": "enum",'
         '      "items": ['
-        '        {"name": "ProxyServerDisabled", "value": "0"},'
-        '        {"name": "ProxyServerAutoDetect", "value": "1"},'
+        '        {"name": "ProxyServerDisabled", "value": 0},'
+        '        {"name": "ProxyServerAutoDetect", "value": 1},'
         '      ],'
         '      "supported_on": ["chrome.linux:8-"],'
         '      "annotations": {'
-        '        "example_value": "1"'
+        '        "example_value": 1'
         '      }'
         '    },'
         '  ],'
