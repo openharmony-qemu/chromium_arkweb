@@ -29,7 +29,7 @@ class Session;
 // communications channels into protocol buffer messages.
 // EventStreamReader is registered with protocol::Session given to it.
 //
-// Object of this class is owned by ChromotingHost to dispatch messages
+// Object of this class is owned by ConnectionToClient to dispatch messages
 // to itself.
 class HostMessageDispatcher {
  public:
@@ -39,8 +39,7 @@ class HostMessageDispatcher {
 
   // Initialize the message dispatcher with the given connection and
   // message handlers.
-  // Return true if initalization was successful.
-  bool Initialize(protocol::Session* session,
+  void Initialize(protocol::Session* session,
                   HostStub* host_stub, InputStub* input_stub);
 
  private:
