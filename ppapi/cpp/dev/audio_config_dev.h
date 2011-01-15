@@ -33,7 +33,7 @@ class AudioConfig_Dev : public Resource {
   // Creates an audio config based on the given sample rate and frame count.
   // If the rate and frame count aren't supported, the resulting resource
   // will be is_null(). Pass the result of RecommendSampleFrameCount as the
-  // semple frame count.
+  // sample frame count.
   //
   // See PPB_AudioConfigDev.CreateStereo16Bit for more.
   AudioConfig_Dev(Instance* instance,
