@@ -4,12 +4,12 @@
 
 #include "chrome/browser/plugin_installer_infobar_delegate.h"
 
-#include "app/l10n_util.h"
 #include "chrome/browser/renderer_host/render_view_host.h"
 #include "chrome/browser/tab_contents/tab_contents.h"
 #include "grit/generated_resources.h"
 #include "grit/locale_settings.h"
 #include "grit/theme_resources.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "webkit/plugins/npapi/default_plugin_shared.h"
 
