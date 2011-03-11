@@ -6,25 +6,6 @@
 #define NET_UDP_UDP_SOCKET_LIBEVENT_H_
 #pragma once
 
-// UDPSocketLibevent
-// Accessor API for a UDP socket in either client or server form.
-//
-// Client form:
-// In this case, we're connecting to a specific server, so the client will
-// usually use:
-//       Connect(address)    // Connect to a UDP server
-//       Read/Write          // Reads/Writes all go to a single destination
-//
-// Server form:
-// In this case, we want to read/write to many clients which are connecting
-// to this server.  First the server 'binds' to an addres, then we read from
-// clients and write responses to them.
-// Example:
-//       Bind(address/port)  // Binds to port for reading from clients
-//       RecvFrom/SendTo     // Each read can come from a different client
-//                           // Writes need to be directed to a specific
-//                           // address.
-
 #include "base/message_loop.h"
 #include "base/ref_counted.h"
 #include "base/scoped_ptr.h"
@@ -33,7 +14,6 @@
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_log.h"
 #include "net/socket/client_socket.h"
-#include "net/udp/datagram_socket.h"
 
 namespace net {
 
@@ -113,8 +93,6 @@ class UDPSocketLibevent : public base::NonThreadSafe {
   // Returns true if the socket is already connected or bound.
   bool is_connected() const { return socket_ != kInvalidSocket; }
 
-  IPEndPoint* local_address() { return local_address_.get(); }
-
  private:
   static const int kInvalidSocket = -1;
 
@@ -164,7 +142,7 @@ class UDPSocketLibevent : public base::NonThreadSafe {
   // Returns the OS error code (or 0 on success).
   int CreateSocket(const IPEndPoint& address);
 
-  int InternalRead();
+  int InternalRead(IOBuffer* buf, int buf_len);
   int InternalWrite(IOBuffer* buf, int buf_len);
 
   int socket_;
