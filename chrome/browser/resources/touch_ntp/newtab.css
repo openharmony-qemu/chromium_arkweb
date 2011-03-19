@@ -188,7 +188,7 @@ body {
   height: 100%;
   right: 0px;
   bottom: 0px;
-  background-image: url('trash.png');
+  background-image: url('../shared/images/trash.png');
   background-size: 40px 40px;
   background-repeat: no-repeat;
   background-position: 40px 12px;
@@ -200,7 +200,7 @@ body {
 }
 
 #trash.hover {
-  background-image: url('trash-open.png');
+  background-image: url('../shared/images/trash-open.png');
 }
 
 .app.trashing img {
