@@ -6,24 +6,22 @@
 #define CHROME_BROWSER_CHROMEOS_LOGIN_USER_IMAGE_VIEW_H_
 #pragma once
 
+#include "chrome/browser/chromeos/login/take_photo_view.h"
 #include "views/controls/button/button.h"
 #include "views/view.h"
 
 class SkBitmap;
 
 namespace views {
-class ImageButton;
-class Label;
 class NativeButton;
 }  // namespace views
 
 namespace chromeos {
 
-class CameraImageView;
-
-// View used for selecting user image.
+// View used for selecting user image on OOBE screen.
 class UserImageView : public views::View,
-                      public views::ButtonListener {
+                      public views::ButtonListener,
+                      public TakePhotoView::Delegate {
  public:
   // Delegate class to get notifications from the view.
   class Delegate {
@@ -62,22 +60,20 @@ class UserImageView : public views::View,
   // Overridden from views::ButtonListener.
   virtual void ButtonPressed(views::Button* sender, const views::Event& event);
 
+  // Overridden from TakePhotoView::Delegate.
+  virtual void OnCapturingStarted();
+  virtual void OnCapturingStopped();
+
  private:
   // Initializes layout manager for this view.
   void InitLayout();
 
-  views::Label* title_label_;
+  TakePhotoView* take_photo_view_;
   views::NativeButton* ok_button_;
   views::NativeButton* skip_button_;
-  views::ImageButton* snapshot_button_;
-  CameraImageView* user_image_;
 
   // Notifications receiver.
   Delegate* delegate_;
-
-  // Indicates that we're in capturing mode. When |false|, new video frames
-  // are not shown to user if received.
-  bool is_capturing_;
 
   DISALLOW_COPY_AND_ASSIGN(UserImageView);
 };
