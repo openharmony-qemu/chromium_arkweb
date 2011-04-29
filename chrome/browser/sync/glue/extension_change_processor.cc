@@ -22,10 +22,9 @@
 namespace browser_sync {
 
 ExtensionChangeProcessor::ExtensionChangeProcessor(
-    const ExtensionSyncTraits& traits,
     UnrecoverableErrorHandler* error_handler)
     : ChangeProcessor(error_handler),
-      traits_(traits),
+      traits_(GetExtensionSyncTraits()),
       profile_(NULL),
       extension_service_(NULL) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));

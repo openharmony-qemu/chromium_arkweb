@@ -17,10 +17,10 @@
 namespace browser_sync {
 
 ExtensionModelAssociator::ExtensionModelAssociator(
-    const ExtensionSyncTraits& traits,
     ExtensionServiceInterface* extension_service,
     sync_api::UserShare* user_share)
-    : traits_(traits), extension_service_(extension_service),
+    : traits_(GetExtensionSyncTraits()),
+      extension_service_(extension_service),
       user_share_(user_share) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   DCHECK(extension_service_);
@@ -55,6 +55,11 @@ bool ExtensionModelAssociator::DisassociateModels() {
 bool ExtensionModelAssociator::SyncModelHasUserCreatedNodes(bool* has_nodes) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   return RootNodeHasChildren(traits_.root_node_tag, user_share_, has_nodes);
+}
+
+void ExtensionModelAssociator::AbortAssociation() {
+  // No implementation needed, this associator runs on the main
+  // thread.
 }
 
 bool ExtensionModelAssociator::CryptoReadyIfNecessary() {
