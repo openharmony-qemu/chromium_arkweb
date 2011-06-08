@@ -8,6 +8,7 @@
 
 #include <limits>
 
+#include "base/basictypes.h"
 #include "ppapi/c/pp_var.h"
 #include "ppapi/c/dev/ppb_testing_dev.h"
 #include "ppapi/c/dev/ppb_var_deprecated.h"
@@ -67,7 +68,7 @@ pp::Var VarScriptableObject::Call(const pp::Var& method_name,
 REGISTER_TEST_CASE(VarDeprecated);
 
 bool TestVarDeprecated::Init() {
-  var_interface_ = reinterpret_cast<PPB_Var_Deprecated const*>(
+  var_interface_ = static_cast<const PPB_Var_Deprecated*>(
       pp::Module::Get()->GetBrowserInterface(PPB_VAR_DEPRECATED_INTERFACE));
   return var_interface_ && InitTestingInterface();
 }
@@ -92,10 +93,10 @@ std::string TestVarDeprecated::TestBasicString() {
   uint32_t before_object = testing_interface_->GetLiveObjectsForInstance(
       instance_->pp_instance());
   {
-    const uint32_t kStrLen = 5;
-    const char kStr[kStrLen + 1] = "Hello";
+    const char kStr[] = "Hello";
+    const uint32_t kStrLen(arraysize(kStr) - 1);
     PP_Var str = var_interface_->VarFromUtf8(pp::Module::Get()->pp_module(),
-                                             kStr, sizeof(kStr) - 1);
+                                             kStr, kStrLen);
     ASSERT_EQ(PP_VARTYPE_STRING, str.type);
 
     // Reading back the string should work.
@@ -106,15 +107,9 @@ std::string TestVarDeprecated::TestBasicString() {
 
     // Destroy the string, readback should now fail.
     var_interface_->Release(str);
-    /*
-    Note: this will crash in the current out-of-process implementation since
-    we don't do actual tracking of strings (we just convert the ID to a
-    pointer).
-    TODO(brettw) This should be fixed and this checking code re-enabled.
     result = var_interface_->VarToUtf8(str, &len);
     ASSERT_EQ(0, len);
     ASSERT_EQ(NULL, result);
-    */
   }
 
   // Make sure nothing leaked.
@@ -157,7 +152,7 @@ std::string TestVarDeprecated::TestInvalidUtf8() {
   static const char kSjisString[] = "utf8\x82\xb6\x82\xe1\x82\xc8\x82\xa2";
   pp::Var sjis(kSjisString);
   if (!sjis.is_null())
-    return "Non-UTF8 string permitted.";
+    return "Non-UTF8 string was permitted erroneously.";
 
   PASS();
 }
