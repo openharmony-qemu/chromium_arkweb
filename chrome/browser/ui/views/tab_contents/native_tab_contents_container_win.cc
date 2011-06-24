@@ -6,6 +6,7 @@
 
 #include "chrome/browser/renderer_host/render_widget_host_view_win.h"
 #include "chrome/browser/ui/view_ids.h"
+#include "chrome/browser/ui/views/tab_contents/native_tab_contents_container_views.h"
 #include "chrome/browser/ui/views/tab_contents/tab_contents_container.h"
 #include "chrome/browser/ui/views/tab_contents/tab_contents_view_views.h"
 #include "content/browser/renderer_host/render_widget_host_view.h"
@@ -156,5 +157,7 @@ gfx::NativeViewAccessible
 // static
 NativeTabContentsContainer* NativeTabContentsContainer::CreateNativeContainer(
     TabContentsContainer* container) {
+  if (views::Widget::IsPureViews())
+    return new NativeTabContentsContainerViews(container);
   return new NativeTabContentsContainerWin(container);
 }
