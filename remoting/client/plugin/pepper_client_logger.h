@@ -5,7 +5,7 @@
 #ifndef REMOTING_CLIENT_PLUGIN_PEPPER_CLIENT_LOGGER_H_
 #define REMOTING_CLIENT_PLUGIN_PEPPER_CLIENT_LOGGER_H_
 
-#include "remoting/client/client_logger.h"
+#include "remoting/base/logger.h"
 
 #include "base/task.h"
 
@@ -15,9 +15,9 @@ namespace remoting {
 
 class ChromotingInstance;
 
-class PepperClientLogger : public ClientLogger {
+class PepperClientLogger : public Logger {
  public:
-  PepperClientLogger(ChromotingInstance* instance);
+  explicit PepperClientLogger(ChromotingInstance* instance);
   virtual ~PepperClientLogger();
 
   virtual void va_Log(logging::LogSeverity severity, const char* format,
