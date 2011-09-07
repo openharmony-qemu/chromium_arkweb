@@ -12,12 +12,19 @@
         galleryUrl + '/detail/ecglahbcnmdpdciemllbhojghbkagdje';
 
     try {
-      chrome.webstore.install();
+      chrome.webstore.install(
+          undefined,
+          function() {
+            window.domAutomationController.send(true);
+          },
+          function(error) {
+            console.log('Unexpected error: ' + error);
+            window.domAutomationController.send(false);
+          });
     } catch (e) {
       window.domAutomationController.send(false);
       throw e;
     }
-    window.domAutomationController.send(true);
   }
 </script>
 
