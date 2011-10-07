@@ -21,13 +21,11 @@ void CreateSpecialContainers(aura::Window::Windows* containers) {
       internal::kShellWindowId_DesktopBackgroundContainer);
   containers->push_back(background_container);
 
-  aura::Window* default_container = new aura::internal::ToplevelWindowContainer;
+  aura::Window* default_container = new aura::ToplevelWindowContainer;
   default_container->set_id(internal::kShellWindowId_DefaultContainer);
-  aura::Desktop::GetInstance()->set_default_parent(default_container);
   containers->push_back(default_container);
 
-  aura::Window* always_on_top_container =
-      new aura::internal::ToplevelWindowContainer;
+  aura::Window* always_on_top_container = new aura::ToplevelWindowContainer;
   always_on_top_container->set_id(
       internal::kShellWindowId_AlwaysOnTopContainer);
   containers->push_back(always_on_top_container);
