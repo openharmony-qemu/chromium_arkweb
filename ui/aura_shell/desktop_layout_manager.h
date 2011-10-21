@@ -13,6 +13,9 @@
 namespace aura {
 class Window;
 }
+namespace gfx {
+class Rect;
+}
 namespace views {
 class Widget;
 }
@@ -41,6 +44,12 @@ class DesktopLayoutManager : public aura::LayoutManager {
 
   // Overridden from aura::LayoutManager:
   virtual void OnWindowResized() OVERRIDE;
+  virtual void OnWindowAdded(aura::Window* child) OVERRIDE;
+  virtual void OnWillRemoveWindow(aura::Window* child) OVERRIDE;
+  virtual void OnChildWindowVisibilityChanged(aura::Window* child,
+                                              bool visibile) OVERRIDE;
+  virtual void CalculateBoundsForChild(aura::Window* child,
+                                       gfx::Rect* requested_bounds) OVERRIDE;
 
  private:
   aura::Window* owner_;
