@@ -527,6 +527,10 @@ sub parselicense($) {
         $license = "libpng $license";
     }
 
+    if ($licensetext =~ /under MIT license/) {
+        $license = "MIT/X11 (BSD like) $license";
+    }
+
     $license = "UNKNOWN" if (!length($license));
 
     return $license;
