@@ -19,7 +19,7 @@ class WebDragBookmarkHandlerGtk : public content::WebDragDestDelegate {
   WebDragBookmarkHandlerGtk();
   virtual ~WebDragBookmarkHandlerGtk();
 
-  // Overridden from WebDragBookmarkDelegate:
+  // Overridden from content::WebDragDestDelegate:
   virtual void DragInitialize(TabContents* contents) OVERRIDE;
   virtual GdkAtom GetBookmarkTargetAtom() const OVERRIDE;
   virtual void OnReceiveDataFromGtk(GtkSelectionData* data) OVERRIDE;
@@ -39,6 +39,8 @@ class WebDragBookmarkHandlerGtk : public content::WebDragDestDelegate {
   // The bookmark data for the current tab. This will be empty if there is not
   // a native bookmark drag (or we haven't gotten the data from the source yet).
   BookmarkNodeData bookmark_drag_data_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebDragBookmarkHandlerGtk);
 };
 
 #endif  // CHROME_BROWSER_TAB_CONTENTS_WEB_DRAG_BOOKMARK_HANDLER_GTK_H_
