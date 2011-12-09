@@ -42,6 +42,7 @@ class RegisterProtocolHandlerBrowserTest : public InProcessBrowserTest {
     ContextMenuParams params;
     params.media_type = WebKit::WebContextMenuData::MediaTypeNone;
     params.link_url = url;
+    params.unfiltered_link_url = url;
     TabContents* tab_contents = browser()->GetSelectedTabContents();
     params.page_url = tab_contents->controller().GetActiveEntry()->url();
 #if defined(OS_MACOSX)
