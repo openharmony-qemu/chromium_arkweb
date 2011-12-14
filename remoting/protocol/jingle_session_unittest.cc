@@ -93,7 +93,7 @@ class JingleSessionTest : public testing::Test {
       : message_loop_(talk_base::Thread::Current()) {
   }
 
-  // Helper method to copy to set value of client_connection_.
+  // Helper method that handles OnIncomingSession().
   void SetHostSession(Session* session) {
     DCHECK(session);
     host_session_.reset(session);
@@ -120,7 +120,7 @@ class JingleSessionTest : public testing::Test {
     client_session_.reset();
   }
 
-  void CreateServerPair(int auth_round_trips,
+  void CreateSessionManagers(int auth_round_trips,
                         FakeAuthenticator::Action auth_action) {
     host_signal_strategy_.reset(new FakeSignalStrategy(kHostJid));
     client_signal_strategy_.reset(new FakeSignalStrategy(kClientJid));
@@ -286,13 +286,13 @@ class JingleSessionTest : public testing::Test {
 
 // Verify that we can create and destory server objects without a connection.
 TEST_F(JingleSessionTest, CreateAndDestoy) {
-  CreateServerPair(1, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(1, FakeAuthenticator::ACCEPT);
 }
 
 // Verify that incoming session can be rejected, and that the status
-// of the connection is set to CLOSED in this case.
+// of the connection is set to FAILED in this case.
 TEST_F(JingleSessionTest, RejectConnection) {
-  CreateServerPair(1, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(1, FakeAuthenticator::ACCEPT);
 
   // Reject incoming session.
   EXPECT_CALL(host_server_listener_, OnIncomingSession(_, _))
@@ -320,32 +320,32 @@ TEST_F(JingleSessionTest, RejectConnection) {
   message_loop_.RunAllPending();
 }
 
-// Verify that we can connect two endpoints.
+// Verify that we can connect two endpoints with single-step authentication.
 TEST_F(JingleSessionTest, Connect) {
-  CreateServerPair(1, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(1, FakeAuthenticator::ACCEPT);
   InitiateConnection(1, FakeAuthenticator::ACCEPT, false);
 }
 
 // Verify that we can connect two endpoints with multi-step authentication.
-TEST_F(JingleSessionTest, ConnectMultistep) {
-  CreateServerPair(3, FakeAuthenticator::ACCEPT);
+TEST_F(JingleSessionTest, ConnectWithMultistep) {
+  CreateSessionManagers(3, FakeAuthenticator::ACCEPT);
   InitiateConnection(3, FakeAuthenticator::ACCEPT, false);
 }
 
-// Verify that connection is terminated when auth fails.
-TEST_F(JingleSessionTest, ConnectBadAuth) {
-  CreateServerPair(1, FakeAuthenticator::REJECT);
+// Verify that connection is terminated when single-step auth fails.
+TEST_F(JingleSessionTest, ConnectWithBadAuth) {
+  CreateSessionManagers(1, FakeAuthenticator::REJECT);
   InitiateConnection(1, FakeAuthenticator::ACCEPT, true);
 }
 
-// Verify that connection is terminted when multi-step auth fails.
-TEST_F(JingleSessionTest, ConnectBadMultistepAuth) {
-  CreateServerPair(3, FakeAuthenticator::REJECT);
+// Verify that connection is terminated when multi-step auth fails.
+TEST_F(JingleSessionTest, ConnectWithBadMultistepAuth) {
+  CreateSessionManagers(3, FakeAuthenticator::REJECT);
   InitiateConnection(3, FakeAuthenticator::ACCEPT, true);
 }
 
-TEST_F(JingleSessionTest, ConnectBadChannelAuth) {
-  CreateServerPair(1, FakeAuthenticator::REJECT_CHANNEL);
+TEST_F(JingleSessionTest, ConnectWithBadChannelAuth) {
+  CreateSessionManagers(1, FakeAuthenticator::REJECT_CHANNEL);
   ASSERT_NO_FATAL_FAILURE(
       InitiateConnection(1, FakeAuthenticator::ACCEPT, false));
 
@@ -373,7 +373,7 @@ TEST_F(JingleSessionTest, ConnectBadChannelAuth) {
 
 // Verify that data can be transmitted over the event channel.
 TEST_F(JingleSessionTest, TestTcpChannel) {
-  CreateServerPair(1, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(1, FakeAuthenticator::ACCEPT);
   ASSERT_NO_FATAL_FAILURE(
       InitiateConnection(1, FakeAuthenticator::ACCEPT, false));
 
@@ -388,7 +388,7 @@ TEST_F(JingleSessionTest, TestTcpChannel) {
 
 // Verify that we can connect channels with multistep auth.
 TEST_F(JingleSessionTest, TestMultistepAuthTcpChannel) {
-  CreateServerPair(3, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(3, FakeAuthenticator::ACCEPT);
   ASSERT_NO_FATAL_FAILURE(
       InitiateConnection(3, FakeAuthenticator::ACCEPT, false));
 
@@ -403,7 +403,7 @@ TEST_F(JingleSessionTest, TestMultistepAuthTcpChannel) {
 
 // Verify that data can be transmitted over the video RTP channel.
 TEST_F(JingleSessionTest, TestUdpChannel) {
-  CreateServerPair(1, FakeAuthenticator::ACCEPT);
+  CreateSessionManagers(1, FakeAuthenticator::ACCEPT);
   ASSERT_NO_FATAL_FAILURE(
       InitiateConnection(1, FakeAuthenticator::ACCEPT, false));
 
