@@ -48,22 +48,20 @@ class AURA_SHELL_EXPORT ToplevelLayoutManager : public aura::LayoutManager,
  private:
   typedef std::set<aura::Window*> Windows;
 
-  // If necessary adjusts the bounds of window based on it's show state.
-  void WindowStateChanged(aura::Window* window);
-
-  // Updates the visbility of the shelf based on if there are any full screen
+  // Updates the visibility of the shelf based on if there are any full screen
   // windows.
   void UpdateShelfVisibility();
 
   // Set of windows we're listening to.
   Windows windows_;
 
+  // May be NULL if we're not using a shelf.
   ShelfLayoutManager* shelf_;
 
   DISALLOW_COPY_AND_ASSIGN(ToplevelLayoutManager);
 };
 
-}  // namepsace aura_shell
-}  // namepsace internal
+}  // namespace aura_shell
+}  // namespace internal
 
 #endif  // UI_AURA_SHELL_TOPLEVEL_LAYOUT_MANAGER_H_
