@@ -15,14 +15,13 @@
 #include "remoting/protocol/channel_authenticator.h"
 #include "remoting/protocol/connection_tester.h"
 #include "remoting/protocol/fake_session.h"
-#include "remoting/protocol/v1_client_channel_authenticator.h"
-#include "remoting/protocol/v1_host_channel_authenticator.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/libjingle/source/talk/xmllite/xmlelement.h"
 
 using testing::_;
 using testing::DeleteArg;
+using testing::Mock;
 using testing::SaveArg;
 
 namespace remoting {
@@ -144,6 +143,9 @@ class V1AuthenticatorTest : public testing::Test {
 
     message_loop_.RunAllPending();
 
+    Mock::VerifyAndClearExpectations(&client_callback_);
+    Mock::VerifyAndClearExpectations(&host_callback_);
+
     client_socket_.reset(client_socket);
     host_socket_.reset(host_socket);
   }
@@ -198,18 +200,6 @@ TEST_F(V1AuthenticatorTest, InvalidSecret) {
     RunAuthExchange();
   }
   ASSERT_EQ(Authenticator::REJECTED, host_->state());
-}
-
-// Verify that channels cannot be using invalid shared secret.
-TEST_F(V1AuthenticatorTest, InvalidChannelSecret) {
-  client_auth_.reset(new V1ClientChannelAuthenticator(
-      host_cert_, kTestSharedSecretBad));
-  host_auth_.reset(new V1HostChannelAuthenticator(
-      host_cert_, private_key_.get(),kTestSharedSecret));
-
-  RunChannelAuth(true);
-
-  EXPECT_TRUE(host_socket_.get() == NULL);
 }
 
 }  // namespace protocol
