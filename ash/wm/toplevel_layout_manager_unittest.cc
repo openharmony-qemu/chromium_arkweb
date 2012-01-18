@@ -11,6 +11,7 @@
 #include "ui/aura/root_window.h"
 #include "ui/aura/screen_aura.h"
 #include "ui/aura/test/aura_test_base.h"
+#include "ui/aura/test/test_windows.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
@@ -41,12 +42,7 @@ class ToplevelLayoutManagerTest : public aura::test::AuraTestBase {
   }
 
   aura::Window* CreateTestWindow(const gfx::Rect& bounds) {
-    aura::Window* window = new aura::Window(NULL);
-    window->Init(ui::Layer::LAYER_HAS_NO_TEXTURE);
-    window->SetBounds(bounds);
-    window->Show();
-    window->SetParent(container_.get());
-    return window;
+    return aura::test::CreateTestWindowWithBounds(bounds, container_.get());
   }
 
   // Returns widget owned by its parent, so doesn't need scoped_ptr<>.
@@ -180,24 +176,6 @@ TEST_F(ToplevelLayoutManagerTest, WindowStaysOnScreen) {
   EXPECT_LT(window->bounds().y(), work_area.bottom());
   EXPECT_GE(window->bounds().right(), 0);
   EXPECT_LT(window->bounds().x(), work_area.right());
-}
-
-// Tests status area visibility during window maximize and fullscreen.
-TEST_F(ToplevelLayoutManagerTest, StatusAreaVisibility) {
-  gfx::Rect bounds(100, 100, 200, 200);
-  scoped_ptr<aura::Window> window(CreateTestWindow(bounds));
-  views::Widget* widget = CreateTestWidget();
-  layout_manager()->set_status_area_widget(widget);
-  EXPECT_TRUE(widget->IsVisible());
-  window->SetIntProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
-  EXPECT_TRUE(widget->IsVisible());
-  window->SetIntProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_TRUE(widget->IsVisible());
-  window->SetIntProperty(aura::client::kShowStateKey,
-                         ui::SHOW_STATE_FULLSCREEN);
-  EXPECT_FALSE(widget->IsVisible());
-  window->SetIntProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_TRUE(widget->IsVisible());
 }
 
 // Tests shelf visibility during window maximize and fullscreen.
