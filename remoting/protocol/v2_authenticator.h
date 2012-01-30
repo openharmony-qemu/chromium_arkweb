@@ -26,12 +26,14 @@ class V2Authenticator : public Authenticator {
   static bool IsEkeMessage(const buzz::XmlElement* message);
 
   static scoped_ptr<Authenticator> CreateForClient(
-      const std::string& shared_secret);
+      const std::string& shared_secret,
+      State initial_state);
 
   static scoped_ptr<Authenticator> CreateForHost(
       const std::string& local_cert,
       const crypto::RSAPrivateKey& local_private_key,
-      const std::string& shared_secret);
+      const std::string& shared_secret,
+      State initial_state);
 
   virtual ~V2Authenticator();
 
@@ -47,19 +49,20 @@ class V2Authenticator : public Authenticator {
   FRIEND_TEST_ALL_PREFIXES(V2AuthenticatorTest, InvalidSecret);
 
   V2Authenticator(crypto::P224EncryptedKeyExchange::PeerType type,
-                  const std::string& shared_secret);
+                  const std::string& shared_secret,
+                  State initial_state);
 
   bool is_host_side() const;
 
-  // Used only for HOST authenticators.
+  // Used only for host authenticators.
   std::string local_cert_;
   scoped_ptr<crypto::RSAPrivateKey> local_private_key_;
   bool certificate_sent_;
 
-  // Used only for CLIENT authenticators.
+  // Used only for client authenticators.
   std::string remote_cert_;
 
-  // Used for both HOST and CLIENT authenticators.
+  // Used for both host and client authenticators.
   crypto::P224EncryptedKeyExchange key_exchange_impl_;
   State state_;
   RejectionReason rejection_reason_;
