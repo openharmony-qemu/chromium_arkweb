@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// This file (temporarily) lives in two places:
+//   src/remoting/host/usb_keycode_map.h
+//   src/webkit/plugins/ppapi/usb_keycode_map.h
+// Changes to this file must be made in both locations.
+// TODO(garykac): Move file into shared location.
+
 // Data in this file was created by referencing:
 //  USB HID Usage Tables (v1.11) 27 June 2001
 //  HIToolbox/Events.h (Mac)
