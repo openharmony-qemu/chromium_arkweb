@@ -10,8 +10,16 @@
 #include "ash/ash_export.h"
 #include "base/basictypes.h"
 
+#if defined(OS_CHROMEOS)
+#include "chromeos/dbus/power_supply_status.h"
+#endif
+
 namespace ash {
 
+#if defined(OS_CHROMEOS)
+typedef chromeos::PowerSupplyStatus PowerSupplyStatus;
+#else
+// Define local struct when not building for Chrome OS.
 struct ASH_EXPORT PowerSupplyStatus {
   bool line_power_on;
 
@@ -27,6 +35,7 @@ struct ASH_EXPORT PowerSupplyStatus {
   PowerSupplyStatus();
   std::string ToString() const;
 };
+#endif  // defined(OS_CHROMEOS)
 
 }  // namespace ash
 

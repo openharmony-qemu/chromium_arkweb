@@ -9,6 +9,7 @@
 
 namespace ash {
 
+#if !defined(OS_CHROMEOS)
 PowerSupplyStatus::PowerSupplyStatus()
     : line_power_on(false),
       battery_is_present(false),
@@ -40,5 +41,6 @@ std::string PowerSupplyStatus::ToString() const {
                       battery_seconds_to_full);
   return result;
 }
+#endif  // !defined(OS_CHROMEOS)
 
 }  // namespace ash
