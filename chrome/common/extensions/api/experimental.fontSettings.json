@@ -166,7 +166,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "type": "function",
@@ -184,7 +185,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "name": "callback",
@@ -235,7 +237,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "type": "function",
@@ -253,7 +256,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "name": "callback",
@@ -304,7 +308,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "type": "function",
@@ -322,7 +327,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "name": "callback",
@@ -373,7 +379,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "type": "function",
@@ -391,7 +398,8 @@
             "name": "details",
             "type": "object",
             "optional": true,
-            "description": "This parameter is currently unused."
+            "description": "This parameter is currently unused.",
+            "properties": {}
           },
           {
             "name": "callback",
