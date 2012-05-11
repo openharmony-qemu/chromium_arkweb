@@ -50,6 +50,7 @@ class IsolatedMountPointProvider : public FileSystemMountPointProvider {
     const GURL& url,
     int64 offset,
     FileSystemContext* context) const OVERRIDE;
+  virtual FileSystemQuotaUtil* GetQuotaUtil() OVERRIDE;
 
  private:
   IsolatedContext* isolated_context() const;
