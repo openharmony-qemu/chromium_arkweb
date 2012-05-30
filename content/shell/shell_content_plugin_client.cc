@@ -9,8 +9,4 @@ namespace content {
 ShellContentPluginClient::~ShellContentPluginClient() {
 }
 
-void ShellContentPluginClient::PluginProcessStarted(
-    const string16& plugin_name) {
-}
-
 }  // namespace content
