@@ -1,0 +1,5 @@
+include_rules = [
+  "-sync",
+  "+sync/internal_api/public",
+  "+sync/protocol",
+]
