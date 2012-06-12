@@ -6,6 +6,8 @@
 #define CHROMEOS_DBUS_MOCK_GSM_SMS_CLIENT_H_
 #pragma once
 
+#include <string>
+
 #include "base/values.h"
 #include "chromeos/dbus/gsm_sms_client.h"
 #include "dbus/object_path.h"
