@@ -373,9 +373,8 @@ class NativePanelTestingCocoa : public NativePanelTesting {
   PanelBrowserWindowCocoa* native_panel_window_;
 };
 
-// static
-NativePanelTesting* NativePanelTesting::Create(NativePanel* native_panel) {
-  return new NativePanelTestingCocoa(native_panel);
+NativePanelTesting* PanelBrowserWindowCocoa::CreateNativePanelTesting() {
+  return new NativePanelTestingCocoa(this);
 }
 
 NativePanelTestingCocoa::NativePanelTestingCocoa(NativePanel* native_panel)

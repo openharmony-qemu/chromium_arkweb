@@ -68,6 +68,7 @@ class PanelBrowserWindowCocoa : public NativePanelCocoa,
   virtual void PanelExpansionStateChanging(
       Panel::ExpansionState old_state,
       Panel::ExpansionState new_state) OVERRIDE;
+  virtual NativePanelTesting* CreateNativePanelTesting() OVERRIDE;
 
   // These sizes are in screen coordinates.
   virtual gfx::Size WindowSizeFromContentSize(
