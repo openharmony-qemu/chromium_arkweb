@@ -32,13 +32,12 @@ class OmniboxPopupContentsView : public views::View,
                                  public OmniboxPopupView,
                                  public ui::AnimationDelegate {
  public:
-  // Creates the appropriate type of omnibox dropdown for the
-  // current environment, e.g. desktop vs. touch optimized layout.
-  static OmniboxPopupContentsView* CreateForEnvironment(
-      const gfx::Font& font,
-      OmniboxView* omnibox_view,
-      AutocompleteEditModel* edit_model,
-      views::View* location_bar);
+  // Factory method for creating the AutocompletePopupView.
+  static OmniboxPopupView* Create(const gfx::Font& font,
+                                  OmniboxView* omnibox_view,
+                                  AutocompleteEditModel* edit_model,
+                                  views::View* location_bar,
+                                  views::View* popup_parent_view);
 
   // Returns the bounds the popup should be shown at. This is the display bounds
   // and includes offsets for the dropshadow which this view's border renders.
