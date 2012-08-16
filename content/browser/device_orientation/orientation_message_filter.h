@@ -15,7 +15,7 @@ class OrientationMessageFilter : public MessageFilter {
  public:
   OrientationMessageFilter();
 
-  // content::BrowserMessageFilter implementation.
+  // MessageFilter implementation.
   virtual bool OnMessageReceived(const IPC::Message& message,
                                  bool* message_was_ok) OVERRIDE;
 
