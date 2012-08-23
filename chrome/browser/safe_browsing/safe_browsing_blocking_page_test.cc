@@ -183,12 +183,12 @@ class TestMalwareDetailsFactory : public MalwareDetailsFactory {
 };
 
 // A SafeBrowingBlockingPage class that lets us wait until it's hidden.
-class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPage {
+class TestSafeBrowsingBlockingPage : public SafeBrowsingBlockingPageV1 {
  public:
   TestSafeBrowsingBlockingPage(SafeBrowsingService* service,
                                WebContents* web_contents,
                                const UnsafeResourceList& unsafe_resources)
-      : SafeBrowsingBlockingPage(service, web_contents, unsafe_resources),
+      : SafeBrowsingBlockingPageV1(service, web_contents, unsafe_resources),
         wait_for_delete_(false) {
     // Don't wait the whole 3 seconds for the browser test.
     malware_details_proceed_delay_ms_ = 100;
