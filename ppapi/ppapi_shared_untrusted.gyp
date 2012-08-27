@@ -18,6 +18,7 @@
           'type': 'none',
           'variables': {
             'ppapi_shared_target': 1,
+            'nacl_win64_target': 0,
             'nacl_untrusted_build': 1,
             'nlib_target': 'libppapi_shared_untrusted.a',
             'build_glibc': 0,
