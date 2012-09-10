@@ -21,6 +21,8 @@ class Message;
 
 namespace extensions {
 
+// There's room to share code with related classes, see http://crbug.com/147531
+
 class SocketPermission : public APIPermission {
  public:
   struct CheckParam : APIPermission::CheckParam {
