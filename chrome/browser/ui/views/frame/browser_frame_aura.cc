@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/browser_frame_aura.h"
 
+#include "base/command_line.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/system_menu_model_delegate.h"
@@ -19,9 +20,14 @@
 #include "ui/views/controls/menu/menu_model_adapter.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view.h"
+#include "ui/views/views_switches.h"
 
 #if defined(USE_ASH)
 #include "ash/wm/property_util.h"
+#endif
+
+#if !defined(OS_CHROMEOS)
+#include "chrome/browser/ui/views/frame/desktop_browser_frame_aura.h"
 #endif
 
 using aura::Window;
@@ -187,6 +193,10 @@ const gfx::Font& BrowserFrame::GetTitleFont() {
 NativeBrowserFrame* NativeBrowserFrame::CreateNativeBrowserFrame(
     BrowserFrame* browser_frame,
     BrowserView* browser_view) {
+#if !defined(OS_CHROMEOS)
+  if (CommandLine::ForCurrentProcess()->HasSwitch(views::switches::kWinAura))
+    return new DesktopBrowserFrameAura(browser_frame, browser_view);
+#endif
   return new BrowserFrameAura(browser_frame, browser_view);
 }
 
