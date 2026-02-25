@@ -58,7 +58,9 @@ scoped_refptr<OhosNativeImage> OhosNativeImage::Create(int texture_id) {
 //LCOV_EXCL_START
 OhosNativeImage::OhosNativeImage(
     std::unique_ptr<OHOS::NWeb::NativeImageAdapter> native_image_adapter)
-    : native_image_adapter_(std::move(native_image_adapter)) {}
+    : native_image_adapter_(std::move(native_image_adapter)) {
+  task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+}
 
 OhosNativeImage::~OhosNativeImage() {
   if (native_image_adapter_ != nullptr) {
@@ -73,7 +75,8 @@ void OhosNativeImage::SetFrameAvailableCallback(
   std::lock_guard<std::mutex> lock(GetNativeImageMutex());
   frame_available_cb_ = std::move(callback);
   if (native_image_adapter_ != nullptr && listener_ == nullptr) {
-    listener_ = std::make_shared<OHOS::NWeb::FrameAvailableListenerImpl>(this);
+    // Pass the callback directly to listener for immediate signal on callback thread
+    listener_ = std::make_shared<OHOS::NWeb::FrameAvailableListenerImpl>(frame_available_cb_);
     native_image_adapter_->SetOnFrameAvailableListener(listener_);
   }
 }
