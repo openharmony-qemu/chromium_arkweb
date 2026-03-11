@@ -158,6 +158,18 @@ virtual std::string OnRewriteUrlForNavigation(
     bool is_key_request) { return ""; }
 #endif
 
+#if BUILDFLAG(ARKWEB_AI)
+virtual void OnCreateAISession(AISessionType type,
+                               const std::string& id,
+                               const std::string& params,
+                               AISessionCallback callback) {}
+virtual void OnExecuteAIAction(AISessionType type,
+                               const std::string& id,
+                               const std::string& params,
+                               AISessionCallback callback) {}
+virtual void OnDestroyAISession(AISessionType type, const std::string& id) {}
+#endif  // BUILDFLAG(ARKWEB_AI)
+
 #if BUILDFLAG(ARKWEB_WEBRTC)
 virtual void OnCameraCaptureStateChanged(int original_state, int new_state) {}
 #endif
