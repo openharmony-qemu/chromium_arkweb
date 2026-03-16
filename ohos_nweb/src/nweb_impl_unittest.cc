@@ -8520,7 +8520,28 @@ TEST_F(NWebImplTest, OffscreenDocumentWindowNewEvent001) {
   EXPECT_EQ(nweb_impl_->off_screen_nweb_id_, 0);
 }
 #endif  // BUILDFLAG(ARKWEB_READER_MODE)
-                          
+
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+void OnRequestOpenDevToolsCallback(const char* type,
+                                   const char* source_id,
+                                   const char* target_id,
+                                   const char* extension_id) {}
+
+TEST_F(NWebImplTest, RequestOpenDevTools001) {
+  testing::internal::CaptureStderr();
+  RequestOpenDevToolsParams params;
+  NWebImpl::OnRequestOpenDevTools(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("callback is null"), std::string::npos);
+
+  NWebImpl::SetOnRequestOpenDevToolsCallback(
+      OnRequestOpenDevToolsCallback);
+  NWebImpl::OnRequestOpenDevTools(params);
+
+  EXPECT_NE(NWebImpl::on_request_open_dev_tools_callback_, nullptr);
+}
+#endif // ARKWEB_DEVTOOLS
+                  
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
 void OnOffscreenDocumentPermissionRequestCallback(const char* extension_id,
                                                   const char* origin_url,
