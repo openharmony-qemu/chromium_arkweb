@@ -142,6 +142,9 @@ const std::unordered_map<int, int> keycodeConverter = {
     {KeyEvent::KEYCODE_DPAD_DOWN, ui::VKEY_DOWN},
     {KeyEvent::KEYCODE_DPAD_LEFT, ui::VKEY_LEFT},
     {KeyEvent::KEYCODE_DPAD_RIGHT, ui::VKEY_RIGHT},
+    {KeyEvent::KEYCODE_COPY, ui::VKEY_CODE_COPY},
+    {KeyEvent::KEYCODE_PASTE, ui::VKEY_CODE_PASTE},
+    {KeyEvent::KEYCODE_CUT, ui::VKEY_CODE_CUT},
 };
 
 const std::unordered_map<int, int> keyactionConverter = {
@@ -255,6 +258,9 @@ const std::unordered_map<int, int> ohosKeyCodeConverter = {
     {ui::VKEY_DOWN, KeyEvent::KEYCODE_DPAD_DOWN},
     {ui::VKEY_LEFT, KeyEvent::KEYCODE_DPAD_LEFT},
     {ui::VKEY_RIGHT, KeyEvent::KEYCODE_DPAD_RIGHT},
+    {ui::VKEY_CODE_COPY, KeyEvent::KEYCODE_COPY},
+    {ui::VKEY_CODE_PASTE, KeyEvent::KEYCODE_PASTE},
+    {ui::VKEY_CODE_CUT, KeyEvent::KEYCODE_CUT},
 };
 
 const std::unordered_map<int, int> ohosKeyActionConverter = {
