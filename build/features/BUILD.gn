@@ -361,6 +361,7 @@ if (!enable_arkweb) {
   arkweb_ext_video_load_optimization = false
   arkweb_clean_buffers_when_invisible = false
   arkweb_not_load_iframe = false
+  arkweb_ext_extensions_header_client = false
 }
 
 buildflag_header("features") {
@@ -646,6 +647,7 @@ buildflag_header("features") {
       "ARKWEB_EXT_HTTPS_UPGRADES=$arkweb_ext_https_upgrades",
       "ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION=false",
       "ARKWEB_EXT_RECEIVE_RESPONSE=false",
+      "ARKWEB_EXT_EXTENSIONS_HEADER_CLIENT=false",
     ]
   }
 
