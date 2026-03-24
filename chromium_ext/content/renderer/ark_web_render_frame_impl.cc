@@ -162,7 +162,7 @@ void RenderFrameImplUtils::ReportRenderInitBlock() {
   std::string mode = "ReportRenderInitBlock";
   if (is_complete_initialize) {
     is_complete_initialize = false;
-#if !defined(COMPONENT_BUILD) 
+#if !defined(COMPONENT_BUILD)
     int64_t block_time = initialize_time - commit_navigation_time_;
     if(ChildProcess::current()) {
       ChildProcess::current()->ReportHisyevent(block_time, mode);
@@ -178,7 +178,7 @@ void RenderFrameImplUtils::ChangeCommitNavigationTime(int64_t time) {
 void RenderFrameImplUtils::ChangeCompleteInitialize(bool complete) {
   is_complete_initialize = complete;
 }
-#if !defined(COMPONENT_BUILD) 
+#if !defined(COMPONENT_BUILD)
 void RenderFrameImpl::SendCommitNavigationTime(int64_t start_time) {
   implUtils->ChangeCommitNavigationTime(start_time);
   implUtils->ChangeCompleteInitialize(true);
@@ -187,72 +187,28 @@ void RenderFrameImpl::SendCommitNavigationTime(int64_t start_time) {
 #endif
 
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
-void RenderFrameImpl::PageLoadStartLoggerReport(
-    WebDocumentLoader* document_loader) {
-  LOG_FEEDBACK(WARNING) << "event_message: page load start, frame_id: "
-                        << reinterpret_cast<uintptr_t>(this) << ", url: "
-                        << url::LogUtils::ConvertUrlWithMask(
-                               document_loader->GetUrl().GetString().Utf8());
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableLoggerReport)) {
-    bool is_strict_log_mode = true;
-    if (GetWebView()) {
-      is_strict_log_mode = GetWebView()->IsStrictLogMode();
-    }
-    if (!is_strict_log_mode) {
-      int32_t usage_scenario = GetWebView()->GetSettings()->GetUsageScenario();
-      LOG(URL) << "event_message: page load start, frame_id: " << reinterpret_cast<uintptr_t>(this)
-               << ", url: "
-               << url::LogUtils::ConvertUrl(
-                      document_loader->GetUrl().GetString().Utf8(),
-                      usage_scenario);
-    }
+bool RenderFrameImpl::IsStrictLogMode() {
+  if (GetWebView()) {
+    return GetWebView()->IsStrictLogMode();
   }
-}
-
-void RenderFrameImpl::ContentLoadFailedLoggerReport() {
-  if (IsMainFrame()) {
-    LOG_FEEDBACK(WARNING)
-        << "event_message: content load finished, frame_id: " << reinterpret_cast<uintptr_t>(this)
-        << ", url: "
-        << url::LogUtils::ConvertUrlWithMask(GetLoadingUrl().spec());
-    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kEnableLoggerReport)) {
-      bool is_strict_log_mode = true;
-      if (GetWebView()) {
-        is_strict_log_mode = GetWebView()->IsStrictLogMode();
-      }
-      if (!is_strict_log_mode) {
-        int32_t usage_scenario =
-            GetWebView()->GetSettings()->GetUsageScenario();
-        LOG(URL) << "event_message: content load finished, frame_id: "
-                 << reinterpret_cast<uintptr_t>(this) << ", url: "
-                 << url::LogUtils::ConvertUrl(GetLoadingUrl().spec(),
-                                              usage_scenario);
-      }
-    }
-  }
-}
-
-void RenderFrameImpl::PageLoadFinishedLoggerReport() {
-  LOG_FEEDBACK(WARNING)
-      << "event_message: page load finished, frame_id: " << reinterpret_cast<uintptr_t>(this)
-      << ", url: " << url::LogUtils::ConvertUrlWithMask(GetLoadingUrl().spec());
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableLoggerReport)) {
-    bool is_strict_log_mode = true;
-    if (GetWebView()) {
-      is_strict_log_mode = GetWebView()->IsStrictLogMode();
-    }
-    if (!is_strict_log_mode) {
-      int32_t usage_scenario = GetWebView()->GetSettings()->GetUsageScenario();
-      LOG(URL) << "event_message: page load finished, frame_id: "
-               << reinterpret_cast<uintptr_t>(this) << ", url: "
-               << url::LogUtils::ConvertUrl(GetLoadingUrl().spec(),
-                                            usage_scenario);
-    }
-  }
+  return false;
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_LOGGER_REPORT) && !BUILDFLAG(ARKWEB_NWEB_EX)
+void RenderFrameImpl::OnCommitNavigation(
+    const GURL& url,
+    bool is_client_redirect,
+    blink::mojom::NavigationType navigation_type,
+    const base::UnguessableToken& devtools_navigation_token,
+    network::mojom::NavigationDeliveryType navigation_delivery_type) {}
+void RenderFrameImpl::OnDidCommitNavigation(
+    WebDocumentLoader* document_loader,
+    blink::WebHistoryCommitType commit_type) {}
+ 
+void RenderFrameImpl::OnDidDispatchDOMContentLoadedEvent() {}
+ 
+void RenderFrameImpl::OnDidHandleOnloadEvents() {}
+#endif  // BUILDFLAG(ARKWEB_LOGGER_REPORT) && !BUILDFLAG(ARKWEB_NWEB_EX)
 
 }  // namespace content

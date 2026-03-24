@@ -292,13 +292,13 @@ bool RenderFrameHostImpl::GetWorldId(const std::string& worldName, int32_t* worl
     isolated_world_.emplace(worldName, *worldId);
     return true;
   }
- 
+
   auto it = isolated_world_.find(worldName);
   if (it != isolated_world_.end()) {
     *worldId = it->second;
     return true;
   }
- 
+
   int32_t maxValue = INT_MIN;
   for (const auto& pair : isolated_world_) {
     if (pair.second > maxValue) {
@@ -309,7 +309,7 @@ bool RenderFrameHostImpl::GetWorldId(const std::string& worldName, int32_t* worl
   isolated_world_.emplace(worldName, *worldId);
   return true;
 }
- 
+
 void RenderFrameHostImpl::ExecuteJavaScriptInFrames(
     const std::u16string& javascript,
     bool recursive,
@@ -317,7 +317,7 @@ void RenderFrameHostImpl::ExecuteJavaScriptInFrames(
     JavaScriptResultCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(CanExecuteJavaScript());
- 
+
   const bool wants_result = !callback.is_null();
   int32_t worldId = 0;
   bool worldIdResult = GetWorldId(worldName, &worldId);
@@ -328,11 +328,11 @@ void RenderFrameHostImpl::ExecuteJavaScriptInFrames(
     GetAssociatedLocalFrame()->JavaScriptExecuteRequest(javascript, wants_result,
                                                         std::move(callback));
   }
- 
+
   if (!recursive) {
     return;
   }
- 
+
   RenderFrameHostImpl* initialFrame = this;
   ForEachRenderFrameHost(
     [&javascript, &worldName, &initialFrame](RenderFrameHost* rfh) {
@@ -342,7 +342,7 @@ void RenderFrameHostImpl::ExecuteJavaScriptInFrames(
       return;
     }
     rfh_impl->AllowInjectingJavaScript();
-    bool worldId_result = rfh_impl->GetWorldId(worldName, &world_id); 
+    bool worldId_result = rfh_impl->GetWorldId(worldName, &world_id);
     if (worldId_result) {
       rfh_impl->GetAssociatedLocalFrame()->JavaScriptExecuteRequestInIsolatedWorld(
         javascript, false, world_id, JavaScriptResultCallback {});
@@ -548,5 +548,19 @@ void RenderFrameHostImpl::OnDocumentEndReady() {
     web_contents->OnDocumentEndReady(frameInfo);
   }
 }
+#endif
+
+#if BUILDFLAG(ARKWEB_LOGGER_REPORT) && !BUILDFLAG(ARKWEB_NWEB_EX)
+void RenderFrameHostImpl::OnCommitNavigation(
+    const GURL& url,
+    bool is_same_document,
+    const base::UnguessableToken& navigation_token) {}
+void RenderFrameHostImpl::OnDidCommitNavigationInternal(
+    const GURL& url,
+    bool is_same_document,
+    NavigationRequest* navigation_request,
+    const base::UnguessableToken& navigation_token) {}
+void RenderFrameHostImpl::OnResetOwnedNavigationRequests(
+    NavigationDiscardReason reason) {}
 #endif
 }  // namespace content
