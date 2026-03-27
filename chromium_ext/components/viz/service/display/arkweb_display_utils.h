@@ -106,6 +106,7 @@ class ArkwebDisplayUtils {
 
 #if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
   void SetIfNeedCleanBuffers(bool need_clean_buffers);
+  void ReallocatedFrameBuffersIfNeed();
 #endif
 
 #if BUILDFLAG(ARKWEB_OFFLINE_WEB_EVICT_BACK_BUFFERS)
@@ -142,6 +143,9 @@ class ArkwebDisplayUtils {
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
   raw_ptr<GpuServiceImpl> gpu_service_impl_ {nullptr};
   uint32_t client_id_ = 0;
+#endif
+#if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
+  bool need_clean_buffers_ = false;
 #endif
   base::WeakPtrFactory<ArkwebDisplayUtils> weak_factory_{this};
 };
