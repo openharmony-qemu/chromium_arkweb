@@ -72,6 +72,11 @@ class PLATFORM_EXPORT HEIFImageDecoder final : public ImageDecoder {
   void Decode(wtf_size_t) override;
   bool CanReusePreviousFrameBuffer(wtf_size_t) const override;
 
+  static bool MatchesHeifsBrand(base::span<const uint8_t> data);
+  bool ShouldUseGpuDecode() const;
+  bool is_heifs_format_;
+  bool DecodeHeifSync(wtf_size_t index);
+
   // The bit depth from the container.
   uint8_t bit_depth_ = 0;
   absl::optional<gfx::HDRMetadata> hdr_metadata_;

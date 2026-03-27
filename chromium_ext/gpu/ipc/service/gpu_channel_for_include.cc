@@ -76,4 +76,55 @@ void GpuChannelMessageFilter::SetBlanklessDumpInfo(uint32_t nweb_id, uint64_t bl
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_HEIF_SUPPORT)
+void GpuChannelMessageFilter::DecodeHeif(
+                  mojo_base::BigBuffer heif_data,
+                  DecodeHeifCallback callback) {
+  base::AutoLock auto_lock(gpu_channel_lock_);
+  if (!gpu_channel_) {
+    receiver_.reset();
+    return;
+  }
+
+  // Wrap the callback so that it executes in the current thread.
+  auto wrapped_callback = base::BindPostTask(
+      base::SingleThreadTaskRunner::GetCurrentDefault(),
+      std::move(callback));
+
+  main_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&gpu::GpuChannel::DecodeHeif,
+                     gpu_channel_->AsWeakPtr(),
+                     std::move(heif_data),
+                     std::move(wrapped_callback)));
+}
+
+void GpuChannel::DecodeHeif(mojo_base::BigBuffer heif_data,
+                mojom::GpuChannel::DecodeHeifCallback callback) {
+  LOG(INFO) << "[HeifSupport] GpuChannel::DecodeHeif";
+
+  std::vector<uint8_t> result;
+  gfx::Size size(0, 0);
+  std::string error;
+  
+  if (heif_data.size() == 0) {
+    error = "Empty HEIF data";
+    std::move(callback).Run(std::move(result), size, error);
+    return;
+  }
+  std::vector<uint8_t> heif_bytes(heif_data.data(), 
+                                 heif_data.data() + heif_data.size());
+  
+  std::vector<uint8_t> pixels;
+  bool success = heif_decoder_->DecodeImageSync(heif_bytes, pixels, size, error);
+  
+  if (!success) {
+    LOG(ERROR) << "[HeifSupport] HEIF decode failed: " << error;
+    error = "Decode Image error";
+    std::move(callback).Run(std::move(result), size, error);
+    return;
+  }
+  std::move(callback).Run(std::move(pixels), size, error);
+}
+#endif
 } // namespace gpu

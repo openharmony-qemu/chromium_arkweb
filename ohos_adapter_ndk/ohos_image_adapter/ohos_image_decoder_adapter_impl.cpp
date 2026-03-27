@@ -492,5 +492,14 @@ bool OhosImageDecoderAdapterImpl::DecodeByPath(const std::string& path, Allocato
     return true;
 }
 
+bool OhosImageDecoderAdapterImpl::ReadPixels(uint8_t *destination, size_t *bufferSize) {
+    if (!pixelMap_) {
+        WVLOG_E("[HeifSupport] OhosImageDecoderAdapterImpl::ReadPixels. PixelMap is null.");
+        return false;
+    }
+    Image_ErrorCode errorCode = OH_PixelmapNative_ReadPixels(pixelMap_, destination, bufferSize);
+    return errorCode == Image_ErrorCode::IMAGE_SUCCESS;
+}
+
 }  // namespace NWeb
 }  // namespace OHOS
