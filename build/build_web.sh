@@ -65,6 +65,11 @@ for arg in "$@"; do
                         bash nextbuild.sh -t component musl_64
                         bash $ROOT_DIR/arkweb/build/upload.sh
                         ;;
+                -legacy)
+                        echo "legacy"
+                        bash nextbuild.sh -t p musl_64 -A -legacy -j 32
+                        bash $ROOT_DIR/arkweb/build/upload.sh
+                        ;;
                 -fuzz)
                         echo "fuzz"
                         sed -i '/-fuzzer/ {n;n;s/build_asan=1/build_asan=0/}' nextbuild.sh;timeout 180s ./nextbuild.sh -t n musl_64;./nextbuild.sh musl_64 -A -fuzzer;ninja -C src/out/musl_64 nweb_impl_createweb
