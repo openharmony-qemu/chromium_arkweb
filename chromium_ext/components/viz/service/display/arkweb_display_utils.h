@@ -83,7 +83,7 @@ class ArkwebDisplayUtils {
                    AggregatedFrame& frame);
 
 #if BUILDFLAG(ARKWEB_VULKAN_INC_PRESENT)
-  void JudgePartialSwap();
+  void JudgePartialSwap(bool has_copy_requests);
 #endif
 
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
