@@ -15,36 +15,40 @@
 
 // Applies DomDistillerJs to the content of the page and returns a
 // DomDistillerResults (as a javascript object/dict).
-(function(options, stringify_output, extract_catalog_info) {
+(function(options, extract_catalog_info) {
 try {
+  const originalSetTimeout = window.setTimeout;
+  const originalClearTimeout = window.clearTimeout;
+
   function initialize() {
-  $$DOMDISTILLERJS
+    $$DOMDISTILLERJS
   }
   window.setTimeout = function() {};
   window.clearTimeout = function() {};
   if (!window.org?.chromium?.distiller?.DomDistiller) {
-  initialize();
+    initialize();
   }
 
   // The OPTIONS placeholder will be replaced with the DomDistillerOptions at
   // runtime.
   const distiller = window.org.chromium.distiller.DomDistiller;
   res = null;
+  console.log("[Distiller] options:", JSON.stringify(options));
   if (extract_catalog_info) {
-  res = distiller.applyCatalogWithOptions(options);
+    res = distiller.applyCatalogWithOptions(options);
   } else {
-  res = distiller.applyWithOptions(options);
+    res = distiller.applyWithOptions(options);
   }
 
-  if (stringify_output) {
-  return JSON.stringify(res);
-  }
+  window.setTimeout = originalSetTimeout;
+  window.clearTimeout = originalClearTimeout;
+
   return res;
 } catch (e) {
-  window.console.error('Error during distillation: ' + e);
+  window.console.error('[Distiller] Error during distillation: ' + e);
   if (e.stack !== undefined) {
   window.console.error(e.stack);
   }
 }
 return undefined;
-})($$OPTIONS, $$STRINGIFY, $$CATALOGINFO);
+})($$OPTIONS, $$CATALOGINFO);
