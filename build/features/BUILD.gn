@@ -163,6 +163,7 @@ if (!enable_arkweb) {
   arkweb_ion_buffer = true
   arkweb_itp = false
   arkweb_jsproxy = false
+  arkweb_keyboard_appearance = false
   arkweb_load_per = true
   arkweb_media = false
   arkweb_media_avsession = false
@@ -436,6 +437,7 @@ buildflag_header("features") {
     "ARKWEB_ION_BUFFER=$arkweb_ion_buffer",
     "ARKWEB_ITP=$arkweb_itp",
     "ARKWEB_JSPROXY=$arkweb_jsproxy",
+    "ARKWEB_KEYBOARD_APPEARANCE=$arkweb_keyboard_appearance",
     "ARKWEB_LOAD_PER=$arkweb_load_per",
     "ARKWEB_MEDIA=$arkweb_media",
     "ARKWEB_MEDIA_AVSESSION=$arkweb_media_avsession",
