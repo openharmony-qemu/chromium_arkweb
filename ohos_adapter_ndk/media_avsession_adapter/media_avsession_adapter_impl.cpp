@@ -236,11 +236,11 @@ AVSessionCallback_Result MediaAVSessionAdapterImpl::AVSessionOnCommandCallback(O
         case CONTROL_CMD_PLAY:
             media->Play();
             return AVSESSION_CALLBACK_RESULT_SUCCESS;
-
+        
         case CONTROL_CMD_PAUSE:
             media->Pause();
             return AVSESSION_CALLBACK_RESULT_SUCCESS;
-
+        
         case CONTROL_CMD_STOP:
             media->Stop();
             return AVSESSION_CALLBACK_RESULT_SUCCESS;
@@ -330,7 +330,7 @@ bool MediaAVSessionAdapterImpl::Activate() {
         WVLOG_E("Activate failed. ret: %{public}d", ret);
         return false;
     }
-
+    
     isActived_ = true;
     WVLOG_I("Activate success.");
     return true;
@@ -432,7 +432,7 @@ bool MediaAVSessionAdapterImpl::UpdateMetaData(const std::shared_ptr<MediaAVSess
         ret = OH_AVMetadataBuilder_SetTitle(builder_, metadata->GetTitle().c_str());
         if (ret == AVMETADATA_SUCCESS) {
             updated = true;
-    }
+        }
 
     }
 
@@ -441,7 +441,7 @@ bool MediaAVSessionAdapterImpl::UpdateMetaData(const std::shared_ptr<MediaAVSess
         ret = OH_AVMetadataBuilder_SetArtist(builder_, metadata->GetArtist().c_str());
         if (ret == AVMETADATA_SUCCESS) {
             updated = true;
-    }
+        }
     }
 
     if (album_ != metadata->GetAlbum()) {
@@ -449,7 +449,7 @@ bool MediaAVSessionAdapterImpl::UpdateMetaData(const std::shared_ptr<MediaAVSess
         ret = OH_AVMetadataBuilder_SetAlbum(builder_, metadata->GetAlbum().c_str());
         if (ret == AVMETADATA_SUCCESS) {
             updated = true;
-    }
+        }
     }
 
     if (poster_url_ != metadata->GetImageUrl()) {
@@ -511,6 +511,9 @@ bool MediaAVSessionAdapterImpl::UpdatePlaybackState(MediaAVSessionPlayState stat
             break;
         case MediaAVSessionPlayState::STATE_PAUSE:
             avPlaybackState_ = PLAYBACK_STATE_PAUSED;
+            break;
+        case MediaAVSessionPlayState::STATE_BUFFERING:
+            avPlaybackState_ = PLAYBACK_STATE_BUFFERING;
             break;
         case MediaAVSessionPlayState::STATE_INITIAL:
         default:
@@ -608,11 +611,11 @@ bool MediaAVSessionAdapterImpl::CreateNewSession(const MediaAVSessionType& type)
         case MediaAVSessionType::MEDIA_TYPE_AUDIO:
             sessionType = SESSION_TYPE_AUDIO;
             break;
-
+        
         case MediaAVSessionType::MEDIA_TYPE_VIDEO:
             sessionType = SESSION_TYPE_VIDEO;
             break;
-
+        
         default:
             return false;
     }
