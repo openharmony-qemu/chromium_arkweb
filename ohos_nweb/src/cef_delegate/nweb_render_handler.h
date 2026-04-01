@@ -218,10 +218,7 @@ class NWebRenderHandler : public ArkWebRenderHandlerExt {
                          const float fling_y) override;
   bool OnNestedScroll(CefRefPtr<CefBrowser> browser,
                          float& x,
-                         float& y,
-                         float& fling_x,
-                         float& fling_y,
-                         bool& isAvailable) override;
+                         float& y) override;
   std::shared_ptr<NWebNativeEmbedDataInfo> CefEmbedDataToWeb(
       const CefNativeEmbedData& embedData);
   std::shared_ptr<NWebNativeEmbedParamDataInfo> CefEmbedParamDataToWeb(

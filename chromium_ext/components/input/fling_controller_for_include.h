@@ -43,4 +43,7 @@
   bool scroll_enabled_ = true;
 #endif
 
+#if BUILDFLAG(ARKWEB_FLING)
+  bool OnNestedScroll(float& delta_x, float& delta_y);
+#endif
 #endif

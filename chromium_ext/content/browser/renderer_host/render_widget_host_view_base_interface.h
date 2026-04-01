@@ -65,6 +65,10 @@ class CONTENT_EXPORT RenderWidgetHostViewBaseInterface {
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   virtual void SendCurrentLanguage(const std::string& ans) {}
 #endif
+
+#if BUILDFLAG(ARKWEB_FLING)
+  virtual bool OnNestedScroll(float& delta_x, float& delta_y) {}
+#endif
 };
 
 }  // namespace content
