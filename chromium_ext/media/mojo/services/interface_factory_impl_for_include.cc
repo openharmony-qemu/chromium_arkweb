@@ -22,4 +22,13 @@ void InterfaceFactoryImpl::CreateCustomMediaPlayerRenderer(
       int player_id,
       const media::MediaPlayerUrlParams& params) {}
 #endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void InterfaceFactoryImpl::CreateMediaPlayerRenderer(
+    mojo::PendingRemote<mojom::MediaPlayerRendererClientExtension>
+        client_extension_ptr,
+    mojo::PendingReceiver<mojom::Renderer> receiver,
+    int player_id,
+      const media::MediaPlayerUrlParams& params) {}
+#endif  // BUILDFLAG(ARKWEB_MEDIA_HLS)
 }  // namespace media

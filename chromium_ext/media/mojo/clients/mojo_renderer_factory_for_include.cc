@@ -15,10 +15,19 @@
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(ARKWEB_MEDIA)
 std::unique_ptr<MojoRenderer> MojoRendererFactory::CreateMediaPlayerRenderer(
+    mojo::PendingRemote<mojom::MediaPlayerRendererClientExtension>
+        client_extension_remote,
     const scoped_refptr<base::SequencedTaskRunner>& media_task_runner,
-    VideoRendererSink* video_renderer_sink) {
+    VideoRendererSink* video_renderer_sink,
+    int player_id,
+    const media::MediaPlayerUrlParams& params) {
   DCHECK(interface_factory_);
   mojo::PendingRemote<mojom::Renderer> renderer_remote;
+  interface_factory_->CreateMediaPlayerRenderer(
+      std::move(client_extension_remote),
+      renderer_remote.InitWithNewPipeAndPassReceiver(),
+      player_id,
+      params);
 
   return std::make_unique<MojoRenderer>(media_task_runner, nullptr,
                                         video_renderer_sink,

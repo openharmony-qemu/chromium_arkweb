@@ -29,9 +29,12 @@
 namespace content {
 
 class OHOSMediaPlayerRendererClient
-      : public media::MojoRendererWrapper {
+    : public media::mojom::MediaPlayerRendererClientExtension,
+      public media::MojoRendererWrapper {
  public:
+   using ClientExtension = media::mojom::MediaPlayerRendererClientExtension;
   OHOSMediaPlayerRendererClient(
+      mojo::PendingReceiver<ClientExtension> client_extension_receiver,
       scoped_refptr<base::SequencedTaskRunner> media_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
       std::unique_ptr<media::MojoRenderer> mojo_renderer,
@@ -54,10 +57,10 @@ class OHOSMediaPlayerRendererClient
   media::RendererType GetRendererType() override;
 
   // media::mojom::MediaPlayerRendererClientExtension implementation
-//   void OnDurationChange(base::TimeDelta duration) override;
-//   void OnVideoSizeChange(const gfx::Size& size) override;
-//   void OnFrameUpdate(media::mojom::OhosSurfaceBufferHandlePtr
-//                          ohos_surface_buffer_handle) override;
+  void OnDurationChange(base::TimeDelta duration) override;
+  void OnVideoSizeChange(const gfx::Size& size) override;
+  void OnFrameUpdate(media::mojom::OhosSurfaceBufferHandlePtr
+                         ohos_surface_buffer_handle) override;
   void OnFrameAvailable();
 
  private:
@@ -94,6 +97,8 @@ class OHOSMediaPlayerRendererClient
 
   std::vector<uint8_t> resize_buf_;
 
+  mojo::PendingReceiver<ClientExtension>  delayed_bind_client_extension_receiver_;
+  mojo::Receiver<MediaPlayerRendererClientExtension> client_extension_receiver_{this};
   int native_window_id_ = -1;
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)

@@ -14,6 +14,14 @@
 */
 
 namespace content {
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void FramelessMediaInterfaceProxy::CreateMediaPlayerRenderer(
+    mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
+        client_extension_remote,
+    mojo::PendingReceiver<media::mojom::Renderer> receiver,
+    int player_id,
+    const media::MediaPlayerUrlParams& params) {}
+#endif // ARKWEB_MEDIA_HLS
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 void FramelessMediaInterfaceProxy::CreateCustomMediaPlayerRenderer(
       mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension>

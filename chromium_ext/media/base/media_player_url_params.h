@@ -27,7 +27,11 @@
 #include "url/origin.h"
 
 namespace media {
-
+enum class MediaPlayerUrlType : uint32_t {
+  kHlsMediaPlayer = 0,
+  kCustomMediaPlayer,
+  kNoMediaPlayer
+};
 // OHOS custom media URL parameters.
 // This class contains all fields that were previously in MediaUrlParams,
 // which was deleted in Chromium 144. It is used to pass media URL information
@@ -77,6 +81,17 @@ class MediaPlayerUrlParams {
     storage_access_api_status_ = status;
   }
 
+  // True when the crossorigin mode is unspecified or set to "use-credentials",
+  // false when it's "anonymous".
+  //
+  // Used by MediaPlayerRenderer when determining whether or not send cookies
+  // and credentials to the underlying Android MediaPlayer. Cookies/credentials
+  // are retrieved based on whether or not the `media_url` passes the checks
+  // initiated in MediaResourceGetter::CheckPolicyForCookies() for the given
+  // `site_for_cookies`.
+  bool AllowCredentials() const { return allow_credentials_; }
+  void SetAllowCredentials(bool allow_credentials) { allow_credentials_ = allow_credentials; }
+
   // Whether this is an HLS stream
   bool IsHls() const { return is_hls_; }
   void SetIsHls(bool is_hls) { is_hls_ = is_hls; }
@@ -101,6 +116,9 @@ class MediaPlayerUrlParams {
   uint32_t MediaSourceType() const { return media_source_type_; }
   void SetMediaSourceType(uint32_t type) { media_source_type_ = type; }
 
+  MediaPlayerUrlType GetMediaPlayerUrlType() const { return media_player_type_; }
+  void SetMediaPlayerUrlType(MediaPlayerUrlType type) { media_player_type_ = type; }
+
   // Check if the URL is valid
   bool IsValid() const { return media_url_.is_valid() && !media_url_.is_empty(); }
 
@@ -109,12 +127,14 @@ class MediaPlayerUrlParams {
   net::SiteForCookies site_for_cookies_;
   url::Origin top_frame_origin_;
   net::StorageAccessApiStatus storage_access_api_status_;
-  bool is_hls_ = false;
+  bool allow_credentials_;
+  bool is_hls_ = true;
   base::flat_map<std::string, std::string> headers_;
 
   // OHOS-specific fields
   uint32_t preload_type_ = 0;      // Default: none
   uint32_t media_source_type_ = 0;  // Default: URL
+  MediaPlayerUrlType media_player_type_ = MediaPlayerUrlType::kNoMediaPlayer;
 };
 
 }  // namespace media

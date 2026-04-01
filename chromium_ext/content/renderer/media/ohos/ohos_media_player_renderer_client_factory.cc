@@ -35,21 +35,37 @@ OHOSMediaPlayerRendererClientFactory::CreateRenderer(
     media::VideoRendererSink* video_renderer_sink,
     media::RequestOverlayInfoCB request_surface_cb,
     const gfx::ColorSpace& target_color_space) {
-  // TODO: OHOSMediaPlayerRendererClient implementation needs to be restored
-  // For now, fallback to mojo_renderer_factory to maintain functionality
-  if (!mojo_renderer_factory_) {
-    return nullptr;
-  }
+  return nullptr;
+}
 
-  // Create a basic renderer using mojo factory as fallback
-  // This maintains compatibility while OHOS-specific implementation is restored
-  return mojo_renderer_factory_->CreateRenderer(
-      media_task_runner,
-      worker_task_runner,
-      audio_renderer_sink,
-      video_renderer_sink,
-      std::move(request_surface_cb),
-      target_color_space);
+std::unique_ptr<media::Renderer>
+OHOSMediaPlayerRendererClientFactory::CreateOHOSMediaPlayerRenderer(
+    const scoped_refptr<base::SequencedTaskRunner>& media_task_runner,
+    const scoped_refptr<base::TaskRunner>& worker_task_runner,
+    media::AudioRendererSink* audio_renderer_sink,
+    media::VideoRendererSink* video_renderer_sink,
+    media::RequestOverlayInfoCB request_surface_cb,
+    const gfx::ColorSpace& target_color_space,
+    int player_id,
+    const media::MediaPlayerUrlParams& params) {
+  mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
+      client_extension_remote;
+  auto client_extension_receiver =
+      client_extension_remote.InitWithNewPipeAndPassReceiver();
+  std::unique_ptr<media::MojoRenderer> mojo_renderer =
+      mojo_renderer_factory_->CreateMediaPlayerRenderer(
+          std::move(client_extension_remote), media_task_runner,
+          video_renderer_sink, player_id, params);
+
+  media::ScopedNativeTextureWrapper native_texture_wrapper =
+      get_native_texture_wrapper_cb_.Run();
+
+  return std::make_unique<OHOSMediaPlayerRendererClient>(
+      std::move(client_extension_receiver),
+      media_task_runner, compositor_task_runner_,
+      std::move(mojo_renderer),
+      std::move(native_texture_wrapper),
+      video_renderer_sink);
 }
 
 }  // namespace content

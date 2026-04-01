@@ -35,7 +35,7 @@ void MojoRenderer::OnInitializedExt() {
 #endif  // ARKWEB_VIDEO_ASSISTANT
 // LCOV_EXCL_STOP
 
-#if BUILDFLAG(ARKWEB_MEDIA)
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
 void MojoRenderer::SetNativeWindowSurface(int native_window_id) {
   BindRemoteRendererIfNeeded();
   if (remote_renderer_.is_bound()) {

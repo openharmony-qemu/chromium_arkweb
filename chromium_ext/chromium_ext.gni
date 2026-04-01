@@ -354,7 +354,7 @@ arkweb_media_mojo_mojom_sources = [
   "../../../arkweb/chromium_ext/media/mojo/mojom/native_bridge.mojom",
 ]
 
-arkweb_media_custom_media_player_mojom_sources = [
+arkweb_media_media_player_mojom_sources = [
   "../../../arkweb/chromium_ext/media/mojo/mojom/media_player_url_params.mojom",
 ]
 
@@ -902,7 +902,7 @@ arkweb_cc_trees_unittest_sources = [
   "//arkweb/chromium_ext/cc/trees/layer_tree_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/cc/trees/layer_tree_host_ext_unittest.cc",
 ]
- 
+
 arkweb_cc_mojo_embedder_unittest_sources = [
   "//arkweb/chromium_ext/cc/mojo_embedder/async_layer_tree_frame_sink_utils_unittest.cc",
 ]
