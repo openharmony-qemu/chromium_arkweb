@@ -352,6 +352,18 @@ class NWebPreferenceDelegate : public NWebPreference {
   int default_fixed_font_size_{13};
   int font_size_lower_limit_{8};
   int logical_font_size_lower_limit_{8};
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  bool has_web_set_default_font_size_{false};
+  bool has_web_set_default_fixed_font_size_{false};
+  bool has_web_set_font_size_lower_limit_{false};
+  bool has_web_set_standard_font_{false};
+  bool has_web_set_fixed_font_{false};
+  bool has_web_set_serif_font_{false};
+  bool has_web_set_sans_serif_font_{false};
+  bool has_web_set_cursive_font_{false};
+  bool has_web_set_fantasy_font_{false};
+  bool is_browser_used_{false};
+#endif
   std::string default_encoding_{"UTF-8"};
   bool images_enabled_{true};
   bool javascript_allowed_{false};

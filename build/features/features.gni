@@ -276,6 +276,7 @@ if (defined(enable_arkweb_ext) && enable_arkweb_ext) {
   arkweb_jsheap_dump = false
   arkweb_clean_buffers_when_invisible = !is_component_build
   arkweb_not_load_iframe = true
+  arkweb_font_settings = true
 
   if (!enable_arkweb_ext) {
     arkweb_ext_download = true
