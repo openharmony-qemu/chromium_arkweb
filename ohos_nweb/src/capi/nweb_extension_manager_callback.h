@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <string>
 #include <map>
+#include <vector>
 #include "ohos_nweb/src/capi/nweb_extension_action_icon.h"
 #include "ohos_nweb/src/capi/nweb_context_menus_item.h"
 
@@ -160,15 +161,56 @@ struct NWebExtensionLoadError {
   bool beNoisy;
 };
 
+enum class NWebExtensionState {
+  ENABLED = 0,
+  DISABLED = 1,
+  TERMINATED = 2,
+  BLOCKLISTED = 3,
+  UNINSTALLED = 4,
+};
+
+struct NWebExtensionPermissionV2 {
+  std::string permission;
+  std::optional<std::string> detail;
+  std::string show_detail_label;
+  std::string hide_detail_label;
+};
+
+struct NWebExtensionOptionalPermission {
+  std::string name;
+  std::string message;
+  std::vector<std::string> submessages;
+  bool granted;
+};
+
+struct NWebInstalledExtensionInfo {
+  std::string id;
+  std::string name;
+  std::string description;
+  std::string version;
+  std::vector<NWebExtensionPermissionV2> permissions;
+  bool is_enabled;
+  NWebExtensionState state;
+  bool is_incognito_enabled;
+  double install_time;
+  int location;
+  std::vector<NWebExtensionOptionalPermission> optional_permissions;
+  std::optional<NWebExtensionActionIconV2> icons;
+};
+
 typedef void (*OnWebExtensionLoadedFun)(const WebExtensionInfo& load_info);
 typedef void (*OnWebExtensionUnLoadedFun)(std::string extension_id);
 typedef void (*OnWebExtensionOpenUrlFun)(std::string url);
+typedef void (*OnWebExtensionStateChangedFun)(const char* extension_id,
+                                              int32_t current_state);
 
 struct NWebExtensionManagerCallBack {
   size_t struct_size = sizeof(NWebExtensionManagerCallBack);
   void (*OnWebExtensionLoaded)(const WebExtensionInfo& loadedinfo);
   void (*OnWebExtensionUnLoaded)(std::string extensionId);
   void (*OnWebExtensionOpenUrlFun)(std::string url);
+  void (*OnWebExtensionStateChanged)(const char* extension_id,
+                                     int32_t current_state);
 };
 
 typedef void (*OnExtensionInstallCallback)(int code,
