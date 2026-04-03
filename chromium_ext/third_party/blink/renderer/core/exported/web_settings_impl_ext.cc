@@ -263,6 +263,16 @@ bool WebSettingsImplExt::IsViewportScale()
 {
   return settings_->IsViewportScale();
 }
+
+void WebSettingsImplExt::SetSmartEdgeState(bool state)
+{
+  settings_->SetSmartEdgeState(state);
+}
+
+bool  WebSettingsImplExt::GetSmartEdgeState()
+{
+  return settings_->GetSmartEdgeState();
+}
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)

@@ -246,6 +246,7 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
 #if BUILDFLAG(ARKWEB_MENU)
   browser_settings.touch_handle_exist = touch_handle_exist_;
   browser_settings.viewport_scale = viewport_scale_;
+  browser_settings.smart_edge_state = smart_edge_state_;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 #if BUILDFLAG(ARKWEB_AI)
   browser_settings.image_analyzer_enabled =
@@ -523,6 +524,11 @@ void NWebPreferenceDelegate::SetTouchHandleExistState(bool touchHandleExist) {
 
 void NWebPreferenceDelegate::SetViewportScaleState(bool viewportScale) {
   viewport_scale_ = viewportScale;
+  WebPreferencesChanged();
+}
+
+void NWebPreferenceDelegate::SetSmartEdgeState(bool state) {
+  smart_edge_state_ = state;
   WebPreferencesChanged();
 }
 #endif  // BUILDFLAG(ARKWEB_MENU)

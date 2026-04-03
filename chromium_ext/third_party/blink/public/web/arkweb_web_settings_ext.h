@@ -138,6 +138,8 @@ public:
   virtual bool IsTouchHandleExist() = 0;
   virtual void SetViewportScaleState(bool) = 0;
   virtual bool IsViewportScale() = 0;
+  virtual void SetSmartEdgeState(bool) = 0;
+  virtual bool GetSmartEdgeState() = 0;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 protected:

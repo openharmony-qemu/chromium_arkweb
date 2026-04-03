@@ -159,6 +159,7 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist);
   void SetViewportScaleState(bool viewportScale);
+  void SetSmartEdgeState(bool state) override;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_CSS_FONT)
@@ -416,6 +417,7 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_MENU)
   bool touch_handle_exist_{false};
   bool viewport_scale_{false};
+  bool smart_edge_state_{false};
 #endif  // BUILDFLAG(ARKWEB_MENU)
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   float virtual_pixel_ratio_ = 2.0;

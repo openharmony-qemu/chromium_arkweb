@@ -197,6 +197,10 @@
   bool IsViewportScale() {
     return viewport_scale_;
   }
+  void SetSmartEdgeState(bool state) {
+    smart_edge_state_ = state;
+  }
+  bool GetSmartEdgeState() { return smart_edge_state_; }
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
