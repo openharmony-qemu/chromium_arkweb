@@ -1368,6 +1368,16 @@ void WebContentsImplExt::SetBlankScreenDetectionConfig(
 #endif
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
+void WebContentsImplExt::EnableReaderMode(bool enabled) {
+  LOG(INFO) << "WebContentsImplExt::EnableReaderMode: " << enabled;
+
+  blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+  if (prefs != NULL && prefs->is_reader_mode_enabled != enabled) {
+    prefs->is_reader_mode_enabled = enabled;
+    SyncRendererPrefs();
+  }
+}
+
 void WebContentsImplExt::OnIsPageDistillable(int page_type,
                                              const std::string& distillable_page_url,
                                              const std::string& title) {
@@ -1378,6 +1388,12 @@ void WebContentsImplExt::OnIsPageDistillable(int page_type,
 
 bool WebContentsImplExt::IsDistillerPageWebContents() {
   return SharedRenderProcessToken() == "0xAAAAAA";
+}
+
+void WebContentsImplExt::OnDidMeaningfulLayout(const std::string& url) {
+  if (delegate_) {
+    delegate_->OnDidMeaningfulLayout(url);
+  }
 }
 #endif // ARKWEB_READER_MODE
 
