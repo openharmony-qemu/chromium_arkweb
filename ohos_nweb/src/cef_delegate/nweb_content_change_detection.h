@@ -17,6 +17,12 @@
 #define NWEB_CONTENT_CHANGE_DETECTION_H
 
 #include "nweb_delegate_interface.h"
+#include "arkweb/build/features/features.h"
+#include "base/feature_list.h"
+
+namespace features {
+BASE_DECLARE_FEATURE(kReportDomTreeAsync);
+}
 
 namespace OHOS::NWeb {
 
