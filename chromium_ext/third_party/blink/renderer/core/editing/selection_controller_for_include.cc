@@ -15,6 +15,12 @@
 #if BUILDFLAG(ARKWEB_AI)
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #endif
+#if BUILDFLAG(ARKWEB_CLIPBOARD)
+#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
+#include "base/base_switches.h"
+#include "base/command_line.h"
+#include "content/public/common/content_switches.h"
+#endif
 namespace blink {
 
 #if BUILDFLAG(ARKWEB_AI)
@@ -167,7 +173,8 @@ bool SelectionController::HandleGestureTapIfSelectionExist(
     if (web_local_frame) {
       const blink::WebRange& range =
           web_local_frame->GetInputMethodController()->GetSelectionOffsets();
-      if (!range.IsNull() && event.GetHitTestResult().GetImage()) {
+      bool is_browser = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kEnableNwebEx);
+      if (!range.IsNull() && event.GetHitTestResult().GetImage() && is_browser) {
         web_local_frame->SelectRange(
             blink::WebRange(range.EndOffset(), 0),
             blink::WebLocalFrame::kHideSelectionHandle,
