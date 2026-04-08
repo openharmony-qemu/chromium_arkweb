@@ -72,7 +72,7 @@ class CONTENT_EXPORT ArkwebRenderProcessHostImplExt : public RenderProcessHostIm
 
   void InvokeRenderCrashDump() override;
 
-  void ReportRenderUnresponsive(int32_t pid) override;
+  void ReportRenderUnresponsive(int32_t pid, const std::string& stack) override;
 #endif
 
 #if BUILDFLAG(IS_ARKWEB)
