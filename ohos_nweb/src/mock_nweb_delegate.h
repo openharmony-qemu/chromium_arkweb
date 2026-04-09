@@ -1275,6 +1275,8 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (override));
 #endif
 
+  MOCK_METHOD(void, ReloadOriginalUrlIgnoreCache, (), (const, override));
+
 };
 }  // namespace OHOS::NWeb
 
