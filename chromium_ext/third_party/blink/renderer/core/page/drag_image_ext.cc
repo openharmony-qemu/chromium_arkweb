@@ -90,7 +90,8 @@ std::unique_ptr<DragImage> DragImageExt::CreateClippedByVisualViewport(
   paint_image = ImageExt::ClipResizeAndOrientImage(
       paint_image, orientation, clip_rect, image_scale, opacity,
       interpolation_quality);
-  if (!paint_image || !paint_image.GetSwSkImage()->asLegacyBitmap(&bm)) {
+  if (!paint_image || !paint_image.GetSwSkImage() ||
+      !paint_image.GetSwSkImage()->asLegacyBitmap(&bm)) {
     LOG(WARNING) << "DragDrop Invalid paint image or bitmap after clip";
 
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
