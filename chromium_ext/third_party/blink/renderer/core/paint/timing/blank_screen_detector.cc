@@ -31,6 +31,10 @@ void BlankScreenDetector::OnInputOrScroll() {
   StopTask();
 }
 
+void BlankScreenDetector::SetLocalFrame(LocalFrame* local_frame) {
+  local_frame_ = local_frame;
+}
+
 void BlankScreenDetector::StopTask() {
   detection_task_.Stop();
   current_task_index_ = 0;
