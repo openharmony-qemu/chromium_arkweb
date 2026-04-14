@@ -1068,6 +1068,10 @@ void InitialWebEngineArgs(
       base::ohos::IsCompatibleMode()) {
     web_engine_args.emplace_back("--enable-viewport");
   }
+  if (base::ohos::IsEmulator()) {
+    WVLOG_I("Get device info, it is emulator.");
+    web_engine_args.emplace_back("--disable-3d-apis");
+  }
   web_engine_args.emplace_back(
       "--browser-subprocess-path=/system/bin/web_render");
   web_engine_args.emplace_back("--zygote-cmd-prefix=/system/bin/web_render");
