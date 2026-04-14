@@ -8991,4 +8991,246 @@ TEST_F(NWebImplTest, SetIsSystemRtlEnable002) {
   EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
 }
 #endif
+
+TEST_F(NWebImplTest, StopFling001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, StopFling()).Times(0);
+  nweb_impl_->StopFling();
+}
+
+TEST_F(NWebImplTest, StopFling002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, StopFling()).Times(1);
+  nweb_impl_->StopFling();
+}
+
+TEST_F(NWebImplTest, GetWebId001) {
+  EXPECT_NE(nweb_impl_, nullptr);
+  EXPECT_EQ(nweb_impl_->GetWebId(), nweb_impl_->nweb_id_);
+}
+
+TEST_F(NWebImplTest, SetWebDestroyMode001) {
+  EXPECT_EQ(nweb_impl_->GetWebDestroyMode(), WebDestroyMode::NORMAL_MODE);
+  nweb_impl_->SetWebDestroyMode(WebDestroyMode::FAST_MODE);
+  EXPECT_EQ(nweb_impl_->GetWebDestroyMode(), WebDestroyMode::FAST_MODE);
+  nweb_impl_->SetWebDestroyMode(WebDestroyMode::NORMAL_MODE);
+  EXPECT_EQ(nweb_impl_->GetWebDestroyMode(), WebDestroyMode::NORMAL_MODE);
+}
+
+TEST_F(NWebImplTest, DisableWebActivePolicy001) {
+  EXPECT_FALSE(nweb_impl_->IsActivePolicyDisable());
+  nweb_impl_->DisableWebActivePolicy();
+  EXPECT_TRUE(nweb_impl_->IsActivePolicyDisable());
+}
+
+TEST_F(NWebImplTest, IsScrollbarModeChanged001) {
+  EXPECT_FALSE(nweb_impl_->IsScrollbarModeChanged());
+  nweb_impl_->scrollbarModeChanged_ = true;
+  EXPECT_TRUE(nweb_impl_->IsScrollbarModeChanged());
+}
+
+TEST_F(NWebImplTest, SetLoggerReportEventCallback001) {
+  nweb_impl_->SetLoggerReportEventCallback(nullptr);
+  EXPECT_EQ(nweb_impl_->logger_report_event_callback_, nullptr);
+  void* mock_callback = reinterpret_cast<void*>(0x12345678);
+  nweb_impl_->SetLoggerReportEventCallback(mock_callback);
+  EXPECT_EQ(nweb_impl_->logger_report_event_callback_, mock_callback);
+}
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(NWebImplTest, SetOnReportStatisticLogCallback001) {
+  nweb_impl_->SetOnReportStatisticLogCallback(nullptr);
+  EXPECT_EQ(nweb_impl_->on_report_statistic_log_callback_, nullptr);
+}
+#endif  // BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+
+TEST_F(NWebImplTest, PutAccessibilityEventCallback001) {
+  nweb_impl_->PutAccessibilityEventCallback(nullptr);
+}
+
+TEST_F(NWebImplTest, PutAccessibilityIdGenerator001) {
+  AccessibilityIdGenerateFunc func = +[]() { return 0L; };
+  nweb_impl_->PutAccessibilityIdGenerator(func);
+}
+
+TEST_F(NWebImplTest, ExecuteAction001) {
+  nweb_impl_->ExecuteAction(0, 0);
+}
+
+TEST_F(NWebImplTest, PerformAction001) {
+  std::map<std::string, std::string> args;
+  nweb_impl_->PerformAction(0, 0, args);
+}
+
+TEST_F(NWebImplTest, SetUrlTrustList001) {
+  int result = nweb_impl_->SetUrlTrustList("test_url_trust_list");
+  EXPECT_EQ(result, 0);
+}
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+TEST_F(NWebImplTest, OnSafeBrowsingDetectionResult001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  SafeBrowsingDetectionResult result;
+  nweb_impl_->OnSafeBrowsingDetectionResult(result);
+}
+
+TEST_F(NWebImplTest, OnSafeBrowsingDetectionResult002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  SafeBrowsingDetectionResult result;
+  EXPECT_CALL(*mock_delegate_, OnSafeBrowsingDetectionResult(::testing::_)).Times(1);
+  nweb_impl_->OnSafeBrowsingDetectionResult(result);
+}
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+TEST_F(NWebImplTest, SetBlankScreenDetectionConfig001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  std::vector<double> timing = {1.0, 2.0};
+  std::vector<int32_t> methods = {1, 2};
+  nweb_impl_->SetBlankScreenDetectionConfig(true, timing, methods, 10);
+}
+
+TEST_F(NWebImplTest, SetBlankScreenDetectionConfig002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  std::vector<double> timing = {1.0, 2.0};
+  std::vector<int32_t> methods = {1, 2};
+  EXPECT_CALL(*mock_delegate_, SetBlankScreenDetectionConfig(true, timing, methods, 10)).Times(1);
+  nweb_impl_->SetBlankScreenDetectionConfig(true, timing, methods, 10);
+}
+#endif  // BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+
+#if BUILDFLAG(ARKWEB_MEDIA_NETWORK_TRAFFIC_PROMPT)
+TEST_F(NWebImplTest, EnableMediaNetworkTrafficPrompt001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, EnableMediaNetworkTrafficPrompt(::testing::_)).Times(0);
+  nweb_impl_->EnableMediaNetworkTrafficPrompt(true);
+}
+
+TEST_F(NWebImplTest, EnableMediaNetworkTrafficPrompt002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, EnableMediaNetworkTrafficPrompt(true)).Times(1);
+  nweb_impl_->EnableMediaNetworkTrafficPrompt(true);
+}
+#endif  // BUILDFLAG(ARKWEB_MEDIA_NETWORK_TRAFFIC_PROMPT)
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+TEST_F(NWebImplTest, GetImageInfosByXPaths001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  std::vector<std::string> xpaths = {"//img[1]"};
+  EXPECT_CALL(*mock_delegate_, GetImageInfosByXPaths(xpaths, ::testing::_)).Times(0);
+  nweb_impl_->GetImageInfosByXPaths(xpaths, nullptr);
+}
+
+TEST_F(NWebImplTest, GetImageInfosByXPaths002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  std::vector<std::string> xpaths = {"//img[1]"};
+  EXPECT_CALL(*mock_delegate_, GetImageInfosByXPaths(xpaths, ::testing::_)).Times(1);
+  nweb_impl_->GetImageInfosByXPaths(xpaths, nullptr);
+}
+#endif  // BUILDFLAG(IS_ARKWEB_EXT)
+
+#if BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
+TEST_F(NWebImplTest, SetWholeWebDrawing001) {
+  nweb_impl_->SetWholeWebDrawing();
+}
+#endif  // BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
+
+#if BUILDFLAG(ARKWEB_AI)
+TEST_F(NWebImplTest, GetAgentManager001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  auto result = nweb_impl_->GetAgentManager();
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(NWebImplTest, GetAgentManager002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetAgentManager()).Times(1);
+  nweb_impl_->GetAgentManager();
+}
+#endif  // BUILDFLAG(ARKWEB_AI)
+
+#if BUILDFLAG(ARKWEB_SOFTKEYBOARD_AVOID)
+TEST_F(NWebImplTest, SetSoftKeyboardBehaviorMode001) {
+  nweb_impl_->SetSoftKeyboardBehaviorMode(WebSoftKeyboardBehaviorMode::DEFAULT);
+  EXPECT_EQ(nweb_impl_->keyboardBehaviorMode_, WebSoftKeyboardBehaviorMode::DEFAULT);
+  nweb_impl_->SetSoftKeyboardBehaviorMode(WebSoftKeyboardBehaviorMode::DISABLE_AUTO_KEYBOARD_ON_ACTIVE);
+  EXPECT_EQ(nweb_impl_->keyboardBehaviorMode_, WebSoftKeyboardBehaviorMode::DISABLE_AUTO_KEYBOARD_ON_ACTIVE);
+}
+#endif  // BUILDFLAG(ARKWEB_SOFTKEYBOARD_AVOID)
+
+#if BUILDFLAG(ARKWEB_CLIPBOARD)
+TEST_F(NWebImplTest, SetClipboardSitePermissionEnabled001) {
+  nweb_impl_->SetClipboardSitePermissionEnabled(true);
+  EXPECT_TRUE(nweb_impl_->IsClipboardSitePermissionEnabled());
+  nweb_impl_->SetClipboardSitePermissionEnabled(false);
+  EXPECT_FALSE(nweb_impl_->IsClipboardSitePermissionEnabled());
+}
+#endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
+
+#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
+TEST_F(NWebImplTest, PutLoggerCallback001) {
+  std::shared_ptr<NWebLoggerCallback> callback = nullptr;
+  nweb_impl_->PutLoggerCallback(callback);
+  nweb_impl_->RemoveLoggerCallback();
+}
+#endif  // BUILDFLAG(ARKWEB_LOGGER_REPORT)
+
+#if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
+TEST_F(NWebImplTest, SetOffscreenNWebId001) {
+  nweb_impl_->SetOffscreenNWebId(100);
+  EXPECT_EQ(nweb_impl_->off_screen_nweb_id_, 100u);
+  nweb_impl_->SetOffscreenNWebId(0);
+  EXPECT_EQ(nweb_impl_->off_screen_nweb_id_, 0u);
+}
+
+TEST_F(NWebImplTest, SetOnShowConfirmInfoBarCallback001) {
+  nweb_impl_->SetOnShowConfirmInfoBarCallback(nullptr);
+  EXPECT_EQ(nweb_impl_->on_show_confirm_info_bar_callback_, nullptr);
+  OnArkWebStaticShowConfirmInfoBarFunc func =
+      [](const char*, const char*, const char*, int, const char*, const char*) {};
+  nweb_impl_->SetOnShowConfirmInfoBarCallback(func);
+  EXPECT_NE(nweb_impl_->on_show_confirm_info_bar_callback_, nullptr);
+}
+
+TEST_F(NWebImplTest, SetOnHideConfirmInfoBarCallback001) {
+  nweb_impl_->SetOnHideConfirmInfoBarCallback(nullptr);
+  EXPECT_EQ(nweb_impl_->on_hide_confirm_info_bar_callback_, nullptr);
+}
+
+TEST_F(NWebImplTest, CancelConfirmInfoBar001) {
+  nweb_impl_->CancelConfirmInfoBar("test_extension_id");
+}
+#endif  // BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+TEST_F(NWebImplTest, GetTotalSize001) {
+  nweb_impl_->getTotalSize(0.0f);
+  EXPECT_FLOAT_EQ(nweb_impl_->totalSize_, 0.0f);
+  nweb_impl_->getTotalSize(1024.5f);
+  EXPECT_FLOAT_EQ(nweb_impl_->totalSize_, 1024.5f);
+}
+#endif  // BUILDFLAG(ARKWEB_DFX_DUMP)
+
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+TEST_F(NWebImplTest, LoadUrlWithParams001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  int result = nweb_impl_->LoadUrlWithParams(
+      "https://example.com", LOAD_TYPE_DEFAULT, "", "", "", true, 0);
+  EXPECT_EQ(result, NWEB_ERR);
+}
+
+TEST_F(NWebImplTest, LoadUrlWithParams002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, LoadUrlWithParams(
+      "https://example.com", LOAD_TYPE_DEFAULT, "", "", "", true, 0)).Times(1);
+  nweb_impl_->LoadUrlWithParams(
+      "https://example.com", LOAD_TYPE_DEFAULT, "", "", "", true, 0);
+}
+#endif  // BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+
+TEST_F(NWebImplTest, OnPause001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  nweb_impl_->OnPause();
+}
+
 }  // namespace OHOS::NWeb
