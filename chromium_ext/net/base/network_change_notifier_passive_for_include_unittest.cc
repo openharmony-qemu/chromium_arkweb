@@ -527,7 +527,7 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
   base::CommandLine::ForCurrentProcess()->RemoveSwitch(
       switches::kEnableNwebExHttpDnsFallback);
   ASSERT_NO_FATAL_FAILURE(
-      NetworkChangeNotifierPassiveUtils::SetDnsServers(GetNotifier()));
+      NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
 
   // 替换ohos_net_conn_adapter_为MockNetConnectAdapter
   auto adapter = new OHOS::NWeb::MockNetConnectAdapter();
@@ -541,7 +541,7 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kEnableNwebExHttpDnsFallback);
   ASSERT_NO_FATAL_FAILURE(
-      NetworkChangeNotifierPassiveUtils::SetDnsServers(GetNotifier()));
+      NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
 
   auto result = GetNotifier()->GetCurrentDnsServers();
   EXPECT_FALSE(result.empty());
@@ -574,19 +574,19 @@ TEST_F(NetworkChangeNotifierPassiveExtTest, VpnListenerImpl_OnVpnLost) {
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
-TEST_F(NetworkChangeNotifierPassiveExtTest, SetNetAddrList) {
+TEST_F(NetworkChangeNotifierPassiveExtTest, NetworkChangeNotifierPassiveExtTest) {
   std::vector<std::string> new_addr_list = {
     "192.168.1.1",
     "10.20.20.1"
   };
-  GetNotifier()->SetNetAddrList(new_addr_list);
-  auto addr_list = GetNotifier()->GetCurrentNetAddrList();
+  GetNotifier()->SetAddrListForBindedNetwork(new_addr_list);
+  auto addr_list = GetNotifier()->GetDefaultAddrList();
   EXPECT_EQ(addr_list.size(), 2u);
   EXPECT_EQ(addr_list[0], "192.168.1.1");
 
   // clear
-  GetNotifier()->SetNetAddrList({});
-  auto list = GetNotifier()->GetCurrentNetAddrList();
+  GetNotifier()->SetAddrListForBindedNetwork({});
+  auto list = GetNotifier()->GetDefaultAddrList();
   EXPECT_TRUE(list.empty());
 }
 #endif
