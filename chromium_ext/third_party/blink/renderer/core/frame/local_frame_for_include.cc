@@ -289,7 +289,7 @@ void LocalFrame::StartHighlightFadeTimer(base::TimeDelta delay) {
 }
 
 bool LocalFrame::ClearHighlight(const bool ignoreSetting) {
-  if (GetTextFragmentHandler() &&
+  if (View() && GetTextFragmentHandler() &&
       (ignoreSetting ||
        (GetSettings() && GetSettings()->GetArkwebAgentEnabled()))) {
     GetTextFragmentHandler()->RemoveFragments();
