@@ -62,6 +62,8 @@ class SkFontMgr_OHOS : public SkFontMgr {
   virtual void onInvalidateThemeFont(const std::vector<int>& fds) override;
 #endif
 
+  virtual void onPrepareFontConfig() override;
+
  private:
   std::shared_ptr<FontConfig_OHOS> fontConfig =
       nullptr;                         // the pointer of FontConfig_OHOS

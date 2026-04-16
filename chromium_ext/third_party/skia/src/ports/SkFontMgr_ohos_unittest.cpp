@@ -13,6 +13,9 @@
  * limitations under the License.	
  */
 
+#include "base/task/single_thread_task_runner.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "arkweb/chromium_ext/components/services/font_data/public/mojom/font_data_service.mojom.h"
 #define private public
 #define protected public
 #include "SkFontMgr_ohos.h"

@@ -13,14 +13,29 @@
 #include "SkFontMgr_ohos.h"
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/logging.h"
+#include "base/task/single_thread_task_runner.h"
 #include "include/core/SkFontStyle.h"
 #include "include/core/SkString.h"
 #include "src/ports/SkFontScanner_FreeType_priv.h"
+#include "content/public/child/child_thread.h"
 
 using namespace ErrorCode;
 
 SkString OHOS_FONT_INSTALL_DIR("/data/service/el1/public/for-all-app/fonts/");
 static const char* OHOS_DEFAULT_CONFIG = "/system/etc/fontconfig.json";
+static const char* FAMILY = "family";
+static const char* FAMILY_NOTDEF= "HarmonyOS Sans Notdef";
+static const char* NOTDEF = "notdef";
+static const char* ALIAS = "alias";
+static const char* LANG = "zh-Hans";
+static const char* FAMILY_HYQiHEI = "HYQiHei L3";
+
+// Binds a pending receiver. Must be invoked from the main thread.
+void BindHostReceiverOnMainThread(
+    mojo::PendingReceiver<font_data_service::mojom::FontDataService>
+        pending_receiver) {
+  content::ChildThread::Get()->BindHostReceiver(std::move(pending_receiver));
+}
 
 /*! Constructor
  * \param fontScanner the scanner to get the font information from a font file
@@ -31,17 +46,7 @@ static const char* OHOS_DEFAULT_CONFIG = "/system/etc/fontconfig.json";
 FontConfig_OHOS::FontConfig_OHOS(const SkFontScanner& fontScanner,
                                  const char* fname)
 {
-  if (!base::ohos::IsMobileDevice() && checkNewFontengineISOK()) {
-    LOG(DEBUG) << "The program follows the latest font engine path.";
-    buildNameToFamilyMap();
-    buildStyleNameToFamilyMap(OHOS::NWeb::ArkWeb_Drawing_SystemFontType::STYLISH);
-    for (const auto& dir : fontDirSet) {
-      scanFonts(fontScanner, dir, false);
-    }
-    if (base::ohos::IsTabletDevice() || base::ohos::IsPcDevice()) {
-      scanFonts(fontScanner, OHOS_FONT_INSTALL_DIR, true);
-    }
-  } else {
+  if (base::ohos::IsMobileDevice()) {
     LOG(DEBUG) << "The program follows the old font engine path.";
     int err = parseConfig(fname);
     if (err != NO_ERROR) {
@@ -71,6 +76,122 @@ int FontConfig_OHOS::checkNewFontengineISOK()
         fontconfig = nullptr;
         return 1;
     }
+}
+
+
+void FontConfig_OHOS::PrepareFontConfig(const SkFontScanner& fontScanner) {
+  if (base::ohos::IsMobileDevice()) {
+    return;
+  }
+  main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+  LOG(DEBUG) << "The program follows the latest font engine path.";
+  font_data_service::mojom::FontConfigInfoPtr match_result;
+  GetRemoteFontDataService().GetFontConfigInfo(&match_result);
+  if (match_result) {
+    buildNameToFamilyMap(std::move(match_result));
+  } else {
+    int err = parseConfig(nullptr);
+    if (err != NO_ERROR) {
+      LOG(ERROR)<<"FontConfig_OHOS err != NO_ERROR";
+      return;
+    }
+  }
+  buildStyleNameToFamilyMap(OHOS::NWeb::ArkWeb_Drawing_SystemFontType::STYLISH);
+  for (const auto& dir : fontDirSet) {
+    scanFonts(fontScanner, dir, false);
+  }
+  if (base::ohos::IsTabletDevice() || base::ohos::IsPcDevice()) {
+    scanFonts(fontScanner, OHOS_FONT_INSTALL_DIR, true);
+  }
+  resetGenericValue();
+  resetFallbackValue();
+}
+
+font_data_service::mojom::FontDataService&
+FontConfig_OHOS::GetRemoteFontDataService() const {
+  mojo::Remote<font_data_service::mojom::FontDataService>& remote =
+      font_data_service_slot_.GetOrCreateValue();
+  if (!remote) {
+    if (main_task_runner_->RunsTasksInCurrentSequence()) {
+      BindHostReceiverOnMainThread(remote.BindNewPipeAndPassReceiver());
+    } else {
+      main_task_runner_->PostTask(
+          FROM_HERE, base::BindOnce(&BindHostReceiverOnMainThread,
+                                    remote.BindNewPipeAndPassReceiver()));
+    }
+  }
+  return *remote;
+}
+
+/*! To build name to genericFamilySet and fallbackSet
+ */
+void FontConfig_OHOS::buildNameToFamilyMap(font_data_service::mojom::FontConfigInfoPtr fontconfig) {
+  if (!fontconfig) {
+    LOG(ERROR) << "the font configuration class was empty.";
+    return;
+  }
+  for (int i = 0; i < fontconfig->fontDirSize; ++i) {
+    fontDirSet.push_back(SkString(fontconfig->fontDirSet[i]));
+  }
+  for (int i = 0; i < fontconfig->fontGenericInfoSize; i++) {
+    auto familyName = fontconfig->fontGenericInfoSet[i]->familyName;
+    std::vector<AliasInfo> aliasSet;
+    for (int j = 0; j < fontconfig->fontGenericInfoSet[i]->aliasInfoSize; j++) {
+      auto weight = fontconfig->fontGenericInfoSet[i]->aliasInfoSet[j]->weight;
+      auto innerFamilyName =
+          fontconfig->fontGenericInfoSet[i]->aliasInfoSet[j]->familyName;
+      std::unique_ptr<GenericFamily> genericFamily =
+          std::make_unique<GenericFamily>();
+      genericFamily->familyName = SkString(innerFamilyName);
+      if (aliasSet.size() == 0 || weight > 0) {
+        genericFamily->typefaceSet = std::make_shared<TypefaceSet>();
+      } else {
+        int index = aliasSet[0].pos;
+        genericFamily->typefaceSet = genericFamilySet[index]->typefaceSet;
+      }
+      genericNames.set(SkString(genericFamily->familyName),
+                       genericFamilySet.size());
+      AliasInfo info = {static_cast<int>(genericFamilySet.size()), weight};
+      aliasSet.emplace_back(std::move(info));
+      genericFamilySet.emplace_back(std::move(genericFamily));
+    }
+
+    if (aliasSet.size()) {
+      aliasMap.set(SkString(familyName), aliasSet);
+    }
+    std::vector<AdjustInfo> adjustSet;
+    for (int j = 0; j < fontconfig->fontGenericInfoSet[i]->adjustInfoSize; j++) {
+      auto weight = fontconfig->fontGenericInfoSet[i]->adjustInfoSet[j]->weight;
+      auto to = fontconfig->fontGenericInfoSet[i]->adjustInfoSet[j]->to;
+      AdjustInfo info = {weight, to};
+      adjustSet.push_back(info);
+    }
+
+    if (adjustSet.size()) {
+      adjustMap.set(SkString(familyName), adjustSet);
+    }
+  }
+  for (int i = 0; i < fontconfig->fallbackGroupSize; i++) {
+    unsigned int startPos = fallbackSet.size();
+    SkString fallbackFor("");
+    for (int j = 0; j < fontconfig->fallbackGroupSet[i]->fallbackInfoSize; j++) {
+      auto langs = fontconfig->fallbackGroupSet[i]->fallbackInfoSet[j]->language;
+      auto familyName =
+          fontconfig->fallbackGroupSet[i]->fallbackInfoSet[j]->familyName;
+
+      std::unique_ptr<FallbackInfo> fallback = std::make_unique<FallbackInfo>();
+      if (langs) {
+        fallback->langs = SkString(langs.value());
+      }
+      fallback->familyName = SkString(familyName);
+      fallback->typefaceSet = std::make_shared<TypefaceSet>();
+      fallbackNames.set(SkString(familyName), fallbackSet.size());
+      fallbackSet.emplace_back(std::move(fallback));
+    }
+    FallbackSetPos setPos = {startPos,
+                             (unsigned int)(fallbackSet.size() - startPos)};
+    fallbackForMap.set(fallbackFor, setPos);
+  }
 }
 
 /*! To build name to genericFamilySet and fallbackSet
@@ -594,6 +715,16 @@ int FontConfig_OHOS::parseConfig(const char* fname)
                     Json::objectValue, arr[i].type());
             }
         }
+        if (!base::ohos::IsMobileDevice()) {
+          Json::Value attr;
+          attr[FAMILY] = FAMILY_NOTDEF;
+          Json::Value alias(Json::arrayValue);
+          Json::Value aliasValue(Json::objectValue);
+          aliasValue[NOTDEF] = 0;
+          alias.append(aliasValue);
+          attr[ALIAS] = alias;
+          parseGeneric(attr);
+        }
     }
     root.clear();
     return NO_ERROR;
@@ -809,6 +940,11 @@ int FontConfig_OHOS::parseFallback(const Json::Value& root)
             continue;
         }
         parseFallbackItem(fallbackArr[i]);
+    }
+    if (!base::ohos::IsMobileDevice()) {
+      Json::Value attr;
+      attr[LANG] = FAMILY_HYQiHEI;
+      parseFallbackItem(attr);
     }
     FallbackSetPos setPos = {startPos, (unsigned int)(fallbackSet.size() - startPos)};
     fallbackForMap.set(fallbackFor, setPos);

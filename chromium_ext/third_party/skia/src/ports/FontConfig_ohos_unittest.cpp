@@ -15,6 +15,9 @@
 
 #include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_drawing_text_adapter.h"
+#include "base/task/single_thread_task_runner.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "arkweb/chromium_ext/components/services/font_data/public/mojom/font_data_service.mojom.h"
 #define private public
 #include "third_party/skia/src/ports/FontConfig_ohos.h"
 #include "src/ports/SkFontScanner_FreeType_priv.h"
