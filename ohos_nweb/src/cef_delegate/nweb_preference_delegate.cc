@@ -59,6 +59,11 @@ enum class WebScrollType : int32_t {
   EVENT = 0,
 };
 
+enum class WebNightMode : int32_t {
+  OFF = 0,
+  ON = 1,
+};
+
 int ConvertCacheMode(NWebPreference::CacheModeFlag flag) {
   switch (flag) {
     case NWebPreference::CacheModeFlag::USE_CACHE_ELSE_NETWORK:
@@ -210,6 +215,10 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
       ForceDarkModeEnabled() ? STATE_ENABLED : STATE_DISABLED;
   browser_settings.dark_prefer_color_scheme_enabled =
       DarkSchemeEnabled() ? STATE_ENABLED : STATE_DISABLED;
+#endif
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  browser_settings.night_prefer_color_scheme_enabled =
+      NightSchemeEnabled() ? STATE_ENABLED : STATE_DISABLED;
 #endif
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   browser_settings.error_page_enabled = ErrorPageEnabled();
@@ -828,6 +837,30 @@ int NWebPreferenceDelegate::DarkSchemeEnabled() {
   return dark_prefer_color_scheme_enabled_;
 }
 // #endif
+
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+bool NWebPreferenceDelegate::NightSchemeEnabled() {
+  return night_prefer_color_scheme_enabled_;
+}
+
+void NWebPreferenceDelegate::SetNightMode(int32_t mode)  {
+  bool enabled = false;
+  if (mode == static_cast<int32_t>(WebNightMode::ON)) {
+    enabled = true;
+  } else if (mode == static_cast<int32_t>(WebNightMode::OFF)) {
+    enabled = false;
+  } else {
+    LOG(ERROR) << "NWebPreferenceDelegate::SetNightMode failed, mode is invalid";
+    return;
+  }
+  if (enabled == night_prefer_color_scheme_enabled_) {
+    return;
+  }
+
+  night_prefer_color_scheme_enabled_ = enabled;
+  WebPreferencesChanged();
+}
+#endif
 
 bool NWebPreferenceDelegate::IsCreateWindowsByJavaScriptAllowed() {
   return create_windows_by_javascript_allowed_;

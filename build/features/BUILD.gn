@@ -191,6 +191,7 @@ if (!enable_arkweb) {
   arkweb_network_base = false
   arkweb_network_service = false
   arkweb_network_dfx = false
+  arkweb_night_mode = false
   arkweb_no_state_prefetch = true
   arkweb_optimize_parser_budget = false
   arkweb_page_up_down = false
@@ -472,6 +473,7 @@ buildflag_header("features") {
     "ARKWEB_NETWORK_BASE=$arkweb_network_base",
     "ARKWEB_NETWORK_SERVICE=$arkweb_network_service",
     "ARKWEB_NETWORK_DFX=$arkweb_network_dfx",
+    "ARKWEB_NIGHT_MODE=$arkweb_night_mode",
     "ARKWEB_NO_STATE_PREFETCH=$arkweb_no_state_prefetch",
     "ARKWEB_PAGE_UP_DOWN=$arkweb_page_up_down",
     "ARKWEB_PASSWORD_AUTOFILL=$arkweb_password_autofill",

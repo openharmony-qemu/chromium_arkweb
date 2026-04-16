@@ -87,6 +87,16 @@
   }
 #endif
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  void SetNightModeEnabled(bool enabled) {
+    night_mode_enabled_ = enabled;
+  }
+
+  bool GetNightModeEnabled() const {
+    return night_mode_enabled_;
+  }
+#endif
+
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
   void SetCustomVideoPlayerEnabled(bool enable) {
     custom_video_player_enabled_ = enable;

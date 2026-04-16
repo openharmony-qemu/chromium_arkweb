@@ -120,6 +120,7 @@ declare_args() {
   arkweb_network_base = true
   arkweb_network_service = true
   arkweb_network_dfx = true
+  arkweb_night_mode = true
   arkweb_no_state_prefetch = true
   arkweb_page_up_down = true
   arkweb_password_autofill = true

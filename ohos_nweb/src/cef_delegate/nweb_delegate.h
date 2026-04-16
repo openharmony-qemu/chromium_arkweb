@@ -622,6 +622,9 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void SetFitContentMode(int32_t mode) override;
   std::string GetCurrentLanguage() override;
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  void SetNightMode(int32_t mode) override;
+#endif
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   void SetNativeInnerWeb(bool isInnerWeb) override;
   bool GetNativeEmbedMode() override;

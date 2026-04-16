@@ -2114,6 +2114,16 @@ void NWebImpl::SetDrawMode(int mode) {
   }
 }
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+void NWebImpl::SetNightMode(int32_t mode) {
+  WVLOG_I("NWebImpl::SetNightMode %{public}d, nweb_id = %{public}u", mode,
+          nweb_id_);
+  if (nweb_delegate_) {
+    nweb_delegate_->SetNightMode(mode);
+  }
+}
+#endif
+
 bool NWebImpl::GetPendingSizeStatus() {
   if (nweb_delegate_) {
     return nweb_delegate_->GetPendingSizeStatus();

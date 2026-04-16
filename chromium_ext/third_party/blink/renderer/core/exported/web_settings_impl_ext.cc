@@ -80,6 +80,12 @@ bool WebSettingsImplExt::GetIsSystemRtlEnabled() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+void WebSettingsImplExt::SetNightModeEnabled(bool enabled) {
+  settings_->SetNightModeEnabled(enabled);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_ZOOM)
 void WebSettingsImplExt::SetTextZoomFactor(float factor) {
   settings_->SetTextZoomFactor(factor);

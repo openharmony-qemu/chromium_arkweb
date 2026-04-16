@@ -66,6 +66,9 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (std::shared_ptr<NWebAppClientExtensionCallback>
                    web_app_client_extension_listener),
               (override));
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  MOCK_METHOD(void, SetNightMode, (int32_t mode), (override));
+#endif
 #if BUILDFLAG(ARKWEB_AI)
   MOCK_METHOD(void,
               RegisterNWebAgentHandler,

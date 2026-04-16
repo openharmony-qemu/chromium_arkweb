@@ -63,6 +63,10 @@
   uint32_t scrollbar_color_ = 0;
 #endif
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  bool night_mode_enabled_ = false;
+#endif
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   bool video_assistant_enabled_ = false;
   bool custom_media_player_enabled_ = false;
