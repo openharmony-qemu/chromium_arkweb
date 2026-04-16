@@ -170,6 +170,7 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
   bool IsTextInputStateChange(const CefString& text,
                               const CefRange& selected_range,
                               const CefRange& compositon_range);
+  void NotifyInputMethodAttached();
   bool AttachToSystemIME(bool is_need_reset_listener, int32_t requestKeyboardReason = 0);
   void SetNeedReattach(HideTextinputType hideType);
   bool IsKeyboardShow() override;

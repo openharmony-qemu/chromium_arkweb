@@ -25,7 +25,9 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
+#include "cef/include/cef_client.h"
 #include "cef/include/cef_task.h"
+#include "cef/ohos_cef_ext/include/arkweb_client_ext.h"
 #include "content/public/browser/browser_thread.h"
 #include "nweb_imf_cursor_info_adapter_impl.h"
 #include "nweb_imf_input_attribute_adapter_impl.h"
@@ -392,6 +394,19 @@ void NWebInputMethodHandler::ComputeEditorInfo(InputInfo inputInfo,
   }
 }
 
+void NWebInputMethodHandler::NotifyInputMethodAttached() {
+  if (browser_ == nullptr || browser_->GetHost() == nullptr) {
+    return;
+  }
+
+  CefRefPtr<CefClient> client = browser_->GetHost()->GetClient();
+  if (client == nullptr || client->AsArkWebClient() == nullptr) {
+    return;
+  }
+
+  client->AsArkWebClient()->OnInputMethodAttached();
+}
+
 #if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
 void NWebInputMethodHandler::SetKeyboardImmersiveMode(int32_t mode) 
 {
@@ -457,6 +472,7 @@ bool NWebInputMethodHandler::AttachToSystemIME(bool is_need_reset_listener, int3
     fill_content_.clear();
   }
 #endif
+  NotifyInputMethodAttached();
   return true;
 }
 

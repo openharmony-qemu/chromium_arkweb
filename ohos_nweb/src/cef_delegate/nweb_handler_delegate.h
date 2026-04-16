@@ -1104,6 +1104,8 @@ class NWebHandlerDelegate : public ArkWebClientExt,
       CefRefPtr<CefRewriteUrlCallback> callback) override;
 #endif
 
+  void OnInputMethodAttached() override;
+
 #if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   void OnReceiveResponse(CefRefPtr<CefRequest> request,
                          bool is_request_gesture,

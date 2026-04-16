@@ -67,7 +67,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void GetOverScrollOffsetValue(float* offset_x, float* offset_y) override {}
 #endif
   bool HasView() override { return false; }
-  CefRefPtr<CefClient> GetClient() override { return nullptr; }
+  MOCK_METHOD(CefRefPtr<CefClient>, GetClient, (), (override));
   CefRefPtr<CefRequestContext> GetRequestContext() override { return nullptr; }
   double GetZoomLevel() override { return 0.0; }
   void SetZoomLevel(double zoomLevel) override {}
@@ -779,6 +779,21 @@ class MockIMFAdapterImpl : public IMFAdapter {
               OnSelectionChange,
               (std::u16string text, int start, int end),
               (override));
+};
+
+class MockArkWebClientExt : public ArkWebClientExt {
+ public:
+  MockArkWebClientExt() = default;
+  ~MockArkWebClientExt() override = default;
+
+  CefRefPtr<ArkWebClientExt> AsArkWebClient() override { return this; }
+
+  void AddRef() const override {}
+  bool Release() const override { return false; }
+  bool HasOneRef() const override { return false; }
+  bool HasAtLeastOneRef() const override { return false; }
+
+  MOCK_METHOD(void, OnInputMethodAttached, (), (override));
 };
 
 class NWebInputMethodHandlerTest : public testing::Test {
@@ -3138,5 +3153,85 @@ TEST_F(NWebInputMethodHandlerTest, HandleExtendAction) {
   inputmethod_handler_->HandleExtendAction(action);
   inputmethod_handler_->HandleExtendActionOnUI(action);
   EXPECT_NE(inputmethod_handler_->browser_, nullptr);
+}
+
+TEST_F(NWebInputMethodHandlerTest, NotifyInputMethodAttached_001) {
+  inputmethod_handler_->browser_ = nullptr;
+  inputmethod_handler_->NotifyInputMethodAttached();
+  EXPECT_EQ(inputmethod_handler_->browser_, nullptr);
+}
+
+TEST_F(NWebInputMethodHandlerTest, NotifyInputMethodAttached_002) {
+  CefRefPtr<MockCefBrowserHost> mockHost = new MockCefBrowserHost();
+  testing::Mock::AllowLeak(mockHost.get());
+  std::unique_ptr<MockCefBrowser> mock_browser =
+      std::make_unique<MockCefBrowser>(mockHost);
+  testing::Mock::AllowLeak(mock_browser.get());
+  auto browser = CefRefPtr<MockCefBrowser>(mock_browser.release());
+  inputmethod_handler_->browser_ = browser;
+
+  EXPECT_CALL(*browser, GetHost()).WillOnce(testing::Return(nullptr));
+  inputmethod_handler_->NotifyInputMethodAttached();
+}
+
+TEST_F(NWebInputMethodHandlerTest, NotifyInputMethodAttached_003) {
+  CefRefPtr<MockCefBrowserHost> mockHost = new MockCefBrowserHost();
+  testing::Mock::AllowLeak(mockHost.get());
+  std::unique_ptr<MockCefBrowser> mock_browser =
+      std::make_unique<MockCefBrowser>(mockHost);
+  testing::Mock::AllowLeak(mock_browser.get());
+  auto browser = CefRefPtr<MockCefBrowser>(mock_browser.release());
+  inputmethod_handler_->browser_ = browser;
+
+  CefRefPtr<ArkWebBrowserHostExt> arkweb_host(mockHost.get());
+  EXPECT_CALL(*browser, GetHost()).WillRepeatedly(testing::Return(arkweb_host));
+  EXPECT_CALL(*mockHost, GetClient()).WillOnce(testing::Return(nullptr));
+  inputmethod_handler_->NotifyInputMethodAttached();
+}
+
+TEST_F(NWebInputMethodHandlerTest, NotifyInputMethodAttached_004) {
+  CefRefPtr<MockCefBrowserHost> mockHost = new MockCefBrowserHost();
+  testing::Mock::AllowLeak(mockHost.get());
+  std::unique_ptr<MockCefBrowser> mock_browser =
+      std::make_unique<MockCefBrowser>(mockHost);
+  testing::Mock::AllowLeak(mock_browser.get());
+  auto browser = CefRefPtr<MockCefBrowser>(mock_browser.release());
+  inputmethod_handler_->browser_ = browser;
+
+  class PlainCefClient : public CefClient {
+   public:
+    void AddRef() const override {}
+    bool Release() const override { return false; }
+    bool HasOneRef() const override { return false; }
+    bool HasAtLeastOneRef() const override { return false; }
+  };
+  CefRefPtr<CefClient> plain_client = new PlainCefClient();
+  testing::Mock::AllowLeak(plain_client.get());
+
+  CefRefPtr<ArkWebBrowserHostExt> arkweb_host(mockHost.get());
+  EXPECT_CALL(*browser, GetHost()).WillRepeatedly(testing::Return(arkweb_host));
+  EXPECT_CALL(*mockHost, GetClient()).WillOnce(testing::Return(plain_client));
+  inputmethod_handler_->NotifyInputMethodAttached();
+}
+
+TEST_F(NWebInputMethodHandlerTest, NotifyInputMethodAttached_005) {
+  CefRefPtr<MockCefBrowserHost> mockHost = new MockCefBrowserHost();
+  testing::Mock::AllowLeak(mockHost.get());
+  std::unique_ptr<MockCefBrowser> mock_browser =
+      std::make_unique<MockCefBrowser>(mockHost);
+  testing::Mock::AllowLeak(mock_browser.get());
+  auto browser = CefRefPtr<MockCefBrowser>(mock_browser.release());
+  inputmethod_handler_->browser_ = browser;
+
+  CefRefPtr<MockArkWebClientExt> mock_client = new MockArkWebClientExt();
+  testing::Mock::AllowLeak(mock_client.get());
+
+  CefRefPtr<ArkWebBrowserHostExt> arkweb_host(mockHost.get());
+  EXPECT_CALL(*browser, GetHost()).WillRepeatedly(testing::Return(arkweb_host));
+  EXPECT_CALL(*mockHost, GetClient())
+      .WillOnce(testing::Return(
+          static_cast<CefRefPtr<CefClient>>(mock_client.get())));
+  EXPECT_CALL(*mock_client, OnInputMethodAttached()).Times(1);
+  inputmethod_handler_->NotifyInputMethodAttached();
 }
 }  // namespace OHOS::NWeb

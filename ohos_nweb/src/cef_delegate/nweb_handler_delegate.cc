@@ -6269,6 +6269,13 @@ void NWebHandlerDelegate::OnRewriteUrlForNavigationAsync(
 }
 #endif
 
+void NWebHandlerDelegate::OnInputMethodAttached()
+{
+  if (nweb_handler_) {
+    nweb_handler_->OnInputMethodAttached();
+  }
+}
+
 #if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
 
 static std::atomic<int> nweb_resource_request_new_key = 0;
