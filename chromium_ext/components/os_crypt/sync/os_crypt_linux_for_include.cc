@@ -17,8 +17,21 @@
 #include "arkweb/chromium_ext/components/os_crypt/sync/os_crypt_linux_for_include.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_ENCRYPT)
+#include "base/containers/span.h"
+#include "components/os_crypt/sync/os_crypt.h"
+#include "crypto/openssl_util.h"
+#include "third_party/boringssl/src/include/openssl/aes.h"
+#include "third_party/boringssl/src/include/openssl/evp.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
 #include "content/public/browser/browser_thread.h"
+#endif
+
+#if BUILDFLAG(ARKWEB_ENCRYPT)
+#define GCM_TAG_SIZE 16
+#define GCM_IV_SIZE 12
 #endif
 
 namespace {
@@ -294,3 +307,214 @@ bool DecryptWithIvForInclude(const std::string& raw_ciphertext,
   }
   return false;
 }
+
+#if BUILDFLAG(ARKWEB_ENCRYPT)
+namespace crypto {
+
+namespace {
+  bool IsValidKeySize(size_t key_size_in_bytes) {
+  // Nobody should ever be using other symmetric key sizes without consulting
+  // with CRYPTO_OWNERS first, who can modify this check if need be.
+  return key_size_in_bytes == 16 || key_size_in_bytes == 32;
+}
+
+const EVP_CIPHER* GetCipherForKey(const SymmetricKey* key) {
+  switch (key->key().length()) {
+    case 16: return EVP_aes_128_cbc();
+    case 32: return EVP_aes_256_cbc();
+    default:
+      return nullptr;
+  }
+}
+
+const EVP_CIPHER* GetCipherForKeyGCM(const SymmetricKey* key) {
+  switch (key->key().length()) {
+    case 16:
+      return EVP_aes_128_gcm();
+    case 32:
+      return EVP_aes_256_gcm();
+    default:
+      return nullptr;
+  }
+}
+} // namespace
+
+SymmetricKey::SymmetricKey(base::span<const uint8_t> key_bytes)
+    : key_(base::as_string_view(key_bytes)) {}
+
+SymmetricKey::SymmetricKey(const SymmetricKey& other) = default;
+SymmetricKey& SymmetricKey::operator=(const SymmetricKey& other) = default;
+
+SymmetricKey::~SymmetricKey() {
+  std::fill(key_.begin(), key_.end(), '\0');  // Zero out the confidential key.
+}
+
+// static
+std::unique_ptr<SymmetricKey> SymmetricKey::Import(Algorithm,
+                                                   const std::string& raw_key) {
+  if (!IsValidKeySize(raw_key.size())) {
+    return nullptr;
+  }
+  return std::make_unique<SymmetricKey>(base::as_byte_span(raw_key));
+}
+
+Encryptor::Encryptor() : key_(nullptr), mode_(CBC) {}
+
+Encryptor::~Encryptor() = default;
+
+bool Encryptor::Init(const SymmetricKey* key, Mode mode, std::string_view iv) {
+  return Init(key, mode, base::as_bytes(base::span(iv)));
+}
+
+bool Encryptor::Init(const SymmetricKey* key,
+                     Mode mode,
+                     base::span<const uint8_t> iv) {
+  DCHECK(key);
+  DCHECK(mode == CBC || mode == CTR || mode == GCM);
+
+  if (mode == CBC && iv.size() != AES_BLOCK_SIZE)
+    return false;
+  // CTR mode passes the starting counter separately, via SetCounter().
+  if (mode == CTR && !iv.empty())
+    return false;
+
+  if (GetCipherForKey(key) == nullptr)
+    return false;
+
+  if (mode == GCM && iv.size() != GCM_IV_SIZE) {
+    return false;
+  }
+
+  key_ = key;
+  mode_ = mode;
+  iv_.assign(iv.begin(), iv.end());
+  return true;
+}
+
+bool Encryptor::Decrypt(std::string_view ciphertext, std::string* plaintext) {
+  return CryptString(/*do_encrypt=*/false, ciphertext, plaintext);
+}
+
+bool Encryptor::CryptString(bool do_encrypt,
+                            std::string_view input,
+                            std::string* output) {
+  std::string result(MaxOutput(do_encrypt, input.size()), '\0');
+
+  std::optional<size_t> len;
+  std::string tag(GCM_TAG_SIZE, 0);
+  if (mode_ == GCM) {
+    // only support DecryptGCM
+    if (do_encrypt) {
+      return false;
+    } else {
+      // Get the tag that we attached with cipher during encryption from input
+      if (input.length() <= GCM_TAG_SIZE) {
+        LOG(WARNING) << "input size less than gcm tag size";
+        return false;
+      }
+
+      tag = std::string(
+          input.substr(input.length() - GCM_TAG_SIZE, GCM_TAG_SIZE));
+      // Get the cipher part only from input
+      std::string ciphertext =
+          std::string(input.substr(0, input.length() - GCM_TAG_SIZE));
+      const size_t output_size = ciphertext.length();
+      if (output_size + 1 <= ciphertext.length()) {
+        LOG(WARNING) << "output size occur overflow";
+        return false;
+      }
+      len = DecryptGCM(ciphertext,
+                       base::as_writable_bytes(base::span(result)), &tag);
+    }
+  } else {
+    return false;
+  }
+
+  if (!len)
+    return false;
+
+  result.resize(*len);
+
+  // concat tag with cipher at the end.
+  if (mode_ == GCM && do_encrypt) {
+    result += tag;
+  }
+
+  *output = std::move(result);
+  return true;
+}
+
+size_t Encryptor::MaxOutput(bool do_encrypt, size_t length) {
+  size_t result = length + ((do_encrypt && mode_ == CBC)   ? 16
+                            : (do_encrypt && mode_ == GCM) ? 12
+                                                           : 0);
+
+  CHECK_GE(result, length);  // Overflow
+  return result;
+}
+
+std::optional<size_t> Encryptor::DecryptGCM(const std::string& input,
+                                             base::span<uint8_t> output,
+                                             std::string* tag) {
+  DCHECK(key_);
+  DCHECK(output.data());
+
+  const EVP_CIPHER* cipher = GetCipherForKeyGCM(key_);
+  DCHECK(cipher);
+
+  const std::string& key = key_->key();
+  DCHECK_EQ(EVP_CIPHER_iv_length(cipher), iv_.size());
+  DCHECK_EQ(EVP_CIPHER_key_length(cipher), key.size());
+
+  OpenSSLErrStackTracer err_tracer(FROM_HERE);
+  bssl::ScopedEVP_CIPHER_CTX ctx;
+
+  /* Initialise the decryption process */
+  if (!EVP_DecryptInit_ex(ctx.get(), cipher, nullptr, nullptr, nullptr)) {
+    return std::nullopt;
+  }
+
+  /* Set the IV length */
+  if (!EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_IVLEN, iv_.size(),
+                           nullptr)) {
+    return std::nullopt;
+  }
+
+  /* Initialise Key and IV */
+  if (!EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr,
+                          reinterpret_cast<const uint8_t*>(key.data()),
+                          iv_.data())) {
+    return std::nullopt;
+  }
+
+  int out_len;
+
+  /* Provide the cipher text and get the output as plaintext */
+  if (!EVP_DecryptUpdate(ctx.get(), output.data(), &out_len,
+                         reinterpret_cast<const uint8_t*>(input.data()),
+                         input.length())) {
+    return std::nullopt;
+  }
+
+  /* Set expected tag which is used during encryption */
+  if (!EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_TAG, GCM_TAG_SIZE,
+                           (void*)tag->data())) {
+    return std::nullopt;
+  }
+  /* Finalise the decryption. If plaintext is not trustworthy then
+   * it return as failure.
+   */
+  int len;
+  int ret = EVP_DecryptFinal_ex(ctx.get(), output.data() + out_len, &len);
+  if (ret > 0) {
+    out_len += len;
+  } else {
+    return std::nullopt;
+  }
+
+  DCHECK_LE(out_len, static_cast<int>(input.length()));
+
+  return out_len;
+}
+} // namespace crypto
+#endif
