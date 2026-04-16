@@ -20,7 +20,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/extensions/info_bar/nweb_extension_install_info_bar_dispatcher.h"
+#include "ohos_nweb_ex/core/extension/nweb_extension_install_info_bar_dispatcher.h"
 #endif // BUILDFLAG(ARKWEB_NWEB_EX)
 
 namespace ohos {
