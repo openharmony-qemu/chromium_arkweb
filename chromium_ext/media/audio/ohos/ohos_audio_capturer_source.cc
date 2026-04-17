@@ -74,8 +74,14 @@ void OHOSAudioCapturerSource::Initialize(
   capturerOptions->SetSampleFormat(AudioAdapterSampleFormat::SAMPLE_S16LE);
   capturerOptions->SetChannels(
       static_cast<AudioAdapterChannel>(params_.channels()));
-  capturerOptions->SetSourceType(
-      AudioAdapterSourceType::SOURCE_TYPE_VOICE_COMMUNICATION);
+  OHOS::NWeb::AudioAdapterSourceType source_type;
+  if (params_.effects() & media::AudioParameters::ECHO_CANCELLER) {
+    source_type = OHOS::NWeb::AudioAdapterSourceType::SOURCE_TYPE_VOICE_COMMUNICATION;
+  } else {
+    source_type = OHOS::NWeb::AudioAdapterSourceType::SOURCE_TYPE_MIC;
+    LOG(WARNING) << "[webrtc_logging]OHOSAudioCapturerSource::Initialize, effects disable ECHO_CANCELLER";
+  }
+  capturerOptions->SetSourceType(source_type);
   capturerOptions->SetCapturerFlags(0);
 
   capturer_->Create(capturerOptions);
