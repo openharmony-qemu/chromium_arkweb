@@ -26,6 +26,10 @@
 #include "arkweb/ohos_nweb/src/sysevent/event_reporter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
+#if defined(OS_OHOS)
+#include "arkweb/chromium_ext/content/common/hicollie_freeze_reporter/hicollie_freeze_reporter.h"
+#endif
+
 namespace gpu {
 constexpr int32_t TEST_LOOP = 1000;
 constexpr int32_t TEST_SLEEP = 40;
@@ -48,6 +52,10 @@ std::string GetProcessName() {
 void LogGpuHungEvent(int32_t thread_type, int32_t count) {
   LOG(ERROR) << "gpu thread hung detected!! count " << count << " thread_type "
     << static_cast<int32_t>(thread_type);
+#if defined(OS_OHOS)
+  HicollieReporter::SetFreezeMessage("gpu thread freeze");
+  HicollieReporter::ReportFreezeToHicollie();
+#endif
   auto process_name = GetProcessName();
   auto packageName = OHOS::NWeb::OhosAdapterHelper::GetInstance()
     .GetSystemPropertiesInstance().GetBundleName();
@@ -62,6 +70,10 @@ bool IsHangTestEnabled(const std::string& thread_name) {
 }
 
 void ReportGpuFreeze() {
+#if defined(OS_OHOS)
+  HicollieReporter::SetFreezeMessage("gpu process freeze");
+  HicollieReporter::ReportFreezeToHicollie();
+#endif
   constexpr int32_t DUMP_DELAY = 2;
   auto process_name = GetProcessName();
   auto package_name = OHOS::NWeb::OhosAdapterHelper::GetInstance()
