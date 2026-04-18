@@ -420,6 +420,10 @@ if [ ${build_component} -eq 1 ]; then
   GN_ARGS="${GN_ARGS} is_component_build=true is_official_build=false is_debug=false"
 fi
 
+if [[ "${build_type}" != "rk3568" ]] && [ ${build_hwasan} -ne 1 ]; then
+  GN_ARGS="${GN_ARGS} v8_enable_drumbrake=true"
+fi
+
 # Extract ohos-sdk.
 if [ -f "src/ohos_sdk/.install" ]; then
   bash "src/ohos_sdk/.install"
