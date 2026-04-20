@@ -160,12 +160,16 @@ blink::WebNativeBridge* ArkwebMediaFactoryExt::CreateWebNativeBridge(
       return nullptr;
     }
     auto factory_selector = std::make_unique<media::RendererFactorySelector>();
-    gl::ohos::TextureOwnerMode texture_owner_mode = gl::ohos::TextureOwnerMode::kSameLayerNativeBuffer;
+    gl::ohos::TextureOwnerMode texture_owner_mode =
+        base::ohos::IsEmulator() || base::SysInfo::IsLowEndDevice()
+          ? gl::ohos::TextureOwnerMode::kNativeImageTexture
+          : gl::ohos::TextureOwnerMode::kSameLayerNativeBuffer;
     auto native_factory = std::make_unique<NativeRendererClientFactory>(
         render_thread_->compositor_task_runner(),
         base::BindRepeating(
           &NativeTextureWrapperImpl::Create,
-          false /*enable_texture_copy*/,
+          base::ohos::IsEmulator() ||
+              base::SysInfo::IsLowEndDevice() /*enable_texture_copy*/,
               texture_owner_mode, render_thread_->GetNativeTexureFactory(),
               render_frame_->GetTaskRunner(blink::TaskType::kInternalMedia)));
   
