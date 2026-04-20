@@ -55,6 +55,8 @@ class PaintLayerScrollableAreaExt : public PaintLayerScrollableArea {
   bool SetScrollbarAvoidAreaBottom(double margin);
   double GetScrollbarAvoidAreaTop() const override;
   double GetScrollbarAvoidAreaBottom() const override;
+  double GetScrollbarAvoidAreaTopOrigin() const ;
+  double GetScrollbarAvoidAreaBottomOrigin() const ;
 #endif  // ARKWEB_SCROLLBAR_AVOID_AREA
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
   bool HasScrollbarAvoidCorner() const override;

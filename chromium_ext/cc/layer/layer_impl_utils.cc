@@ -16,12 +16,12 @@
 #include "arkweb/chromium_ext/cc/layer/layer_impl_utils.h"
 
 #include "cc/layers/layer_impl.h"
+#include "components/viz/common/quads/shared_quad_state.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
-
 namespace cc {
 
 LayerImplUtils::LayerImplUtils(LayerImpl* layer_impl)
@@ -31,7 +31,8 @@ LayerImplUtils::LayerImplUtils(LayerImpl* layer_impl)
       may_contain_video_(false),
       native_embed_id_(false)
 #endif
-{}
+{
+}
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 void LayerImplUtils::LayerImplPushPropertiesTo(LayerImpl* layer) {
@@ -96,4 +97,30 @@ bool LayerImplUtils::ShouldInterceptTouchEvent() const {
   return should_intercept_touch_event_;
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_SCROLLBAR)
+void LayerImplUtils::PopulateSharedQuadStateForScrollLayer(
+    viz::SharedQuadState* state,
+    bool contents_opaque,
+    gfx::RRectF& rounded_corner_bounds) const {
+  EffectNode* effect_node =
+      layer_impl_->GetEffectTree().Node(layer_impl_->effect_tree_index());
+  std::optional<gfx::Rect> clip_rect;
+  if (layer_impl_->draw_properties().is_clipped) {
+    clip_rect = layer_impl_->draw_properties().clip_rect;
+  }
+  gfx::MaskFilterInfo mask_filter_info(rounded_corner_bounds);
+  state->SetAll(
+      layer_impl_->draw_properties().target_space_transform,
+      gfx::Rect(layer_impl_->bounds()),
+      layer_impl_->draw_properties().visible_layer_rect, mask_filter_info,
+      clip_rect, contents_opaque, layer_impl_->draw_properties().opacity,
+      effect_node->HasRenderSurface() ? SkBlendMode::kSrcOver
+                                      : effect_node->blend_mode,
+      layer_impl_->GetSortingContextId(),
+      static_cast<uint32_t>(layer_impl_->stable_id_for_shared_quad_state()),
+      layer_impl_->draw_properties().is_fast_rounded_corner);
+  state->is_fast_rounded_corner = true;
+}
+#endif  // BUILDFLAG(ARKWEB_SCROLLBAR)
 }  // namespace cc

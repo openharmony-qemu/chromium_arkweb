@@ -16,14 +16,17 @@
 #include "arkweb/build/features/features.h"
 #include "base/memory/raw_ptr.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/rrect_f.h"
 #define private public
 #include "arkweb/chromium_ext/cc/layer/layer_impl_utils.h"
 #undef private
 #include "arkweb/chromium_ext/cc/layer/layer_utils.h"
 #include "cc/layers/layer_impl.h"
 #include "cc/test/layer_tree_impl_test_base.h"
+#include "components/viz/common/quads/shared_quad_state.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/mask_filter_info.h"
 
 namespace cc {
 namespace {
@@ -106,6 +109,20 @@ TEST_F(LayerImplUtilsTest, NativeRect002) {
   utils_->may_contain_native_ = true;
   gfx::RectF result = utils_->NativeRect();
   EXPECT_EQ(result, utils_->native_rect_);
+}
+
+TEST_F(LayerImplUtilsTest, PopulateSharedQuadStateForScrollLayer_Basic) {
+  viz::SharedQuadState state;
+  gfx::RRectF rounded_corner_bounds(gfx::RectF(0, 0, 100, 100), 10.0f);
+
+  layer_impl_->SetBounds(gfx::Size(100, 100));
+
+  utils_->PopulateSharedQuadStateForScrollLayer(&state, true,
+                                                rounded_corner_bounds);
+
+  EXPECT_EQ(state.quad_layer_rect, gfx::Rect(100, 100));
+  EXPECT_TRUE(state.are_contents_opaque);
+  EXPECT_TRUE(state.is_fast_rounded_corner);
 }
 }  // namespace
 }  // namespace cc

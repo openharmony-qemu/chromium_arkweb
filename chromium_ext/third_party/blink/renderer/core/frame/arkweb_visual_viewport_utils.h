@@ -12,37 +12,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #ifndef ARKWEB_VISUAL_VIEWPORT_UTILS_H_
 #define ARKWEB_VISUAL_VIEWPORT_UTILS_H_
- 
+
 #include "arkweb/build/features/features.h"
+#include "cc/layers/solid_color_scrollbar_layer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/size.h"
+
 namespace blink {
- 
+
 class VisualViewport;
- 
+
 class ArkWebVisualViewportUtils final
     : public GarbageCollected<ArkWebVisualViewportUtils> {
  public:
-  explicit ArkWebVisualViewportUtils(VisualViewport* viewport = nullptr);
+  explicit ArkWebVisualViewportUtils(const VisualViewport* viewport = nullptr);
   ~ArkWebVisualViewportUtils();
- 
+
   ArkWebVisualViewportUtils(const ArkWebVisualViewportUtils&) = delete;
   ArkWebVisualViewportUtils& operator=(const ArkWebVisualViewportUtils&) =
       delete;
- 
+
   void TriggerUpdateAfterLayoutForNonOverlayScrollbar();
- 
+
   void Trace(Visitor* visitor) const;
- 
+  struct ScrollbarAvoidData {
+    double verticalTopAvoidArea;
+    double verticalBootomAvoidArea;
+    double horizontalBottomaAvoidRight;
+    double horizontalBottomaAvoidLeft;
+  };
+  ScrollbarAvoidData GetScrollbarAvoidData();
+  // Get scrollbar layer origin for RecordForeignLayer in Paint function
+  gfx::Point GetScrollbarLayerOrigin(bool is_horizontal,
+                                     int scrollbar_thickness);
+
+  // Get scrollbar layer bounds for SetBounds in UpdateScrollbarLayer
+  gfx::Size GetScrollbarLayerBounds(bool is_horizontal,
+                                    int scrollbar_thickness);
+
+  // Setup overlay visual scrollbar layer after creation
+  void SetupOverlayVisualScrollbarLayer(cc::SolidColorScrollbarLayer& layer,
+                                        cc::Layer* scroll_layer);
+
+  // Update scrollbar color based on color scheme
+  void UpdateScrollbarColorForLayer(cc::SolidColorScrollbarLayer& layer);
+
  private:
-  Member<VisualViewport> viewport_;
+  Member<const VisualViewport> viewport_;
 };
- 
+
 }  // namespace blink
- 
+
 #endif  // ARKWEB_VISUAL_VIEWPORT_UTILS_H_
