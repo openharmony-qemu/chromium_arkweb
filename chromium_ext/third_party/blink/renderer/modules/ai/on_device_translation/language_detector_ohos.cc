@@ -166,6 +166,9 @@ class LanguageDetectorCreateTaskOHOS
 
 }  // namespace
 
+LanguageDetectorOHOS::LanguageDetectorOHOS(ScriptState* script_state)
+    : remote_(ExecutionContext::From(script_state)) {}
+
 LanguageDetectorOHOS::~LanguageDetectorOHOS() {
   remote_.reset();
 }

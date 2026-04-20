@@ -33,7 +33,7 @@ class LanguageDetector;
 
 class LanguageDetectorOHOS : public GarbageCollectedMixin {
  public:
-  LanguageDetectorOHOS() = default;
+  explicit LanguageDetectorOHOS(ScriptState* script_state);
   ~LanguageDetectorOHOS();
 
   void Trace(Visitor* visitor) const override;
@@ -54,7 +54,7 @@ class LanguageDetectorOHOS : public GarbageCollectedMixin {
       scoped_refptr<base::SequencedTaskRunner>& task_runner,
       ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver);
 
-  HeapMojoRemote<mojom::blink::AILanguageDetector> remote_{nullptr};
+  HeapMojoRemote<mojom::blink::AILanguageDetector> remote_;
 };
 
 }  // namespace blink
