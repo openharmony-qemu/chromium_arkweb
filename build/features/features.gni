@@ -168,6 +168,8 @@ declare_args() {
   arkweb_webrtc = true
   arkweb_webstorage = true
   arkweb_wpt = true
+  arkweb_custom_fonts = true
+  arkweb_use_fuzzing_engine = use_fuzzing_engine
   arkweb_zoom = true
   arkweb_report_sys_event = !is_component_build
   arkweb_get_scroll_offset = true

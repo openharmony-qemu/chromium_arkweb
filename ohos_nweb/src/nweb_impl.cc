@@ -318,6 +318,10 @@ extern bool g_siteIsolationMode;
 #include "arkweb/chromium_ext/base/arkweb_report_statistics.h"
 #include "ohos_nweb/src/nweb_common.h"
 
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+#include "arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.h"
+#endif // ARKWEB_CUSTOM_FONTS
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 OnReportStatisticLogFunc
     OHOS::NWeb::NWebImpl::on_report_statistic_log_callback_ = nullptr;
@@ -5573,6 +5577,14 @@ bool NWebImpl::IsAnyNWebAdblockEnabled() {
   return false;
 }
 #endif
+
+bool NWebImpl::SetCustomFonts(const NWebCustomFontInfoVector &customFonts) {
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+  return ArkwebCustomFontManager::GetInstance()->SetCustomFonts(customFonts);
+#else
+  return false;
+#endif // ARKWEB_CUSTOM_FONTS
+}
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
 bool NWebImpl::GetSavePasswordAutomatically() const {
