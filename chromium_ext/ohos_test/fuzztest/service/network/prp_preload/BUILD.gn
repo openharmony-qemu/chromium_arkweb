@@ -112,6 +112,122 @@ fuzzer_test("preconnect_runner_fuzzer") {
   ]
 }
 
+fuzzer_test("prpp_request_loader_factory_impl_fuzzer") {
+  sources = [ "prpp_request_loader_factory_impl_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+    "//base/test:test_support",
+    "//services/network:test_support"
+  ]
+}
+
+fuzzer_test("prpp_request_loader_impl_fuzzer") {
+  sources = [ "prpp_request_loader_impl_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+    "//base/test:test_support",
+    "//services/network:test_support"
+  ]
+}
+
+fuzzer_test("res_parallel_preload_ctrler_fuzzer") {
+  sources = [ "res_parallel_preload_ctrler_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//base/test:test_support",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+  ]
+}
+
+fuzzer_test("res_preload_scheduler_fuzzer") {
+  sources = [ "res_preload_scheduler_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//base/test:test_support",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+  ]
+}
+
+fuzzer_test("res_request_info_cache_mgr_fuzzer") {
+  sources = [ "res_request_info_cache_mgr_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//base/test:test_support",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+  ]
+}
+
+fuzzer_test("res_request_info_updater_fuzzer") {
+  sources = [ "res_request_info_updater_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//third_party/boringssl/src/include",
+    "//arkweb/chromium_ext/services/network/prp_preload/src",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//base/test:test_support",
+    "//net/third_party/quiche:quiche",
+    "//net:test_support",
+  ]
+}
+
 group("ohos_fuzz") {
   testonly = true
   deps = [
@@ -120,5 +236,11 @@ group("ohos_fuzz") {
     ":disk_cache_info_parser_fuzzer",
     ":page_res_parallel_preload_mgr_impl_fuzzer",
     ":preconnect_runner_fuzzer",
+    ":prpp_request_loader_factory_impl_fuzzer",
+    ":prpp_request_loader_impl_fuzzer",
+    ":res_parallel_preload_ctrler_fuzzer",
+    ":res_preload_scheduler_fuzzer",
+    ":res_request_info_cache_mgr_fuzzer",
+    ":res_request_info_updater_fuzzer",
   ]
 }
