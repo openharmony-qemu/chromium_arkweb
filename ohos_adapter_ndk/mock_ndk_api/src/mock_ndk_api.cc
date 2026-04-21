@@ -238,6 +238,11 @@ BufferHandle* __wrap_OH_NativeWindow_GetBufferHandleFromNative(OHNativeWindowBuf
          __real_OH_NativeWindow_GetBufferHandleFromNative(buffer);
 }
 
+std::function<int(void)> g_mock_OH_GetSdkApiVersion;
+int __wrap_OH_GetSdkApiVersion(void) {
+  return g_mock_OH_GetSdkApiVersion ? g_mock_OH_GetSdkApiVersion() : __real_OH_GetSdkApiVersion();
+}
+
 #ifdef __cplusplus
 }
 #endif

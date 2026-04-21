@@ -14,29 +14,21 @@
  */
 
 #include "ndk_version.h"
-#include <string>
-#include <cstdlib>
-#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#include <deviceinfo.h>
+#include "arkweb/ohos_nweb/src/nweb_hilog.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-const int DEFAULT_API_VERSION = 60000;
-
 int GetParamApiVersion()
 {
-  std::string version =
-    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance().GetDeviceInfoApiVersion();
-  char* end;
-  errno = 0;
-  long versionNum = std::strtol(version.c_str(), &end, 10);
-
-  if (errno == ERANGE || end == version.c_str()) {
-    return DEFAULT_API_VERSION;
+  int version = OH_GetSdkApiVersion();
+  if (version <= 0) {
+    WVLOG_W("GetParamApiVersion fallback to 0, sdk api version invalid: %{public}d", version);
+    return 0;
   }
-
-  return static_cast<int>(versionNum);
+  return version;
 }
 
 bool CheckTargetApiVersion(int TargetApiVersion)
