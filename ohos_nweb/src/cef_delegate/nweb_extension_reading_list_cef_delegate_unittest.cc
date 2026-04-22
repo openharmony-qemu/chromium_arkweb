@@ -25,7 +25,7 @@
 #include "nweb_extension_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_reading_list_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_reading_list_delegate_impl.h"
 #endif
 
 using namespace std;
@@ -79,16 +79,16 @@ protected:
         {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
             OnReadingListAddEntryFunc func_add = &NotifyAddEntry;
-            NWebExtensionReadingListDispatcher::GetInstance().SetAddEntryFunc(func_add);
+            nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().SetAddEntryFunc(func_add);
 
             OnReadingListQueryEntryFunc func_query = &NotifyQueryEntry;
-            NWebExtensionReadingListDispatcher::GetInstance().SetQueryEntryFunc(func_query);
+            nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().SetQueryEntryFunc(func_query);
 
             OnReadingListRemoveEntryFunc func_remove = &NotifyRemoveEntry;
-            NWebExtensionReadingListDispatcher::GetInstance().SetRemoveEntryFunc(func_remove);
+            nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().SetRemoveEntryFunc(func_remove);
 
             OnReadingListUpdateEntryFunc func_update = &NotifyUpdateEntry;
-            NWebExtensionReadingListDispatcher::GetInstance().SetUpdateEntryFunc(func_update);
+            nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().SetUpdateEntryFunc(func_update);
 #endif
         }
     }

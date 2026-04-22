@@ -24,7 +24,7 @@
 #include "nweb_extension_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_omnibox_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_omnibox_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
@@ -100,7 +100,8 @@ void NWebExtensionOmniboxCefDelegate::OnDeleteSuggestion(
 void NWebExtensionOmniboxCefDelegate::OnInputChangedCallback(
     const std::vector<OmniboxSuggestResult>& results) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionOmniboxDispatcher::GetInstance().OnInputChangedCallback(results);
+  nweb_ex::NWebExtensionOmniboxDelegateImpl::GetInstance()
+      .OnInputChangedCallback(results);
 #endif
 }
 
@@ -108,8 +109,8 @@ void NWebExtensionOmniboxCefDelegate::SetDefaultSuggestionCallback(
     const std::string& extension_id,
     const OmniboxSuggestResult& result) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionOmniboxDispatcher::GetInstance().SetDefaultSuggestionCallback(
-      extension_id, result);
+  nweb_ex::NWebExtensionOmniboxDelegateImpl::GetInstance()
+      .SetDefaultSuggestionCallback(extension_id, result);
 #endif
 }
 

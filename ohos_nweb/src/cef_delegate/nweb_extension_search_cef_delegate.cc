@@ -23,24 +23,26 @@
 #include "nweb_common.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_search_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_search_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
 namespace {
 static std::map<int32_t, SearchCallback> g_search_callback_map_;
-} // namespace
+}  // namespace
 
-bool NWebExtensionSearchCefDelegate::Query(SearchCallback callback,
-                                           const NWebExtensionSearchQueryInfo& query_info) {
+bool NWebExtensionSearchCefDelegate::Query(
+    SearchCallback callback,
+    const NWebExtensionSearchQueryInfo& query_info) {
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
   return false;
 #else
   static int32_t request_id = 0;
   request_id++;
   g_search_callback_map_[request_id] = std::move(callback);
-  bool result = NWebExtensionSearchDispatcher::Query(request_id, query_info);
+  bool result = nweb_ex::NWebExtensionSearchDelegateImpl::GetInstance().Query(
+      request_id, query_info);
   if (!result) {
     g_search_callback_map_.erase(request_id);
   }
@@ -48,7 +50,8 @@ bool NWebExtensionSearchCefDelegate::Query(SearchCallback callback,
 #endif
 }
 
-void NWebExtensionSearchCefDelegate::QueryCallback(int32_t request_id,
+void NWebExtensionSearchCefDelegate::QueryCallback(
+    int32_t request_id,
     const std::optional<std::string>& error) {
   if (g_search_callback_map_.count(request_id)) {
     std::move(g_search_callback_map_[request_id]).Run(error);

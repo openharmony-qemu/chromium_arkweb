@@ -30,15 +30,14 @@
 #include "ohos_nweb/src/capi/browser_service/nweb_extension_sessions_types.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_sessions_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_sessions_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
 namespace {
 
-static std::map<int,
-                NWebExtensionSessionsHandlerDelegate::GetDevicesCallback>
+static std::map<int, NWebExtensionSessionsHandlerDelegate::GetDevicesCallback>
     g_get_devices_callbacks_;
 
 static std::map<int,
@@ -63,7 +62,10 @@ void NWebExtensionSessionsHandlerDelegate::GetDevices(
 #else
   static int request_id = 0;
   g_get_devices_callbacks_[++request_id] = std::move(callback);
-  NWebExtensionSessionsDispatcher::GetDevices(request_id, params);
+  if (!nweb_ex::NWebExtensionSessionsDelegateImpl::GetInstance().GetDevices(
+          request_id, params)) {
+    HandleGetDevicesError(request_id);
+  }
 #endif
 }
 
@@ -77,7 +79,10 @@ void NWebExtensionSessionsHandlerDelegate::GetRecentlyClosed(
 #else
   static int request_id = 0;
   g_get_recently_closed_callbacks_[++request_id] = std::move(callback);
-  NWebExtensionSessionsDispatcher::GetRecentlyClosed(request_id, params);
+  if (!nweb_ex::NWebExtensionSessionsDelegateImpl::GetInstance()
+           .GetRecentlyClosed(request_id, params)) {
+    HandleGetRecentlyClosedError(request_id);
+  }
 #endif
 }
 
@@ -91,7 +96,10 @@ void NWebExtensionSessionsHandlerDelegate::Restore(
 #else
   static int request_id = 0;
   g_restore_callbacks_[++request_id] = std::move(callback);
-  NWebExtensionSessionsDispatcher::Restore(request_id, params);
+  if (!nweb_ex::NWebExtensionSessionsDelegateImpl::GetInstance().Restore(
+          request_id, params)) {
+    HandleRestoreError(request_id);
+  }
 #endif
 }
 
@@ -102,7 +110,7 @@ void NWebExtensionSessionsHandlerDelegate::OnGetDevices(
   if (g_get_devices_callbacks_.count(request_id)) {
     std::move(g_get_devices_callbacks_[request_id])
         .Run(params.devices, params.error);
- 
+
     g_get_devices_callbacks_.erase(request_id);
   } else {
     LOG(ERROR) << "NWeb GetDevices callback called more than once";
