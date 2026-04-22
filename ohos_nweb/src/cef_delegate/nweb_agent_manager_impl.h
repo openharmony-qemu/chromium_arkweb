@@ -20,6 +20,7 @@
 
 #include "nweb_delegate.h"
 #include "nweb_content_change_detection.h"
+#include "nweb_image_change_detection.h"
 #include "nweb_highlight_specified_content.h"
 
 namespace OHOS::NWeb {
@@ -40,6 +41,7 @@ private:
     base::WeakPtr<NWebDelegate> nweb_delegate_;
 
     std::unique_ptr<NWebContentChangeDetection> content_change_detection_;
+    std::unique_ptr<NWebImageChangeDetection> image_change_detection_;
     std::unique_ptr<NWebHighlightSpecifiedContent> highlight_specified_content_;
 };
 }  // namespace OHOS::NWeb

@@ -190,6 +190,7 @@
 #endif
 #if BUILDFLAG(ARKWEB_AI)
 #include "nweb_content_change_detection.h"
+#include "nweb_image_change_detection.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
@@ -4752,6 +4753,11 @@ void NWebHandlerDelegate::RegisterOnLoadStartedCbForContentChange(
     std::function<void(void)>&& callback) {
   onLoadStartedCbForContentChange_ = std::move(callback);
 }
+
+void NWebHandlerDelegate::RegisterOnLoadStartedCbForImageChange(
+    std::function<void(void)>&& callback) {
+  onLoadStartedCbForImageChange_ = std::move(callback);
+}
 #endif
 
 void NWebHandlerDelegate::RegisterNativeJavaScriptCallBack(
@@ -5632,6 +5638,10 @@ void NWebHandlerDelegate::OnLoadStarted(CefRefPtr<CefFrame> frame,
 #if BUILDFLAG(ARKWEB_AI)
   if (onLoadStartedCbForContentChange_) {
     onLoadStartedCbForContentChange_();
+  }
+
+  if (onLoadStartedCbForImageChange_) {
+    onLoadStartedCbForImageChange_();
   }
 
   if (onLoadStartedCbForHighlightContent_) {
