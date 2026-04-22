@@ -8,3 +8,8 @@ arkweb_media_base_custom_sources = [
   "//arkweb/chromium_ext/media/base/ohos_media_player_demuxer.cc",
   "//arkweb/chromium_ext/media/base/ohos_media_player_demuxer.h",
 ]
+
+arkweb_media_base_capabilities_sources = [
+  "//arkweb/chromium_ext/media/base/media_report_info.cc",
+  "//arkweb/chromium_ext/media/base/media_report_info.h",
+]
