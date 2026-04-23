@@ -958,6 +958,8 @@ arkweb_cc_input_source = [
 ]
 
 arkweb_cc_trees_source = [
+  "//arkweb/chromium_ext/cc/trees/frame_rate_estimator_ohos.cc",
+  "//arkweb/chromium_ext/cc/trees/frame_rate_estimator_ohos.h",
   "//arkweb/chromium_ext/cc/trees/layer_tree_host_ext.cc",
   "//arkweb/chromium_ext/cc/trees/layer_tree_host_ext.h",
   "//arkweb/chromium_ext/cc/trees/layer_tree_impl_utils.cc",
@@ -981,6 +983,7 @@ arkweb_cc_layer_unittest_sources = [
 arkweb_cc_trees_unittest_sources = [
   "//arkweb/chromium_ext/cc/trees/layer_tree_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/cc/trees/layer_tree_host_ext_unittest.cc",
+  "//arkweb/chromium_ext/cc/trees/frame_rate_estimator_ohos_unittest.cc",
 ]
 
 arkweb_cc_mojo_embedder_unittest_sources = [

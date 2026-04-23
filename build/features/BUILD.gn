@@ -555,6 +555,7 @@ buildflag_header("features") {
     "ARKWEB_WEBGL=$arkweb_webgl",
     "ARKWEB_PINCH_SMOOTH=$arkweb_pinch_smooth",
     "ARKWEB_FIT_CONTENT=$arkweb_fit_content",
+    "ARKWEB_THROTTLE_FRAME=$arkweb_throttle_frame",
     "ARKWEB_SYNC_RENDER=$arkweb_sync_render",
     "ARKWEB_TERMINATE_RENDER=$arkweb_terminate_render",
     "ARKWEB_OOP_GPU_PROCESS=$arkweb_oop_gpu_process",

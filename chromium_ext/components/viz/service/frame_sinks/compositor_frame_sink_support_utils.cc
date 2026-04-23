@@ -16,6 +16,7 @@
 
 #include "arkweb/build/features/features.h"
 #include "base/trace_event/common/trace_event_common.h"
+#include "base/trace_event/trace_event.h"
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/surfaces/surface.h"
 
@@ -96,5 +97,24 @@ int64_t CompositorFrameSinkSupportUtils::GetCurrentTimeStampMS()
       .count();
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_THROTTLE_FRAME)
+void CompositorFrameSinkSupportUtils::UpdateThrottleMode(bool is_enable) {
+  if (!compositorFrameSinkSupport->is_root()) {
+    if (is_enable) {
+      compositorFrameSinkSupport->throttle_mode_ = true;
+    } else {
+      if (compositorFrameSinkSupport->throttle_mode_ && compositorFrameSinkSupport->throttle_started_) {
+        TRACE_EVENT0("viz", "CompositorFrameSinkSupport::UpdateThrottleMode End");
+        compositorFrameSinkSupport->throttle_started_ = false;
+      }
+      compositorFrameSinkSupport->throttle_mode_ = false;
+      compositorFrameSinkSupport->preferred_frame_interval_ = base::TimeDelta::FromInternalValue(0);
+      compositorFrameSinkSupport->ApplyPreferredFrameRate();
+    }
+  }
+}
+#endif
+
 //LCOV_EXCL_STOP
 }  // namespace viz
