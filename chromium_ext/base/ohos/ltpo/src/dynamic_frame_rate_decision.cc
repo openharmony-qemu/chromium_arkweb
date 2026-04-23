@@ -47,7 +47,9 @@ DynamicFrameRateDecision::~DynamicFrameRateDecision() {}
 void DynamicFrameRateDecision::Init() {
   if (!curent_task_runner_) {
     LOG(INFO) << "start init curent_task_runner_";
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     curent_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+#endif // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
   }
 }
 
