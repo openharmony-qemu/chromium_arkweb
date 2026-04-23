@@ -197,6 +197,11 @@
 #include "ohos_nweb/src/nweb_window_new_event_info_impl.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_WEB_APP)
+#include "content/browser/manifest/manifest_manager_host.h"
+#include "third_party/blink/public/common/manifest/manifest_util.h"
+#endif
+
 namespace OHOS::NWeb {
 namespace {
 
@@ -6819,4 +6824,73 @@ void NWebHandlerDelegate::RemoveLoadFinished(uint32_t nweb_id) {
   load_finished_map_.erase(nweb_id);
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_WEB_APP)
+void NWebHandlerDelegate::DidUpdateWebManifestURL(
+    content::RenderFrameHost* target_frame,
+    const GURL& manifest_url) {
+  LOG(INFO) << "NWebHandlerDelegate::DidUpdateWebManifestURL";
+  if (target_frame) {
+    LOG(INFO) << "NWebHandlerDelegate subscribing to manifest changes";
+    manifest_subscription_ = content::ManifestManagerHost::GetOrCreateForPage(
+                                 target_frame->GetPage())
+                                 ->GetSpecifiedManifest(base::BindOnce(
+                                     &NWebHandlerDelegate::OnManifestReceived,
+                                     weak_factory_.GetWeakPtr()));
+  }
+}
+
+void NWebHandlerDelegate::OnManifestReceived(
+    const base::expected<blink::mojom::ManifestPtr,
+                         blink::mojom::RequestManifestErrorPtr>& result) {
+  LOG(INFO) << "NWebHandlerDelegate OnManifestReceived";
+  if (!result.has_value()) {
+    LOG(WARNING) << "null manifest fetched";
+    return;
+  }
+
+  FetchManifestUrlAndRawJson();
+}
+
+void NWebHandlerDelegate::FetchManifestUrlAndRawJson() {
+  LOG(INFO) << "NWebHandlerDelegate FetchManifestUrlAndRawJson";
+
+  if (!main_browser_ || !main_browser_->GetMainFrame()) {
+    LOG(INFO) << "FetchManifestUrlAndRawJson browser or main frame is null";
+    return;
+  }
+
+  auto* frame_host =
+      static_cast<CefFrameHostImpl*>(main_browser_->GetMainFrame().get());
+  auto* render_frame_host =
+      frame_host ? frame_host->GetRenderFrameHost() : nullptr;
+  if (!render_frame_host) {
+    LOG(INFO) << "render_frame_host is null";
+    return;
+  }
+
+  auto* manifest_manager_host =
+      content::ManifestManagerHost::GetOrCreateForPage(
+          render_frame_host->GetPage());
+  if (!manifest_manager_host) {
+    LOG(INFO) << "manifest_manager_host is null";
+    return;
+  }
+
+  manifest_manager_host->RequestManifestDebugInfo(
+      base::BindOnce(&NWebHandlerDelegate::OnManifestDebugInfoReceived,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void NWebHandlerDelegate::OnManifestDebugInfoReceived(
+    const GURL& url,
+    blink::mojom::ManifestPtr manifest,
+    blink::mojom::ManifestDebugInfoPtr debug_info) {
+  LOG(INFO) << "NWebHandlerDelegate OnManifestDebugInfoReceived raw_manifest "
+               "has value: "
+            << !debug_info->raw_manifest.empty();
+  dispatcher_.OnManifestSeen(url.spec(), debug_info->raw_manifest);
+}
+#endif  // BUILDFLAG(ARKWEB_WEB_APP)
+
 }  // namespace OHOS::NWeb

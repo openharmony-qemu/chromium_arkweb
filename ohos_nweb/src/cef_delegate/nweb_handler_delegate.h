@@ -85,6 +85,18 @@
 
 #include "nweb_image_info_impl.h"
 
+#if BUILDFLAG(ARKWEB_WEB_APP)
+#include "base/callback_list.h"
+#include "base/types/expected.h"
+#include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
+#include "third_party/blink/public/mojom/manifest/manifest_manager.mojom-forward.h"
+
+namespace content {
+class RenderFrameHost;
+}
+class GURL;
+#endif
+
 struct NativeWindow;
 
 namespace OHOS::NWeb {
@@ -1393,6 +1405,19 @@ void OnMediaCastEnter() override;
   void IncrementAndCheckByXPath(int32_t taskid, std::shared_ptr<NWebImageInfo> imageInfo, int32_t image_id);
   void DestroyTaskByXPath(int32_t taskid);
 
+#if BUILDFLAG(ARKWEB_WEB_APP)
+  void DidUpdateWebManifestURL(content::RenderFrameHost* target_frame,
+                               const GURL& manifest_url) override;
+  void OnManifestReceived(
+      const base::expected<blink::mojom::ManifestPtr,
+                           blink::mojom::RequestManifestErrorPtr>& result);
+  void FetchManifestUrlAndRawJson();
+  void OnManifestDebugInfoReceived(
+      const GURL& url,
+      blink::mojom::ManifestPtr manifest,
+      blink::mojom::ManifestDebugInfoPtr debug_info);
+#endif
+
   std::unordered_map<int32_t, int32_t> total_count_;
   std::unordered_map<int32_t, int32_t> current_count_;
   std::unordered_map<int32_t, int32_t> image_index_;
@@ -1409,6 +1434,10 @@ void OnMediaCastEnter() override;
   std::mutex image_decode_mutex_by_xpath_;
 #if BUILDFLAG(ARKWEB_MENU)
   base::RepeatingCallback<void(bool)> on_handle_visible_;
+#endif
+
+#if BUILDFLAG(ARKWEB_WEB_APP)
+  base::CallbackListSubscription manifest_subscription_;
 #endif
 
   base::WeakPtr<NWebHandlerDelegate> weak_this_;
