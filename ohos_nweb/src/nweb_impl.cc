@@ -117,6 +117,7 @@
 #include "base/command_line.h"
 #include "base/i18n/icu_util.h"
 #include "content/public/common/content_paths.h"
+#include "nweb_engine_impl.h"
 #endif  // BUILDFLAG(ARKWEB_COOKIE)
 
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
@@ -1433,7 +1434,7 @@ void NWebImpl::InitializeWebEngine(
   content::GetNetworkService();
 
 #if BUILDFLAG(ARKWEB_COOKIE)
-  should_lazy_init_web_engine_.store(false,std::memory_order_relaxed);
+  should_lazy_init_web_engine_.store(false, std::memory_order_relaxed);
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
@@ -1842,7 +1843,7 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
   }
 
 #if BUILDFLAG(ARKWEB_COOKIE)
-  should_lazy_init_web_engine_.store(false,std::memory_order_relaxed);
+  should_lazy_init_web_engine_.store(false, std::memory_order_relaxed);
 #endif
 
 #if BUILDFLAG(ARKWEB_MENU)
@@ -8518,7 +8519,10 @@ void NWebImpl::LibraryLoaded(std::shared_ptr<NWebEngineInitArgs> init_args,
     return;
   }
   save_initargs_ = init_args;
-  should_lazy_init_web_engine_.store(lazy,std::memory_order_relaxed);
+  should_lazy_init_web_engine_.store(lazy, std::memory_order_relaxed);
+  if (lazy) {
+    NWebEngine::GetInstance()->GetCookieManager();
+  }
 }
 
 bool NWebImpl::ShouldLazyInitWebEngine() {
