@@ -38,6 +38,8 @@ class CAPTURE_EXPORT VideoCaptureDeviceFactoryOHOS
   void GetDevicesInfo(GetDevicesInfoCallback callback) override;
   void OnCameraStatusChanged(CameraStatusAdapter camera_status,
                              std::string callback_device_id);
+  void OnFlashlightStatusChanged(FlashStatusAdapter flash_status,
+                                 const std::string camera_id);
 
  private:
   int CheckDeviceId(const std::string device_id);
