@@ -57,6 +57,11 @@
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #endif
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "ohos_nweb/src/cef_delegate/nweb_command_action_manager_impl.h"
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
 #include "build/build_config.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 #include "ohos_nweb_ex/core/extension/nweb_app_client_extension_dispatcher.h"
@@ -105,6 +110,9 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   );
 #if BUILDFLAG(ARKWEB_AI)
   friend class NWebAgentManagerImpl;
+#endif
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  friend class NWebCommandActionManagerImpl;
 #endif
   void SetIsOfflineWebComponent() override;
   void OnWindowShow() override;
@@ -925,6 +933,13 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
     return last_touch_mouse_position_;
   }
   bool IsElementExist(std::string& xPath) override;
+  int32_t ExecuteInputCommand(const std::string& xpath,
+                              const std::string& value,
+                              const std::string& event_type) override;
+  int32_t ExecuteSelectCommand(const std::string& xpath,
+                               const std::vector<int32_t>& indexes,
+                               const std::vector<std::string>& values) override;
+  std::shared_ptr<NWebCommandActionManager> GetCommandActionManager() const override;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_PIP)
   void SetPipNativeWindow(int delegate_id,
@@ -1195,6 +1210,7 @@ void AbortDistill() override;
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   bool is_onPause_ = false;
   std::pair<double, double> last_touch_mouse_position_;
+  std::shared_ptr<NWebCommandActionManagerImpl> command_action_manager_;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_ACCESSIBILITY)
   bool accessibility_state_ = false;

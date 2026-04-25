@@ -447,4 +447,44 @@ TEST_F(NWebDelegateTest, CloseDevtools) {
   ASSERT_NE(nweb_delegate_, nullptr);
   EXPECT_NO_FATAL_FAILURE(nweb_delegate_->CloseDevtools());
 }
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+/**
+ * @tc.name: ExecuteInputCommand_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: Test ExecuteInputCommand returns PAGE_NOT_READY when browser is null.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebDelegateTest, ExecuteInputCommand_NoBrowser_ReturnsPageNotReady_0100) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  auto result = nweb_delegate_->ExecuteInputCommand(
+      "//input[@id='name']", "hello", "input-text");
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
+}
+
+/**
+ * @tc.name: ExecuteSelectCommand_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: Test ExecuteSelectCommand returns PAGE_NOT_READY when browser is null.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebDelegateTest, ExecuteSelectCommand_NoBrowser_ReturnsPageNotReady_0100) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  auto result = nweb_delegate_->ExecuteSelectCommand(
+      "//select[@id='color']", {0, 1}, {"red", "blue"});
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
+}
+
+/**
+ * @tc.name: GetCommandActionManager_BeforeInit_ReturnsNull_0100
+ * @tc.desc: Test GetCommandActionManager returns nullptr before Init is called.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebDelegateTest, GetCommandActionManager_BeforeInit_ReturnsNull_0100) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  auto manager = nweb_delegate_->GetCommandActionManager();
+  EXPECT_EQ(manager, nullptr);
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
 }  // namespace OHOS::NWeb

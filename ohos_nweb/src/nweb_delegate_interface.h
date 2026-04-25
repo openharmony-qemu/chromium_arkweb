@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "capi/nweb_app_client_extension_callback.h"
 #include "capi/nweb_download_delegate_callback.h"
@@ -69,6 +70,10 @@
 
 #if BUILDFLAG(ARKWEB_USERAGENT)
 #include "nweb_user_agent_metadata.h"
+#endif
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "nweb_command_action_info.h"
 #endif
 
 struct OpenDevToolsParam;
@@ -928,6 +933,18 @@ class NWebDelegateInterface
   virtual bool SetFocusByPosition(float x, float y) = 0;
   virtual std::pair<double, double> GetLastTouchMousePosition() = 0;
   virtual bool IsElementExist(std::string& xPath) = 0;
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  // Execute an input command via C++ DOM API through sync IPC.
+  virtual int32_t ExecuteInputCommand(const std::string& xpath,
+                                      const std::string& value,
+                                      const std::string& event_type) = 0;
+  // Execute a select command via C++ DOM API through sync IPC.
+  virtual int32_t ExecuteSelectCommand(const std::string& xpath,
+                                       const std::vector<int32_t>& indexes,
+                                       const std::vector<std::string>& values) = 0;
+  virtual std::shared_ptr<NWebCommandActionManager> GetCommandActionManager() const = 0;
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   virtual void OnSafeBrowsingDetectionResult(

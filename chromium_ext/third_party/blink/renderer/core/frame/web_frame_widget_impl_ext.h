@@ -67,6 +67,12 @@ class WebFrameWidgetImplExt : public WebFrameWidgetImpl {
   void GetInputElementAttributes(
       HashMap<String, String>& attributes) const override;
   bool IsElementExist(std::string xPath) override;
+  int32_t ExecuteInputCommand(const std::string& xpath,
+                              const std::string& value,
+                              const std::string& event_type) override;
+  int32_t ExecuteSelectCommand(const std::string& xpath,
+                               const std::vector<int32_t>& indexes,
+                               const std::vector<std::string>& values) override;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
   void ArkWebHandleTouchEvent(const WebInputEvent& input_event);

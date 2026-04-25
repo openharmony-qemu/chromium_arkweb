@@ -18,6 +18,7 @@
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/frame/web_frame_widget_impl_ext.h"
 #undef private
 #include "arkweb/chromium_ext/third_party/blink/renderer/platform/widget/widget_base_utils.h"
+#include "arkweb/ohos_nweb/include/nweb_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -27,6 +28,8 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 
@@ -115,6 +118,11 @@ class WebFrameWidgetImplExtSimTest : public SimTest {
         <div>Test content</div>
         <input type="text" id="input1" value="First input">
         <input type="text" id="input2" value="Second input">
+        <select id="select1">
+          <option value="red">Red</option>
+          <option value="green">Green</option>
+          <option value="blue">Blue</option>
+        </select>
         <div id="content">Text</div>
         <iframe id="child"></iframe>
       </body>
@@ -447,5 +455,94 @@ TEST_F(WebFrameWidgetImplExtSimTest, NotifySelectionRangeEmptyTest) {
     MockMainFrameWidget()->NotifySelectionRangeEmpty(null_range, main_frame);
   }
 }
+
+// ===== ExecuteInputCommand / ExecuteSelectCommand Tests =====
+// MockMainFrameWidget() returns TestWebFrameWidget which inherits
+// WebFrameWidgetImplExt when ARKWEB_UNITTESTS is enabled. SimTest provides
+// a real Document with DOM elements, so the full widget-level chain can be
+// tested: ExecuteInputCommand → CommandActionDOMHelper::ExecuteInput.
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteInputCommand_Success) {
+  // HTML already has <input type="text" id="input1"> from SetUp
+  int32_t result = MockMainFrameWidget()->ExecuteInputCommand(
+      "//input[@id='input1']", "hello", "input-text");
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::SUCCESS));
+
+  auto* input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("input1")));
+  ASSERT_NE(input, nullptr);
+  EXPECT_EQ(input->Value(), "hello");
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteInputCommand_ElementNotFound) {
+  int32_t result = MockMainFrameWidget()->ExecuteInputCommand(
+      "//input[@id='nonexistent']", "hello", "input-text");
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::ELEMENT_NOT_FOUND));
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteInputCommand_TypeMismatch) {
+  // The HTML has a <div id="content">, not an input element
+  int32_t result = MockMainFrameWidget()->ExecuteInputCommand(
+      "//div[@id='content']", "hello", "input-text");
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteSelectCommand_ByValue_Success) {
+  int32_t result = MockMainFrameWidget()->ExecuteSelectCommand(
+      "//select[@id='select1']",
+      std::vector<int32_t>{},
+      std::vector<std::string>{"green"});
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::SUCCESS));
+
+  auto* select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("select1")));
+  ASSERT_NE(select, nullptr);
+  EXPECT_EQ(select->Value(), "green");
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteSelectCommand_ByIndex_Success) {
+  int32_t result = MockMainFrameWidget()->ExecuteSelectCommand(
+      "//select[@id='select1']",
+      std::vector<int32_t>{2},
+      std::vector<std::string>{});
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::SUCCESS));
+
+  auto* select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("select1")));
+  ASSERT_NE(select, nullptr);
+  EXPECT_EQ(select->Value(), "blue");
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteSelectCommand_ElementNotFound) {
+  int32_t result = MockMainFrameWidget()->ExecuteSelectCommand(
+      "//select[@id='nonexistent']",
+      std::vector<int32_t>{0},
+      std::vector<std::string>{});
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::ELEMENT_NOT_FOUND));
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteSelectCommand_TypeMismatch) {
+  // The HTML has a <div id="content">, not a select element
+  int32_t result = MockMainFrameWidget()->ExecuteSelectCommand(
+      "//div[@id='content']",
+      std::vector<int32_t>{0},
+      std::vector<std::string>{});
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+}
+
 }  // namespace
 }  // namespace blink

@@ -428,6 +428,13 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void PutWebMediaAVSessionEnabled(bool) override {}
   void SetEnableHalfFrameRate(bool) override {}
   bool SetFocusByPosition(float, float) override { return false; }
+  MOCK_METHOD(int32_t, ExecuteInputCommand,
+              (const std::string&, const std::string&, const std::string&),
+              (override));
+  MOCK_METHOD(int32_t, ExecuteSelectCommand,
+              (const std::string&, const std::vector<int32_t>&,
+               const std::vector<std::string>&),
+              (override));
   void SetPipNativeWindow(int, int, int, cef_native_window_t) override {}
   void SendPipEvent(int, int, int, int) override {}
   void ShowFreeCopyMenu() override {}

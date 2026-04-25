@@ -1137,6 +1137,22 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(bool, SetFocusByPosition, (float x, float y), (override));
   MOCK_METHOD(bool, IsElementExist, (std::string& xPath), (override));
   MOCK_METHOD((std::pair<double, double>), GetLastTouchMousePosition, (), (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputCommand,
+              (const std::string& xpath,
+               const std::string& value,
+               const std::string& event_type),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteSelectCommand,
+              (const std::string& xpath,
+               const std::vector<int32_t>& indexes,
+               const std::vector<std::string>& values),
+              (override));
+  MOCK_METHOD(std::shared_ptr<NWebCommandActionManager>,
+              GetCommandActionManager,
+              (),
+              (const, override));
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   MOCK_METHOD(void,
               OnSafeBrowsingDetectionResult,

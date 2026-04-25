@@ -51,6 +51,9 @@
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
 #include "arkweb/ohos_adapter_ndk/distributeddatamgr_adapter/ohos_web_snapshot_data_base.h"
 #endif
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "cef_delegate/nweb_command_action_manager_impl.h"
+#endif
 
 using namespace testing;
 using namespace OHOS::NWeb;
@@ -9321,4 +9324,130 @@ TEST_F(NWebImplTest, ReportLoadingScene_TEST005) {
   EXPECT_NO_FATAL_FAILURE(nweb_impl_->ReportLoadingScene(1));
 }
 #endif  // BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+// ===== CommandAction Tests (SendCommandAction / GetCommandActionManager) =====
+
+// Return values from WebCommandErrorCode in nweb_errors.h
+// WEB_DELEGATE_NOT_FOUND -> WebCommandErrorCode::DELEGATE_NULL (102)
+// WEB_ELEMENT_NOT_FOUND  -> WebCommandErrorCode::ELEMENT_NOT_FOUND (131)
+// WEB_COMMAND_SUCCESS    -> WebCommandErrorCode::SUCCESS (10)
+
+class StubNWebCommandAction : public NWebCommandAction {
+ public:
+  StubNWebCommandAction(const std::string& event_type,
+                        const std::string& xpath,
+                        int32_t duration = 0,
+                        const std::string& align = "",
+                        int32_t offset = 0)
+      : event_type_(event_type),
+        xpath_(xpath),
+        duration_(duration),
+        align_(align),
+        offset_(offset) {}
+
+  std::string GetEventType() override { return event_type_; }
+  std::string GetXPath() override { return xpath_; }
+  int32_t GetDuration() override { return duration_; }
+  std::string GetAlign() override { return align_; }
+  int32_t GetOffset() override { return offset_; }
+
+ private:
+  std::string event_type_;
+  std::string xpath_;
+  int32_t duration_;
+  std::string align_;
+  int32_t offset_;
+};
+
+/**
+ * @tc.name: SendCommandAction_NullAction_0100
+ * @tc.desc: Test SendCommandAction with null action returns error.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, SendCommandAction_NullAction_0100) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  auto result = nweb_impl_->SendCommandAction(nullptr);
+  // action is null, code returns WEB_DELEGATE_NOT_FOUND
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::DELEGATE_NULL));
+}
+
+/**
+ * @tc.name: SendCommandAction_NullDelegate_0100
+ * @tc.desc: Test SendCommandAction with null delegate returns error.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, SendCommandAction_NullDelegate_0100) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  auto action =
+      std::make_shared<StubNWebCommandAction>("click", "/html/body");
+  auto result = nweb_impl_->SendCommandAction(action);
+  // delegate is null, code returns WEB_DELEGATE_NOT_FOUND
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::DELEGATE_NULL));
+}
+
+/**
+ * @tc.name: SendCommandAction_ElementNotFound_0100
+ * @tc.desc: Test SendCommandAction when element is not found.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, SendCommandAction_ElementNotFound_0100) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  auto action =
+      std::make_shared<StubNWebCommandAction>("click", "/html/body/div");
+  EXPECT_CALL(*mock_delegate_, IsElementExist(testing::_))
+      .WillOnce(Return(false));
+  auto result = nweb_impl_->SendCommandAction(action);
+  // element not found, code returns WEB_ELEMENT_NOT_FOUND
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND));
+}
+
+/**
+ * @tc.name: SendCommandAction_Success_0100
+ * @tc.desc: Test SendCommandAction succeeds when element exists.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, SendCommandAction_Success_0100) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  auto action =
+      std::make_shared<StubNWebCommandAction>("click", "/html/body");
+  EXPECT_CALL(*mock_delegate_, IsElementExist(testing::_))
+      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_delegate_, ExecuteJavaScript(testing::_))
+      .WillOnce([](const std::string& jsStr) {
+        EXPECT_NE(jsStr.find("click"), std::string::npos);
+        EXPECT_NE(jsStr.find("/html/body"), std::string::npos);
+      });
+  auto result = nweb_impl_->SendCommandAction(action);
+  // success, code returns WEB_COMMAND_SUCCESS
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+/**
+ * @tc.name: GetCommandActionManager_NullDelegate_0100
+ * @tc.desc: Test GetCommandActionManager with null delegate returns nullptr.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, GetCommandActionManager_NullDelegate_0100) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  auto manager = nweb_impl_->GetCommandActionManager();
+  EXPECT_EQ(manager, nullptr);
+}
+
+/**
+ * @tc.name: GetCommandActionManager_WithDelegate_0100
+ * @tc.desc: Test GetCommandActionManager with mock delegate returns manager.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, GetCommandActionManager_WithDelegate_0100) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  auto mock_manager = std::make_shared<NWebCommandActionManagerImpl>(
+      base::WeakPtr<NWebDelegate>());
+  EXPECT_CALL(*mock_delegate_, GetCommandActionManager())
+      .WillOnce(Return(mock_manager));
+  auto manager = nweb_impl_->GetCommandActionManager();
+  EXPECT_NE(manager, nullptr);
+  EXPECT_EQ(manager.get(), mock_manager.get());
+}
+#endif
 }  // namespace OHOS::NWeb

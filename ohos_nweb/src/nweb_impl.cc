@@ -3819,6 +3819,14 @@ void NWebImpl::SetIsSystemRtlEnable(bool enable) {
   }
   nweb_delegate_->SetIsSystemRtlEnable(enable);
 }
+
+std::shared_ptr<NWebCommandActionManager> NWebImpl::GetCommandActionManager() {
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "[WebCommandAction] GetCommandActionManager: delegate is null";
+    return nullptr;
+  }
+  return nweb_delegate_->GetCommandActionManager();
+}
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 bool NWebImpl::GetCertChainDerData(std::vector<std::string>& certChainData,

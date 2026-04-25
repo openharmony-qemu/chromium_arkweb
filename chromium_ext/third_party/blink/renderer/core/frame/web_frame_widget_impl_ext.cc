@@ -16,6 +16,7 @@
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/frame/web_frame_widget_impl_ext.h"
 
 #include "arkweb/build/features/features.h"
+#include "arkweb/chromium_ext/third_party/blink/renderer/core/dom/command_action_dom_helper.h"
 #include "arkweb/chromium_ext/third_party/blink/renderer/platform/widget/widget_base_utils.h"
 #include "base/command_line.h"
 #include "components/translate/core/language_detection/language_detection_util.h"
@@ -131,6 +132,38 @@ bool WebFrameWidgetImplExt::IsElementExist(std::string xPath)
   }
   LOG(INFO) << "WebFrameWidgetImplExt::IsElementExist node not find";
   return false;
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteInputCommand(
+    const std::string& xpath,
+    const std::string& value,
+    const std::string& event_type) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteInput(document, xpath, value, event_type);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteSelectCommand(
+    const std::string& xpath,
+    const std::vector<int32_t>& indexes,
+    const std::vector<std::string>& values) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteSelectCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteSelectCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteSelect(document, xpath, indexes, values);
 }
 #endif
 

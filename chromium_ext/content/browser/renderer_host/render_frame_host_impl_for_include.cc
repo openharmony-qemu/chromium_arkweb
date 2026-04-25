@@ -22,6 +22,10 @@
 #include "mojo/public/cpp/system/platform_handle.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "mojo/public/cpp/bindings/sync_call_restrictions.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_PRP_PRELOAD)
 #include "arkweb/chromium_ext/content/browser/renderer_host/navigation_request_utils.h"
 #endif
