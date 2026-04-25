@@ -105,6 +105,10 @@ class DisplayClientMock : public viz::DisplayClient {
 #if BUILDFLAG(ARKWEB_ROTATE_RESIZE)
   void ModifyRenderFit(int32_t fitType, const FrameSinkId& frame_sink_id) {}
 #endif // ARKWEB_ROTATE_RESIZE
+
+#if BUILDFLAG(ARKWEB_EVICT_UNLOCK_FRAMES)
+  void DisplayDidRealSwapBuffer() override {}
+#endif
 };
 
 class DumpFrameObserverTest : public testing::Test {
@@ -172,7 +176,7 @@ class ArkwebDisplayUtilsTest : public testing::Test {
     auto scheduler = std::make_unique<DisplaySchedulerMock>();
     return std::make_unique<Display>(
         nullptr, nullptr, settings,
-        nullptr, frame_sink_id, nullptr, 
+        nullptr, frame_sink_id, nullptr,
         std::move(output_surface), nullptr, std::move(scheduler), nullptr);
   }
 

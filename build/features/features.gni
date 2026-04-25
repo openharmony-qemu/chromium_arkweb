@@ -283,6 +283,7 @@ if (defined(enable_arkweb_ext) && enable_arkweb_ext) {
   arkweb_clean_buffers_when_invisible = !is_component_build
   arkweb_not_load_iframe = true
   arkweb_font_settings = true
+  arkweb_evict_unlock_frames = !is_component_build
   arkweb_web_app = true
   arkweb_warmup_spare_render_process = true
   arkweb_histogram_dfx = true

@@ -62,6 +62,9 @@ class SoftwareDisplayClientOhos : public viz::DisplayClient {
   }
   void RestoreRenderFit(const viz::FrameSinkId& frame_sink_id) override {}
   void ModifyRenderFit(int32_t fitType, const viz::FrameSinkId& frame_sink_id) override {}
+#if BUILDFLAG(ARKWEB_EVICT_UNLOCK_FRAMES)
+  void DisplayDidRealSwapBuffer() override {}
+#endif
 };
 
 class SoftwareOutputDeviceOhos : public viz::SoftwareOutputDevice {
@@ -78,6 +81,7 @@ class SoftwareOutputDeviceOhos : public viz::SoftwareOutputDevice {
     DCHECK(*canvas_) << "BeginPaint with no canvas set";
     return *canvas_;
   }
+
   void EndPaint() override {}
 
  private:
@@ -186,4 +190,3 @@ void SoftwareCompositorRendererOhos::SendCompositorFrameAckToClient() {
 
 }  // namespace mojo_embedder
 }  // namespace cc
-                  
