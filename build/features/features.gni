@@ -12,6 +12,8 @@
 # limitations under the License.
 import("//arkweb/build/config/sanitizers/sanitizers.gni")
 import("//build/config/sanitizers/sanitizers.gni")
+import("//build/config/compiler/pgo/pgo.gni")
+
 if (is_arkweb_ext) {
   import("//ohos_nweb_ex/config.gni")
 } else {
@@ -158,7 +160,6 @@ declare_args() {
   arkweb_suspend_all_timers = true
   arkweb_theme_font = true
   arkweb_unittests = true
-  arkweb_test = false
   arkweb_url_trust_list = true
   arkweb_useragent = true
   arkweb_video_ltpo = !is_component_build
