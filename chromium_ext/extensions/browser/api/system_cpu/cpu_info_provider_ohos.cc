@@ -4,7 +4,7 @@
 
 #include "extensions/browser/api/system_cpu/cpu_info_provider.h"
 
-#include <inttypes.h>
+#include <cinttypes>
 #include <cstdint>
 
 #include <cstdio>
@@ -13,6 +13,7 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_util.h"
 #include "base/format_macros.h"
+#include "third_party/bounds_checking_function/include/securec.h"
 
 namespace extensions {
 
@@ -58,10 +59,10 @@ bool CpuInfoProvider::QueryCpuTimePerProcessor(
     uint64_t sys = 0;
     uint64_t idle = 0;
     uint32_t pindex = 0;
-    int vals = UNSAFE_TODO(sscanf(line.c_str(),
-                                  "cpu%" SCNu32 " %" SCNu64 " %" SCNu64
-                                  " %" SCNu64 " %" SCNu64,
-                                  &pindex, &user, &nice, &sys, &idle));
+    int vals = UNSAFE_TODO(sscanf_s(line.c_str(),
+                                    "cpu%" SCNu32 " %" SCNu64 " %" SCNu64
+                                    " %" SCNu64 " %" SCNu64,
+                                    &pindex, &user, &nice, &sys, &idle));
     if (vals != 5 || pindex >= infos->size()) {
       // TODO(b/326303922): This fires in internal integration tests, reevaluate
       // whether this should be (and can be made) unreachable or handle it.
