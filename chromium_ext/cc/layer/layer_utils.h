@@ -43,6 +43,10 @@ class CC_EXPORT LayerUtils {
   void SetNativeRect(const gfx::RectF& rect);
 
   void PushPropertiesToImpl(LayerImpl* layer_impl);
+
+  void SetMayContainVideo(bool value);
+
+  bool may_contain_video() const;
 #endif
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
@@ -55,6 +59,7 @@ class CC_EXPORT LayerUtils {
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   ProtectedSequenceReadable<bool> native_;
+  ProtectedSequenceReadable<bool> native_video_;
   ProtectedSequenceReadable<int> native_embed_id_;
   gfx::RectF native_rect_;
 #endif

@@ -34,6 +34,10 @@ void SurfaceLayerImpl::OnLayerBoundsUpdate(gfx::Rect visible_quad_rect) {
 void SurfaceLayerImpl::OnLayerRectUpdate(gfx::Rect visible_quad_rect) {
   // if web page use custom_video_player, may_contain_video is true in surface layer.
   // when web page use same_layer, may_contain_video is false in surface layer.
+  if (!layer_impl_utils()->may_contain_video()) {
+    return;
+  }
+
    visible_quad_rect.set_origin(
         ScreenSpaceTransform().MapPoint(visible_quad_rect.origin()));
   if (!visible_quad_rect_.ApproximatelyEqual(visible_quad_rect, 1)) {

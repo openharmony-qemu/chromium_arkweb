@@ -28,6 +28,7 @@ LayerImplUtils::LayerImplUtils(LayerImpl* layer_impl)
     : layer_impl_(layer_impl),
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
       may_contain_native_(false),
+      may_contain_video_(false),
       native_embed_id_(false)
 #endif
 {}
@@ -35,6 +36,7 @@ LayerImplUtils::LayerImplUtils(LayerImpl* layer_impl)
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 void LayerImplUtils::LayerImplPushPropertiesTo(LayerImpl* layer) {
   layer->layer_impl_utils()->set_may_contain_native(may_contain_native_);
+  layer->layer_impl_utils()->set_may_contain_video(may_contain_video_);
   layer->layer_impl_utils()->set_native_embed_id(native_embed_id_);
   layer->layer_impl_utils()->SetNativeRect(native_rect_);
   layer->layer_impl_utils()->SetInitScale(init_scale_);

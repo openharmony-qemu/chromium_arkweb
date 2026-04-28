@@ -30,6 +30,9 @@ void SurfaceLayerImplUtils::VisbilityChange()
 {
   // In Chromium 141, may_contain_video() method was removed.
   // Video-related logic is not needed for OHOS platform.
+  if (impl->layer_impl_utils()->may_contain_video()) {
+    return;
+  }
   if (impl->layer_impl_utils()->may_contain_native()) {
     bool visibility = false;
     if (impl->visible_layer_rect().IsEmpty()) {
@@ -51,7 +54,7 @@ void SurfaceLayerImplUtils::LayerRectUpdate()
   // when web page use same_layer, may_contain_video is false in surface layer.
   // In Chromium 141, may_contain_video() method was removed.
   // Video-related logic is not needed for OHOS platform.
-  if (!impl->layer_impl_utils()->may_contain_native()) {
+  if (impl->layer_impl_utils()->may_contain_video() || !impl->layer_impl_utils()->may_contain_native()) {
       return;
   }
   gfx::Transform transform = impl->DrawTransform();

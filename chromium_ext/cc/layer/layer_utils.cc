@@ -20,13 +20,15 @@ namespace cc {
 LayerUtils::LayerUtils(Layer* layer)
     : layer_(layer),
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
-      native_(false)
+      native_(false),
+      native_video_(false)
 #endif
 {}
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 void LayerUtils::PushPropertiesToImpl(LayerImpl* layer_impl) {
   layer_impl->layer_impl_utils()->set_may_contain_native(may_contain_native());
+  layer_impl->layer_impl_utils()->set_may_contain_video(may_contain_video());
   layer_impl->layer_impl_utils()->set_native_embed_id(native_embed_id());
   layer_impl->layer_impl_utils()->SetNativeRect(native_rect_);
   layer_impl->layer_impl_utils()->SetShouldInterceptTouchEvent(
@@ -55,6 +57,14 @@ void LayerUtils::SetNativeEmbedId(int embedId) {
   }
   native_embed_id_.Write(*(layer_.get())) = embedId;
   layer_->SetNeedsPushProperties();
+}
+
+void LayerUtils::SetMayContainVideo(bool value) {
+  native_video_.Write(*(layer_.get())) = value;
+}
+
+bool LayerUtils::may_contain_video() const {
+  return native_video_.Read(*(layer_.get()));
 }
 #endif
 
