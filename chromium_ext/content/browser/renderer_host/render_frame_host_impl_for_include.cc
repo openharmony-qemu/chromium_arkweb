@@ -579,5 +579,20 @@ bool RenderFrameHostImpl::OnNestedScroll(float& delta_x, float& delta_y) {
   }
   return ret;
 }
+
+bool RenderFrameHostImpl::OnNestedFling(float& velocity_x, float& velocity_y) {
+  if (!render_view_host_ || !render_view_host_->GetWidget()) {
+    LOG(ERROR)
+        << "RenderFrameHostImpl::OnNestedFling cannot get view.";
+    return false;
+  }
+  RenderWidgetHostViewBase* view = static_cast<RenderWidgetHostViewBase*>(
+      render_view_host_->GetWidget()->GetView());
+  bool ret = false;
+  if (view) {
+    ret = view->OnNestedFling(velocity_x, velocity_y);
+  }
+  return ret;
+}
 #endif
 }  // namespace content

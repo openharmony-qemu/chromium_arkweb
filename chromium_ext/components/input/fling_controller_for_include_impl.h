@@ -263,6 +263,14 @@ bool FlingController::OnNestedScroll(float& delta_x, float& delta_y) {
   }
   return ret;
 }
+
+bool FlingController::OnNestedFling(float& velocity_x, float& velocity_y) {
+  bool ret = false;
+  if (scheduler_client_) {
+    ret = scheduler_client_->OnNestedFling(velocity_x, velocity_y);
+  }
+  return ret;
+}
 #endif
 }
 #endif

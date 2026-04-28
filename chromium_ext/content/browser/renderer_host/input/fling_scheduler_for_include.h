@@ -42,6 +42,27 @@ bool FlingScheduler::OnNestedScroll(float& delta_x, float& delta_y) {
   }
   return ret;
 }
+
+bool FlingScheduler::OnNestedFling(float& velocity_x, float& velocity_y) {
+  if (!host_) {
+    return false;
+  }
+
+  WebContentsImpl* web_contents_impl =
+      WebContentsImpl::FromRenderWidgetHostImpl(host_);
+
+  if (!web_contents_impl) {
+    return false;
+  }
+
+  RenderFrameHostImpl* main_frame = web_contents_impl->GetPrimaryMainFrame();
+
+  bool ret = false;
+  if (main_frame) {
+    ret = main_frame->OnNestedFling(velocity_x, velocity_y);
+  }
+  return ret;
+}
 }  // namespace content
 
 #endif

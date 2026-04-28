@@ -67,7 +67,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBaseInterface {
 #endif
 
 #if BUILDFLAG(ARKWEB_FLING)
-  virtual bool OnNestedScroll(float& delta_x, float& delta_y) {}
+  virtual bool OnNestedScroll(float& delta_x, float& delta_y) { return false; }
+
+  virtual bool OnNestedFling(float& velocity_x, float& velocity_y) { return false; }
 #endif
 };
 

@@ -397,4 +397,12 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnNestedScroll_BasicCall) {
   RenderFrameHostImpl* rfh = main_test_rfh();
   ASSERT_NO_FATAL_FAILURE(rfh->OnNestedScroll(delta_x, delta_y));
 }
+
+TEST_F(RenderFrameHostImplForIncludeTest, OnNestedFling_BasicCall) {
+  float velocity_x = 10.0f;
+  float velocity_y = 10.0f;
+
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->OnNestedFling(velocity_x, velocity_y));
+}
 }  // namespace content
