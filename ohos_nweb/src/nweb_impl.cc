@@ -8478,6 +8478,17 @@ bool NWebImpl::IsPrivateNetworkAccessEnabled() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+void NWebImpl::SetWebAutoLayoutConfig(const std::string& config) {
+  LOG(INFO) << "NWebImpl::SetWebAutoLayoutConfig.";
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "SetWebAutoLayoutConfig nweb_delegate_ is null";
+    return;
+  }
+  nweb_delegate_->SetWebAutoLayoutConfig(config);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_NETWORK_SERVICE)
 void NWebImpl::SetSocketIdleTimeout(int32_t timeout) {
   if (!NWebApplication::GetDefault()->HasInitializedCef()) {

@@ -1306,6 +1306,9 @@ class NWebImpl : public NWeb {
       const std::vector<int32_t>& detectionMethods,
       int32_t contentfulNodesCountThreshold) override;
 #endif
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetWebAutoLayoutConfig(const std::string& config) override;
+#endif
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   bool SetFocusByPosition(float x, float y) override;
 #if BUILDFLAG(IS_ARKWEB_EXT)
