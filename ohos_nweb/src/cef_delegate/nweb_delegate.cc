@@ -6856,6 +6856,16 @@ void NWebDelegate::GetLastJavaScriptProxyCallingFrameInfo(
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+void NWebDelegate::SetPageVisibility(bool visible) {
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "NWebDelegate::SetPageVisibility can not get browser";
+    return;
+  }
+  GetBrowser()->GetHost()->SetPageVisibility(visible);
+}
+#endif // ARKWEB_AUTOLAYOUT
+
 #if BUILDFLAG(ARKWEB_READER_MODE)
 void NWebDelegate::EnableReaderMode(bool enabled) {
   LOG(INFO) << "NWebDelegate::EnableReaderMode: " << enabled;

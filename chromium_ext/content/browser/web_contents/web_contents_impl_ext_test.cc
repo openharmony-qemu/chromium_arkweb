@@ -1639,7 +1639,23 @@ TEST_F(WebContentsImplExtTest, GetAllFrameInfos001) {
   ExtendContent()->GetAllFrameInfos(frameinfos);
 }
 #endif
- 
+
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+TEST_F(WebContentsImplExtTest, GetPageVisibility001) {
+  EXPECT_FALSE(ExtendContent()->GetPageVisibility());
+}
+
+TEST_F(WebContentsImplExtTest, SetPageVisibility001) {
+  ExtendContent()->SetPageVisibility(true);
+  EXPECT_TRUE(ExtendContent()->GetPageVisibility());
+}
+
+TEST_F(WebContentsImplExtTest, SetPageVisibility002) {
+  ExtendContent()->SetPageVisibility(false);
+  EXPECT_FALSE(ExtendContent()->GetPageVisibility());
+}
+#endif
+
 TEST_F(WebContentsImplExtTest, OnAudioStateChangedExt001) {
   bool is_currently_audible = true;
   bool is_ohos_currently_audible = false;

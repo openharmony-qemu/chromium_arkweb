@@ -818,6 +818,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void GetAllFrameInfos(CefRefPtr<CefFrameInfosCallback> callback) override {}
   void GetLastJavaScriptProxyCallingFrameInfo(
       CefRefPtr<CefLastJavaScriptProxyCallingFrameInfoCallback> callback) override {}
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetPageVisibility(bool visible) override {}
+#endif
 #if BUILDFLAG(ARKWEB_SAVE_PAGE)
   bool SavePage(int type,
                 CefString& filePath,

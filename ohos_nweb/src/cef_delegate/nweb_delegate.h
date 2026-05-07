@@ -999,6 +999,10 @@ void AbortDistill() override;
       OnLastJavaScriptProxyCallingFrameInfoCallback callback) override;
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetPageVisibility(bool visible) override;
+#endif
+
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   void SetErrorPageEnabled(bool enable) override;
   bool GetErrorPageEnabled() override;

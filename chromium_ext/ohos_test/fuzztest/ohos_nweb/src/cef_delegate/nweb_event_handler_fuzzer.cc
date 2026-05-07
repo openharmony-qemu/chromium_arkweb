@@ -745,6 +745,9 @@ void GetAllFrameInfos(CefRefPtr<CefFrameInfosCallback> callback) override {}
 void GetLastJavaScriptProxyCallingFrameInfo(
     CefRefPtr<CefLastJavaScriptProxyCallingFrameInfoCallback> callback) override {}
 #endif
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetPageVisibility(bool visible) override {}
+#endif
 #endif  // BUILDFLAG(IS_OHOS)
   int PrerenderPage(const CefString& url,
                     const CefString& additional_headers) override {

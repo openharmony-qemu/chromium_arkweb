@@ -147,7 +147,10 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   void GetAllFrameInfos(std::map<std::string, std::string>& frameinfos);
 #endif
-
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  bool GetPageVisibility();
+  void SetPageVisibility(bool visible);
+#endif
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   void NotifyContextMenuWillShow() override;
   void ShowFreeCopyMenu() override;
@@ -478,6 +481,9 @@ private:
   friend class WebContentsImplUtilsTest;
 #endif
   std::string custom_user_agent_;
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  std::atomic<bool> is_page_visible_ = false;
+#endif
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
   std::shared_ptr<OHOS::NWeb::NWebVaultPlainTextCallback> vault_plain_text_callback_ = nullptr;
 #endif
