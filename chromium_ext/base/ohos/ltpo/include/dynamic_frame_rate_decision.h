@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,6 +23,14 @@
 #include "base/ohos/ltpo/include/ltpo_strategy.h"
 #include "base/task/single_thread_task_runner.h"
 
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+#include <memory>
+
+#include "base/containers/flat_map.h"
+#include "base/ohos/ltpo/include/invisible_rendering_throttler.h"
+#include "base/timer/timer.h"
+#endif
+
 namespace base {
 namespace ohos {
 // dynamic frame rate
@@ -45,6 +53,10 @@ class DynamicFrameRateDecision {
   void SetVsyncEnabled(bool enabled);
   void SetHasTouchPoint(bool has_touch_point);
   void SetLTPOStrategy(int32_t strategy);
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  void SetWebComponentVisible(int nweb_id, bool visible);
+  int32_t ThrottleRatio();
+#endif
 
  private:
   void SetMaxFrameRateThreeSec();
@@ -56,6 +68,11 @@ class DynamicFrameRateDecision {
   void ReportSlidingFrameRateImpl(int32_t frame_rate);
   void SetHasTouchPointImpl(bool has_touch_point);
   void SetLTPOStrategyImpl(int32_t strategy);
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  void SetWebComponentVisibleImpl(int nweb_id, bool visible);
+  void EvaluateAllThrottleStates();
+  void InitializeThrottleComponents();
+#endif  
 
  private:
   int32_t sliding_frame_rate_{0};
@@ -69,6 +86,10 @@ class DynamicFrameRateDecision {
   std::set<int32_t> nwebVisibleSet_{};
 
   LTPOStrategy strategy_{LTPOStrategy::DISABLED};
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  std::unique_ptr<InvisibleRenderingThrottler> invisible_throttler_;
+  std::unique_ptr<base::RepeatingTimer> evaluate_timer_;
+#endif 
 };
 }  // namespace ohos
 }  // namespace base

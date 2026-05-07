@@ -317,6 +317,9 @@ extern bool g_siteIsolationMode;
 #include "ohos_nweb_ex/core/static/nweb_static_dispatcher.h"
 #include "ohos_nweb_ex/core/web_extension/web_extension_dispatcher.h"
 #endif
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+#include "base/ohos/ltpo/include/dynamic_frame_rate_decision.h"
+#endif
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
@@ -8536,6 +8539,15 @@ int64_t NWebImpl::GetPreferenceHashByNwebId(int32_t nweb_id) {
 #endif
 
 void NWebImpl::SetVisibility(bool isVisible) {
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  LOG(DEBUG) << "NWebImpl::SetVisibility nwebid:" << nweb_id_ << ", visible:" << isVisible;
+  static int invisible_throttle_strategy = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_strategy", 0);
+  if (invisible_throttle_strategy) {
+    content::GpuProcessHost* host = content::GpuProcessHost::Get();
+    host->gpu_service()->SetWebComponentVisible(nweb_id_, isVisible);
+  }
+#endif
   is_visible_ = isVisible;
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
   if (nweb_delegate_) {

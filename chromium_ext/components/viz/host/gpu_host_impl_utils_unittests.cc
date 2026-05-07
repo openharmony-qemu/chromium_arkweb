@@ -132,6 +132,7 @@ class GpuServiceMock : public mojom::GpuService {
    MOCK_METHOD1(SetHasTouchPoint, void(bool has_touch_point));
    MOCK_METHOD1(ReportSlidingFrameRate, void(int32_t frame_rate));
    MOCK_METHOD1(SetLTPOStrategy, void(int32_t strategy));
+   MOCK_METHOD2(SetWebComponentVisible, void(int32_t nweb_id, bool visible));
    MOCK_METHOD1(DumpGpuInfo, void(DumpGpuInfoCallback callback));
    MOCK_METHOD1(SetIsFling, void(bool is_fling_enabled));
    MOCK_METHOD1(SetIsScroll, void(bool is_scroll_enabled));

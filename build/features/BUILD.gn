@@ -98,6 +98,7 @@ if (!enable_arkweb) {
   enable_arkweb_ext = false
 
   arkweb_accessibility = false
+  arkweb_invisible_render_throttle = false
   arkweb_ai = false
   arkweb_ai_write = false
   arkweb_api_init_web_engine = true
@@ -380,6 +381,7 @@ buildflag_header("features") {
 
   flags = [
     "ARKWEB_ACCESSIBILITY=$arkweb_accessibility",
+    "ARKWEB_INVISIBLE_RENDER_THROTTLE=$arkweb_invisible_render_throttle",
     "ARKWEB_AI=$arkweb_ai",
     "ARKWEB_AI_WRITE=$arkweb_ai_write",
     "ARKWEB_API_INIT_WEB_ENGINE=$arkweb_api_init_web_engine",

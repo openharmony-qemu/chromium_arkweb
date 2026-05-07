@@ -166,12 +166,12 @@ ReportLossFrame::GetInstance()->SetVsyncPeriod(vsync_period_);
 #endif
 
 #if BUILDFLAG(ARKWEB_SLIDE_LTPO)
-  LOG(DEBUG) << "ExternalBeginFrameSourceOHOS::OnVSyncImpl vsync_period_: "
-             << vsync_period_;
   int64_t cur_vsync_frequency = 0;
   if (vsync_period_ != 0) {
     cur_vsync_frequency = (VSYNC_TIME_FOR_CALCULATION - 1) / vsync_period_ + 1;
   }
+  LOG(DEBUG) << "ExternalBeginFrameSourceOHOS::OnVSyncImpl vsync_period_: "
+             << vsync_period_ << ",cur_vsync: " << cur_vsync_frequency;
 #endif
 
 #if BUILDFLAG(ARKWEB_PERFORMANCE_JITTER)
@@ -206,6 +206,21 @@ ReportLossFrame::GetInstance()->SetVsyncPeriod(vsync_period_);
     } else if (isAlreadyThrottle && lower_frame_rate_enabled_) {
       isHalfAlreadyThrottle = false;
     }
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+    if (!lower_frame_rate_enabled_ && !half_frame_rate_enabled_) {
+      static bool isAlreadyInvisibleThrottle = false;
+      int ratio = base::ohos::DynamicFrameRateDecision::GetInstance().ThrottleRatio();
+      LOG(DEBUG) << "InvisibleThrottle already:" << isAlreadyInvisibleThrottle << ",ratio:" << ratio;
+      if (!isAlreadyInvisibleThrottle && ratio > 1) {
+        frame_sink_manager_->StartThrottlingAllFrameSinks(base::Hertz(cur_vsync_frequency / ratio));
+ 
+        isAlreadyInvisibleThrottle = true;
+      } else if (isAlreadyInvisibleThrottle && ratio == 1) {
+        frame_sink_manager_->StopThrottlingAllFrameSinks();
+        isAlreadyInvisibleThrottle = false;
+      }
+    }
+#endif  // BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
 #if BUILDFLAG(ARKWEB_PIP)
   }
 #endif
