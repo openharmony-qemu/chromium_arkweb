@@ -1,0 +1,70 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+import("//media/gpu/args.gni")
+
+fuzzer_test("gpu_service_impl_utils_fuzzer") {
+  sources = [
+    "gpu_service_impl_utils_fuzzer.cc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//ohos_nweb/include",
+  ]
+  deps = [
+    "//arkweb/build/features:features",
+    "//base",
+    "//base/test:test_support",
+    "//cc:test_support",
+    "//cc/paint",
+    "//components/input",
+    "//components/viz/client",
+    "//components/viz/common",
+    "//components/viz/host",
+    "//components/viz/service/main",
+    "//components/viz/service:service",
+    "//components/viz/test:test_suite",
+    "//components/viz/test:test_support",
+    #"//content/browser:browser",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:raster_interface",
+    "//gpu/ipc:gl_in_process_context",
+    "//gpu/ipc/common",
+    "//gpu/ipc/service",
+    "//media",
+    "//media:test_support",
+    "//media/capture:capture_lib",
+    "//services/viz/public/mojom",
+    "//services/viz/privileged/mojom:mojom",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/angle:includes",
+    "//third_party/libyuv",
+    "//ui/display/types",
+    "//ui/gfx:test_support",
+    "//ui/gfx/animation/keyframe",
+    "//ui/gfx/geometry",
+    "//ui/gl",
+  ]
+}
+
+group("ohos_fuzz") {
+  testonly = true
+  deps = [
+    ":gpu_service_impl_utils_fuzzer",
+  ]
+}
+
