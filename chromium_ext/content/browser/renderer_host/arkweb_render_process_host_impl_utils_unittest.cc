@@ -27,7 +27,9 @@
 #include "base/task/single_thread_task_runner.h"
 #include "url/origin.h"
 #include "content/browser/child_process_security_policy_impl.h"
+#define private public
 #include "content/browser/renderer_host/spare_render_process_host_manager_impl.h"
+#undef private
 #include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_base_ohos_api.h"
 #include "arkweb/ohos_nweb/src/nweb_resize_helper.h"
 #include "content/public/common/content_switches.h"
@@ -37,14 +39,14 @@
 #define private public
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #undef private
- 
+
 namespace content {
 class MockRepeatingTimer : public base::RepeatingTimer {
   public:
     MOCK_METHOD(void, Start, (const base::Location&, base::TimeDelta, base::RepeatingClosure), (override));
     MOCK_METHOD(void, Stop, (), (override));
 };
- 
+
 #if BUILDFLAG(ARKWEB_THEME_FONT)
 const base::FilePath::CharType kAppThemePathA[] =
     FILE_PATH_LITERAL("/data/themes/a/app");
@@ -57,7 +59,7 @@ const base::FilePath::CharType kAppThemeFlagFileName[] =
 const base::FilePath::CharType kAppThemeFontsManifest[] =
     FILE_PATH_LITERAL("manifest.json");
 #endif
- 
+
 class RenderProcessHostImplUtilsTest : public RenderViewHostTestHarness {
   public:
   RenderProcessHostImplUtilsTest()
@@ -100,7 +102,7 @@ TEST_F(RenderProcessHostImplUtilsTest, RegisteProcessForSharedToken) {
   EXPECT_NE(result, nullptr);
   EXPECT_EQ(result->GetID(), process_->GetID());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, RemoveFromSharedRenderProcessMap) {
   const std::string token = "test_token_1";
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::RemoveFromSharedRenderProcessMap(process_));
@@ -112,14 +114,14 @@ TEST_F(RenderProcessHostImplUtilsTest, RemoveFromSharedRenderProcessMap) {
   EXPECT_EQ(result2, nullptr);
 }
 #endif
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetMaxRendererProcessCountEx) {
   RenderProcessHost::SetRenderProcessMode(RenderProcessMode::SINGLE_MODE);
   size_t maxRendererProcessCount = ArkwebRenderProcessHostImplUtils::GetMaxRendererProcessCountEx();
   size_t singleRenderCount = 1;
   EXPECT_EQ(maxRendererProcessCount, singleRenderCount);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetMaxRendererProcessCountExMaxCount) {
   RenderProcessHost::SetRenderProcessMode(RenderProcessMode::MULTIPLE_MODE);
   g_max_renderer_count_override = 1;
@@ -128,7 +130,7 @@ TEST_F(RenderProcessHostImplUtilsTest, GetMaxRendererProcessCountExMaxCount) {
   EXPECT_EQ(maxRendererProcessCount, renderCount);
   g_max_renderer_count_override = 0;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetMaxRendererProcessCountExAmount) {
   RenderProcessHost::SetRenderProcessMode(RenderProcessMode::MULTIPLE_MODE);
   g_max_renderer_count_override = 0;
@@ -136,12 +138,12 @@ TEST_F(RenderProcessHostImplUtilsTest, GetMaxRendererProcessCountExAmount) {
   size_t minRenderCount = 3;
   EXPECT_TRUE(maxRendererProcessCount > minRenderCount);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebFalse) {
   bool result = ArkwebRenderProcessHostImplUtils::IsSuitableHostForArkweb(process_, site_instance->GetSiteInfo());
   EXPECT_FALSE(result);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest) {
   GURL pdf_url("http://example.com/document.pdf");
   auto pdf_site_instance = CreateForUrl(pdf_url);
@@ -153,7 +155,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest) {
       pdf_process, siteInfo);
   EXPECT_TRUE(result);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest2) {
   GURL extension_url("chrome-extension://abcdefghijklmnopqrstuvwxyz/index.html");
   auto extension_site_instance = CreateForUrl(extension_url);
@@ -174,7 +176,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest3) {
                                                                           extension_site_instance->GetSiteInfo());
   EXPECT_TRUE(result);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest4) {
   GURL extension_url("chrome-extension://abcdefghijklmnopqrstuvwxyz/index.html");
   auto extension_site_instance = CreateForUrl(extension_url);
@@ -184,7 +186,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest4) {
                                                                           extension_site_instance->GetSiteInfo());
   EXPECT_FALSE(result);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest5) {
   GURL extension_url("arkweb-extension://abcdefghijklmnopqrstuvwxyz/index.html");
   auto extension_site_instance = CreateForUrl(extension_url);
@@ -195,26 +197,19 @@ TEST_F(RenderProcessHostImplUtilsTest, IsSuitableHostForArkwebTest5) {
                                                                           extension_site_instance->GetSiteInfo());
   EXPECT_FALSE(result);
 }
- 
-// TEST_F(RenderProcessHostImplUtilsTest, GetProcessCountForLimitArkweb) {
-//   size_t processCountToIgnore = 1;
-//   size_t processCount = RenderProcessHostImpl::GetProcessCount();
-//   size_t result = ArkwebRenderProcessHostImplUtils::GetProcessCountForLimitArkweb(processCountToIgnore);
-//   EXPECT_TRUE(processCount - processCountToIgnore >= result);
-// }
- 
+
 #if BUILDFLAG(ARKWEB_THEME_FONT)
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_ = nullptr;
   EXPECT_FALSE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest2) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_ = std::make_unique<ThemeFont>();
   EXPECT_FALSE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest3) {
   const base::FilePath::CharType appPath[] =
       FILE_PATH_LITERAL("/data/themes/a/app");
@@ -225,7 +220,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest3) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_->flag_path = flag_path;
   EXPECT_FALSE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest4) {
   const base::FilePath::CharType appPath[] =
       FILE_PATH_LITERAL("/data/themes/a/app");
@@ -259,7 +254,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest5) {
   
   EXPECT_FALSE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest6) {
   const base::FilePath::CharType appPath[] =
       FILE_PATH_LITERAL("/data/themes/a/app");
@@ -282,7 +277,7 @@ TEST_F(RenderProcessHostImplUtilsTest, IsThemeFontValidTest6) {
   
   EXPECT_TRUE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFont_AlreadyValid) {
   base::FilePath temp_dir(kAppThemePathA); 
   base::FilePath flag_path = temp_dir.Append(FILE_PATH_LITERAL("flag"));
@@ -301,20 +296,20 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFont_AlreadyValid) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_->font_files = std::move(font_files);
   
   EXPECT_TRUE(ArkwebRenderProcessHostImplUtils::IsThemeFontValid());
- 
+
   ThemeFont* result = ArkwebRenderProcessHostImplUtils::EnsureThemeFont();
   EXPECT_EQ(result, ArkwebRenderProcessHostImplUtils::g_theme_font_.get());
   base::DeletePathRecursively(flag_path);
   base::DeletePathRecursively(font_path);
   base::DeletePathRecursively(manifest_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest2) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_.reset();
   ThemeFont* result = ArkwebRenderProcessHostImplUtils::EnsureThemeFont();
   EXPECT_EQ(result, nullptr);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest3) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_.reset();
   base::FilePath theme_path(kAppThemePathB);
@@ -324,7 +319,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest3) {
   EXPECT_EQ(result, nullptr);
   base::DeletePathRecursively(theme_flag_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest4) {
   ArkwebRenderProcessHostImplUtils::g_theme_font_.reset();
   base::FilePath theme_path(kAppThemePathA);
@@ -341,7 +336,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest4) {
   base::DeletePathRecursively(theme_flag_path);
   base::DeletePathRecursively(theme_font_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest5) {
   base::FilePath theme_path(kAppThemePathA);
   base::FilePath theme_path_flag(kAppThemePathA);
@@ -380,7 +375,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest6) {
   base::DeletePathRecursively(theme_flag_path);
   base::DeletePathRecursively(theme_font_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest7) {
   base::FilePath theme_path(kAppThemePathA);
   base::FilePath theme_path_flag(kAppThemePathA);
@@ -398,7 +393,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest7) {
   base::DeletePathRecursively(theme_flag_path);
   base::DeletePathRecursively(theme_font_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest8) {
   base::FilePath theme_path(kAppThemePathA);
   base::FilePath theme_path_flag(kAppThemePathA);
@@ -417,7 +412,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest8) {
   base::DeletePathRecursively(theme_flag_path);
   base::DeletePathRecursively(theme_font_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest9) {
   base::FilePath theme_path(kAppThemePathA);
   base::FilePath theme_path_flag(kAppThemePathA);
@@ -436,7 +431,7 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest9) {
   base::DeletePathRecursively(theme_flag_path);
   base::DeletePathRecursively(theme_font_path);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest10) {
   base::FilePath theme_path(kAppThemePathA);
   base::FilePath theme_path_flag(kAppThemePathA);
@@ -524,9 +519,9 @@ TEST_F(RenderProcessHostImplUtilsTest, EnsureThemeFontTest13) {
 }
 
 #endif
- 
+
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, StartTimerTest) {
   // Arrange
   auto* killer = DelayedRenderKiller::GetInstance();
@@ -536,23 +531,23 @@ TEST_F(RenderProcessHostImplUtilsTest, StartTimerTest) {
   killer->StartTimer();
   EXPECT_EQ(killer->rep_, 0); // 验证未重置
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, ReportHisyeventTest) {
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportHisyevent(200, "ReportRenderInitBlock"));
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, ReportHisyeventTest2) {
   OHOS::NWeb::NWebResizeHelper::GetInstance().SetDragResizeStart(false);
   ArkwebRenderProcessHostImplUtils::ReportHisyevent(200, "ReportDragBlank");
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportHisyevent(200, "ReportRenderInitBlock"));
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, ReportHisyeventTest3) {
   OHOS::NWeb::NWebResizeHelper::GetInstance().SetDragResizeStart(true);
   ArkwebRenderProcessHostImplUtils::ReportHisyevent(200, "ReportDragBlank");
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportHisyevent(200, "ReportRenderInitBlock"));
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
@@ -578,7 +573,7 @@ TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest2) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest3) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
@@ -591,7 +586,7 @@ TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest3) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest4) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
@@ -604,7 +599,7 @@ TEST_F(RenderProcessHostImplUtilsTest, RenderProcessModeTest4) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest) {
   GURL extension_url("chrome-extension://test/index.html");
   auto extension_site_instance = CreateForUrl(extension_url);
@@ -615,7 +610,7 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest) 
       extension_process, site_info, web_content_impl->GetBrowserContext(), 1, extension_site_instance.get());
   EXPECT_EQ(extension_process->special_render_numbers_[RenderProcessHost::RenderType::kExtension], 1);
 }
- 
+
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest2) {
   GURL extension_url("arkweb-extension://test/index.html");
@@ -628,7 +623,7 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest2)
   EXPECT_EQ(extension_process->special_render_numbers_[RenderProcessHost::RenderType::kExtension], 1);
 }
 #endif
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest3) {
   GURL pdf_url("http://example.com/document.pdf");
   auto pdf_site_instance = CreateForUrl(pdf_url);
@@ -640,14 +635,14 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest3)
       pdf_process, site_info, web_content_impl->GetBrowserContext(), 1, pdf_site_instance.get());
   EXPECT_EQ(pdf_process->special_render_numbers_[RenderProcessHost::RenderType::kPdf], 1);
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest4) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
   GURL test_url("https://www.example.com");
   g_render_process_mode = RenderProcessMode::DEFAULT_MODE;
   size_t count = 0;
- 
+
   auto test_site_instance = CreateForUrl(test_url);
   auto test_process = test_site_instance->GetProcess();
   auto site_info = test_site_instance->GetSiteInfo();
@@ -656,23 +651,23 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest4)
   EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(false));
   auto result = RenderProcessHost::render_process_mode();
   EXPECT_EQ(result, RenderProcessMode::MULTIPLE_MODE);
- 
+
   auto maxProcessCount = RenderProcessHostImpl::GetMaxRendererProcessCount();
   count = maxProcessCount >=1 ? maxProcessCount - 1 : 0;
- 
+
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::GetProcessHostForSiteInstanceArkweb(
       test_process, site_info, web_content_impl->GetBrowserContext(), count, test_site_instance.get()));
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest5) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
   GURL test_url("https://www.example.com");
   g_render_process_mode = RenderProcessMode::DEFAULT_MODE;
   size_t count = 0;
- 
+
   auto test_site_instance = CreateForUrl(test_url);
   auto test_process = test_site_instance->GetProcess();
   auto site_info = test_site_instance->GetSiteInfo();
@@ -681,10 +676,10 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest5)
   EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(false));
   auto result = RenderProcessHost::render_process_mode();
   EXPECT_EQ(result, RenderProcessMode::SINGLE_MODE);
- 
+
   auto maxProcessCount = RenderProcessHostImpl::GetMaxRendererProcessCount();
   count = maxProcessCount >=1 ? maxProcessCount - 1 : 0;
- 
+
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::GetProcessHostForSiteInstanceArkweb(
       test_process, site_info, web_content_impl->GetBrowserContext(), count, test_site_instance.get()));
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
@@ -697,7 +692,7 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest6)
   GURL test_url("https://www.example.com");
   g_render_process_mode = RenderProcessMode::DEFAULT_MODE;
   size_t count = 0;
- 
+
   auto test_site_instance = CreateForUrl(test_url);
   auto test_process = test_site_instance->GetProcess();
   auto site_info = test_site_instance->GetSiteInfo();
@@ -706,22 +701,22 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest6)
   EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(false));
   auto result = RenderProcessHost::render_process_mode();
   EXPECT_EQ(result, RenderProcessMode::SINGLE_MODE);
- 
+
   auto maxProcessCount = RenderProcessHostImpl::GetMaxRendererProcessCount();
- 
+
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::GetProcessHostForSiteInstanceArkweb(
       test_process, site_info, web_content_impl->GetBrowserContext(), maxProcessCount, test_site_instance.get()));
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest7) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
   GURL test_url("https://www.example.com");
   g_render_process_mode = RenderProcessMode::DEFAULT_MODE;
   size_t count = 0;
- 
+
   auto test_site_instance = CreateForUrl(test_url);
   auto test_process = test_site_instance->GetProcess();
   auto site_info = test_site_instance->GetSiteInfo();
@@ -730,15 +725,15 @@ TEST_F(RenderProcessHostImplUtilsTest, GetProcessHostForSiteInstanceArkwebTest7)
   EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(false));
   auto result = RenderProcessHost::render_process_mode();
   EXPECT_EQ(result, RenderProcessMode::MULTIPLE_MODE);
- 
+
   auto maxProcessCount = RenderProcessHostImpl::GetMaxRendererProcessCount();
- 
+
   ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::GetProcessHostForSiteInstanceArkweb(
       test_process, site_info, web_content_impl->GetBrowserContext(), maxProcessCount, test_site_instance.get()));
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest) {
   auto* killer = DelayedRenderKiller::GetInstance();
   killer->rep_ = 15;
@@ -747,7 +742,7 @@ TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest) {
     .Times(1);
   ASSERT_NO_FATAL_FAILURE(killer->TryKillRender());
 }
- 
+
 TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest2) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
@@ -765,8 +760,8 @@ TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest2) {
   ASSERT_NO_FATAL_FAILURE(killer->TryKillRender());
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
-}   
- 
+}
+
 TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest3) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
@@ -785,6 +780,159 @@ TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest3) {
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
   base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
 }
- 
+
 #endif
+
+TEST_F(RenderProcessHostImplUtilsTest, NeedDebugTest) {
+  auto* killer = DelayedRenderKiller::GetInstance();
+  killer->rep_ = 5;
+  EXPECT_TRUE(killer->NeedDebug());
+  killer->rep_ = 3;
+  EXPECT_FALSE(killer->NeedDebug());
+  killer->rep_ = 0;
+  EXPECT_FALSE(killer->NeedDebug());
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, StartTimer_NullTimer) {
+  auto* killer = DelayedRenderKiller::GetInstance();
+  auto original_timer = std::move(killer->timer_);
+  killer->timer_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(killer->StartTimer());
+  killer->timer_ = std::move(original_timer);
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadExTest) {
+  int32_t status = 0;
+  int32_t process_id = 1234;
+  int32_t thread_id = 5678;
+  int32_t role = 0;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadEx(
+      status, process_id, thread_id, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadExTest2) {
+  int32_t status = 1;
+  int32_t process_id = 9999;
+  int32_t thread_id = 1111;
+  int32_t role = 1;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadEx(
+      status, process_id, thread_id, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadIdsExTest) {
+  int32_t status = 0;
+  int32_t process_id = 1234;
+  std::vector<int32_t> thread_ids = {100, 200, 300};
+  int32_t role = 0;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadIdsEx(
+      status, process_id, thread_ids, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadIdsEx_Empty) {
+  int32_t status = 1;
+  int32_t process_id = 5678;
+  std::vector<int32_t> thread_ids;
+  int32_t role = 1;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadIdsEx(
+      status, process_id, thread_ids, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadIdsEx_SingleThread) {
+  int32_t status = 0;
+  int32_t process_id = 9999;
+  std::vector<int32_t> thread_ids = {500};
+  int32_t role = 0;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadIdsEx(
+      status, process_id, thread_ids, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, SetRenderProcessModeTest) {
+  RenderProcessMode original_mode = g_render_process_mode;
+  RenderProcessHost::SetRenderProcessMode(RenderProcessMode::SINGLE_MODE);
+  EXPECT_EQ(g_render_process_mode, RenderProcessMode::SINGLE_MODE);
+  RenderProcessHost::SetRenderProcessMode(RenderProcessMode::MULTIPLE_MODE);
+  EXPECT_EQ(g_render_process_mode, RenderProcessMode::MULTIPLE_MODE);
+  RenderProcessHost::SetRenderProcessMode(original_mode);
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, GetExistingBackgroundProcessHostTest) {
+  RenderProcessHost* result = ArkwebRenderProcessHostImplUtils::GetExistingBackgroundProcessHost();
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, GetExistingBackgroundProcessHost_SpareProcess) {
+  // Add the process to spare list to test the spare branch
+  auto& spare_manager = SpareRenderProcessHostManagerImpl::Get();
+  spare_manager.spare_rphs_.push_back(process_);
+
+  // Now IsSpare() should return true for this process
+  EXPECT_TRUE(process_->IsSpare());
+
+  // GetExistingBackgroundProcessHost should skip spare processes
+  RenderProcessHost* result = ArkwebRenderProcessHostImplUtils::GetExistingBackgroundProcessHost();
+  EXPECT_EQ(result, nullptr);
+
+  // Clean up
+  spare_manager.spare_rphs_.clear();
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ArkwebRenderProcessHostImplUtils_Constructor) {
+  RenderProcessHostImpl* impl = static_cast<RenderProcessHostImpl*>(process_);
+  ArkwebRenderProcessHostImplUtils utils(impl);
+  EXPECT_NE(&utils, nullptr);
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, TryKillRenderTest4) {
+  auto* killer = DelayedRenderKiller::GetInstance();
+  killer->rep_ = 10;
+  auto original_timer = std::move(killer->timer_);
+  killer->timer_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(killer->TryKillRender());
+  killer->timer_ = std::move(original_timer);
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, NeedDebug_VariousRepValues) {
+  auto* killer = DelayedRenderKiller::GetInstance();
+  constexpr int32_t kMaxRep = 15;
+
+  killer->rep_ = kMaxRep - 1;
+  EXPECT_FALSE(killer->NeedDebug());
+
+  killer->rep_ = kMaxRep;
+  EXPECT_TRUE(killer->NeedDebug());
+
+  killer->rep_ = kMaxRep + 1;
+  EXPECT_TRUE(killer->NeedDebug());
+
+  killer->rep_ = 0;
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadEx_AllStatusValues) {
+  for (int32_t status = 0; status <= 1; status++) {
+    for (int32_t role = 0; role <= 1; role++) {
+      ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadEx(
+          status, 1234, 5678, role));
+    }
+  }
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadIdsEx_MultipleThreads) {
+  int32_t status = 0;
+  int32_t process_id = 1234;
+  std::vector<int32_t> thread_ids = {100, 200, 300, 400, 500};
+  int32_t role = 0;
+  ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadIdsEx(
+      status, process_id, thread_ids, role));
+}
+
+TEST_F(RenderProcessHostImplUtilsTest, ReportKeyThreadIdsEx_AllCombinations) {
+  std::vector<int32_t> thread_ids = {100};
+  for (int32_t status = 0; status <= 1; status++) {
+    for (int32_t role = 0; role <= 1; role++) {
+      ASSERT_NO_FATAL_FAILURE(ArkwebRenderProcessHostImplUtils::ReportKeyThreadIdsEx(
+          status, 9999, thread_ids, role));
+    }
+  }
+}
+
 }  // namespace content
