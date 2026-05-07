@@ -47,6 +47,7 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "url/origin.h"
 
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 namespace {
 GURL GetOriginOrURL(const blink::WebFrame* frame) {
   url::Origin top_origin = url::Origin(frame->Top()->GetSecurityOrigin());
@@ -87,7 +88,8 @@ ContentSetting GetContentSettingFromRules(
   return CONTENT_SETTING_DEFAULT;
 }
 }  // namespace
-#endif
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+#endif  // BUILDFLAG(ARKWEB_EXT_EXCEPTION_LIST)
 
 using blink::WebDocument;
 using blink::WebFrame;
@@ -96,6 +98,13 @@ using blink::WebString;
 using blink::WebURL;
 
 namespace content_settings {
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+const blink::WebURL* g_fuzz_document_url = nullptr;
+const blink::WebSecurityOrigin* g_fuzz_security_origin = nullptr;
+bool g_fuzz_render_frame_null = false;
+bool g_fuzz_web_frame_null = false;
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 
 ArkWebContentSettingsAgentImplExt::ArkWebContentSettingsAgentImplExt(
     content::RenderFrame* render_frame,
@@ -106,12 +115,35 @@ ArkWebContentSettingsAgentImplExt::~ArkWebContentSettingsAgentImplExt() = defaul
 
 #if BUILDFLAG(ARKWEB_EXT_EXCEPTION_LIST)
 bool ArkWebContentSettingsAgentImplExt::ShouldAllowlistForContentSettings() const {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  if (g_fuzz_document_url) {
+    return g_fuzz_document_url->GetString() == content::kUnreachableWebDataURL;
+  }
+  return false;
+#else
+  if (!render_frame() || !render_frame()->GetWebFrame()) {
+    return false;
+  }
   return render_frame()->GetWebFrame()->GetDocument().Url().GetString() ==
          content::kUnreachableWebDataURL;
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 }
 
 // static
 bool ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings() const {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  if (g_fuzz_render_frame_null) {
+    return false;
+  }
+  if (g_fuzz_web_frame_null) {
+    return false;
+  }
+  if (g_fuzz_security_origin && g_fuzz_document_url) {
+    return IsWhitelistedForContentSettings(*g_fuzz_security_origin,
+                                           *g_fuzz_document_url);
+  }
+  return false;
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
   if (!render_frame() || !render_frame()->GetWebFrame()) {
     return false;
   }
@@ -161,5 +193,17 @@ void ArkWebContentSettingsAgentImplExt::SetContentSettingRules(
       std::make_unique<RendererContentSettingRules>(*content_setting_rules);
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_EXT_EXCEPTION_LIST) && defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+namespace fuzz_testing {
+
+bool FuzzStaticIsWhitelisted(const blink::WebSecurityOrigin& origin,
+                              const blink::WebURL& url) {
+  return ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(
+      origin, url);
+}
+
+}  // namespace fuzz_testing
+#endif  // BUILDFLAG(ARKWEB_EXT_EXCEPTION_LIST) && defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 
 }  // namespace content_settings
