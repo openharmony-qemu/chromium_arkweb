@@ -422,6 +422,8 @@ arkweb_net_dns_sources = [
   "//arkweb/chromium_ext/net/dns/arkweb_host_resolver_manager_job_ext.h",
   "//arkweb/chromium_ext/net/dns/arkweb_address_info_ext.cc",
   "//arkweb/chromium_ext/net/dns/arkweb_address_info_ext.h",
+  "//arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.cc",
+  "//arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.h",
 ]
 
 arkweb_net_dns_unittest_sources = [

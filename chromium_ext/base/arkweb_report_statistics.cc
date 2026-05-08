@@ -116,6 +116,5 @@ BASE_EXPORT void OperationStatistics::Statistics(int region,
   }                                        
 }
 
-
 }  // namespace ohos
 }  // namespace base
