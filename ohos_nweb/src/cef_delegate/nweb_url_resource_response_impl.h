@@ -16,9 +16,11 @@
 #ifndef NWEB_URL_RESOURCE_RESPONSE_IMPL_H
 #define NWEB_URL_RESOURCE_RESPONSE_IMPL_H
 
-#include "base/memory/raw_ptr.h"
-#include "nweb_url_resource_response.h"
 #include "arkweb/build/features/features.h"
+#include "base/memory/raw_ptr.h"
+#include "base/synchronization/lock.h"
+#include "nweb_url_resource_response.h"
+
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #endif
@@ -183,6 +185,8 @@ class NWebUrlResourceResponseImpl : public NWebUrlResourceResponse {
 #if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   bool is_from_network_ = false;
 #endif;
+
+  base::Lock lock_;
 };
 
 }  // namespace OHOS::NWeb
