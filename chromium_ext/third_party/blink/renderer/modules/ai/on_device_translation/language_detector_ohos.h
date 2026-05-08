@@ -28,6 +28,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 
+#include "third_party/blink/renderer/platform/language_detection/language_detection_model.h"
 namespace blink {
 class LanguageDetector;
 
@@ -47,6 +48,23 @@ class LanguageDetectorOHOS : public GarbageCollectedMixin {
                          LanguageDetectorCreateOptions* options);
 
  protected:
+  Vector<LanguageDetectionModel::LanguagePrediction> ParseDetectionResults(
+      const String& response);
+    
+  void HandleDetectionSuccess(
+      ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+      const String& response,
+      mojom::blink::ModelExecutionContextInfoPtr context_info);
+    
+  void HandleDetectionError(
+      ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+      DOMException* exception);
+    
+  void HandleDetectionAbortSignal(
+      ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+      AbortSignal* signal, 
+      ScriptState* script_state);
+
   void Detect(
       ScriptState* script_state,
       const String& input,
