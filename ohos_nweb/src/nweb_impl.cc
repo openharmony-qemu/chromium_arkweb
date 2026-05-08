@@ -7705,6 +7705,24 @@ void NWebImpl::WebExtensionSetViewType(int32_t type) {
 }
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+void NWebImpl::ViewSource() {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->ViewSource();
+}
+
+bool NWebImpl::IsViewSourceEnabled() {
+  if (nweb_delegate_ == nullptr) {
+    return false;
+  }
+
+  return nweb_delegate_->IsViewSourceEnabled();
+}
+#endif
+
 void NWebImpl::SetBackForwardCacheOptions(int32_t size, int32_t timeToLive) {
 #if BUILDFLAG(ARKWEB_BFCACHE)
   if (nweb_delegate_ == nullptr) {

@@ -143,6 +143,8 @@ class MockCefBrowser : public CefBrowser, public CefBrowserHost {
   CefRefPtr<CefDevToolsMessageHandlerDelegate> delegate,
   const CefPoint& inspect_element_at,
   const CefOpenDevToolsExtOpt& ext_opt) override {}
+  void ViewSource() override {}
+  bool IsViewSourceEnabled() override { return false; }
   #endif // BUILDFLAG(ARKWEB_DEVTOOLS)
   void CloseDevTools() override {}
   bool HasDevTools() override {return false;}

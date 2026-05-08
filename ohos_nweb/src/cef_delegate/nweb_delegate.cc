@@ -140,6 +140,12 @@
 #include "content/public/browser/context_factory.h"
 #include "ui/compositor/compositor.h"
 #endif
+
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/web_contents/web_contents_impl.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
 #include "nweb_autolayout.h"
 #endif
@@ -1334,6 +1340,28 @@ void NWebDelegate::UnRegisterWebExtensionListener() {
 
 #endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+void NWebDelegate::ViewSource() {
+  if (!GetBrowser() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "NWebDelegate::ViewSource fail due to "
+                  "GetBrowser() return null";
+    return;
+  } else {
+    GetBrowser()->GetHost()->ViewSource();
+  }
+}
+
+bool NWebDelegate::IsViewSourceEnabled() {
+  if (!GetBrowser() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "NWebDelegate::IsViewSourceEnabled fail due to "
+                  "GetBrowser() return null";
+    return false;
+  } else {
+    return GetBrowser()->GetHost()->IsViewSourceEnabled();
+  }
+}
+#endif
+
 void NWebDelegate::RegisterNWebHandler(std::shared_ptr<NWebHandler> handler) {
   if (handler_delegate_ == nullptr) {
     LOG(ERROR)
@@ -2503,11 +2531,9 @@ void NWebDelegate::InitializeCef(std::string url,
   handler_delegate_ = NWebHandlerDelegate::Create(
       preference_delegate_, render_handler_, event_handler_, find_delegate_,
       is_enhance_surface, window);
-
 #if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
   handler_delegate_->SetNWebId(nweb_id);
 #endif
-
 #if BUILDFLAG(ARKWEB_HAP_DECOMPRESSED)
   CefMainArgs mainargs(argc_, const_cast<char**>(argv_));
   base::CommandLine::StringVector argv;

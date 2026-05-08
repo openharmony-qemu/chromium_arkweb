@@ -1159,6 +1159,11 @@ class NWebImpl : public NWeb {
                                     const std::string& client_id);
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+  void ViewSource();
+  bool IsViewSourceEnabled();
+#endif
+
 #if BUILDFLAG(ARKWEB_AI)
   void OnTextSelected() override;
   void OnDestroyImageAnalyzerOverlay() override;
