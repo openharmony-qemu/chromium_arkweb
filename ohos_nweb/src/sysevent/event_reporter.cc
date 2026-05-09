@@ -13,11 +13,13 @@
  * limitations under the License.
  */
 
+#include <deviceinfo.h>
 #include "event_reporter.h"
 
 #include "oh_web_performance_timing.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "base/logging.h"
+#include "base/strings/string_number_conversions.h"
 
 using OHOS::NWeb::HiSysEventAdapter;
 using OHOS::NWeb::OhosAdapterHelper;
@@ -160,6 +162,11 @@ constexpr char SKIA_OOM_ERROR[] = "SKIA_OOM_ERROR";
 constexpr char RENDER_PROCESS_TERMINATE[] = "RENDER_PROCESS_TERMINATE";
 constexpr char RENDER_PROCESS_NOTRESPONDING[] = "RENDER_PROCESS_NOTRESPONDING";
 constexpr char RENDER_PROCESS_RESPONDING[] = "RENDER_PROCESS_RESPONDING";
+
+// for uma/ukm log report
+constexpr char HISTOGRAM_UMA_UKM[] = "HISTOGRAM_UMA_UKM";
+constexpr char HISTOGRAM_TYPE[] = "HISTOGRAM_TYPE";
+constexpr char HISTOGRAM_CONTENT[] = "HISTOGRAM_CONTENT";
 
 }  // namespace
 
@@ -551,4 +558,34 @@ void ReportRenderProcessResponding() {
       {
         "RESPONDING_STATUS", "true"
       });
+}
+
+void ReportMetricsLogData(const std::string& compressed_log_data, const std::string& url) {
+  const char* osReleaseType = OH_GetOsReleaseType();
+  const char* distributionReleaseType = OH_GetDistributionOSReleaseType();
+  auto IsNullOrEmpty = [](const char* str) {
+    return str == nullptr || str[0] == '\0';
+  };
+  auto IsRelease = [](const char* str) {
+    return str != nullptr && strcmp(str, "Release") == 0;
+  };
+  bool isReleaseVersion =
+    IsRelease(osReleaseType) || IsRelease(distributionReleaseType) ||
+    (IsNullOrEmpty(osReleaseType) && IsNullOrEmpty(distributionReleaseType));
+  if (isReleaseVersion && (url.find("ukm") != std::string::npos)) {
+    LOG(ERROR)<<"release version!";
+    return;
+  }
+  std::string_view log_data(compressed_log_data);
+  if (url.find("uma") != std::string::npos) {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      HISTOGRAM_UMA_UKM, HiSysEventAdapter::EventType::STATISTIC,
+      {HISTOGRAM_TYPE, "arkweb.histogram.uma", HISTOGRAM_CONTENT, base::HexEncode(log_data)}
+    );
+  } else {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      HISTOGRAM_UMA_UKM, HiSysEventAdapter::EventType::STATISTIC,
+      {HISTOGRAM_TYPE, "arkweb.histogram.ukm", HISTOGRAM_CONTENT, base::HexEncode(log_data)}
+    );
+  }
 }

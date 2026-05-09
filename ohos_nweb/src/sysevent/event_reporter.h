@@ -139,4 +139,6 @@ void ReportRenderProcessNotResponding(const std::string& pid, const std::string&
 
 void ReportRenderProcessResponding();
 
+void ReportMetricsLogData(const std::string& compressed_log_data, const std::string& url);
+
 #endif
