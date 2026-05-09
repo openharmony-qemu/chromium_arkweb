@@ -8580,7 +8580,8 @@ TEST_F(NWebImplTest, OffscreenDocumentWindowNewEvent001) {
 void OnRequestOpenDevToolsCallback(const char* type,
                                    const char* source_id,
                                    const char* target_id,
-                                   const char* extension_id) {}
+                                   const char* extension_id,
+                                   const char* panel) {}
 
 TEST_F(NWebImplTest, RequestOpenDevTools001) {
   testing::internal::CaptureStderr();
