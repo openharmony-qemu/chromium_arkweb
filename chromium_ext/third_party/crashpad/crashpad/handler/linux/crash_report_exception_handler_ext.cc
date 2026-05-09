@@ -92,4 +92,3 @@ OhosUserStreamDataSource::ProduceStreamData(ProcessSnapshot* process_snapshot)
       KMinidumpStreamTypeOhosDfxInfo, contents.c_str(), contents.size());
 }
 #endif
-

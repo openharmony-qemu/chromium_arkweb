@@ -142,6 +142,10 @@ class NWebEngineImpl : public NWebEngine {
   std::string DumpArkWebInfo(const std::string& param) override;
 #endif
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+  void DumpArkWebJSHeap(int32_t fd, int32_t renderPid, bool needSnapshot, bool needGC, bool needRaw) override;
+#endif
+
 #if BUILDFLAG(ARKWEB_USERAGENT)
  	void SetUserAgentClientHintsEnabled(bool enabled) override;
  	bool GetUserAgentClientHintsEnabled() override;

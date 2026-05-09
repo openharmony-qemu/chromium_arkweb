@@ -27,21 +27,16 @@
 namespace v8 {
 namespace dfx {
 void DumpRawHeap(i::Heap* heap, v8::OutputStream* stream) {
-#if defined(USING_OHOS)
   v8::dfx::OutputStreamWriter writer(stream);
   dfx::HeapDumper dumper(heap, &writer);
   dumper.DumpHeap();
-#endif
 }
 
 void DumpRawHeap(i::Heap* heap, std::string file) {
+#ifndef USING_OHOS_WEB
   dfx::BinaryWriterBase* writer = nullptr;
-#ifdef USING_OHOS_WEB
-  writer = i::V8::GetCurrentPlatform()->GetBinaryWriter().get();
-#else
   dfx::BinaryWriter temp_writer;
   writer = &temp_writer;
-#endif
   if (writer == nullptr) {
     return;
   }
@@ -49,6 +44,7 @@ void DumpRawHeap(i::Heap* heap, std::string file) {
   dfx::HeapDumper dumper(heap, writer);
   dumper.DumpHeap();
   writer->CloseFile();
+#endif
 }
 
 #ifdef USING_OHOS_WEB

@@ -40,6 +40,10 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+#include "arkweb/chromium_ext/v8/dfx/heap_profiler/heap-profile.h"
+#endif
+
 namespace {
 
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
@@ -213,6 +217,35 @@ void RenderThreadImpl::NotifyLocaleChanged(const std::string& locale) {
     LOG(ERROR) << "CefFrameImpl update locale failed";
   }
 }
+#endif
+
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+void RenderThreadImpl::RequestJSDump(mojo::PlatformHandle socket,
+                                     bool needGC,
+                                     bool needSnapshot,
+                                     bool needRaw) {
+#if BUILDFLAG(IS_POSIX)
+  base::ScopedFD scoped_socket = socket.TakeFD();
+  int socket_fd = scoped_socket.get();
+  LOG(INFO) << "RequestJSDump"
+            << " socket_fd:" << socket_fd << " needGC:" << needGC
+            << " needSnapshot:" << needSnapshot << " needRaw:" << needRaw;
+  // before snapshot, maybe trigger gc
+  if (needGC) {
+    LOG(INFO) << "RequestJSDump not support trigger gc now";
+  }
+  if (needSnapshot) {
+    if (socket_fd < 0) {
+      LOG(ERROR) << "Invalid socket_fd for heap snapshot";
+      return;
+    }
+    v8::dfx::DumpHeapsnapshot(socket_fd, false /* own_fd */, needRaw);
+  }
+
+  LOG(INFO) << "End of RequestJSDump";
+#endif
+}
+
 #endif
 
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)

@@ -366,6 +366,7 @@ if (!enable_arkweb) {
   arkweb_clean_buffers_when_invisible = false
   arkweb_not_load_iframe = false
   arkweb_ext_extensions_header_client = false
+  arkweb_enable_jsdump = false
   arkweb_v8_oom_monitor = false
   arkweb_web_app = false
 }
@@ -622,6 +623,7 @@ buildflag_header("features") {
     "ARKWEB_MEDIA_CAST=$arkweb_media_cast",
     "ARKWEB_CUSTOM_VIEWPORT_WIDTH=$arkweb_custom_viewport_width",
     "ARKWEB_JSHEAP_DUMP=$arkweb_jsheap_dump",
+    "ARKWEB_ENABLE_JSDUMP=$arkweb_enable_jsdump",
     "ARKWEB_V8_OOM_MONITOR=$arkweb_v8_oom_monitor",
     "ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE=$arkweb_clean_buffers_when_invisible",
     "ARKWEB_NOT_LOAD_IFRAME=$arkweb_not_load_iframe",

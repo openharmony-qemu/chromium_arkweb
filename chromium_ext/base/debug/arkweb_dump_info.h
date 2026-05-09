@@ -32,6 +32,9 @@
  
 namespace base::debug {
  
+using DumpSnapshotCallback = void(*)(int, int, int);
+void SetDumpSnapshotCallback(DumpSnapshotCallback func);
+
 enum class DumpInfoType {
   DUMP_NWEB_INFO = 0,
   DUMP_OTHER_INFO = 1 << 31 // preserved
@@ -53,7 +56,9 @@ public:
   std::string GetProcessAndThreadIdInfo() const;
   void WriteArkWebDumpInfo(const std::string& info, DumpInfoType type);
   void FormatAndWriteNWebDumpInfo(const std::string& nwebInfo);
- 
+
+  void DumpArkWebJSHeap(int32_t fd, int32_t renderPid, bool needSnapshot, bool needGC, bool needRaw);
+
 private:
   ArkWebDumpInfo();
   ~ArkWebDumpInfo() = default;

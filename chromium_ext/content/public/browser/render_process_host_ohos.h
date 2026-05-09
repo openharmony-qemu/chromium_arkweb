@@ -45,6 +45,10 @@ class RenderProcessHostOhos {
   virtual void UpdateVideoLoadOptimizationConfig(
     nweb_ex::AlloyVideoLoadOptimizationData& data) = 0;
 #endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+  static int DumpArkWebJSHeap(int32_t renderPid, bool needSnapshot, bool needGC, bool needRaw);
+#endif
 };
 }  // namespace content
 #endif  // CONTENT_PUBLIC_BROWSER_RENDER_PROCESS_HOST_OHOS_H_
