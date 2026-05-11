@@ -18,6 +18,8 @@
 #include "include/core/SkString.h"
 #include "src/ports/SkFontScanner_FreeType_priv.h"
 #include "content/public/child/child_thread.h"
+#include "malloc.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 using namespace ErrorCode;
 
@@ -29,6 +31,10 @@ static const char* NOTDEF = "notdef";
 static const char* ALIAS = "alias";
 static const char* LANG = "zh-Hans";
 static const char* FAMILY_HYQiHEI = "HYQiHei L3";
+
+extern "C" __attribute__((weak)) {
+  int mallopt(int param, int value);
+}
 
 // Binds a pending receiver. Must be invoked from the main thread.
 void BindHostReceiverOnMainThread(
@@ -278,28 +284,24 @@ void FontConfig_OHOS::buildNameToFamilyMap() {
 void FontConfig_OHOS::buildStyleNameToFamilyMap(
     OHOS::NWeb::ArkWeb_Drawing_SystemFontType fontType) {
   void* fontList = nullptr;
-  OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetOhosDrawingTextFontAdapter()
+  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
       .GetSystemFontFullNamesByType(fontType,
                                     reinterpret_cast<void**>(&fontList));
   int32_t size = 0;
-  OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetOhosDrawingTextTypographyAdapter()
+  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextTypographyAdapter()
       .GetDrawingArraySize(fontList, size);
   SkString fallbackFor("");
   unsigned int startPos = 0;
   for (size_t index = 0; index < size; ++index) {
     const void* fontFullName = nullptr;
-    OHOS::NWeb::OhosAdapterHelper::GetInstance()
-        .GetOhosDrawingTextFontAdapter()
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
         .GetSystemFontFullNameByIndex(fontList, index, &fontFullName);
     OHOS::NWeb::ArkWeb_Drawing_FontDescriptor* description = nullptr;
     const OHOS::NWeb::ArkWeb_Drawing_String* drawingString =
         static_cast<const OHOS::NWeb::ArkWeb_Drawing_String*>(fontFullName);
     OHOS::NWeb::ArkWeb_Drawing_String* nonConstDrawingString =
         const_cast<OHOS::NWeb::ArkWeb_Drawing_String*>(drawingString);
-    OHOS::NWeb::OhosAdapterHelper::GetInstance()
-        .GetOhosDrawingTextFontAdapter()
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
         .GetFontDescriptorByFullName(nonConstDrawingString, fontType,
                                      reinterpret_cast<void**>(&description));
     if (description == nullptr) {
@@ -313,8 +315,7 @@ void FontConfig_OHOS::buildStyleNameToFamilyMap(
     fallbackSet.emplace_back(std::move(fallback));
     pathToFamily.set(SkString(description->path),
                      SkString(description->fontFamily));
-    OHOS::NWeb::OhosAdapterHelper::GetInstance()
-        .GetOhosDrawingTextFontAdapter()
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
         .DestroyFontDescriptor(description);
     description = nullptr;
   }
@@ -322,10 +323,15 @@ void FontConfig_OHOS::buildStyleNameToFamilyMap(
   FallbackSetPos setPos = {startPos,
                            (unsigned int)(fallbackSet.size() - startPos)};
   fallbackForMap.set(fallbackFor, setPos);
-  OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetOhosDrawingTextFontAdapter()
+  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
       .DestroySystemFontFullNames(fontList);
   fontList = nullptr;
+  static bool enableClear = OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance()
+    .GetBoolParameter("persist.web.cache_clear.enabled", true);
+  if (enableClear) {
+    int ret = mallopt(M_FLUSH_THREAD_CACHE, 0);
+    LOG(INFO) << "FontConfig_OHOS: mallopt for memory optimization " << (ret == 1 ? "success" : "failed");
+  }
 }
 
 //LCOV_EXCL_START
