@@ -369,6 +369,7 @@ if (!enable_arkweb) {
   arkweb_enable_jsdump = false
   arkweb_v8_oom_monitor = false
   arkweb_web_app = false
+ arkweb_warmup_spare_render_process = false
 }
 
 buildflag_header("features") {
@@ -629,6 +630,7 @@ buildflag_header("features") {
     "ARKWEB_NOT_LOAD_IFRAME=$arkweb_not_load_iframe",
     "ARKWEB_FONT_SETTINGS=$arkweb_font_settings",
     "ARKWEB_WEB_APP=$arkweb_web_app",
+    "ARKWEB_WARMUP_SPARE_RENDER_PROCESS=$arkweb_warmup_spare_render_process",
     "ARKWEB_HISTOGRAM_DFX=$arkweb_histogram_dfx",
   ]
 

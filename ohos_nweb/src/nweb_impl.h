@@ -1406,6 +1406,10 @@ class NWebImpl : public NWeb {
   void PauseMicrophone() override;
 #endif
 
+#if BUILDFLAG(ARKWEB_WARMUP_SPARE_RENDER_PROCESS)
+  static void SetEnableWarmupSpareRenderProcess(bool enabled, int32_t windowId);
+#endif
+
  private:
   void ProcessInitArgs(std::shared_ptr<NWebEngineInitArgs> init_args);
   void InitWebEngineArgs(std::shared_ptr<NWebEngineInitArgs> init_args);
