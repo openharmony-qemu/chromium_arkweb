@@ -103,6 +103,14 @@ void ArkWebHostResolverDnsTaskExt::SetNotNeedMoreAttemptIPQueryType(
     }
   }
 }
+
+#if defined(ARKWEB_EXT_NAVIGATION_TODO)
+void ArkWebHostResolverDnsTaskExt::MaybeModifyInsecureDnsTaskResolveResults(
+    const std::string& host,
+    bool secure_dns_fallback_available,
+    HostCache::Entry& out_results,
+    std::vector<IPEndPoint>& truncation_results) {}
+#endif
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 
 }  // namespace net
