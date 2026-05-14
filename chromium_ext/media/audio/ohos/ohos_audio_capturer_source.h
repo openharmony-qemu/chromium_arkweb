@@ -53,6 +53,8 @@ class MEDIA_EXPORT OHOSAudioCapturerSource final : public AudioCapturerSource {
                   CaptureCallback* callback) override;
   void Start() override;
   void Stop() override;
+  void Pause();
+  void Resume();
   void SetVolume(double volume) override;
   void SetAutomaticGainControl(bool enable) override;
   void SetOutputDeviceForAec(const std::string& output_device_id) override;
@@ -78,7 +80,6 @@ class MEDIA_EXPORT OHOSAudioCapturerSource final : public AudioCapturerSource {
   std::atomic<bool> is_stopped_{false};
   base::WeakPtrFactory<OHOSAudioCapturerSource> weak_factory_{this};
 };
-
 }  // namespace media
 
 #endif  // MEDIA_OHOS_AUDIO_OHOS_AUDIO_CAPTURER_SOURCE_H_

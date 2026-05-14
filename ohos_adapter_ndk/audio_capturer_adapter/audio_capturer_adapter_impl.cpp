@@ -141,6 +141,16 @@ int32_t AudioCapturerAdapterImpl::OnInterruptEvent(OH_AudioCapturer* capturer, v
     return 0;
 }
 
+bool AudioCapturerAdapterImpl::Pause()
+{
+    if (audio_capturer_ == nullptr) {
+        WVLOG_E("audio capturer is nullptr");
+        return false;
+    }
+    auto ret = OH_AudioCapturer_Pause(audio_capturer_);
+    return ret == AUDIOSTREAM_SUCCESS;
+}
+
 std::shared_mutex& AudioCapturerAdapterImpl::GetAdapterMutex() {
     return adapterMutex_;
 }

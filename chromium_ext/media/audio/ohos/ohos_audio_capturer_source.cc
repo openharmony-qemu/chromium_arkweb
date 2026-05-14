@@ -222,4 +222,49 @@ void OHOSAudioCapturerSource::ReportError(const std::string& message) {
       FROM_HERE, base::BindOnce(&OHOSAudioCapturerSource::NotifyCaptureError,
                                 weak_factory_.GetWeakPtr(), message));
 }
+
+void OHOSAudioCapturerSource::Pause() {
+  LOG(INFO) << "OHOSAudioCapturerSource::Pause";
+  if (!capturer_) {
+    LOG(ERROR) << "OHOSAudioCapturerSource::Pause capturer is nullptr ";
+    return;
+  }
+  if (!capturer_->Pause()) {
+    LOG(ERROR) << "OHOSAudioCapturerSource::Pause start failed";
+    ReportError("Pause OHOS audio capturer failed");
+    return;
+  }
+  {
+    base::AutoLock lock(callback_lock_);
+      if (callback_) {
+        callback_->OnCapturePaused(true);
+      }
+  }
+}
+
+void OHOSAudioCapturerSource::Resume() {
+  LOG(INFO) << "OHOSAudioCapturerSource::Resume";
+  DCHECK(callback_);
+  DCHECK(capturer_task_runner_->BelongsToCurrentThread());
+  if (!capturer_ || !audioCapturerReadCallback_) {
+    LOG(ERROR) << "OHOSAudioCapturerSource::Resume capturer and audioCapturerReadCallback_ is nullptr ";
+    return;
+  }
+  if (!capturer_->Start()) {
+    LOG(ERROR) << "OHOSAudioCapturerSource::Resume resume failed";
+    ReportError("Resume OHOS audio capturer failed");
+    return;
+  }
+  {
+    base::AutoLock lock(callback_lock_);
+    if (callback_) {
+      callback_->OnCapturePaused(false);
+    }
+  }
+  main_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&OHOSAudioCapturerSource::NotifyCaptureStarted,
+                                weak_factory_.GetWeakPtr()));
+}
+
+
 }  // namespace media
