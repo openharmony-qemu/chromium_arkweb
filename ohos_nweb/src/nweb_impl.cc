@@ -1161,7 +1161,7 @@ void InitialWebEngineArgs(
 
   base::FilePath app_sandbox_root_dir = base::FilePath();
   base::FilePath user_data_dir = base::FilePath();
-  bool isSeparation = true;
+  bool isSeparation = false;
   auto args_to_add = GetArgsToAdd(init_args);
 
   for (auto arg : args_to_add) {
