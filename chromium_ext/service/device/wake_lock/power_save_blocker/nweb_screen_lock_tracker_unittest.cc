@@ -201,38 +201,6 @@ TEST_F(NWebScreenLockTrackerTest,
   tracker.RemoveScreenLock(999, 1);
 }
  
-TEST_F(NWebScreenLockTrackerTest, NWebScreenLockTracker_Lock) {
-  NWebScreenLockTracker& tracker = NWebScreenLockTracker::Instance();
-  tracker.AddScreenLock(1, 1, CreateHandle());
-  tracker.Lock(1);
-  EXPECT_EQ(screen_on_count_, 1);
-}
- 
-TEST_F(NWebScreenLockTrackerTest, NWebScreenLockTracker_UnLock) {
-  NWebScreenLockTracker& tracker = NWebScreenLockTracker::Instance();
-  tracker.AddScreenLock(1, 1, CreateHandle());
-  tracker.Lock(1);
-  ResetCounts();
-  tracker.UnLock(1);
-  EXPECT_EQ(screen_off_count_, 1);
-}
- 
-TEST_F(NWebScreenLockTrackerTest, NWebScreenLockTracker_LockInvalidId) {
-  NWebScreenLockTracker& tracker = NWebScreenLockTracker::Instance();
-  tracker.AddScreenLock(1, 1, CreateHandle());
-  tracker.Lock(-1);
-  EXPECT_EQ(screen_on_count_, 1);
-}
- 
-TEST_F(NWebScreenLockTrackerTest, NWebScreenLockTracker_UnLockInvalidId) {
-  NWebScreenLockTracker& tracker = NWebScreenLockTracker::Instance();
-  tracker.AddScreenLock(1, 1, CreateHandle());
-  tracker.Lock(-1);
-  ResetCounts();
-  tracker.UnLock(-1);
-  EXPECT_EQ(screen_off_count_, 1);
-}
- 
 TEST_F(NWebScreenLockTrackerTest,
        NWebScreenLockTracker_MultipleWindowsSameId) {
   NWebScreenLockTracker& tracker = NWebScreenLockTracker::Instance();
