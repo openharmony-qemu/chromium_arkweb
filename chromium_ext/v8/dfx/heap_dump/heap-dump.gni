@@ -26,6 +26,7 @@ heap_dump_include = [
   "//arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer-base.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-heap.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-offheap-tables.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-objects.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-roots.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-string-tables.h",
@@ -36,6 +37,8 @@ heap_dump_include = [
 heap_dump_source = [
   "//arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-heap.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-instruction-stream.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-offheap-tables.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-objects.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-roots.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/dump-string-tables.cc",
@@ -73,4 +76,5 @@ declare_args() {
   enable_heap_dump = true
   enable_heap_dump_translate = false
   enable_heap_dump_test = false
+  enable_heap_dump_json_metadata = false
 }

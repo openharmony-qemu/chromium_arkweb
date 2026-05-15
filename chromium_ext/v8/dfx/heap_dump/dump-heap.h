@@ -20,6 +20,7 @@
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer-base.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-format.h"
+#include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-offheap-tables.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-objects.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-roots.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-string-tables.h"
@@ -51,6 +52,9 @@ class HeapDumper {
 
       void PreVisit();
   void DumpHeader();
+#if defined(OH_ENABLE_HEAP_DUMP_JSON_METADATA)
+  void DumpMetadata();
+#endif
 
   // v8 related
   i::Heap* heap_{nullptr};
@@ -62,6 +66,7 @@ class HeapDumper {
   RootDumper root_dumper_;
   StringTableDumper string_table_dumper_;
   ObjectDumper object_dumper_;
+  OffheapTableDumper offheap_table_dumper_;
 };
 }  // namespace dfx
 }  // namespace v8

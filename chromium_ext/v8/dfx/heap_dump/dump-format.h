@@ -15,15 +15,20 @@
 
 #ifndef DUMP_FORMAT_H
 #define DUMP_FORMAT_H
-#if defined(OH_ENABLE_HEAP_DUMP) || defined(OH_ENABLE_HEAP_TRANSLATE)
+#if defined(OH_ENABLE_HEAP_DUMP) || defined(OH_ENABLE_HEAP_TRANSLATE) || \
+    defined(OH_ENABLE_HEAP_DUMP_TEST)
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
+#include <type_traits>
 
 #include "include/v8-internal.h"
 #include "src/heap/heap.h"
 
 namespace v8 {
 namespace dfx {
+
 static_assert(sizeof(uintptr_t) == sizeof(i::Address));
 static_assert(i::kTaggedSize == sizeof(i::Tagged_t));
 static_assert(i::HeapObject::kMapOffset == 0);
@@ -35,8 +40,18 @@ constexpr uint32_t kNoContentObjectDumpSize =
                           + sizeof(uint32_t));  // real size
 
 constexpr uint64_t kRawHeapMagic = 0x56384844;  // "V8HD"
-constexpr uint32_t kDumpFormatVersion = 1;
+constexpr uint32_t kDumpFormatVersionWithOffheapTables = 2;
+constexpr uint32_t kDumpFormatVersionCurrent =
+    kDumpFormatVersionWithOffheapTables;
+constexpr uint32_t kDumpFormatVersion = kDumpFormatVersionCurrent;
 
+// File-level envelope for ArkWeb rawheap dumps.
+//
+// The dump side writes a compact binary image of roots, object payloads and
+// optional offheap side tables while the producer isolate is still alive. The
+// translate side validates this header before constructing fake V8 objects from
+// copied payload bytes. This is intentionally not the DevTools heap snapshot
+// JSON format; it is the offline input used to rebuild that graph later.
 struct RawHeapHeader {
   uint64_t magic_;
   uint32_t dump_format_version_;
@@ -63,26 +78,155 @@ struct RawHeapHeader {
   uint32_t object_table_size_;
   uint32_t object_count_;
 
+  uint32_t offheap_table_offset_;
+  uint32_t offheap_table_size_;
+  uint32_t offheap_table_count_;
+
   uint32_t metadata_offset_;
   uint32_t metadata_size_;
   // ...
 };
 
-struct InstructionStreamInfo {
-  i::Address object_addr_;
-  int8_t mode_;
+// Numbering scheme: values 1..99 are reserved for table kinds shared with
+// no-sandbox builds; values 100+ are gated by V8_ENABLE_SANDBOX so no-sandbox
+// readers can detect and skip sandbox-only kinds without linking sandbox
+// decoders. New kinds must keep this split — the gap between 2 and 100 is
+// intentional, not a placeholder.
+enum class RawHeapOffheapTableKind : uint32_t {
+  // The existing string table section keeps its dedicated header fields.
+  kStringTableReserved = 1,
+  kWasmCanonicalTypeTable = 2,
+#if defined(V8_ENABLE_SANDBOX)
+  kSandboxTrustedPointerTable = 100,
+  kSandboxExternalPointerTable = 101,
+  kSandboxCppHeapPointerTable = 102,
+  kSandboxJSDispatchTable = 103,
+  kSandboxCodePointerTable = 104,
+#endif
 };
 
-struct StringTableElementInfo {
-  i::Address string_address_;
-  int len_;
+#if defined(V8_ENABLE_SANDBOX)
+constexpr uint32_t kRawHeapUnknownIndirectPointerTag = 0xffffffffu;
+
+enum RawHeapSandboxTrustedPointerEntryState : uint32_t {
+  kRawHeapSandboxTrustedPointerEntryActive = 1u,
+  kRawHeapSandboxTrustedPointerEntryEmpty = 2u,
+  kRawHeapSandboxTrustedPointerEntryZapped = 3u,
+  kRawHeapSandboxTrustedPointerEntryUnpublished = 4u,
 };
+
+struct RawHeapSandboxTrustedPointerEntry {
+  uint32_t handle_;
+  uint32_t indirect_pointer_tag_;
+  // Diagnostic-only candidate target. Translators must first prove that this
+  // address belongs to the dumped rawheap object table before creating an edge.
+  uint64_t trusted_object_address_;
+  uint32_t state_;
+  uint32_t flags_;
+};
+
+enum RawHeapSandboxJSDispatchEntryState : uint32_t {
+  kRawHeapSandboxJSDispatchEntryActive = 1u,
+  kRawHeapSandboxJSDispatchEntryEmpty = 2u,
+};
+
+struct RawHeapSandboxJSDispatchEntry {
+  uint32_t handle_;
+  uint32_t state_;
+  uint64_t code_object_address_;
+  uint64_t entrypoint_;
+  uint32_t parameter_count_;
+  uint32_t flags_;
+};
+
+struct RawHeapSandboxCodePointerEntry {
+  uint32_t handle_;
+  uint32_t flags_;
+  uint64_t code_object_address_;
+  // CodePointerTable::IterateActiveEntriesIn exposes the Code object pointer.
+  // It does not expose the CodeEntrypointTag required to read the entrypoint,
+  // so this field is zero until producer-side code has an approved tag source.
+  uint64_t entrypoint_;
+};
+
+static_assert(std::is_standard_layout<RawHeapSandboxTrustedPointerEntry>::value);
+static_assert(
+    std::is_trivially_copyable<RawHeapSandboxTrustedPointerEntry>::value);
+static_assert(std::is_standard_layout<RawHeapSandboxJSDispatchEntry>::value);
+static_assert(
+    std::is_trivially_copyable<RawHeapSandboxJSDispatchEntry>::value);
+static_assert(std::is_standard_layout<RawHeapSandboxCodePointerEntry>::value);
+static_assert(
+    std::is_trivially_copyable<RawHeapSandboxCodePointerEntry>::value);
+#endif
+
+struct RawHeapOffheapTableHeader {
+  uint32_t kind_;
+  uint32_t offset_;
+  uint32_t size_;
+  uint32_t count_;
+};
+
+constexpr uint32_t kRawHeapInvalidCanonicalIndex = 0xffffffffu;
+
+enum RawHeapWasmCanonicalFieldFlags : uint32_t {
+  kRawHeapWasmFieldIsRef = 1u << 0,
+  kRawHeapWasmFieldIsNullable = 1u << 1,
+  kRawHeapWasmFieldHasIndex = 1u << 2,
+  kRawHeapWasmFieldIsShared = 1u << 3,
+  kRawHeapWasmFieldIsExact = 1u << 4,
+  kRawHeapWasmFieldIsMutable = 1u << 5,
+};
+
+enum RawHeapWasmCanonicalStructFlags : uint32_t {
+  kRawHeapWasmStructIsDescriptor = 1u << 0,
+  kRawHeapWasmStructIsShared = 1u << 1,
+};
+
+struct RawHeapWasmCanonicalStructRecord {
+  uint32_t type_index_;
+  uint32_t field_count_;
+  // Offset relative to the start of the kWasmCanonicalTypeTable payload.
+  uint32_t fields_offset_;
+  uint32_t total_fields_size_;
+  uint32_t flags_;
+};
+
+struct RawHeapWasmCanonicalStructField {
+  // Offset relative to the start of the WasmStruct fields, not the object.
+  uint32_t field_offset_;
+  uint32_t value_kind_size_;
+  uint32_t flags_;
+  uint32_t ref_index_;
+};
+
+static_assert(std::is_standard_layout<RawHeapOffheapTableHeader>::value);
+static_assert(std::is_trivially_copyable<RawHeapOffheapTableHeader>::value);
+static_assert(std::is_standard_layout<RawHeapWasmCanonicalStructRecord>::value);
+static_assert(
+    std::is_trivially_copyable<RawHeapWasmCanonicalStructRecord>::value);
+static_assert(std::is_standard_layout<RawHeapWasmCanonicalStructField>::value);
+static_assert(
+    std::is_trivially_copyable<RawHeapWasmCanonicalStructField>::value);
 
 void PrintHead(const RawHeapHeader& head);
 uint32_t GetCurrentRawHeapFlags();
-bool CheckRawHeapFlags(uint32_t flags);
-bool IsVersionCompatible(const RawHeapHeader& header);
+bool HasRawHeapOffheapTableSection(const RawHeapHeader& header);
+bool ValidateRawHeapOffheapTableSection(const RawHeapHeader& header,
+                                        uint32_t binary_size,
+                                        std::string* error = nullptr);
 std::string GetRawHeapFlagsString(uint32_t flags);
+bool RawHeapFlagCompressedPointers(uint32_t flags);
+bool RawHeapFlagSharedCage(uint32_t flags);
+bool RawHeapFlagExternalCodeSpace(uint32_t flags);
+bool RawHeapFlagSandbox(uint32_t flags);
+bool RawHeapFlagSmi31BitOn64BitArch(uint32_t flags);
+bool RawHeapFlagStaticRoots(uint32_t flags);
+bool RawHeapFlagMapPacking(uint32_t flags);
+bool RawHeapFlagI18nSupport(uint32_t flags);
+uint32_t RawHeapFlagTaggedSize(uint32_t flags);
+uint32_t RawHeapFlagHeapObjectTag(uint32_t flags);
+uint32_t RawHeapFlagApiSystemPointerSize(uint32_t flags);
 // dump map and real size only
 bool SkipContentDump(i::Tagged<i::Map> map);
 
