@@ -54,11 +54,11 @@ MaybeHandle<JSPromise> TryGetPromiseFromTask(Isolate* isolate,
       }
     } else {
 #if V8_ENABLE_WEBASSEMBLY
-      Handle<WasmSuspenderObject> suspender;
+      DirectHandle<WasmSuspenderObject> suspender;
       if (TryGetWasmSuspender(isolate, promise_reaction_job_task->handler())
               .ToHandle(&suspender)) {
         // The {promise_reaction_job_task} belongs to a suspended Wasm stack
-        return handle(suspender->promise(), isolate);
+        return handle(Cast<JSPromise>(suspender->promise()), isolate);
       }
 #endif  // V8_ENABLE_WEBASSEMBLY
 
@@ -73,6 +73,12 @@ MaybeHandle<JSPromise> TryGetPromiseFromTask(Isolate* isolate,
         return promise;
       }
     }
+  } else if (IsPromiseResolveThenableJobTask(*microtask)) {
+    auto promise_resolve_thenable_job_task =
+        Cast<PromiseResolveThenableJobTask>(microtask);
+    Handle<JSPromise> promise(
+        promise_resolve_thenable_job_task->promise_to_resolve(), isolate);
+    return promise;
   }
   return MaybeHandle<JSPromise>();
 }
@@ -90,21 +96,23 @@ uint64_t Isolate::DfxGetPromiseId(DirectHandle<JSPromise> promise) {
   if (V8_LIKELY(IsSmi(maybeHash))) {
     int hash_id = Smi::ToInt(maybeHash);
     auto it = promise_to_dfx_async_id_.find(hash_id);
-    if (it == promise_to_dfx_async_id_.end()) {
-      return dfx::kInvalidStackId;
-    } else {
+    if (it != promise_to_dfx_async_id_.end()) {
       return it->second;
     }
-  } else {
-    return dfx::kInvalidStackId;
   }
+  return dfx::kInvalidStackId;
 }
 
 bool Isolate::DfxClearPromiseId(DirectHandle<JSPromise> promise) {
   Tagged<Object> maybeHash = promise->GetIdentityHash();
   if (V8_LIKELY(IsSmi(maybeHash))) {
     int hash_id = Smi::ToInt(maybeHash);
-    return static_cast<bool>(promise_to_dfx_async_id_.erase(hash_id));
+    auto it = promise_to_dfx_async_id_.find(hash_id);
+    if (it != promise_to_dfx_async_id_.end()) {
+      dfx::ReleaseStack(it->second);
+      promise_to_dfx_async_id_.erase(it);
+      return true;
+    }
   }
   return false;
 }

@@ -17,13 +17,15 @@
 #include <cstdint>
 
 typedef uint64_t (*CollectAsyncStackFunc)(uint64_t type);
-typedef void (*SetStackIdFunc)(uint64_t stackId);
+typedef void (*CallWithStackIdFunc)(uint64_t stackId);
 extern "C" void ArkWebSetAsyncStackFunc(
     CollectAsyncStackFunc collectAsyncStackFunc,
-    SetStackIdFunc setStackIdFunc);
+    CallWithStackIdFunc setStackIdFunc);
 extern "C" void JsvmSetAsyncStackFunc(
     CollectAsyncStackFunc collectAsyncStackFunc,
-    SetStackIdFunc setStackIdFunc);
+    CallWithStackIdFunc setStackIdFunc);
+extern "C" void ArkWebSetAsyncStackReleaseFunc(CallWithStackIdFunc releaseStackIdFunc);
+extern "C" void JsvmSetAsyncStackReleaseFunc(CallWithStackIdFunc releaseStackIdFunc);
 namespace v8 {
 namespace dfx {
 
@@ -34,6 +36,7 @@ inline constexpr uint64_t kJsvmAsyncType = 1ULL << 19;
 
 uint64_t CollectAsyncStack(void);
 void SetStackId(uint64_t stackId);
+void ReleaseStack(uint64_t stackId);
 
 }  // namespace dfx
 }  // namespace v8
