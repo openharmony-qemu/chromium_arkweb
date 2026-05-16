@@ -65,6 +65,8 @@
 #if BUILDFLAG(IS_ARKWEB)
 #include "cef/ohos_cef_ext/libcef/browser/net/ohos_applink_throttle.h"
 #include "cef/ohos_cef_ext/libcef/browser/arkweb_browser_host_ext.h"
+#include "cef/ohos_cef_ext/libcef/browser/net/extra_headers_url_throttle.h"
+#include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #endif  // BUILDFLAG(IS_ARKWEB)
 
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
@@ -290,6 +292,17 @@ class ChromeContentBrowserClientUtils {
     }
   }
 #endif
+
+#if BUILDFLAG(IS_ARKWEB)
+  static void AddExtraHeadersUrlThrottle(
+      ChromeNavigationUIData* chrome_navigation_ui_data,
+      std::vector<std::unique_ptr<blink::URLLoaderThrottle>>& throttles) {
+    if (chrome_navigation_ui_data && !chrome_navigation_ui_data->extra_headers().empty()) {
+      throttles.push_back(std::make_unique<throttle::ExtraHeadersUrlThrottle>(
+          chrome_navigation_ui_data->extra_headers()));
+    }
+  }
+#endif // BUILDFLAG(IS_ARKWEB)
 
 #if BUILDFLAG(ARKWEB_HTTP_DNS)
   static void DnsOverHttpsConfigExt(
