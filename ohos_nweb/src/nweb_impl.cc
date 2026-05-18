@@ -241,6 +241,7 @@ extern bool g_siteIsolationMode;
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
 #include "cef_delegate/nweb_extension_window_delegate_handler.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/speech/extension_api/tts_engine_extension_api.h"
 #include "cef/include/cef_request_context.h"
 #include "cef/libcef/browser/request_context_impl.h"
 #include "ohos_cef_ext/libcef/browser/offscreen_document_dialog_manager.h"
@@ -5346,6 +5347,72 @@ void NWebImpl::OnRequestOpenDevTools(const RequestOpenDevToolsParams& params) {
                                         params.extension_id.c_str());
   } else {
     LOG(ERROR) << " func:" << __FUNCTION__ << " callback is null.";
+  }
+}
+
+void NWebImpl::InstallLanguageRequest(const std::string& lang,
+                                      const std::string& client_id) {
+  LOG(INFO) << " func:" << __FUNCTION__ << " lang:" << lang;
+  std::vector<CefBrowserContext*> browser_context_all =
+      CefBrowserContext::GetAll();
+  if (browser_context_all.size() == 0) {
+    LOG(ERROR) << "TTS browser context size 0";
+    return;
+  }
+  for (const auto& cef_browser_context : browser_context_all) {
+    content::BrowserContext* browser_context =
+        cef_browser_context->AsBrowserContext();
+    if (!browser_context) {
+      WVLOG_E("removeAllCache browser_context is null");
+      continue;
+    }
+    content::TtsController::GetInstance()->InstallLanguageRequest(
+        browser_context, lang, client_id,
+        static_cast<int>(tts_engine_events::TtsClientSource::EXTENSION));
+  }
+}
+
+void NWebImpl::UninstallLanguageRequest(const std::string& lang,
+                                        const std::string& client_id) {
+  LOG(INFO) << " func:" << __FUNCTION__ << " lang:" << lang;
+  std::vector<CefBrowserContext*> browser_context_all =
+      CefBrowserContext::GetAll();
+  if (browser_context_all.size() == 0) {
+    LOG(ERROR) << "TTS browser context size 0";
+    return;
+  }
+  for (const auto& cef_browser_context : browser_context_all) {
+    content::BrowserContext* browser_context =
+        cef_browser_context->AsBrowserContext();
+    if (!browser_context) {
+      WVLOG_E("removeAllCache browser_context is null");
+      continue;
+    }
+    content::TtsController::GetInstance()->UninstallLanguageRequest(
+        browser_context, lang, client_id,
+        static_cast<int>(tts_engine_events::TtsClientSource::EXTENSION), true);
+  }
+}
+
+void NWebImpl::LanguageStatusRequest(const std::string& lang,
+                                     const std::string& client_id) {
+  LOG(INFO) << " func:" << __FUNCTION__ << " lang:" << lang;
+  std::vector<CefBrowserContext*> browser_context_all =
+      CefBrowserContext::GetAll();
+  if (browser_context_all.size() == 0) {
+    LOG(ERROR) << "TTS browser context size 0";
+    return;
+  }
+  for (const auto& cef_browser_context : browser_context_all) {
+    content::BrowserContext* browser_context =
+        cef_browser_context->AsBrowserContext();
+    if (!browser_context) {
+      WVLOG_E("removeAllCache browser_context is null");
+      continue;
+    }
+    content::TtsController::GetInstance()->LanguageStatusRequest(
+        browser_context, lang, client_id,
+        static_cast<int>(tts_engine_events::TtsClientSource::EXTENSION));
   }
 }
 #endif // ARKWEB_ARKWEB_EXTENSIONS
