@@ -4866,7 +4866,9 @@ void NWebDelegate::EnableSafeBrowsingDetection(bool enable, bool strictMode) {
     LOG(ERROR) << "NWebDelegate::EnableSafeBrowsingDetection failed.";
     return;
   }
-
+  if (handler_delegate_) {
+    handler_delegate_->SaveEnableSafeBrowsingDetection(enable, strictMode);
+  }
   GetBrowser()->EnableSafeBrowsingDetection(enable, strictMode);
 }
 
