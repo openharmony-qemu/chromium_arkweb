@@ -283,6 +283,64 @@ crypto::SymmetricKey* OSCryptImpl::GetPasswordV10ForMigrate() {
 #endif
 // LCOV_EXCL_STOP
 
+#if BUILDFLAG(ARKWEB_ENCRYPT)
+// Generates a newly allocated SymmetricKey object based on a password.
+// Ownership of the key is passed to the caller. Returns null key if a key
+// generation error occurs.
+std::unique_ptr<crypto::SymmetricKey> GenerateEncryptionKey() {
+  std::unique_ptr<crypto::SymmetricKey> encryption_key(
+      crypto::SymmetricKey::Import(
+          crypto::SymmetricKey::AES,
+          crypto::ohos::get_symmetric_key_256(kDataKeyAlias)));
+
+  DCHECK(encryption_key);
+
+  return encryption_key;
+}
+
+// Returns a cached string of "peanuts". Is thread-safe.
+crypto::SymmetricKey* OSCryptImpl::GetPasswordV10() {
+  base::AutoLock auto_lock(OSCryptImpl::GetLock());
+  if (!password_v10_cache_.get()) {
+    password_v10_cache_ = GenerateEncryptionKey();
+  }
+  return password_v10_cache_.get();
+}
+
+// Caches and returns the password from the KeyStorage or null if there is no
+// service. Is thread-safe.
+crypto::SymmetricKey* OSCryptImpl::GetPasswordV11(bool probe) {
+  base::AutoLock auto_lock(OSCryptImpl::GetLock());
+  if (is_password_v11_cached_) {
+    if (!config_) {
+      return nullptr;
+    }
+    return password_v11_cache_.get();
+  }
+
+  std::unique_ptr<KeyStorageLinux> key_storage;
+  if (storage_provider_factory_for_testing_) {
+    key_storage = std::move(storage_provider_factory_for_testing_).Run();
+  } else {
+    CHECK(probe || config_);
+    if (config_) {
+      key_storage = KeyStorageLinux::CreateService(*config_);
+      config_.reset();
+    }
+  }
+
+  if (key_storage) {
+    std::optional<std::string> key = key_storage->GetKey();
+    if (key.has_value()) {
+      password_v11_cache_ = GenerateEncryptionKey();
+    }
+  }
+
+  is_password_v11_cached_ = true;
+  return password_v11_cache_.get();
+}
+#endif
+
 bool DecryptWithIvForInclude(const std::string& raw_ciphertext,
                              crypto::SymmetricKey* encryption_key,
                              crypto::SymmetricKey* encryption_key_ota,
@@ -391,6 +449,10 @@ bool Encryptor::Init(const SymmetricKey* key,
   return true;
 }
 
+bool Encryptor::Encrypt(std::string_view plaintext, std::string* ciphertext) {
+  return CryptString(/*do_encrypt=*/true, plaintext, ciphertext);
+}
+
 bool Encryptor::Decrypt(std::string_view ciphertext, std::string* plaintext) {
   return CryptString(/*do_encrypt=*/false, ciphertext, plaintext);
 }
@@ -405,7 +467,8 @@ bool Encryptor::CryptString(bool do_encrypt,
   if (mode_ == GCM) {
     // only support DecryptGCM
     if (do_encrypt) {
-      return false;
+      len = EncryptGCM(base::as_bytes(base::span{input}),
+                       base::as_writable_bytes(base::span{result}), &tag);
     } else {
       // Get the tag that we attached with cipher during encryption from input
       if (input.length() <= GCM_TAG_SIZE) {
@@ -451,6 +514,76 @@ size_t Encryptor::MaxOutput(bool do_encrypt, size_t length) {
 
   CHECK_GE(result, length);  // Overflow
   return result;
+}
+
+std::optional<size_t> Encryptor::EncryptGCM(base::span<const uint8_t> input,
+                                            base::span<uint8_t> output,
+                                            std::string* tag) {
+  DCHECK(key_);
+  DCHECK(output.data());
+ 
+  const EVP_CIPHER* cipher = GetCipherForKeyGCM(key_);
+  DCHECK(cipher);
+ 
+  const std::string& key = key_->key();
+  DCHECK_EQ(EVP_CIPHER_iv_length(cipher), iv_.size());
+  DCHECK_EQ(EVP_CIPHER_key_length(cipher), key.size());
+ 
+  OpenSSLErrStackTracer err_tracer(FROM_HERE);
+ 
+  bssl::ScopedEVP_CIPHER_CTX ctx;
+  /* Initialise the encryption operation */
+  if (!EVP_EncryptInit_ex(ctx.get(), cipher, nullptr, nullptr, nullptr)) {
+    return std::nullopt;
+  }
+
+  /* Set the IV length, default is 12 byte which is not appropriate */
+  if (!EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_IVLEN, iv_.size(),
+                           nullptr)) {
+    return std::nullopt;
+  }
+
+  /* Initialise Key and IV */
+  if (!EVP_EncryptInit_ex(ctx.get(), nullptr, nullptr,
+                          reinterpret_cast<const uint8_t*>(key.data()),
+                          iv_.data())) {
+    return std::nullopt;
+  }
+
+  const size_t output_size = input.size() + (iv_.size());
+  CHECK_GT(output_size, 0u);
+  CHECK_GT(output_size + 1, input.size());
+
+  int out_len;
+
+  /* Provide the plaintext and obtain the encrypted update
+   *  EVP_EncryptUpdate may call multiples times if necessary
+   */
+  if (!EVP_EncryptUpdate(ctx.get(), output.data(), &out_len,
+                         reinterpret_cast<const uint8_t*>(input.data()),
+                         input.size())) {
+    return std::nullopt;
+  }
+
+  /* Finalise the encryption. Usually ciphertext byte may be
+   * written in this stage but this does not occure in GCM mode
+   */
+  int len;
+  if (!EVP_EncryptFinal_ex(ctx.get(), output.data() + out_len, &len)) {
+    return std::nullopt;
+  }
+
+  out_len += len;
+
+  /*Get the tag */
+  if (!EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_GET_TAG, GCM_TAG_SIZE,
+                           (void*)tag->data())) {
+    return std::nullopt;
+  }
+
+  DCHECK_LE(out_len, static_cast<int>(output_size));
+
+  return out_len;
 }
 
 std::optional<size_t> Encryptor::DecryptGCM(const std::string& input,

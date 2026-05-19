@@ -1601,3 +1601,8 @@ arkweb_custom_font_lookup_content_browser_sources = [
   "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.cc",
   "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.h"
 ]
+
+arkweb_components_cookie_config_sources = [
+    "//arkweb/chromium_ext/components/cookie_config/ohos_cookie_store_util.cc",
+    "//arkweb/chromium_ext/components/cookie_config/ohos_cookie_store_util.h",
+]
