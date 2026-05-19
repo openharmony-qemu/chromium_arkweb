@@ -748,7 +748,7 @@ void AccessibilityEventDispatcher::EnqueueEvent(int64_t accessibilityId,
       auto task = content::GetUIThreadTaskRunner({})->PostCancelableDelayedTask(
           base::subtle::PostDelayedTaskPassKeyForTesting(), FROM_HERE,
           base::BindOnce(&AccessibilityEventDispatcher::RunTask,
-                         base::Unretained(this), accessibilityId, eventType,
+                         weak_ptr_factory_.GetWeakPtr(), accessibilityId, eventType,
                          uuid, argument),
           base::Milliseconds(eventThrottleDelays_[eventType]));
       pendingEvents_[uuid] = std::move(task);
@@ -784,7 +784,7 @@ void AccessibilityEventDispatcher::EnqueueEvent(int64_t accessibilityId,
     auto task = content::GetUIThreadTaskRunner({})->PostCancelableDelayedTask(
         base::subtle::PostDelayedTaskPassKeyForTesting(), FROM_HERE,
         base::BindOnce(&AccessibilityEventDispatcher::RunTask,
-                       base::Unretained(this), accessibilityId, eventType,
+                       weak_ptr_factory_.GetWeakPtr(), accessibilityId, eventType,
                        uuid, argument),
         base::Milliseconds(eventLastFiredTimes_[uuid] +
                            eventThrottleDelays_[eventType] - now));
