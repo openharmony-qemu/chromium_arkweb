@@ -194,7 +194,7 @@ bool SegmentationMultiBufferDataProvider::Available() const {
     }
   }
   if (!fifo_vector_[read_index_].front()->end_of_stream() &&
-    fifo_vector_[read_index_].front()->size() == block_size()) {
+    fifo_vector_[read_index_].front()->size() == static_cast<size_t>(block_size())) {
     return true;
   }
   return false;

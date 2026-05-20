@@ -18,13 +18,14 @@
 
 #if BUILDFLAG(ARKWEB_HAP_DECOMPRESSED)
 #include "base/command_line.h"
+#include "base/no_destructor.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "ohos_nweb/src/nweb_common.h"
 #endif
 
 namespace ui {
 
-static std::unordered_set<std::string> supportLocaleList = {
+const base::NoDestructor<std::unordered_set<std::string>> supportLocaleList({
   "resources",
   "chrome_100_percent",
   "chrome_200_percent",
@@ -109,7 +110,7 @@ static std::unordered_set<std::string> supportLocaleList = {
   "zh-TW",
   "zh-HK",
 #endif
-};
+});
 
 #if BUILDFLAG(ARKWEB_HAP_DECOMPRESSED)
 bool LocaleDataPakExistsExt(std::string_view locale) {
@@ -120,7 +121,7 @@ bool LocaleDataPakExistsExt(std::string_view locale) {
   // If the hap package is not decompressed, the directory does not exist.
   ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   if (path.empty() || !base::PathExists(path)) {
-    if (supportLocaleList.count(std::string(locale)) > 0) {
+    if (supportLocaleList->count(std::string(locale)) > 0) {
       return true;
     }
     const std::optional<std::string> pakLocale =
@@ -129,7 +130,7 @@ bool LocaleDataPakExistsExt(std::string_view locale) {
       LOG(ERROR) << "CheckAndResolveLocale false, locale:" << locale;
       return false;
     }
-    return supportLocaleList.count(pakLocale.value()) > 0;
+    return supportLocaleList->count(pakLocale.value()) > 0;
   } else {
     return true;
   }
@@ -142,7 +143,7 @@ base::FilePath ResourceBundle::GetLocaleFilePath(std::string_view locale) {
     return base::FilePath();
   }
   std::optional<std::string> pakLocale;
-  if (supportLocaleList.count(std::string(locale)) > 0) {
+  if (supportLocaleList->count(std::string(locale)) > 0) {
     pakLocale = locale;
   } else {
     pakLocale = l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
