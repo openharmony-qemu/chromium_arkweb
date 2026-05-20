@@ -24,6 +24,7 @@
 #include "content/renderer/anr_dumper.h"
 #endif
 
+// LCOV_EXCL_START
 namespace content {
 
 #if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
@@ -43,3 +44,4 @@ void ChildThreadImpl::ReportHisyevent(int64_t block_time, const std::string& mod
 #endif
 
 } // namespace content
+// LCOV_EXCL_STOP

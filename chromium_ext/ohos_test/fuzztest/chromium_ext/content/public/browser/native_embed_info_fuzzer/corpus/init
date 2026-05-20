@@ -1,0 +1,16 @@
+# Fuzzer test seed corpus for NativeEmbedInfo
+# Tests native embed data structure
+
+# Constructors
+DefaultConstructor
+ParameterizedConstructor
+CopyConstructor
+MoveConstructor
+
+# Assignment
+CopyAssignment
+MoveAssignment
+
+# Field manipulation
+FieldManipulation
+BoundaryValues

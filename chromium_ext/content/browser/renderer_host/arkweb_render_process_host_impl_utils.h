@@ -128,7 +128,7 @@ class ArkwebRenderProcessHostImplUtils {
 #if BUILDFLAG(ARKWEB_CRASHPAD)
   void AddDFXToUIThreadInterface(service_manager::BinderRegistry* registry);
 #endif
-#if BUILDFLAG(ARKWEB_TEST)
+#if BUILDFLAG(ARKWEB_TEST) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
  public:
 #else
  private:
@@ -164,7 +164,7 @@ class DelayedRenderKiller {
     void StartTimer();
     bool NeedDebug();
  
-#if BUILDFLAG(ARKWEB_TEST)
+#if BUILDFLAG(ARKWEB_TEST) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
   public:
 #else
   private:

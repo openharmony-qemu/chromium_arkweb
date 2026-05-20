@@ -58,7 +58,6 @@
 namespace content {
 namespace {
 
-// LCOV_EXCL_START
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_SHARE)
 // the global list of all renderer processes
 SharedProcessTokenToProcessMap& GetAllSharedProcessHosts() {
@@ -67,7 +66,6 @@ SharedProcessTokenToProcessMap& GetAllSharedProcessHosts() {
   return *s_all_shared_process_hosts;
 }
 #endif
-// LCOV_EXCL_STOP
 
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
 constexpr int kSingleRenderProcessCount = 1;
@@ -119,7 +117,6 @@ void ArkwebRenderProcessHostImplUtils::RemoveFromSharedRenderProcessMap(
 }
 #endif
 
-// LCOV_EXCL_START
 size_t ArkwebRenderProcessHostImplUtils::GetMaxRendererProcessCountEx() {
   if (RenderProcessHost::render_process_mode() ==
       RenderProcessMode::SINGLE_MODE) {
@@ -160,7 +157,6 @@ size_t ArkwebRenderProcessHostImplUtils::GetMaxRendererProcessCountEx() {
 
   return max_count * 0.9;
 }
-// LCOV_EXCL_STOP
 
 bool ArkwebRenderProcessHostImplUtils::IsSuitableHostForArkweb(
     RenderProcessHost* host,
@@ -202,7 +198,6 @@ size_t ArkwebRenderProcessHostImplUtils::GetProcessCountForLimitArkweb(
 #endif
 }
 
-// LCOV_EXCL_START
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
 void DelayedRenderKiller::StartTimer() {
   if (!timer_){
@@ -346,7 +341,6 @@ void ArkwebRenderProcessHostImplUtils::Refresh() {
   }
 }
 #endif
-// LCOV_EXCL_STOP
 
 void ArkwebRenderProcessHostImplUtils::GetProcessHostForSiteInstanceArkweb(
     RenderProcessHost* render_process_host,
@@ -533,7 +527,6 @@ static const std::string kTtfFileSrcExt = "ttfFileSrcExt";
 std::unique_ptr<ThemeFont> ArkwebRenderProcessHostImplUtils::g_theme_font_ =
     nullptr;
 
-// LCOV_EXCL_START
 // static
 bool ArkwebRenderProcessHostImplUtils::IsThemeFontValid() {
   if (!g_theme_font_ || !base::PathExists(g_theme_font_->flag_path) ||
@@ -650,7 +643,6 @@ ThemeFont* ArkwebRenderProcessHostImplUtils::EnsureThemeFont() {
 
   return g_theme_font_.get();
 }
-// LCOV_EXCL_STOP
 
 void ArkwebRenderProcessHostImplUtils::UpdateThemeFontFile(
     RenderProcessHostImpl* host,

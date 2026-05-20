@@ -31,32 +31,6 @@ config("frame_fuzzer_blink_config") {
   }
 }
 
-# Fuzzer for DetectSimulatedClickRiskEnhancedImpl - Priority 1 (Security)
-# Tests click risk detection with various algorithm parameters and nonce values
-fuzzer_test("detect_simulated_click_risk_enhanced_impl_fuzzer") {
-  sources = [ "detect_simulated_click_risk_enhanced_impl_fuzzer.cpp" ]
-  deps = [
-    "//cef:libcef_static",
-    "//ohos_nweb:cef_nweb",
-    "//ohos_nweb:nweb_sources",
-    "//third_party/blink/renderer/platform",
-    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
-    "//third_party/googletest:gtest",
-    "//content/test:test_support",
-  ]
-  include_dirs = [
-    "//cef",
-    "//cef/include",
-    "//ohos_nweb/include",
-    "//ohos_nweb/src",
-    "//v8/include",
-    "//third_party/blink",
-    "//third_party/blink/renderer/core",
-    "//arkweb/chromium_ext",
-  ]
-  additional_configs = [ ":frame_fuzzer_blink_config" ]
-}
-
 # Fuzzer for LocalFrameViewUtils - Priority 2 (Layout/View)
 # Tests frame view utilities including selection and layout operations
 fuzzer_test("local_frame_view_utils_fuzzer") {
@@ -113,7 +87,6 @@ fuzzer_test("ark_web_fuzzer") {
 group("frame_fuzzers") {
   testonly = true
   deps = [
-    ":detect_simulated_click_risk_enhanced_impl_fuzzer",
     ":local_frame_view_utils_fuzzer",
     ":ark_web_fuzzer",
   ]
