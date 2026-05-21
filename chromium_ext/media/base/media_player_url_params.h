@@ -83,7 +83,6 @@ class MediaPlayerUrlParams {
 
   // True when the crossorigin mode is unspecified or set to "use-credentials",
   // false when it's "anonymous".
-  //
   // Used by MediaPlayerRenderer when determining whether or not send cookies
   // and credentials to the underlying Android MediaPlayer. Cookies/credentials
   // are retrieved based on whether or not the `media_url` passes the checks
