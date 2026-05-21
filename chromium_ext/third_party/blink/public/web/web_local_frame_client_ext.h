@@ -92,6 +92,10 @@ class BLINK_EXPORT WebLocalFrameClientExt : public WebLocalFrameClient {
 #if BUILDFLAG(ARKWEB_PDF)
   virtual bool IsPDF() override { return false; }
 #endif
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  virtual void RequestSnapshotOnce() {}
+#endif
 };
 
 }

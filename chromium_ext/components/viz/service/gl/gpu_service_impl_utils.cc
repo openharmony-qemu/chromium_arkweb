@@ -47,7 +47,7 @@
 #include "base/ohos/d_vsync/include/d_vsync_controller.h"
 #endif
 
-#if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
+#if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE) || BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "arkweb/chromium_ext/components/viz/common/frame_sinks/arkweb_copy_output_result_utils.h"
 #include "third_party/bounds_checking_function/include/securec.h"
 #endif
@@ -245,5 +245,78 @@ base::WeakPtr<GpuServiceImpl> GpuServiceImpl::GetWeakPtr() const {
 }
 
 #endif
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+void GpuServiceImpl::OnAdfFrameSnapshotCopyOutputResult(std::unique_ptr<CopyOutputResult> result) {
+  LOG(DEBUG) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult in";
+  if (!result) {
+    return;
+  }
+  TRACE_EVENT0("viz", "safebrowsing OnAdfFrameSnapshotCopyOutputResult callback");
+  
+  SkBitmap bitmap = result->ScopedAccessSkBitmap().bitmap();
+  if (!bitmap.getPixels()) {
+    LOG(ERROR) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult: Invalid bitmap.";
+    return;
+  }
+  
+  size_t size = bitmap.computeByteSize();
+  LOG(DEBUG) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult, width:"
+             << bitmap.width() << ", height:" << bitmap.height() << ", size:" << size;
+  
+  mojo::ScopedSharedBufferHandle shared_buffer = mojo::SharedBufferHandle::Create(size);
+  if (!shared_buffer.is_valid()) {
+    LOG(ERROR) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult Failed to create shared buffer.";
+    return;
+  }
+  
+  mojo::ScopedSharedBufferMapping mapping = shared_buffer->Map(size);
+  if (!mapping) {
+    LOG(ERROR) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult Failed to map shared buffer.";
+    return;
+  }
+  
+  if (memcpy_s(mapping.get(), size, bitmap.getPixels(), size) != EOK) {
+    LOG(ERROR) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult Failed to memcpy_s.";
+    return;
+  }
+  
+  mojom::SbBitmapMetadataPtr metadata = mojom::SbBitmapMetadata::New();
+  if (!metadata) {
+    LOG(ERROR) << "safebrowsing OnAdfFrameSnapshotCopyOutputResult Failed to new BlanklessBitmapMetadata.";
+    return;
+  }
+  SkImageInfo info = bitmap.info();
+  metadata->width = info.width();
+  metadata->height = info.height();
+  metadata->color_type = static_cast<int32_t>(info.colorType());
+  metadata->alpha_type = static_cast<int32_t>(info.alphaType());
+  metadata->size = static_cast<uint64_t>(size);
+  io_runner_->PostTask(FROM_HERE, base::BindOnce(&GpuServiceImpl::SendAntiFraudSnapshotInfo,
+                       weak_ptr_, std::move(shared_buffer), std::move(metadata)));
+}
+ 
+void GpuServiceImpl::SendAntiFraudSnapshotInfo(mojo::ScopedSharedBufferHandle buffer,
+                                                mojom::SbBitmapMetadataPtr metadata) {
+  TRACE_EVENT0("viz", "safebrowsing SendAntiFraudSnapshotInfo to browser");
+  gpu_host_->SendAntiFraudSnapshotInfo(std::move(buffer), std::move(metadata));
+}
+
+void GpuServiceImpl::RequestSnapshotOnce() {
+  LOG(DEBUG)<< "set IsAllowSnapshot " << allow_snapshot_;
+  std::lock_guard<std::mutex> lck(allow_snapshot_mtx_);
+  allow_snapshot_ = true;
+}
+ 
+bool GpuServiceImpl::TakeIsAllowSnapshot(){
+  if(!allow_snapshot_){
+    return false;
+  }
+  std::lock_guard<std::mutex> lck(allow_snapshot_mtx_);
+  allow_snapshot_ = false;
+  return true;
+}
+#endif
+
 //LCOV_EXCL_STOP
  } // namespace viz
