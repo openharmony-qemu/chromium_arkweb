@@ -89,6 +89,16 @@ const mockCCMConfigInstance = {
   getAppID: jest.fn(() => 'testApp'),
   getPage: jest.fn(() => 'testPage'),
   fromJson: jest.fn(() => false),
+  isPopupScaleEnable: jest.fn(() => true),
+  isAlphabetNavigatorEnable: jest.fn(() => true),
+  isCustomConfigEnable: jest.fn(() => true),
+  getAutoLayoutStrategyType: jest.fn(() => 1),
+  getAlphabetIdentificationMinSize: jest.fn(() => 12),
+  getAlphabetHeightWidthMinRatio: jest.fn(() => 10),
+  setAlphabetNavigatorFixExecuted: jest.fn(() => {}),
+  getCustomConfigs: jest.fn(() => {
+    [{style: ''}]
+  }),
 };
 
 jest.mock('../src/Framework/Common/CCMConfig', () => ({
@@ -296,6 +306,25 @@ describe('Framework Module', () => {
       Framework.mainTask();
       
       expect(IntelligentLayout.intelligentLayout).not.toHaveBeenCalled();
+    });
+
+    test('custom config should execute when strategy matched', () => {
+      const link = document.createElement('link');
+      link.setAttribute('rel', 'preload');
+      link.setAttribute('href', 'http://example.com/script.js');
+      document.head.appendChild(link);
+
+      (Utils.isWideScreen as jest.Mock).mockReturnValue(true);
+      (PageContentObserver.isContentReady as jest.Mock).mockReturnValue(true);
+      mockCCMConfigInstance.checkRule.mockReturnValue(CheckRuleStateResult.inWhiteList);
+
+      mockCCMConfigInstance.getAutoLayoutStrategyType.mockReturnValue(1);
+      Framework.mainTask();
+      expect(Log.info).not.toHaveBeenCalledWith('开始执行自定义配置修复...', Framework.TAG);
+
+      mockCCMConfigInstance.getAutoLayoutStrategyType.mockReturnValue(1 << 2);
+      Framework.mainTask();
+      expect(Log.info).toHaveBeenCalledWith('开始执行自定义配置修复...', Framework.TAG);
     });
   });
 

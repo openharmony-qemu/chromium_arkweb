@@ -1,7 +1,7 @@
 /**
  * Unit tests for CCMConfig.ts
  */
-import { CCMConfig, CCMRange, Breakpoint, AppRuleInfo, CheckRuleStateResult, ICCMConfig } from '../src/Framework/Common/CCMConfig';
+import { CCMConfig, CCMRange, Breakpoint, AppRuleInfo, CheckRuleStateResult, ICCMConfig, AutoLayoutStrategyType } from '../src/Framework/Common/CCMConfig';
 
 // Mock dependencies - Must come before imports
 jest.mock('../src/Debug/Log', () => {
@@ -19,6 +19,7 @@ jest.mock('../src/Debug/Log', () => {
 });
 
 import Log from '../src/Debug/Log';
+import Tag from '../src/Debug/Tag';
 
 describe('CCMConfig Module', () => {
   let configInstance: CCMConfig;
@@ -382,6 +383,36 @@ describe('CCMConfig Module', () => {
       
       expect(result).toBe(CheckRuleStateResult.initial);
     });
+
+    test('should check custom config field', () => {
+      // @ts-ignore
+      window._getAppId_ = jest.fn(() => '123');
+      // @ts-ignore
+      window._getPage_ = jest.fn(() => 'home');
+
+      // Reset the singleton to get fresh state
+      // @ts-ignore
+      CCMConfig.instance = undefined;
+      const freshInstance = CCMConfig.getInstance();
+
+      freshInstance.checkRule();
+
+      expect(Log.info).not.toHaveBeenCalledWith('当前页面包含自定义配置策略', Tag.ccmConfig);
+
+      const jsonConfig = JSON.stringify({
+        minMaskAreaRatioThreshold: 1,
+        opacityFilter: [0, 100],
+        minContentAreaRatioThreshold: 15,
+        scaleAnimationDuration: 100,
+        minScaleFactor: 55,
+        appRuleInfos: [{ id: '123', pg: ['*'], configs: [{style: ''}]}],
+        needCheckIdAndPage: true,
+      });
+
+      freshInstance.fromJson(jsonConfig);
+      freshInstance.checkRule();
+      expect(Log.info).toHaveBeenCalledWith('当前页面包含自定义配置策略', Tag.ccmConfig);
+    });
   });
 
   describe('update method', () => {
@@ -454,6 +485,41 @@ describe('CCMConfig Module', () => {
       
       const result = configInstance.fromJson(jsonConfig);
       expect(result).toBe(true);
+    });
+  });
+
+  describe('parseMiniappOptionalConfig() method', () => {
+    test('parseMiniappOptionalConfig should process the config field in the input app rule config string', () => {
+      const ccmConfigInstance = CCMConfig.getInstance();
+      let customConfigList = ccmConfigInstance.getCustomConfigs();
+      expect(customConfigList.length).toBe(0);
+    });
+  });
+
+  describe('isPopupScaleEnable() method', () => {
+    test('isPopupScaleEnable should judge if the input strategy is for popup scale', () => {
+      const ccmConfigInstance = CCMConfig.getInstance();
+      expect(ccmConfigInstance.isPopupScaleEnable(AutoLayoutStrategyType.popupScale)).toBe(true);
+      expect(ccmConfigInstance.isPopupScaleEnable(AutoLayoutStrategyType.alphabetNavigator)).toBe(false);
+      expect(ccmConfigInstance.isPopupScaleEnable(AutoLayoutStrategyType.customConfig)).toBe(false);
+    });
+  });
+
+  describe('isAlphabetNavigatorEnable() method', () => {
+    test('isAlphabetNavigatorEnable should judge if the input strategy is for alphabet', () => {
+      const ccmConfigInstance = CCMConfig.getInstance();
+      expect(ccmConfigInstance.isAlphabetNavigatorEnable(AutoLayoutStrategyType.popupScale)).toBe(false);
+      expect(ccmConfigInstance.isAlphabetNavigatorEnable(AutoLayoutStrategyType.alphabetNavigator)).toBe(true);
+      expect(ccmConfigInstance.isAlphabetNavigatorEnable(AutoLayoutStrategyType.customConfig)).toBe(false);
+    });
+  });
+
+  describe('isCustomConfigEnable() method', () => {
+    test('isCustomConfigEnable should judge if the input strategy is for custom config', () => {
+      const ccmConfigInstance = CCMConfig.getInstance();
+      expect(ccmConfigInstance.isCustomConfigEnable(AutoLayoutStrategyType.popupScale)).toBe(false);
+      expect(ccmConfigInstance.isCustomConfigEnable(AutoLayoutStrategyType.alphabetNavigator)).toBe(false);
+      expect(ccmConfigInstance.isCustomConfigEnable(AutoLayoutStrategyType.customConfig)).toBe(true);
     });
   });
 });

@@ -40,7 +40,8 @@
 namespace OHOS::NWeb {
 enum class AutoLayoutStrategyType : uint32_t {
   kPopupScale = 1,
-  kAlphabetNavigator = 1 << 1
+  kAlphabetNavigator = 1 << 1,
+  kCustomConfig = 1 << 2
 };
 
 struct UrlRuleInfoEntry {
@@ -50,6 +51,7 @@ struct UrlRuleInfoEntry {
   int alphabetIdentificationMinSize;
   int alphabetHeightWidthMinRatio;
   int targetHeightRatio;
+  base::Value::List configs;
 };
 
 struct WhitelistEntry {
@@ -117,6 +119,7 @@ constexpr std::string_view kMinDesScaleKey = "minScaleFactor";
 constexpr std::string_view kConfigPath = "const.product.web.alconfig";
 
 constexpr std::string_view kAlphabetAutoLayoutBegin = "AutoLayout.Main.alphabetStart(`";
+constexpr std::string_view kCustomConfigAutoLayoutBegin = "AutoLayout.Main.customConfigStart(`";
 constexpr std::string_view kAutoLayoutBegin = "AutoLayout.Main.start(`";
 constexpr std::string_view kAutoLayoutEnd = "`);";
 
@@ -127,6 +130,9 @@ constexpr std::string_view kAlphabetIdentificationMinSizeKey = "alphabetIdentifi
 constexpr std::string_view kAlphabetHeightWidthMinRatioKey = "alphabetHeightWidthMinRatio";
 constexpr std::string_view kNeedCheckIdAndPageKey = "needCheckIdAndPage";
 constexpr std::string_view kTargetHeightRatioKey = "targetHeightRatio";
+constexpr std::string_view kCustomConfigsKey = "configs";
+constexpr std::string_view kCustomConfigsStyleKey = "style";
+constexpr std::string_view kCustomConfigsInlineStyleKey = "inlineStyle";
 }
 
 class ScopedTimeLogger {
