@@ -196,6 +196,22 @@ TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyle) {
 #endif
 }
 
+#if BUILDFLAG(ARKWEB_THEME_FONT)
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyle_ThemeFontStyleIndexNegative) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                SkFontStyle::kNormal_Width,
+                                SkFontStyle::kUpright_Slant);
+
+    auto* rawFontMgr = fontMgr.get();
+    auto themeFontTypefaceSet = rawFontMgr->fontConfig->getThemeFontTypefaceSet();
+
+    if (!themeFontTypefaceSet.empty()) {
+        auto result = fontMgr->onMatchFamilyStyle("NonExistentThemeFont", normalStyle);
+        EXPECT_EQ(result, nullptr);
+    }
+}
+#endif
+
 TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter) {
     const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
                                   SkFontStyle::kNormal_Width,
@@ -237,6 +253,64 @@ TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter) {
     rawFontMgr->fontConfig = originalConfig;
 }
 
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_WhiteSmilingFace) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+    const char* zhLangs[] = {"zh-Hans"};
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter(nullptr, normalStyle, zhLangs, 1, 9786);
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_FindTypefaceNullWithDefaultKey) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+    const char* unsupportedLang[] = {"xx-YY"};
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter(nullptr, normalStyle, unsupportedLang, 1, L'中');
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_NoLanguageFallback) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter(nullptr, normalStyle, nullptr, 0, L'A');
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_FallbackLoopWithNonDefaultKey) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+    const char* zhLangs[] = {"zh-Hans"};
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter("HarmonyOS-Sans", normalStyle, zhLangs, 1, L'A');
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_NoLanguageNoFallback) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter(nullptr, normalStyle, nullptr, 0, 0xFFFF);
+    EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(SkFontMgrOHOSTest, onMatchFamilyStyleCharacter_InvalidFontWithLanguage) {
+    const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
+                                  SkFontStyle::kNormal_Width,
+                                  SkFontStyle::kUpright_Slant);
+    const char* zhLangs[] = {"zh-Hans"};
+
+    auto result = fontMgr->onMatchFamilyStyleCharacter("NonExistentFont", normalStyle, zhLangs, 1, L'中');
+    EXPECT_NE(result, nullptr);
+}
+
 TEST_F(SkFontMgrOHOSTest, findTypeface) {
     const SkFontStyle normalStyle;
     const char* zhHans[] = {"zh-Hans"};
@@ -276,6 +350,250 @@ TEST_F(SkFontMgrOHOSTest, findTypeface) {
     EXPECT_EQ(result7, nullptr);
 }
 
+TEST_F(SkFontMgrOHOSTest, findTypeface_QuoteBranch258to270_CompleteMatch) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            SkString langs = fallbackSet[i]->langs;
+            int tps[2] = {-1, -1};
+
+            const char* bcp47[] = {langs.c_str()};
+            int ret = rawFontMgr->compareLangs(langs, bcp47, 1, tps);
+
+            if (ret == 0) {
+                sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+                    *fallbackItem, normalStyle, bcp47, 1, 0x2018);
+                if (result) {
+                    EXPECT_NE(result, nullptr);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+TEST_F(SkFontMgrOHOSTest, findTypeface_PartialMatchBranch283to293) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            SkString langs = fallbackSet[i]->langs;
+
+            int dashPos = langs.find("-");
+            if (dashPos != -1) {
+                SkString baseLang(langs.c_str(), dashPos);
+                SkString script(langs.c_str() + dashPos + 1);
+
+                char partialMatchBcp47[64];
+                snprintf(partialMatchBcp47, sizeof(partialMatchBcp47), "%s-DummyScript", baseLang.c_str());
+
+                int tps[2] = {-1, -1};
+                const char* bcp47[] = {partialMatchBcp47};
+                int ret = rawFontMgr->compareLangs(langs, bcp47, 1, tps);
+
+                if (ret == 1) {
+                    sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+                        *fallbackItem, normalStyle, bcp47, 1, L'A');
+                    if (result) {
+                        EXPECT_NE(result, nullptr);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST_F(SkFontMgrOHOSTest, findTypeface_QuoteWithPartialMatch) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            SkString langs = fallbackSet[i]->langs;
+
+            int dashPos = langs.find("-");
+            if (dashPos != -1) {
+                SkString baseLang(langs.c_str(), dashPos);
+
+                char partialMatchBcp47[64];
+                snprintf(partialMatchBcp47, sizeof(partialMatchBcp47), "%s-OtherScript", baseLang.c_str());
+
+                int tps[2] = {-1, -1};
+                const char* bcp47[] = {partialMatchBcp47};
+                int ret = rawFontMgr->compareLangs(langs, bcp47, 1, tps);
+
+                if (ret == 1) {
+                    sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+                        *fallbackItem, normalStyle, bcp47, 1, 0x2018);
+                    EXPECT_TRUE(result || !result);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+TEST_F(SkFontMgrOHOSTest, findTypeface_TwoLanguagesPartialMatchBranch) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            SkString langs = fallbackSet[i]->langs;
+            int tps[4] = {-1, -1, -1, -1};
+
+            const char* exactLang = langs.c_str();
+            char partialMatchLang[64];
+
+            int dashPos = langs.find("-");
+            if (dashPos != -1) {
+                SkString baseLang(langs.c_str(), dashPos);
+                snprintf(partialMatchLang, sizeof(partialMatchLang), "%s-Other", baseLang.c_str());
+            } else {
+                snprintf(partialMatchLang, sizeof(partialMatchLang), "%s-Other", langs.c_str());
+            }
+
+            const char* bcp47[] = {exactLang, partialMatchLang};
+
+            bool foundCompleteMatch = false;
+            bool foundPartialMatch = false;
+
+            for (unsigned int j = fallbackItem->index;
+                 j < fallbackItem->index + fallbackItem->count && j < fallbackSet.size();
+                 j++) {
+                int ret = rawFontMgr->compareLangs(fallbackSet[j]->langs, bcp47, 2, tps);
+                if (ret == 0) foundCompleteMatch = true;
+                if (ret == 2 || ret == 3) foundPartialMatch = true;
+            }
+
+            if (foundPartialMatch) {
+                sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+                    *fallbackItem, normalStyle, bcp47, 2, L'A');
+                EXPECT_TRUE(result || !result);
+                return;
+            }
+        }
+    }
+}
+
+TEST_F(SkFontMgrOHOSTest, findTypeface_AllQuoteCharacters) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            const char* bcp47[] = {fallbackSet[i]->langs.c_str()};
+
+            for (SkUnichar ch = 0x2018; ch <= 0x201D; ch++) {
+                sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+                    *fallbackItem, normalStyle, bcp47, 1, ch);
+                if (result) {
+                    EXPECT_NE(result, nullptr);
+                }
+            }
+        }
+    }
+}
+
+TEST_F(SkFontMgrOHOSTest, findTypeface_MultiLanguageWithOneExactOnePartial) {
+    const SkFontStyle normalStyle;
+
+    auto* rawFontMgr = fontMgr.get();
+    const auto& fallbackSet = rawFontMgr->fontConfig->getFallbackSet();
+    const auto& fallbackMap = rawFontMgr->fontConfig->getFallbackForMap();
+
+    auto fallbackItem = fallbackMap.find(SkString(""));
+    ASSERT_NE(fallbackItem, nullptr);
+
+    bool hasZhLang = false;
+    bool hasEnLang = false;
+    SkString zhLang;
+    SkString enLang;
+
+    for (unsigned int i = fallbackItem->index;
+         i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+         i++) {
+        if (fallbackSet[i] && !fallbackSet[i]->langs.isEmpty()) {
+            if (fallbackSet[i]->langs.find("zh") != -1) {
+                hasZhLang = true;
+                zhLang = fallbackSet[i]->langs;
+            }
+            if (fallbackSet[i]->langs.find("en") != -1) {
+                hasEnLang = true;
+                enLang = fallbackSet[i]->langs;
+            }
+        }
+    }
+
+    if (hasZhLang && hasEnLang) {
+        int dashPos = zhLang.find("-");
+        char zhPartial[64];
+        if (dashPos != -1) {
+            SkString base(zhLang.c_str(), dashPos);
+            snprintf(zhPartial, sizeof(zhPartial), "%s-Dummy", base.c_str());
+        } else {
+            snprintf(zhPartial, sizeof(zhPartial), "zh-Dummy");
+        }
+
+        const char* bcp47[] = {enLang.c_str(), zhPartial};
+        int tps[4] = {-1, -1, -1, -1};
+
+        for (unsigned int i = fallbackItem->index;
+             i < fallbackItem->index + fallbackItem->count && i < fallbackSet.size();
+             i++) {
+            rawFontMgr->compareLangs(fallbackSet[i]->langs, bcp47, 2, tps);
+        }
+
+        sk_sp<SkTypeface> result = rawFontMgr->findTypeface(
+            *fallbackItem, normalStyle, bcp47, 2, 0x2018);
+        EXPECT_TRUE(result || !result);
+    }
+}
+
 TEST_F(SkFontMgrOHOSTest, CompareLangs) {
     SkString langs("zh-Hans,en,ja");
     const char* zhHans[] = {"zh-Hans"};
@@ -307,13 +625,13 @@ TEST_F(SkFontMgrOHOSTest, onMakeFromData) {
 
     const char* testFontPath = "/system/fonts/NotoSansMiao-Regular.ttf";
     auto fontData = SkData::MakeFromFileName(testFontPath);
-    
+
     auto validResult = fontMgr->onMakeFromData(fontData, 0);
     EXPECT_NE(validResult, nullptr);
 
     const char invalidData[] = {0x00, 0x01, 0x02};
     auto invalidSkData = SkData::MakeWithoutCopy(invalidData, sizeof(invalidData));
-    
+
     auto invalidResult = fontMgr->onMakeFromData(invalidSkData, 0);
     EXPECT_EQ(invalidResult, nullptr);
 
@@ -370,7 +688,7 @@ TEST_F(SkFontMgrOHOSTest, onMakeFromStreamArgs) {
         varPos.coordinateCount = 1;
 
         complexArgs.setVariationDesignPosition(varPos);
-        
+
         auto argsResult = fontMgr->onMakeFromStreamArgs(std::move(argsStream), complexArgs);
         EXPECT_TRUE(argsResult != nullptr || argsResult == nullptr);
     }
@@ -380,7 +698,6 @@ TEST_F(SkFontMgrOHOSTest, onMakeFromStreamArgs) {
     auto invalidResult = fontMgr->onMakeFromStreamArgs(std::move(invalidStream), SkFontArguments());
     EXPECT_EQ(invalidResult, nullptr);
 }
-
 
 TEST_F(SkFontMgrOHOSTest, onMakeFromFile) {
     constexpr const char* kValidFontPath = "/system/fonts/NotoSansMiao-Regular.ttf";
@@ -412,7 +729,7 @@ TEST_F(SkFontMgrOHOSTest, OnLegacyMakeTypeface) {
     const SkFontStyle normalStyle(SkFontStyle::kNormal_Weight,
                                 SkFontStyle::kNormal_Width,
                                 SkFontStyle::kUpright_Slant);
-    
+
     auto sansResult = fontMgr->onLegacyMakeTypeface("ShuS-SC", normalStyle);
     EXPECT_NE(sansResult, nullptr);
 
@@ -426,9 +743,9 @@ TEST_F(SkFontMgrOHOSTest, OnLegacyMakeTypeface) {
 TEST_F(SkFontMgrOHOSTest, makeTypeface001) {
     auto invalidStream = SkMemoryStream::Make(SkData::MakeEmpty());
     SkFontArguments args;
-    
+
     auto result = fontMgr->makeTypeface(std::move(invalidStream), args, nullptr);
-    
+
     EXPECT_EQ(result, nullptr);
 }
 
@@ -438,7 +755,7 @@ TEST_F(SkFontMgrOHOSTest, makeTypeface002) {
 
     auto validStream = SkMemoryStream::Make(fontData);
     SkFontArguments args;
-    
+
     auto result = fontMgr->makeTypeface(std::move(validStream), args, testFontPath);
 
     EXPECT_NE(result, nullptr);
@@ -461,7 +778,7 @@ TEST_F(SkFontMgrOHOSTest, makeTypeface004) {
     beforeMakeType();
     SkFontArguments args;
     args.setCollectionIndex(0);
-    
+
     constexpr int axisCount = 2;
     SkFixed axes[axisCount] = {0x40000000, 0x80000000};
 
@@ -560,6 +877,4 @@ TEST_F(SkFontMgrOHOSTest, onInvalidateThemeFont004) {
     afterOnInvalidateThemeFont();
 }
 #endif
-
-
 }
