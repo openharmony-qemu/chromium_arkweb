@@ -170,6 +170,9 @@ void WebMediaPlayerImplUtils::PlayExt() {
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   impl->has_page_hidden_when_paused_ = false;
 #endif // ARKWEB_VIDEO_ASSISTANT
+  if (impl != nullptr && impl->compositor_ != nullptr) {
+    impl->compositor_->ResetDroppedFrameMetrics();
+  }
 
   impl->pipeline_controller_->SetMediaPlayerState(false);
   if (impl->action_reason_ != media::ActionReason::kNormal) {

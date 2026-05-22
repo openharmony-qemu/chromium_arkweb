@@ -43,6 +43,7 @@ class MockWebVideoFrameSubmitter : public WebVideoFrameSubmitter {
   MOCK_METHOD(void, StopRendering, (), (override));
   MOCK_METHOD(void, DidReceiveFrame, (), (override));
   MOCK_METHOD(bool, IsDrivingFrameUpdates, (), (const, override));
+  MOCK_METHOD(void, ResetDroppedFrameMetrics, (), (override));
 };
 
 class VideoFrameCompositorForIncludeTest : public testing::Test {

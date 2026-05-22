@@ -80,6 +80,15 @@ void VideoFrameSubmitter::StopRenderingForSameLayerImpl()
 }
 
 #if !defined(COMPONENT_BUILD) // Avoid component compilation.
+void VideoFrameSubmitter::ResetDroppedFrameMetrics() {
+  LOG(INFO) << "VideoFrameSubmitter ResetDroppedFrameMetrics";
+  is_first_frame_ = true;
+  should_report_frame_dropped_ = false;
+  dropped_frame_count_ = 0;
+  dropped_frame_duration_ = 0;
+  last_frame_time_ = base::TimeTicks();
+}
+
 void VideoFrameSubmitter::UpdateDroppedFrameMetrics(const viz::BeginFrameArgs& args) {
   if (args.interval <= base::TimeDelta::Min() || args.interval.is_zero()) {
     return;
