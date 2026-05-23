@@ -12,38 +12,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #ifndef ARKWEB_EXTENSIONS_BROWSER_CUSTOM_HANDLER_H_
 #define ARKWEB_EXTENSIONS_BROWSER_CUSTOM_HANDLER_H_
- 
+
 #include <string>
- 
+
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_handler.h"
- 
+
 namespace extensions {
- 
+
 struct CustomData : public Extension::ManifestData {
   int store_type_;
- 
+
   static int GetStoreType(const Extension* extension);
- 
+
   static void SetStoreType(int store_type, base::Value::Dict* manifest);
- 
+
   static bool CanBeUpdated(const Extension* extension);
+
+  static bool IsFromHuaweiWebStore(const Extension* extension);
 };
- 
+
 class CustomHandler : public ManifestHandler {
  public:
   CustomHandler();
   ~CustomHandler() override;
- 
+
   bool Parse(Extension* extension, std::u16string* error) override;
- 
+
  private:
   base::span<const char* const> Keys() const override;
 };
- 
+
 }  // namespace extensions
- 
+
 #endif  // ARKWEB_EXTENSIONS_BROWSER_CUSTOM_HANDLER_H_
