@@ -71,7 +71,7 @@ class ArkWebLocalFrameMojoHandlerExt : public LocalFrameMojoHandler {
                    int32_t& height);
 
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
-  void DetectBlankScreen(const String& url,
+  void DetectBlankScreen(const String& url, bool detectionEnable,
                          const Vector<double>& detectionTiming,
                          const Vector<int32_t>& detectionMethods,
                          int32_t contentfulNodesCountThreshold) final;
