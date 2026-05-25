@@ -33,6 +33,7 @@
   int overscroll_mode_ = 0;
   int scrollbar_layout_policy_ = 0;
   bool is_system_rtl_enabled_ = false;
+  bool is_compatible_converting_enabled_ = false;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)

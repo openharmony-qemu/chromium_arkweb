@@ -39,6 +39,7 @@ static void WebPreferenceMojomExt(blink::mojom::WebPreferencesDataView data,
   out->hide_vertical_scrollbars = data.hide_vertical_scrollbars();
   out->hide_horizontal_scrollbars = data.hide_horizontal_scrollbars();
   out->scroll_enabled = data.scroll_enabled();
+  out->is_compatible_converting_enabled = data.is_compatible_converting_enabled();
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_ZOOM)
   out->text_zoom_factor = data.text_zoom_factor();

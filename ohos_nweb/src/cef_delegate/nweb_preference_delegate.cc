@@ -305,6 +305,9 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
   browser_settings.clipboard_site_permission_enabled = OHOS::NWeb::NWebImpl::IsClipboardSitePermissionEnabled();
 #endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  browser_settings.is_compatible_converting_enabled = is_compatible_converting_enabled_;
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
   browser_settings.scrollbar_color = GetScrollBarColor();
 #endif  // ARKWEB_SCROLLBAR
@@ -524,6 +527,14 @@ void NWebPreferenceDelegate::SetEnableDrag(bool enable) {
   LOG(INFO) << "set DRAG in preference: " << is_drag_enabled_;
 }
 #endif  // BUILDFLAG(ARKWEB_DRAG_DROP)
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+void NWebPreferenceDelegate::PutTouchEventFeatureDetectionEnabled(bool enabled) {
+  is_compatible_converting_enabled_ = enabled;
+  WebPreferencesChanged();
+  LOG(INFO) << "Set TouchEventFeatureDetection in preference: " << is_compatible_converting_enabled_;
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_MENU)
 void NWebPreferenceDelegate::SetTouchHandleExistState(bool touchHandleExist) {

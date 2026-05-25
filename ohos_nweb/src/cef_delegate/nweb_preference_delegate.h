@@ -160,6 +160,10 @@ class NWebPreferenceDelegate : public NWebPreference {
   void SetEnableDrag(bool enable) override;
 #endif  // BUILDFLAG(ARKWEB_DRAG_DROP)
 
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  void PutTouchEventFeatureDetectionEnabled(bool enabled) override;
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist);
   void SetViewportScaleState(bool viewportScale);
@@ -448,6 +452,7 @@ class NWebPreferenceDelegate : public NWebPreference {
   int blur_enabled_;
   int scrollbar_layout_policy_{0};
   bool is_system_rtl_enabled_{false};
+  bool is_compatible_converting_enabled_{false};
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_VIEWPORT)
   std::optional<bool> viewport_enabled_;

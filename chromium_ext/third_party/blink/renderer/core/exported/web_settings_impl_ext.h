@@ -52,6 +52,8 @@ class CORE_EXPORT WebSettingsImplExt final : public WebSettingsImpl {
   int GetScrollbarLayoutPolicy() override;
   void SetIsSystemRtlEnable(bool) override;
   bool GetIsSystemRtlEnabled() override;
+  void SetIsCompatibleConvertingEnabled(bool) override;
+  bool GetIsCompatibleConvertingEnabled() override;
 #endif
 
 #if BUILDFLAG(ARKWEB_ZOOM)
