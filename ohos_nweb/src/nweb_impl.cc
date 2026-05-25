@@ -9313,3 +9313,16 @@ void NWebImpl::UpdateWebLtpoInfo() {
   base::ohos::SlidingObserver::GetInstance().OnDisplayInfoChange();
 }
 #endif
+
+void NWebImpl::ExecuteAIPageCommand(
+    const std::string& command,
+    std::shared_ptr<NWebStringValueCallback> callback) {
+  if (nweb_delegate_ == nullptr) {
+    if (callback) {
+      callback->OnReceiveValue("");
+    }
+    return;
+  }
+
+  nweb_delegate_->ExecuteAIPageCommand(command, callback);
+}

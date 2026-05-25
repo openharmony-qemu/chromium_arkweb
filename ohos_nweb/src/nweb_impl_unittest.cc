@@ -42,11 +42,13 @@
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
+#include "cef_delegate/ai_page_command_dispatcher.h"
 #include "cef_delegate/nweb_application.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
 #include "arkweb/chromium_ext/base/ohos/blankless/blankless_controller.h"
 #include "cef/libcef/browser/request_context_impl.h"
+#include "cef/ohos_cef_ext/include/arkweb_browser_ext.h"
 #include "arkweb/chromium_ext/net/base/net_helpers.h"
 
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
@@ -60,6 +62,17 @@ using namespace testing;
 using namespace OHOS::NWeb;
 
 namespace OHOS::NWeb {
+class TestNWebStringValueCallback : public NWebStringValueCallback {
+ public:
+  void OnReceiveValue(const std::string& value) override {
+    value_ = value;
+    called_ = true;
+  }
+
+  std::string value_;
+  bool called_ = false;
+};
+
 class MockNWebDragEvent : public NWebDragEvent {
  public:
   ~MockNWebDragEvent() = default;
@@ -13938,4 +13951,81 @@ TEST_F(NWebImplTest, Batch37OnPauseSoftKeyboardAvoidModeReturnsEarly) {
 }
 #endif  // BUILDFLAG(ARKWEB_SOFTKEYBOARD_AVOID)
 #endif  // BUILDFLAG(ARKWEB_TEST)
+TEST_F(NWebImplTest, ExecuteAIPageCommand001) {
+  const std::string command = "{\"method\":\"getFullDom\"}";
+  auto test_callback = std::make_shared<TestNWebStringValueCallback>();
+  std::shared_ptr<NWebStringValueCallback> callback = test_callback;
+  EXPECT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, ExecuteAIPageCommand(command, callback))
+      .Times(0);
+  nweb_impl_->ExecuteAIPageCommand(command, callback);
+  EXPECT_TRUE(test_callback->called_);
+  EXPECT_EQ("", test_callback->value_);
+}
+
+TEST_F(NWebImplTest, ExecuteAIPageCommand002) {
+  const std::string command = "{\"method\":\"getLiteDom\"}";
+  auto test_callback = std::make_shared<TestNWebStringValueCallback>();
+  std::shared_ptr<NWebStringValueCallback> callback = test_callback;
+  EXPECT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, ExecuteAIPageCommand(command, callback))
+      .Times(1);
+  nweb_impl_->ExecuteAIPageCommand(command, callback);
+  EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher001) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("invalid json", browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher002) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("[]", browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher003) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"method\":\"unknown\"}", browser,
+                                    callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher004) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"params\":{}}", browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher005) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch(
+      "{\"method\":\"getFullDom\",\"params\":{\"wants\":{\"properties\":[\"tag\"]}}}", browser,
+      callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher006) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch(
+      "{\"method\":\"getLiteDom\",\"params\":{\"rules\":{\"tags\":[\"a\"]}}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
 }  // namespace OHOS::NWeb

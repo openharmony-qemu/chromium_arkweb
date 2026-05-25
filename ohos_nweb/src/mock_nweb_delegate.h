@@ -1315,6 +1315,12 @@ class MockNWebDelegate : public NWebDelegateInterface {
 
   MOCK_METHOD(void, ReloadOriginalUrlIgnoreCache, (), (const, override));
 
+  MOCK_METHOD(void,
+              ExecuteAIPageCommand,
+              (const std::string& command,
+              std::shared_ptr<NWebStringValueCallback> callback),
+              (override));
+
 };
 }  // namespace OHOS::NWeb
 

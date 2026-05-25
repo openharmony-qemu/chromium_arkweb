@@ -426,6 +426,10 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
                          bool extention) override;
 #endif  // BUILDFLAG(ARKWEB_MSGPORT)
 
+  void ExecuteAIPageCommand(
+ 	       const std::string& command,
+ 	       std::shared_ptr<NWebStringValueCallback> callback) override;
+
   void SetNWebId(uint32_t nwebId) override;
 
 #if BUILDFLAG(IS_ARKWEB)

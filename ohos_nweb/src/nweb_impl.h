@@ -841,6 +841,9 @@ class NWebImpl : public NWeb {
   void ResumeDownload(std::shared_ptr<NWebDownloadItem> web_download);
   void StopFling() override;
   void ReloadIgnoreCache() override;
+  void ExecuteAIPageCommand(
+      const std::string& command,
+      std::shared_ptr<NWebStringValueCallback> callback) override;
   static void ResumeDownloadStatic(
       std::shared_ptr<NWebDownloadItem> download_item);
 
