@@ -33,7 +33,6 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/frame/frame_replication_state.mojom.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
@@ -44,9 +43,6 @@
 #include "third_party/blink/public/web/web_window_features.h"
 #include "third_party/blink/public/platform/web_document_subresource_filter.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
-#define private public
-#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
-#undef private
 
 namespace content {
 using ::testing::_;
@@ -127,7 +123,8 @@ class MockWebDocumentSubresourceFilter : public blink::WebDocumentSubresourceFil
   MockWebDocumentSubresourceFilter() = default;
   ~MockWebDocumentSubresourceFilter() override = default;
   MOCK_METHOD(blink::WebDocumentSubresourceFilter::LoadPolicy, GetLoadPolicy,
-              (const blink::WebURL& resource_url, network::mojom::RequestDestination), (override));
+              (const blink::WebURL& resource_url, network::mojom::RequestDestination,
+               subresource_filter::ScopedRule* out_rule), (override));
   MOCK_METHOD(blink::WebDocumentSubresourceFilter::LoadPolicy, GetLoadPolicyForWebSocketConnect,
               (const blink::WebURL&), (override));
   MOCK_METHOD(blink::WebDocumentSubresourceFilter::LoadPolicy, GetLoadPolicyForWebTransportConnect,
@@ -183,8 +180,8 @@ class MockWebDocumentLoader : public blink::WebDocumentLoader {
   using CodeCacheHostRemote = blink::CrossVariantMojoRemote<blink::mojom::CodeCacheHostInterfaceBase>;
   MOCK_METHOD(void, SetCodeCacheHost, (CodeCacheHostRemote code_cache_host,
       CodeCacheHostRemote code_cache_host_for_background), ());
-  MOCK_METHOD(blink::WebString, OriginCalculationDebugInfo, (), (const));
   MOCK_METHOD(bool, HasLoadedNonInitialEmptyDocument, (), (const));
+  MOCK_METHOD(bool, IsForDiscard, (), (const));
 };
 
 class ArkWebRenderFrameImplTest : public RenderFrameImplTest {
