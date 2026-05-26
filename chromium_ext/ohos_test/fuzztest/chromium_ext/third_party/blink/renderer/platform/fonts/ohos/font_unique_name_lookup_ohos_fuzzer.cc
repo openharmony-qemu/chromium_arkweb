@@ -35,10 +35,12 @@
 // font_table_matcher_ is `protected` and `#ifdef`-d under
 // IS_WIN || IS_ANDROID || ARKWEB_WPT. Fuzzers run in the target toolchain
 // where ARKWEB_WPT=1, so the field exists. We subclass to gain access and
-// inject a FontTableMatcher built from a shared-memory region populated by
-// fuzz bytes (the matcher just calls
-// `font_table_.ParseFromArray(mem.data(), mem.size())`, which gracefully
-// fails on malformed protobuf, returning an empty table).
+// inject a FontTableMatcher built from a well-formed FontUniqueNameTable
+// protobuf whose font_index values are kept strictly below fonts_size().
+// This avoids triggering an off-by-one OOB in the upstream MatchName
+// bounds check (`>` should be `>=`). MakeMapping constructs the protobuf
+// via fuzz data and uses FontTableMatcher::MemoryMappingFromFontUniqueNameTable
+// to produce the shared-memory region.
 
 #include <fuzzer/FuzzedDataProvider.h>
 
@@ -69,24 +71,34 @@ class FontUniqueNameLookupOhosForFuzz : public FontUniqueNameLookupOhos {
 
 namespace {
 
-// Build a ReadOnlySharedMemoryMapping populated with fuzzer-supplied bytes.
-// FontTableMatcher::FontTableMatcher tries to ParseFromArray() the buffer as
-// a FontUniqueNameTable protobuf — malformed input is tolerated and leaves
-// the matcher with an empty table, so any byte pattern is safe.
+// Build a ReadOnlySharedMemoryMapping from a well-formed FontUniqueNameTable
+// protobuf constructed with fuzzer-supplied data.  This guarantees that every
+// name_map entry's font_index is strictly less than fonts_size(), avoiding
+// an off-by-one out-of-bounds in the upstream FontTableMatcher::MatchName
+// bounds check (uses `>` instead of `>=`).
 base::ReadOnlySharedMemoryMapping MakeMapping(FuzzedDataProvider* fdp) {
-  size_t size = fdp->ConsumeIntegralInRange<size_t>(1, 2048);
-  std::vector<uint8_t> bytes = fdp->ConsumeBytes<uint8_t>(size);
-  if (bytes.empty()) {
-    bytes.push_back(0);
+  FontUniqueNameTable table;
+  table.set_stored_for_platform_version_identifier("fuzz");
+
+  int num_fonts = fdp->ConsumeIntegralInRange<int>(0, 16);
+  for (int i = 0; i < num_fonts; ++i) {
+    auto* font = table.add_fonts();
+    font->set_file_path(fdp->ConsumeRandomLengthString(64));
+    font->set_ttc_index(fdp->ConsumeIntegral<uint32_t>());
   }
-  base::MappedReadOnlyRegion region =
-      base::ReadOnlySharedMemoryRegion::Create(bytes.size());
-  if (!region.IsValid()) {
-    return {};
+
+  int num_names = num_fonts > 0 ? fdp->ConsumeIntegralInRange<int>(0, 32) : 0;
+  for (int i = 0; i < num_names; ++i) {
+    auto* entry = table.add_name_map();
+    entry->set_font_name(fdp->ConsumeRandomLengthString(32));
+    entry->set_font_index(
+        fdp->ConsumeIntegralInRange<uint32_t>(0, num_fonts - 1));
   }
-  base::span<uint8_t> dst(region.mapping);
-  memcpy(dst.data(), bytes.data(), bytes.size());
-  return region.region.Map();
+
+  // name_map must be sorted by font_name for the binary search in MatchName.
+  FontTableMatcher::SortUniqueNameTableForSearch(&table);
+
+  return FontTableMatcher::MemoryMappingFromFontUniqueNameTable(table);
 }
 
 String FuzzString(FuzzedDataProvider* fdp, size_t max_len) {
