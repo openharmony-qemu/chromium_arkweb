@@ -46,6 +46,12 @@ class OffheapTableDumper {
                                           uint32_t* record_count) const;
   bool WriteWasmCanonicalStructTableDirectory(uint32_t* payload_cursor);
   bool DumpWasmCanonicalStructTablePayload();
+
+  bool BuildJSDispatchTable();
+  bool GetJSDispatchTablePayload(uint32_t* payload_size,
+                                 uint32_t* entry_count) const;
+  bool WriteJSDispatchTableDirectory(uint32_t* payload_cursor);
+  bool DumpJSDispatchTablePayload(uint32_t payload_size);
 #if defined(V8_ENABLE_SANDBOX)
   bool BuildSandboxTrustedPointerTable();
   bool GetSandboxTrustedPointerTablePayload(uint32_t* payload_size,
@@ -58,22 +64,16 @@ class OffheapTableDumper {
                                          uint32_t* entry_count) const;
   bool WriteSandboxCodePointerTableDirectory(uint32_t* payload_cursor);
   bool DumpSandboxCodePointerTablePayload(uint32_t payload_size);
-
-  bool BuildSandboxJSDispatchTable();
-  bool GetSandboxJSDispatchTablePayload(uint32_t* payload_size,
-                                        uint32_t* entry_count) const;
-  bool WriteSandboxJSDispatchTableDirectory(uint32_t* payload_cursor);
-  bool DumpSandboxJSDispatchTablePayload(uint32_t payload_size);
 #endif  // defined(V8_ENABLE_SANDBOX)
 
   i::Heap* heap_{nullptr};
   BinaryWriterBase* writer_{nullptr};
   std::vector<RawHeapWasmCanonicalStructRecord> wasm_struct_records_;
   std::vector<RawHeapWasmCanonicalStructField> wasm_struct_fields_;
+  std::vector<RawHeapJSDispatchEntry> js_dispatch_entries_;
 #if defined(V8_ENABLE_SANDBOX)
   std::vector<RawHeapSandboxTrustedPointerEntry> trusted_pointer_entries_;
   std::vector<RawHeapSandboxCodePointerEntry> code_pointer_entries_;
-  std::vector<RawHeapSandboxJSDispatchEntry> js_dispatch_entries_;
 #endif  // defined(V8_ENABLE_SANDBOX)
   uint32_t table_dump_size_{0};
   uint32_t table_count_{0};

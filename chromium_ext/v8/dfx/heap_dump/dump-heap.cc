@@ -69,6 +69,11 @@ void HeapDumper::DumpHeader() {
 
   header_.cage_base_ = heap_->isolate()->cage_base();
   header_.code_cage_base_ = heap_->isolate()->code_cage_base();
+#if defined(V8_ENABLE_SANDBOX)
+  header_.trusted_cage_base_ = heap_->isolate()->trusted_cage_base();
+#else
+  header_.trusted_cage_base_ = header_.cage_base_;
+#endif
 
   header_.root_table_offset_ = sizeof(RawHeapHeader);
   header_.root_table_size_ = root_dumper_.RootDumpSize();

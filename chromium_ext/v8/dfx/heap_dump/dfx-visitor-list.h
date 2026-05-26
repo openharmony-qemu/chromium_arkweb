@@ -253,7 +253,9 @@
   DFX_IF_WASM(APPLY, V, WasmExportedFunctionData, WASM_EXPORTED_FUNCTION_DATA) \
   DFX_IF_WASM(APPLY, V, WasmJSFunctionData, WASM_JS_FUNCTION_DATA)             \
   DFX_IF_WASM(APPLY, V, WasmInternalFunction, WASM_INTERNAL_FUNCTION)          \
-  DFX_IF_WASM(APPLY, V, WasmTrustedInstanceData, WASM_TRUSTED_INSTANCE_DATA)   \
+  /* deal specially:InAnySharedSpace in body desc */                           \
+  /*DFX_IF_WASM(APPLY, V, WasmTrustedInstanceData,                             \
+                WASM_TRUSTED_INSTANCE_DATA)*/                                  \
   DFX_IF_WASM(APPLY, V, WasmSuspenderObject, WASM_SUSPENDER_OBJECT)
 
 #define DFX_TRUSTED_OBJECT_LIST1_ADAPTER(V, Name, NAME) V(Name)

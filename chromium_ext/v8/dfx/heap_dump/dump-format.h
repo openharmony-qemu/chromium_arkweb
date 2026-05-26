@@ -40,9 +40,17 @@ constexpr uint32_t kNoContentObjectDumpSize =
                           + sizeof(uint32_t));  // real size
 
 constexpr uint64_t kRawHeapMagic = 0x56384844;  // "V8HD"
+// Rawheap dump format versions are binary header/layout compatibility points.
+// v1: roots/string/object tables only; no offheap table fields and no
+// dedicated i18n_support flag bit in the exported flags.
+// v2: adds offheap table section fields and exports the independent
+// i18n_support flag bit used by flag compatibility checks.
+// v3: adds trusted_cage_base_ for sandbox ProtectedPointerSlot decoding.
+constexpr uint32_t kDumpFormatVersionV1 = 1;
 constexpr uint32_t kDumpFormatVersionWithOffheapTables = 2;
+constexpr uint32_t kDumpFormatVersionWithTrustedCageBase = 3;
 constexpr uint32_t kDumpFormatVersionCurrent =
-    kDumpFormatVersionWithOffheapTables;
+    kDumpFormatVersionWithTrustedCageBase;
 constexpr uint32_t kDumpFormatVersion = kDumpFormatVersionCurrent;
 
 // File-level envelope for ArkWeb rawheap dumps.
@@ -65,6 +73,7 @@ struct RawHeapHeader {
 
   i::Address cage_base_;
   i::Address code_cage_base_;
+  i::Address trusted_cage_base_;
 
   uint32_t root_table_offset_;
   uint32_t root_table_size_;
@@ -96,14 +105,36 @@ enum class RawHeapOffheapTableKind : uint32_t {
   // The existing string table section keeps its dedicated header fields.
   kStringTableReserved = 1,
   kWasmCanonicalTypeTable = 2,
+  // Current-format shared JSDispatchTable payload. Legacy v1/v2 and older v3
+  // dumps may omit it; translators must warn and skip dependent edges.
+  kJSDispatchTable = 3,
 #if defined(V8_ENABLE_SANDBOX)
   kSandboxTrustedPointerTable = 100,
   kSandboxExternalPointerTable = 101,
   kSandboxCppHeapPointerTable = 102,
+  // Legacy kind kept for rawheap v2/v3 sandbox dumps produced before the
+  // JSDispatchTable schema was made configuration-independent.
   kSandboxJSDispatchTable = 103,
   kSandboxCodePointerTable = 104,
 #endif
 };
+
+enum RawHeapJSDispatchEntryState : uint32_t {
+  kRawHeapJSDispatchEntryActive = 1u,
+  kRawHeapJSDispatchEntryEmpty = 2u,
+};
+
+struct RawHeapJSDispatchEntry {
+  uint32_t handle_;
+  uint32_t state_;
+  uint64_t code_object_address_;
+  uint64_t entrypoint_;
+  uint32_t parameter_count_;
+  uint32_t flags_;
+};
+
+static_assert(std::is_standard_layout<RawHeapJSDispatchEntry>::value);
+static_assert(std::is_trivially_copyable<RawHeapJSDispatchEntry>::value);
 
 #if defined(V8_ENABLE_SANDBOX)
 constexpr uint32_t kRawHeapUnknownIndirectPointerTag = 0xffffffffu;
@@ -125,19 +156,11 @@ struct RawHeapSandboxTrustedPointerEntry {
   uint32_t flags_;
 };
 
-enum RawHeapSandboxJSDispatchEntryState : uint32_t {
-  kRawHeapSandboxJSDispatchEntryActive = 1u,
-  kRawHeapSandboxJSDispatchEntryEmpty = 2u,
-};
-
-struct RawHeapSandboxJSDispatchEntry {
-  uint32_t handle_;
-  uint32_t state_;
-  uint64_t code_object_address_;
-  uint64_t entrypoint_;
-  uint32_t parameter_count_;
-  uint32_t flags_;
-};
+using RawHeapSandboxJSDispatchEntry = RawHeapJSDispatchEntry;
+constexpr RawHeapJSDispatchEntryState kRawHeapSandboxJSDispatchEntryActive =
+    kRawHeapJSDispatchEntryActive;
+constexpr RawHeapJSDispatchEntryState kRawHeapSandboxJSDispatchEntryEmpty =
+    kRawHeapJSDispatchEntryEmpty;
 
 struct RawHeapSandboxCodePointerEntry {
   uint32_t handle_;
@@ -152,9 +175,6 @@ struct RawHeapSandboxCodePointerEntry {
 static_assert(std::is_standard_layout<RawHeapSandboxTrustedPointerEntry>::value);
 static_assert(
     std::is_trivially_copyable<RawHeapSandboxTrustedPointerEntry>::value);
-static_assert(std::is_standard_layout<RawHeapSandboxJSDispatchEntry>::value);
-static_assert(
-    std::is_trivially_copyable<RawHeapSandboxJSDispatchEntry>::value);
 static_assert(std::is_standard_layout<RawHeapSandboxCodePointerEntry>::value);
 static_assert(
     std::is_trivially_copyable<RawHeapSandboxCodePointerEntry>::value);
@@ -216,6 +236,9 @@ bool ValidateRawHeapOffheapTableSection(const RawHeapHeader& header,
                                         uint32_t binary_size,
                                         std::string* error = nullptr);
 std::string GetRawHeapFlagsString(uint32_t flags);
+std::string GetRawHeapFlagsString(const RawHeapHeader& header);
+uint32_t GetEffectiveRawHeapFlags(const RawHeapHeader& header);
+bool RawHeapFlagsMatchCurrent(const RawHeapHeader& header);
 bool RawHeapFlagCompressedPointers(uint32_t flags);
 bool RawHeapFlagSharedCage(uint32_t flags);
 bool RawHeapFlagExternalCodeSpace(uint32_t flags);
@@ -224,11 +247,14 @@ bool RawHeapFlagSmi31BitOn64BitArch(uint32_t flags);
 bool RawHeapFlagStaticRoots(uint32_t flags);
 bool RawHeapFlagMapPacking(uint32_t flags);
 bool RawHeapFlagI18nSupport(uint32_t flags);
+bool RawHeapFlagI18nSupport(const RawHeapHeader& header);
 uint32_t RawHeapFlagTaggedSize(uint32_t flags);
 uint32_t RawHeapFlagHeapObjectTag(uint32_t flags);
 uint32_t RawHeapFlagApiSystemPointerSize(uint32_t flags);
 // dump map and real size only
 bool SkipContentDump(i::Tagged<i::Map> map);
+// Check if the rawheap file was created with sandbox enabled
+bool IsRawHeapSandboxEnabled(const std::string& file_path);
 
 }  // namespace dfx
 }  // namespace v8
