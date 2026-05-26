@@ -377,6 +377,67 @@ TEST_F(ArkWebDeviceDataManagerUtilsTest, OnDeviceAdded_IgnoreMouse) {
   listener_->OnDeviceRemoved(3, "keyboard");
 }
 
+TEST_F(ArkWebDeviceDataManagerUtilsTest, OnDeviceAdded_NoDeviceDataManagerInstance) {
+  auto mock = new MockMMIAdapter();
+  testing::Mock::AllowLeak(mock);
+  FakeHelperExt::g_mockAdapter = mock;
+  DeviceDataManager::DeleteInstance();
+  listener_->OnDeviceAdded(1, "mouse");
+  DeviceDataManager::CreateInstance();
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, OnDeviceAdded_NullTaskRunner) {
+  auto mock = new MockMMIAdapter();
+  testing::Mock::AllowLeak(mock);
+  FakeHelperExt::g_mockAdapter = mock;
+  EXPECT_CALL(*mock, GetDeviceInfo(_, _)).WillOnce([](
+    int32_t deviceId, std::shared_ptr<MMIDeviceInfoAdapter> info) {
+      info->SetId(1);
+      info->SetType((1 << 2));
+      info->SetName("");
+      return 0;
+  });
+  auto null_task_runner_listener = std::make_unique<MockMMIListenerAdapterImpl>(
+      mock_utils_.get(), nullptr, std::move(mock_adapter_));
+  null_task_runner_listener->OnDeviceAdded(1, "mouse");
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, OnDeviceRemoved_NoDeviceDataManagerInstance) {
+  auto mock = new MockMMIAdapter();
+  testing::Mock::AllowLeak(mock);
+  FakeHelperExt::g_mockAdapter = mock;
+  DeviceDataManager::DeleteInstance();
+  listener_->OnDeviceRemoved(1, "mouse");
+  DeviceDataManager::CreateInstance();
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, OnDeviceRemoved_NullTaskRunner) {
+  auto mock = new MockMMIAdapter();
+  testing::Mock::AllowLeak(mock);
+  FakeHelperExt::g_mockAdapter = mock;
+  auto null_task_runner_listener = std::make_unique<MockMMIListenerAdapterImpl>(
+      mock_utils_.get(), nullptr, std::move(mock_adapter_));
+  null_task_runner_listener->OnDeviceRemoved(1, "mouse");
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, AddMouseDevice_DuplicateDevice) {
+  utils_->AddMouseDevice(test_mouse1);
+  utils_->AddMouseDevice(test_mouse1);
+  EXPECT_EQ(utils_->device_data_manager_->mouse_devices_.size(), 1U);
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, AddKeyboardDevice_DuplicateDevice) {
+  utils_->AddKeyboardDevice(test_keyboard1);
+  utils_->AddKeyboardDevice(test_keyboard1);
+  EXPECT_EQ(utils_->device_data_manager_->keyboard_devices_.size(), 1U);
+}
+
+TEST_F(ArkWebDeviceDataManagerUtilsTest, AddTouchpadDevice_DuplicateDevice) {
+  utils_->AddTouchpadDevice(test_touchpad1);
+  utils_->AddTouchpadDevice(test_touchpad1);
+  EXPECT_EQ(utils_->device_data_manager_->touchpad_devices_.size(), 1U);
+}
+
 TEST_F(ArkWebDeviceDataManagerUtilsTest, TestEqual) {
   InputDevice device1;
   device1.id = 1;

@@ -1630,4 +1630,267 @@ TEST_F(IMFAdapterImplTest, SendPrivateCommand) {
     ReportImfErrorEvent(ret, isShowKeyboard);
   }
 
+  TEST_F(IMFAdapterImplTest, Close) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    imf_adapter_->inputMethodProxy_ = nullptr;
+    imf_adapter_->Close();
+    EXPECT_EQ(imf_adapter_->inputMethodProxy_, nullptr);
+
+    InputMethod_TextEditorProxy* textEditorProxy = OH_TextEditorProxy_Create();
+    bool showKeyboard = true;
+    InputMethod_AttachOptions* options = OH_AttachOptions_Create(showKeyboard);
+    InputMethod_InputMethodProxy* inputMethodProxy = nullptr;
+    OH_InputMethodController_Attach(textEditorProxy, options, &inputMethodProxy);
+    imf_adapter_->inputMethodProxy_ = inputMethodProxy;
+    imf_adapter_->Close();
+  }
+
+  TEST_F(IMFAdapterImplTest, HideTextInput_WithProxy) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    InputMethod_TextEditorProxy* textEditorProxy = OH_TextEditorProxy_Create();
+    bool showKeyboard = true;
+    InputMethod_AttachOptions* options = OH_AttachOptions_Create(showKeyboard);
+    InputMethod_InputMethodProxy* inputMethodProxy = nullptr;
+    OH_InputMethodController_Attach(textEditorProxy, options, &inputMethodProxy);
+    imf_adapter_->inputMethodProxy_ = inputMethodProxy;
+    imf_adapter_->HideTextInput();
+    imf_adapter_->Close();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, SendEnterKeyFunc_DefaultCase_V2) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    EXPECT_CALL(*listener, SendFunctionKey(testing::_)).Times(1);
+    IMFTextEditorProxyImpl::SendEnterKeyFunc(
+        proxy, static_cast<InputMethod_EnterKeyType>(999));
+    IMFTextEditorProxyImpl::textListener_.reset();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, MoveCursorFunc_AllDirections_V2) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    EXPECT_CALL(*listener, MoveCursor(testing::_)).Times(6);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, InputMethod_Direction::IME_DIRECTION_UP);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, InputMethod_Direction::IME_DIRECTION_DOWN);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, InputMethod_Direction::IME_DIRECTION_LEFT);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, InputMethod_Direction::IME_DIRECTION_RIGHT);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, InputMethod_Direction::IME_DIRECTION_NONE);
+    IMFTextEditorProxyImpl::MoveCursorFunc(
+        proxy, static_cast<InputMethod_Direction>(999));
+    IMFTextEditorProxyImpl::textListener_.reset();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, HandleExtendActionFunc_AllActions_V2) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    EXPECT_CALL(*listener, HandleExtendAction(testing::_)).Times(5);
+    IMFTextEditorProxyImpl::HandleExtendActionFunc(
+        proxy, InputMethod_ExtendAction::IME_EXTEND_ACTION_SELECT_ALL);
+    IMFTextEditorProxyImpl::HandleExtendActionFunc(
+        proxy, InputMethod_ExtendAction::IME_EXTEND_ACTION_CUT);
+    IMFTextEditorProxyImpl::HandleExtendActionFunc(
+        proxy, InputMethod_ExtendAction::IME_EXTEND_ACTION_COPY);
+    IMFTextEditorProxyImpl::HandleExtendActionFunc(
+        proxy, InputMethod_ExtendAction::IME_EXTEND_ACTION_PASTE);
+    IMFTextEditorProxyImpl::HandleExtendActionFunc(
+        proxy, static_cast<InputMethod_ExtendAction>(999));
+    IMFTextEditorProxyImpl::textListener_.reset();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, GetLeftTextOfCursorFunc_NullLength) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    int32_t number = 1;
+    char16_t text[] = u"a";
+    IMFTextEditorProxyImpl::textListener_.reset();
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    IMFTextEditorProxyImpl::GetLeftTextOfCursorFunc(proxy, number, text,
+                                                    nullptr);
+    IMFTextEditorProxyImpl::textListener_.reset();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, GetRightTextOfCursorFunc_NullLength) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    int32_t number = 1;
+    char16_t text[] = u"a";
+    IMFTextEditorProxyImpl::textListener_.reset();
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    IMFTextEditorProxyImpl::GetRightTextOfCursorFunc(proxy, number, text,
+                                                     nullptr);
+    IMFTextEditorProxyImpl::textListener_.reset();
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, ConstructTextConfig_NullConfig) {
+    InputMethod_ErrorCode result =
+        IMFTextEditorProxyImpl::ConstructTextConfig(nullptr);
+    EXPECT_EQ(result, IME_ERR_NULL_POINTER);
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, ConstructTextConfig_NullInputAttribute) {
+    std::shared_ptr<MockIMFTextConfigAdapter> config =
+        std::make_shared<MockIMFTextConfigAdapter>();
+    EXPECT_CALL(*config, GetInputAttribute())
+        .WillRepeatedly(testing::Return(nullptr));
+    InputMethod_ErrorCode result =
+        IMFTextEditorProxyImpl::ConstructTextConfig(config);
+    EXPECT_EQ(result, IME_ERR_NULL_POINTER);
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, ReceivePrivateCommandFunc_NullListener) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    char key[] = "testKey";
+    size_t keyLength = strlen(key);
+    InputMethod_PrivateCommand* privateCommand =
+        OH_PrivateCommand_Create(key, keyLength);
+    InputMethod_PrivateCommand* commands[1] = {privateCommand};
+    IMFTextEditorProxyImpl::textListener_.reset();
+    int32_t result =
+        IMFTextEditorProxyImpl::ReceivePrivateCommandFunc(proxy, commands, 1);
+    EXPECT_EQ(result, 0);
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, SetPreviewTextFunc_NullListener) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    const char16_t* text = u"abc";
+    IMFTextEditorProxyImpl::textListener_.reset();
+    int32_t result =
+        IMFTextEditorProxyImpl::SetPreviewTextFunc(proxy, text, 3, 0, 3);
+    EXPECT_EQ(result, 0);
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, FinishTextPreviewFunc_NullListener) {
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    ASSERT_NE(nullptr, proxy);
+    IMFTextEditorProxyImpl::textListener_.reset();
+    IMFTextEditorProxyImpl::FinishTextPreviewFunc(proxy);
+  }
+
+  TEST_F(IMFTextEditorProxyImplTest, TextEditorProxyCreate_NullListener) {
+    InputMethod_TextEditorProxy* result =
+        IMFTextEditorProxyImpl::TextEditorProxyCreate(nullptr);
+    EXPECT_NE(result, nullptr);
+    IMFTextEditorProxyImpl::TextEditorProxyDestroy(result);
+  }
+
+  TEST_F(IMFTextListenerAdapterImplTest,
+         ReceivePrivateCommand_PreviewStyleNotUnderline) {
+    char key[] = "previewTextStyle";
+    size_t keyLength = strlen(key);
+    ASSERT_NE(listener_adapter_, nullptr);
+    listener_adapter_->listener_ = mock_listener_adapter_;
+    InputMethod_PrivateCommand* privateCommand =
+        OH_PrivateCommand_Create(key, keyLength);
+    char value[] = "none";
+    size_t valueLength = strlen(value);
+    OH_PrivateCommand_SetStrValue(privateCommand, value, valueLength);
+    InputMethod_PrivateCommand* commands[1] = {privateCommand};
+    EXPECT_CALL(*mock_listener_adapter_, SetNeedUnderLine(false)).Times(1);
+    int32_t result = listener_adapter_->ReceivePrivateCommand(commands, 1);
+    EXPECT_EQ(result, 0);
+  }
+
+  TEST_F(IMFTextListenerAdapterImplTest, GetLeftTextOfCursor_NullListener) {
+    ASSERT_NE(listener_adapter_, nullptr);
+    listener_adapter_->listener_ = nullptr;
+    std::u16string result = listener_adapter_->GetLeftTextOfCursor(5);
+    EXPECT_EQ(result, u"");
+  }
+
+  TEST_F(IMFTextListenerAdapterImplTest, GetRightTextOfCursor_NullListener) {
+    ASSERT_NE(listener_adapter_, nullptr);
+    listener_adapter_->listener_ = nullptr;
+    std::u16string result = listener_adapter_->GetRightTextOfCursor(5);
+    EXPECT_EQ(result, u"");
+  }
+
+  TEST_F(IMFAdapterImplTest, Attach_TwoParams_NullListener) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    bool result = imf_adapter_->Attach(nullptr, false);
+    EXPECT_FALSE(result);
+  }
+
+  TEST_F(IMFAdapterImplTest, Attach_FourParams_NullListener) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    std::shared_ptr<MockIMFTextConfigAdapter> config =
+        std::make_shared<MockIMFTextConfigAdapter>();
+    bool result = imf_adapter_->Attach(nullptr, false, config, true);
+    EXPECT_FALSE(result);
+  }
+
+  TEST_F(IMFAdapterImplTest, AttachWithRequestKeyboardReason_NullListener) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    std::shared_ptr<MockIMFTextConfigAdapter> config =
+        std::make_shared<MockIMFTextConfigAdapter>();
+    bool result = imf_adapter_->AttachWithRequestKeyboardReason(
+        nullptr, false, config, true, 0);
+    EXPECT_FALSE(result);
+  }
+
+  TEST_F(IMFAdapterImplTest, OnSelectionChange_WithProxy) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    InputMethod_TextEditorProxy* proxy = OH_TextEditorProxy_Create();
+    bool showKeyboard = true;
+    InputMethod_AttachOptions* options = OH_AttachOptions_Create(showKeyboard);
+    InputMethod_InputMethodProxy* inputMethodProxy = nullptr;
+    OH_InputMethodController_Attach(proxy, options, &inputMethodProxy);
+    OH_AttachOptions_Destroy(options);
+    imf_adapter_->inputMethodProxy_ = inputMethodProxy;
+    std::u16string text = u"hello";
+    imf_adapter_->OnSelectionChange(text, 0, 5);
+    imf_adapter_->Close();
+  }
+
+  TEST_F(IMFAdapterImplTest, SendPrivateCommand_NotAutoFillCancel) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    bool result = imf_adapter_->SendPrivateCommand("other.key", "value");
+    EXPECT_FALSE(result);
+  }
+
+  TEST_F(IMFAdapterImplTest, AttachParamsCheck_ExistingListenerNotReset) {
+    ASSERT_NE(imf_adapter_, nullptr);
+    std::shared_ptr<MockIMFTextListenerAdapter> listener =
+        std::make_shared<MockIMFTextListenerAdapter>();
+    std::shared_ptr<MockIMFTextConfigAdapter> config =
+        std::make_shared<MockIMFTextConfigAdapter>();
+    std::shared_ptr<MockIMFInputAttributeAdapter> attribute =
+        std::make_shared<MockIMFInputAttributeAdapter>();
+    std::shared_ptr<MockIMFCursorInfoAdapter> cursor =
+        std::make_shared<MockIMFCursorInfoAdapter>();
+    EXPECT_CALL(*config, GetInputAttribute())
+        .WillRepeatedly(testing::Return(attribute));
+    EXPECT_CALL(*config, GetCursorInfo())
+        .WillRepeatedly(testing::Return(cursor));
+    IMFTextEditorProxyImpl::textListener_ =
+        std::make_shared<IMFTextListenerAdapterImpl>(listener);
+    bool result =
+        imf_adapter_->AttachParamsCheck(listener, false, config, false);
+    EXPECT_TRUE(result);
+  }
+
 }  // namespace OHOS::NWeb

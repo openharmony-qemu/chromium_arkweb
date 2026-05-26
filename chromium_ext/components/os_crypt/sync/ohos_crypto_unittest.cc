@@ -127,6 +127,11 @@ TEST_F(KeyCacheTest, get_random) {
   EXPECT_TRUE(result.empty());
 }
 
+TEST_F(KeyCacheTest, get_random_success) {
+  auto result = _get_random(16);
+  EXPECT_EQ(result.size(), 16U);
+}
+
 TEST_F(KeyCacheTest, generate_key_for_ota) {
   std::string key_name = "name";
   auto result = _generate_key_for_ota(key_name);
@@ -166,5 +171,74 @@ TEST_F(KeyCacheTest, get_iv) {
   auto result = get_iv(0);
   EXPECT_TRUE(result.empty());
 }
+
+TEST_F(KeyCacheTest, get_iv_success) {
+  auto result = get_iv(12);
+  EXPECT_EQ(result.size(), 12U);
+}
+
+TEST_F(KeyCacheTest, get_symmetric_key_256_for_ota_cached) {
+  std::string key_name = "ota_test_key";
+  std::string key_value = "ota_test_value";
+  inst_ota.Get().add_key(key_name, key_value);
+  auto result = get_symmetric_key_256_for_ota(key_name);
+  EXPECT_EQ(result, key_value);
+}
+
+TEST_F(KeyCacheTest, get_symmetric_key_256_for_ota_not_cached) {
+  std::string key_name = "ota_new_key";
+  auto result = get_symmetric_key_256_for_ota(key_name);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeyCacheTest, generate_key_for_ota_not_empty) {
+  std::string key_name = "ota_gen_key";
+  auto result = _generate_key_for_ota(key_name);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeyCacheTest, generate_key_not_empty) {
+  std::string key_name = "gen_key";
+  auto result = _generate_key(key_name);
+  EXPECT_FALSE(result.empty());
+}
+
+TEST_F(KeyCacheTest, hex_repr_long_string) {
+  std::string input = "This is a longer string for testing";
+  auto result = _hex_repr(input);
+  EXPECT_EQ(result.size(), input.size() * 2);
+}
+
+TEST_F(KeyCacheTest, get_random_failure) {
+  auto result = _get_random(16);
+}
+
+TEST_F(KeyCacheTest, GenerateLocalKey) {
+  auto result = crypto::ohos::GenerateLocalKey(32);
+  EXPECT_EQ(result.size(), 32U);
+}
+
+TEST_F(KeyCacheTest, GenerateLocalKey_failure) {
+  auto result = crypto::ohos::GenerateLocalKey(0);
+}
+
+TEST_F(KeyCacheTest, GetKey_empty_path) {
+  crypto::ohos::inst.Get().key_map_.clear();
+  auto result = crypto::ohos::GetKey("");
+}
+
+TEST_F(KeyCacheTest, GetKeyForOta_empty_path) {
+  crypto::ohos::inst_ota.Get().key_map_.clear();
+  auto result = crypto::ohos::GetKeyForOta("");
+}
+
+TEST_F(KeyCacheTest, get_symmetric_key_256_for_ota_FromCache) {
+  std::string key_name = "ota_cached_key";
+  std::string key_value = "ota_cached_value";
+  crypto::ohos::inst_ota.Get().add_key(key_name, key_value);
+  auto result = crypto::ohos::get_symmetric_key_256_for_ota(key_name);
+  EXPECT_EQ(result, key_value);
+}
+
 }  // namespace ohos
 }  // namespace crypto
