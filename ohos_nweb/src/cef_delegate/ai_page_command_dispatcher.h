@@ -41,6 +41,10 @@ class AIPageCommandDispatcher {
                        CefRefPtr<ArkWebBrowserExt> browser,
                        ResultCallback callback);
 
+  static void HandleScreenCaptureCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                  const base::Value::Dict& command,
+                                  ResultCallback callback);
+
  private:
   static void ResolveEmptyResult(ResultCallback callback);
   static void HandleGetFullDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
