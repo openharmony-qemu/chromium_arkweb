@@ -16,17 +16,22 @@
 #ifndef OHOS_NWEB_SRC_CEF_DELEGATE_AI_PAGE_COMMAND_DISPATCHER_H_
 #define OHOS_NWEB_SRC_CEF_DELEGATE_AI_PAGE_COMMAND_DISPATCHER_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/values.h"
 #include "cef/include/cef_base.h"
 
 class ArkWebBrowserExt;
+class CefDictionaryValue;
 
 namespace OHOS::NWeb {
 
 class NWebStringValueCallback;
+
+enum class WebCommandErrorCode;
 
 class AIPageCommandDispatcher {
  public:
@@ -44,6 +49,46 @@ class AIPageCommandDispatcher {
   static void HandleGetLiteDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                       const base::Value::Dict& command,
                                       ResultCallback callback);
+  static void HandleScrollCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                  const base::Value::Dict& command,
+                                  ResultCallback callback);
+  static void HandleSelectCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                  const base::Value::Dict& command,
+                                  ResultCallback callback);
+  static void HandleUploadFileCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                      const base::Value::Dict& command,
+                                      ResultCallback callback);
+
+  // --- Helpers ---
+  static void ReplyError(ResultCallback callback,
+                         WebCommandErrorCode code,
+                         const std::string& message);
+
+  // Pure: builds CDP params for Input.synthesizeScrollGesture, returns nullptr
+  // if x/y missing
+  static CefRefPtr<CefDictionaryValue> BuildScrollParams(
+      const base::Value::Dict& params);
+
+  // Select / list helpers
+  static std::vector<int32_t> ParseIntList(const base::Value::Dict& dict,
+                                           const std::string& key);
+  static std::vector<std::string> ParseStringList(const base::Value::Dict& dict,
+                                                  const std::string& key);
+  static void ExecuteSelectAndReply(CefRefPtr<ArkWebBrowserExt> browser,
+                                    const std::string& xpath,
+                                    const std::vector<int32_t>& indexes,
+                                    const std::vector<std::string>& values,
+                                    ResultCallback callback);
+
+  // Upload helpers
+  static bool ValidateFilePaths(std::vector<std::string>& files,
+                                std::vector<std::string>& warnings,
+                                ResultCallback callback);
+  static void DispatchUploadTarget(CefRefPtr<ArkWebBrowserExt> browser,
+                                   const base::Value::Dict& dict,
+                                   const std::vector<std::string>& files,
+                                   const std::vector<std::string>& warnings,
+                                   ResultCallback callback);
 };
 
 }  // namespace OHOS::NWeb
