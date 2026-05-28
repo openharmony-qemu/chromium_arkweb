@@ -87,10 +87,22 @@ class SnapshotGenerator {
  public:
   explicit SnapshotGenerator();
   ~SnapshotGenerator();
+  struct RetagNodeStatus {
+    bool node_found{false};
+    bool name_updated{false};
+    bool name_suppressed{false};
+    bool type_updated{false};
+
+    bool Applied() const { return name_updated || type_updated; }
+  };
   // get node index from address; get address from
   Node* GetNode(i::Address obj_addr);
   Node* AddNode(i::Address obj_addr, Node::Type type, std::string name,
                 uint32_t self_size);
+  RetagNodeStatus RetagNodeIfExisting(i::Address obj_addr,
+                                      const std::string& name, Node::Type type,
+                                      bool update_type,
+                                      bool overwrite_system_name);
   void AddSyntheticRootNodes();
 
   std::vector<Node*>& nodes();
@@ -102,21 +114,29 @@ class SnapshotGenerator {
   uint32_t GetStringId(std::string str);
 
   // reference
-  void SetContextReference(i::Address parent, std::string reference_name,
+  bool SetContextReference(i::Address parent, std::string reference_name,
                            i::Address child, int field_offset = -1);
-  void SetShortcutReference(i::Address parent, std::string reference_name,
+  bool SetShortcutReference(i::Address parent, std::string reference_name,
                             i::Address child);
-  void SetElementReference(i::Address parent, uint32_t index, i::Address child);
-  void SetInternalReference(i::Address parent, std::string reference_name,
+  bool SetElementReference(i::Address parent, uint32_t index, i::Address child);
+  bool SetInternalReference(i::Address parent, std::string reference_name,
                             i::Address child, int field_offset);
-  void SetHiddenReference(i::Address parent, uint32_t index, i::Address child);
-  void SetWeakReference(i::Address parent, uint32_t index, i::Address child,
+  bool SetHiddenReference(i::Address parent, uint32_t index, i::Address child);
+  bool SetWeakReference(i::Address parent, uint32_t index, i::Address child,
                         std::optional<int> field_offset);
-  void SetWeakReference(i::Address parent, std::string reference_name,
+  bool SetWeakReference(i::Address parent, std::string reference_name,
                         i::Address child, std::optional<int> field_offset);
-  void SetPropertyReference(i::Address parent, std::string reference_name,
-                            i::Address child, int field_offset = -1);
-  void SetDataOrAccessorPropertyReference(i::Address parent,
+  // unresolved_name indicates the property name is synthetic (for example
+  // "(property #N)") instead of a real JavaScript Name/String.
+  // V8 native snapshots use actual Name/String payload when available, while
+  // rawheap snapshots may only know descriptor/dictionary entry indexes and
+  // synthesize fallback names. Keep these edges for reachability, but classify
+  // them as kInternal so synthetic placeholders are not shown as JS property
+  // names.
+  bool SetPropertyReference(i::Address parent, std::string reference_name,
+                            i::Address child, int field_offset = -1,
+                            bool unresolved_name = false);
+  bool SetDataOrAccessorPropertyReference(i::Address parent,
                                           std::string reference_name,
                                           i::Address child,
                                           int field_offset = -1);
@@ -130,7 +150,7 @@ class SnapshotGenerator {
   void AddRootNode();
   void AddGcRootNode();
 
-  void SetReference(Edge::Type type, i::Address parent, uint32_t name_or_index,
+  bool SetReference(Edge::Type type, i::Address parent, uint32_t name_or_index,
                     i::Address child);
   void MarkVisitedField(int offset);
 

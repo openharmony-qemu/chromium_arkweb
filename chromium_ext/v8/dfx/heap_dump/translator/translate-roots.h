@@ -19,6 +19,7 @@
 #if (defined(OH_ENABLE_HEAP_TRANSLATE) || defined(OH_ENABLE_HEAP_DUMP_TEST))
 
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/binary-reader-base.h"
@@ -30,23 +31,32 @@ namespace v8 {
 namespace dfx {
 
 class SnapshotGenerator;
+class TranslateDiagnostics;
 
 class RootTranslator {
  public:
-  explicit RootTranslator(uint32_t table_offset,
-                          uint32_t type_count,
-                          uint32_t dump_size,
-                          BinaryReaderBase* reader,
-                          SnapshotGenerator* generator);
-  void Translate();
-  void TranslateRoot(uint32_t type, uint32_t count);
+  explicit RootTranslator(uint32_t table_offset, uint32_t type_count,
+                          uint32_t dump_size, BinaryReaderBase* reader,
+                          SnapshotGenerator* generator,
+                          TranslateDiagnostics* diagnostics);
+  bool Translate();
+  bool TranslateRoot(uint32_t type, uint32_t count);
+  void EmitUserGlobalReferences();
 
  private:
+  void ReportFatal(const char* code, const char* message);
+  void ReportCorrupt(const char* code, const char* message,
+                     uint32_t rawheap_offset);
+
   const uint32_t table_offset_;
   const uint32_t type_count_;
   const uint32_t dump_size_;
   BinaryReaderBase* reader_{nullptr};
   SnapshotGenerator* generator_{nullptr};
+  TranslateDiagnostics* diagnostics_{nullptr};
+  bool is_valid_{true};
+  std::vector<i::Address> strong_root_candidates_;
+  std::unordered_set<i::Address> user_global_roots_;
 
 #ifdef OH_ENABLE_HEAP_DUMP_TEST
   // output

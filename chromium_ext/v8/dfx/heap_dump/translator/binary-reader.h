@@ -29,11 +29,8 @@ class BinaryReader : public dfx::BinaryReaderBase {
  public:
   BinaryReader(std::string path);
   ~BinaryReader();
-  bool ReadHeader(dfx::RawHeapHeader& header);
   bool ReadData(uint32_t read_size, uint8_t* out, uint32_t out_size) override;
-  bool ReadDataAt(uint32_t offset,
-                  uint32_t read_size,
-                  uint8_t* out,
+  bool ReadDataAt(uint32_t offset, uint32_t read_size, uint8_t* out,
                   uint32_t out_size) override;
 
   uint32_t BinarySize() const override;

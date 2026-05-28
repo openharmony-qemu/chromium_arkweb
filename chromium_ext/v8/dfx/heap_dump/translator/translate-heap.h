@@ -18,9 +18,12 @@
 
 #if (defined(OH_ENABLE_HEAP_TRANSLATE) || defined(OH_ENABLE_HEAP_DUMP_TEST))
 
+#include <memory>
+
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/binary-reader-base.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-format.h"
-#include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-objects.h"
+#include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-diagnostics.h"
+#include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-offheap-tables.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-roots.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-string-tables.h"
 
@@ -35,22 +38,28 @@ class BinaryReaderBase;
 class HeapTranslator {
  public:
   HeapTranslator(BinaryReaderBase* reader, SnapshotGenerator* generator);
-  ~HeapTranslator() = default;
+  ~HeapTranslator();
 
-  void TranslateHeap();
+  bool TranslateHeap();
+  const TranslateDiagnostics& diagnostics() const { return diagnostics_; }
+  bool success() const { return success_; }
 
  private:
-  void TranslateHeader();
-  void TranslateRoots();
+  bool TranslateHeader();
+  bool InitOffheapTableResolver();
+  bool TranslateRoots();
   void TranslateStringTable();
-  void TranslateObjects();
+  bool TranslateObjects();
 
   BinaryReaderBase* reader_{nullptr};
   SnapshotGenerator* generator_{nullptr};
   RawHeapHeader header_;
+  TranslateDiagnostics diagnostics_;
+  bool success_{false};
 
   std::unique_ptr<RootTranslator> root_translator_;
   std::unique_ptr<StringTableTranslator> string_table_translator_;
+  std::unique_ptr<OffheapTableResolver> offheap_table_resolver_;
   std::unique_ptr<ObjectTranslator> object_translator_;
 };
 }  // namespace dfx

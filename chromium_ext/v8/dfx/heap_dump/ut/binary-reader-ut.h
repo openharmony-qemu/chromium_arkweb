@@ -27,28 +27,31 @@ class BinaryReaderTest : public BinaryReaderBase {
   BinaryReaderTest(uint8_t* data, uint32_t size) : data_(data), size_(size) {}
 
   bool ReadData(uint32_t read_size, uint8_t* out, uint32_t out_size) override {
-    CHECK(cursor_ <= size_);
-    CHECK(read_size <= size_ - cursor_);
-    CHECK(read_size <= out_size);
+    if (cursor_ > size_ || read_size > size_ - cursor_ ||
+        read_size > out_size) {
+      return false;
+    }
     memcpy(out, data_ + cursor_, read_size);
     cursor_ += read_size;
     return true;
   }
 
-  bool ReadDataAt(uint32_t offset,
-                  uint32_t read_size,
-                  uint8_t* out,
+  bool ReadDataAt(uint32_t offset, uint32_t read_size, uint8_t* out,
                   uint32_t out_size) override {
-    CHECK(offset <= size_);
-    CHECK(read_size <= size_ - offset);
-    CHECK(read_size <= out_size);
+    if (offset > size_ || read_size > size_ - offset || read_size > out_size) {
+      return false;
+    }
     memcpy(out, data_ + offset, read_size);
     return true;
   }
 
   uint32_t BinarySize() const override { return size_; }
   uint32_t CurrentPosition() override { return cursor_; }
-  void SetPosition(uint32_t pos) override { cursor_ = pos; }
+  void SetPosition(uint32_t pos) override {
+    if (pos <= size_) {
+      cursor_ = pos;
+    }
+  }
 
  private:
   const uint8_t* data_;

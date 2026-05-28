@@ -17,15 +17,13 @@
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/translator/binary-reader.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-
 #include <cstdint>
 #include <vector>
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-format.h"
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/heap-dump-log.h"
 #include "src/base/logging.h"
+#include "src/flags/flags.h"
 
 namespace v8 {
 namespace dfx {
@@ -33,40 +31,39 @@ BinaryReader::BinaryReader(std::string path)
     : path_(path), file_(path, std::ios::binary | std::ios::in) {
   if (file_.is_open()) {
     file_.seekg(0, std::ios::end);
-    CHECK(file_.good());
+    if (!file_.good()) {
+      LogInfo("Failed to seek rawheap file end.");
+      file_.close();
+      return;
+    }
     std::streampos tmp_size = file_.tellg();
-    CHECK(tmp_size >= 0);
-    CHECK(tmp_size <= std::numeric_limits<uint32_t>::max());
+    if (tmp_size < 0 || tmp_size > static_cast<std::streampos>(
+                                       std::numeric_limits<uint32_t>::max())) {
+      LogInfo("Rawheap file is too large for this reader.");
+      file_.close();
+      return;
+    }
     file_size_ = static_cast<uint32_t>(tmp_size);
-    std::cout << "binary reader file size:" << file_size_ << std::endl;
+    if (i::v8_flags.log_heapdump) {
+      std::cout << "binary reader file size:" << file_size_ << std::endl;
+    }
     file_.seekg(0, std::ios::beg);
-    CHECK(file_.good());
+    if (!file_.good()) {
+      LogInfo("Failed to seek rawheap file begin.");
+      file_.close();
+      file_size_ = 0;
+      return;
+    }
   } else {
-    std::string errorMsg = "Failed to open file!";
-    LogInfo(errorMsg);
-    CHECK(false);
+    LogInfo("Failed to open file!");
   }
 }
 
-bool BinaryReader::IsValid() const {
-  return file_.is_open();
-}
+bool BinaryReader::IsValid() const { return file_.is_open(); }
 
-uint32_t BinaryReader::BinarySize() const {
-  return file_size_;
-}
+uint32_t BinaryReader::BinarySize() const { return file_size_; }
 
-bool BinaryReader::ReadHeader(dfx::RawHeapHeader& header) {
-  uint32_t size = sizeof(dfx::RawHeapHeader);
-  if (!ReadData(size, reinterpret_cast<uint8_t*>(&header), size)) {
-    LogInfo("Fail to read header info!");
-    return false;
-  }
-  return true;
-}
-
-bool BinaryReader::ReadData(uint32_t read_size,
-                            uint8_t* out,
+bool BinaryReader::ReadData(uint32_t read_size, uint8_t* out,
                             uint32_t out_size) {
   if (!IsValid() || !file_.good() || out_size < read_size) {
     return false;
@@ -84,9 +81,7 @@ bool BinaryReader::ReadData(uint32_t read_size,
   return true;
 }
 
-bool BinaryReader::ReadDataAt(uint32_t offset,
-                              uint32_t read_size,
-                              uint8_t* out,
+bool BinaryReader::ReadDataAt(uint32_t offset, uint32_t read_size, uint8_t* out,
                               uint32_t out_size) {
   if (!IsValid() || !file_.good()) {
     return false;
@@ -101,27 +96,39 @@ bool BinaryReader::ReadDataAt(uint32_t offset,
   }
 
   file_.seekg(offset, std::ios::beg);
-  CHECK(file_.good());
+  if (!file_.good()) {
+    file_.clear();
+    file_.seekg(cur_pos, std::ios::beg);
+    return false;
+  }
   file_.read(reinterpret_cast<char*>(out), read_size);
   if (file_.gcount() != static_cast<std::streamsize>(read_size)) {
+    file_.clear();
+    file_.seekg(cur_pos, std::ios::beg);
     return false;
   }
   // restore
   file_.seekg(cur_pos, std::ios::beg);
-  CHECK(file_.good());
+  if (!file_.good()) {
+    return false;
+  }
   return true;
 }
 
 uint32_t BinaryReader::CurrentPosition() {
   std::streampos tmp_size = file_.tellg();
-  CHECK(tmp_size >= 0);
-  CHECK(tmp_size <= std::numeric_limits<uint32_t>::max());
+  if (tmp_size < 0 || tmp_size > static_cast<std::streampos>(
+                                     std::numeric_limits<uint32_t>::max())) {
+    return file_size_;
+  }
   return static_cast<uint32_t>(tmp_size);
 }
 
 void BinaryReader::SetPosition(uint32_t pos) {
+  if (!IsValid() || pos > file_size_) {
+    return;
+  }
   file_.seekg(pos, std::ios::beg);
-  CHECK(file_.good());
 }
 
 BinaryReader::~BinaryReader() {
