@@ -80,6 +80,7 @@ void FontDataServiceImpl::GetFontConfigInfo(GetFontConfigInfoCallback callback){
       .GetOhosDrawingTextTypographyAdapter()
       .GetSystemFontConfigInfo(nullptr, reinterpret_cast<void**>(&fontconfig));
   if (fontconfig == nullptr) {
+    std::move(callback).Run(nullptr);
     LOG(ERROR) << "the font configuration class was empty.";
     return;
   }
