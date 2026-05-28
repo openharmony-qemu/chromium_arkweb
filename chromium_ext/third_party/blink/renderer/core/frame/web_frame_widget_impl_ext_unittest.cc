@@ -409,7 +409,7 @@ TEST_F(WebFrameWidgetImplExtSimTest, SetOverscrollMode_WithoutWidgetBase) {
   auto widget_base = std::move(MockMainFrameWidget()->widget_base_);
   SetWidgetBaseForTesting(nullptr);
   int mode = 42;
-  EXPECT_TRUE(MockMainFrameWidget()->widget_base_);
+  EXPECT_FALSE(MockMainFrameWidget()->widget_base_);
   MockMainFrameWidget()->SetOverscrollMode(mode);
   SetWidgetBaseForTesting(std::move(widget_base));
 }
