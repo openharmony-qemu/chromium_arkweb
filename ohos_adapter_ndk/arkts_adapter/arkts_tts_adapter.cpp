@@ -497,6 +497,16 @@ std::string ArktsTtsAdapter::GetBundleName() {
   return bundleName;
 }
 
+void ArktsTtsAdapter::SetCurrentId(int nweb) {
+  std::lock_guard<std::mutex> lck(nwebsMtx_);
+  current_id_ = nweb;
+}
+
+int ArktsTtsAdapter::GetCurrentId() {
+  std::lock_guard<std::mutex> lck(nwebsMtx_);
+  return current_id_;
+}
+
 napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
   LOG(INFO) << "Test NAPI TTS create engine.";
 
@@ -519,8 +529,9 @@ napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
   }
 
   napi_value ttsCreateEngine;
+  SetCurrentId(nweb);
   status = napi_create_function(env, "createEngine", NAPI_AUTO_LENGTH,
-                       ArktsTtsAdapter::CreateEngineCallback, &nweb,
+                       ArktsTtsAdapter::CreateEngineCallback, nullptr,
                        &ttsCreateEngine);
   if (status != napi_ok) {
     LOG(ERROR) << "TTS createEngine napi_create_function error ";
@@ -563,9 +574,9 @@ napi_value ArktsTtsAdapter::CreateEngineCallback(napi_env env,
   napi_value argv[2] = {nullptr};
   void* data = nullptr;
 
-  auto napi_status = napi_get_cb_info(env, info, &argc, argv, nullptr, &data);
-  if (data == nullptr || argc != 2 || napi_status != napi_ok) {
-    LOG(ERROR) << "TTS CreateEngineCallback data or argc is error";
+  auto napi_status = napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
+  if (argc != 2 || napi_status != napi_ok) {
+    LOG(ERROR) << "TTS CreateEngineCallback argc is error";
     return nullptr;
   }
   napi_ref ttsEngineRef;
@@ -574,7 +585,7 @@ napi_value ArktsTtsAdapter::CreateEngineCallback(napi_env env,
     LOG(ERROR) << "TTS napi_create_reference error ";
     return nullptr;
   }
-  int nweb = *(static_cast<int*>(data));
+  int nweb = ArktsTtsAdapter::GetInstance().GetCurrentId();
   LOG(INFO) << "TTS engine callback nweb:" << nweb;
 
   ArktsTtsAdapter::GetInstance().SetRef(nweb, ttsEngineRef);
@@ -853,7 +864,7 @@ napi_value ArktsTtsAdapter::ListVoices(napi_env env,
 
   napi_value ttsListVoices;
   status = napi_create_function(env, "listVoice", NAPI_AUTO_LENGTH,
-                       ArktsTtsAdapter::ListVoicesCallback, &nweb,
+                       ArktsTtsAdapter::ListVoicesCallback, nullptr,
                        &ttsListVoices);
   if (status != napi_ok) {
     LOG(ERROR) << "TTS listVoice napi_create_function error ";
@@ -875,13 +886,11 @@ napi_value ArktsTtsAdapter::ListVoicesCallback(napi_env env,
   size_t argc = 2;
   napi_value argv[2] = {nullptr};
   void* data = nullptr;
-  auto napi_status = napi_get_cb_info(env, info, &argc, argv, nullptr, &data);
-  if (data == nullptr || argc != 2 || napi_status != napi_ok) {
-    LOG(ERROR) << "TTS listVoiceCallback argc:" << argc << " data:" << data;
+  auto napi_status = napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);
+  if (argc != 2 || napi_status != napi_ok) {
+    LOG(ERROR) << "TTS listVoiceCallback argc:" << argc;
     return nullptr;
   }
-  int nweb = *(static_cast<int*>(data));
-  LOG(INFO) << "TTS engine callback nweb:" << nweb;
 
   napi_valuetype value_type = napi_undefined;
   auto result = napi_typeof(env, argv[0], &value_type);
