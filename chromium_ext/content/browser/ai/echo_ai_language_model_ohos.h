@@ -41,6 +41,7 @@ class EchoAILanguageModelOHOS : public EchoAIBaseOHOS,
   ~EchoAILanguageModelOHOS() override;
 
  private:
+  friend class EchoAILanguageModelOHOSTest;
   // `blink::mojom::AILanguageModel` implementation.
   void Prompt(std::vector<blink::mojom::AILanguageModelPromptPtr> prompts,
               on_device_model::mojom::ResponseConstraintPtr constraint,

@@ -259,6 +259,8 @@ arkweb_content_browser_ai_ohos_unittest_sources = [
   "//arkweb/chromium_ext/content/browser/ai/echo_ai_summarizer_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ai/echo_ai_rewriter_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ai/echo_ai_proofreader_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_language_model_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_manager_ohos_unittest.cc",
 ]
 
 arkweb_content_browser_media_ohos_sources = [
