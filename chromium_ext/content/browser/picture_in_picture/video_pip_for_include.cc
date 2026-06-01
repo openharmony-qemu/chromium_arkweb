@@ -56,8 +56,12 @@ PictureInPictureResult VideoPictureInPictureWindowControllerImpl::StartSessionEx
   if (result != PictureInPictureResult::kSuccess)
     return result;
 
-  if (active_session_)
+  if (active_session_) {
+    if (active_session_->GetMediaPlayerRemote()) {
+        active_session_->GetMediaPlayerRemote()->PipEnable(false);
+    }
     active_session_->Disconnect();
+  }
 
   source_bounds_ = source_bounds;
 
