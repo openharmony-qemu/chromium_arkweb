@@ -536,10 +536,12 @@ void NWebPreferenceDelegate::SetViewportScaleState(bool viewportScale) {
   WebPreferencesChanged();
 }
 
+#if BUILDFLAG(IS_ARKWEB_EXT)
 void NWebPreferenceDelegate::SetSmartEdgeState(bool state) {
   smart_edge_state_ = state;
   WebPreferencesChanged();
 }
+#endif
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 void NWebPreferenceDelegate::PutForceDarkModeEnabled(int forceDark) {
