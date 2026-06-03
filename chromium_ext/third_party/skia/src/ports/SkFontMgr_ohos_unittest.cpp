@@ -21,7 +21,7 @@
 #include "SkFontMgr_ohos.h"
 #undef protected
 #undef private
-
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_sys_info_util_ext.h"
 #include "include/core/SkRefCnt.h"
 
 #include <gtest/gtest.h>
@@ -46,8 +46,15 @@ public:
 class SkFontMgrOHOSTest : public testing::Test {
 protected: 
     void SetUp() {
+        base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+        auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+        EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(true));
         const char* validPath = "/system/etc/fontconfig.json";
         fontMgr = sk_make_sp<SkFontMgr_OHOS>(validPath);
+    }
+
+    void TearDown() {
+        base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
     }
 
     void beforeMakeType() {

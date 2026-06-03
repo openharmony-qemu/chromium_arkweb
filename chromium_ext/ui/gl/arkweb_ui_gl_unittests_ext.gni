@@ -1,5 +1,6 @@
 arkweb_unittests_deps = [
   "//content/public/common",
+  "//arkweb/ohos_adapter_ndk/mock_ndk_api:mock_ndk",
 ]
 
 arkweb_unittests_sources = [
@@ -13,6 +14,7 @@ arkweb_unittests_sources = [
   "//arkweb/chromium_ext/content/renderer/render_remote_proxy_ohos.h",
   "//arkweb/chromium_ext/ui/gl/arkweb_gl_surface_egl_utils_unittest.cc",
   "//arkweb/chromium_ext/ui/gl/gl_surface_egl_ohos_unittest.cc",
+  "//arkweb/chromium_ext/ui/gl/gl_surface_egl_for_include_unittest.cc",
   "//arkweb/ohos_nweb/src/sysevent/event_reporter.h",
   "//arkweb/ohos_nweb/src/sysevent/event_reporter.cc",
   "//arkweb/chromium_ext/ui/gl/ohos/native_buffer_utils_unittest.cc",

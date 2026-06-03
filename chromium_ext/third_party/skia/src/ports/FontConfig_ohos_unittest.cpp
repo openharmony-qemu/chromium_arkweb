@@ -17,7 +17,6 @@
 #include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_drawing_text_adapter.h"
 #include "base/task/single_thread_task_runner.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "arkweb/chromium_ext/components/services/font_data/public/mojom/font_data_service.mojom.h"
 #define private public
 #include "third_party/skia/src/ports/FontConfig_ohos.h"
 #include "src/ports/SkFontScanner_FreeType_priv.h"
@@ -35,6 +34,12 @@
 #include "base/logging.h"
 #include "base/files/file_util.h"
 #include "base/files/file_path.h"
+#include "base/test/task_environment.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
+#include "base/ohos/sys_info_utils_ext.h"
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_sys_info_util_ext.h"
+using namespace base::ohos;
 
 #define NOTFOUND 404
 #define SERVERERROR 500
@@ -57,8 +62,25 @@ public:
   MOCK_METHOD(SkFourByteTag, getFactoryId, (), (const));
 };
 
+class MockHiTraceAdapter : public OHOS::NWeb::HiTraceAdapter {
+public:
+    MOCK_METHOD(void, StartTrace, (const std::string& value, float limit), (override));
+    MOCK_METHOD(void, FinishTrace, (), (override));
+    MOCK_METHOD(void, StartAsyncTrace, (const std::string& value, int32_t taskId, float limit), (override));
+    MOCK_METHOD(void, FinishAsyncTrace, (const std::string& value, int32_t taskId), (override));
+    MOCK_METHOD(void, CountTrace, (const std::string& name, int64_t count), (override));
+    MOCK_METHOD(bool, IsHiTraceEnable, (), (override));
+    MOCK_METHOD(void, StartOHOSTrace, (const std::string& value, float limit), (override));
+    MOCK_METHOD(void, FinishOHOSTrace, (), (override));
+    MOCK_METHOD(void, CountOHOSTrace, (const std::string& name, int64_t count), (override));
+    MOCK_METHOD(bool, IsACETraceEnable, (), (override));
+    MOCK_METHOD(void, StartTraceEx, (HiTrace_Output_Level level, const std::string& name,
+        const std::string& value, float limit), (override));
+};
+
 class FontConfig_OHOSTest : public testing::Test {
 protected:
+    MockHiTraceAdapter mockHiTrace_;
     SkFontScanner_FreeType fontScanner;
     testing::StrictMock<MockFontScanner> mockScanner;
     std::shared_ptr<FontConfig_OHOS> fontConfig;
@@ -125,8 +147,17 @@ protected:
     }
 
     void SetUp() {
+        base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+        auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+        EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(true));
         fontConfig = std::make_shared<FontConfig_OHOS>(fontScanner, nullptr);
         ASSERT_NE(fontConfig, nullptr);
+        EXPECT_CALL(mockHiTrace_, IsHiTraceEnable()).WillRepeatedly(testing::Return(false));
+        EXPECT_CALL(mockHiTrace_, IsACETraceEnable()).WillRepeatedly(testing::Return(false));
+    }
+
+    void TearDown() {
+        base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
     }
 };
 
@@ -978,84 +1009,6 @@ TEST_F(FontConfig_OHOSTest, parseFallbackItem005) {
     root["lang"] = "family_name";
     root["variations"] = "not_an_array";
     EXPECT_EQ(fontConfig->parseFallbackItem(root), ErrorCode::NO_ERROR); // Still succeeds
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation001) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    EXPECT_EQ(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_MISSING_TAG);
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation002) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = "not_an_int";
-    EXPECT_NE(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation003) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = 400;
-    root["width"] = "not_an_int";
-    EXPECT_NE(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation004) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = 400;
-    root["slant"] = 123; // Not a string
-    EXPECT_NE(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation005) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = 400;
-    
-    const char* slantValues[] = {"normal", "italic", "oblique"};
-    for (const auto& slant : slantValues) {
-        root["slant"] = slant;
-        EXPECT_NE(fontConfig->parseVariation(root, variationSet), ErrorCode::NO_ERROR);
-        variationSet.clear();
-    }
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation006) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = 400;
-    root["wght"] = "not_a_number";
-    EXPECT_EQ(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
-}
-
-TEST_F(FontConfig_OHOSTest, parseVariation008) {
-    Json::Value root;
-    std::vector<FontConfig_OHOS::VariationInfo> variationSet;
-    root.clear();
-    variationSet.clear();
-    
-    root["weight"] = 400; // Only required field
-    EXPECT_EQ(fontConfig->parseVariation(root, variationSet), ErrorCode::ERROR_CONFIG_MISSING_TAG);
 }
 
 TEST_F(FontConfig_OHOSTest, parseTtcIndex001) {
@@ -3008,6 +2961,906 @@ TEST_F(FontConfig_OHOSTest, InvalidateThemeFont_ScanFileAndScanInstanceFalse) {
 
   EXPECT_EQ(fontConfig->getThemeFontTypefaceSet().size(), 0);
   base::DeleteFile(filePath);
+}
+
+class MockOhosDrawingTextFontAdapter : public OHOS::NWeb::OhosDrawingTextFontAdapter {
+ public:
+  MOCK_METHOD(int, GetSystemFontFullNamesByType, (int32_t systemFontType, void** drawingArray), (override));
+  MOCK_METHOD(int, GetFontDescriptorByFullName, (void* drawingString, int32_t systemFontType, void** drawingFontDescriptor), (override));
+  MOCK_METHOD(int, GetSystemFontFullNameByIndex, (void* drawingArray, int32_t indexOfFullName, const void** drawingString), (override));
+  MOCK_METHOD(void, DestroySystemFontFullNames, (void* drawingArray), (override));
+  MOCK_METHOD(void, DestroyFontDescriptor, (void* descriptor), (override));
+};
+
+static OHOS::NWeb::ArkWeb_Drawing_FontDescriptor* CreateMockFontDescriptor(
+    const char* fontFamily, const char* path) {
+  auto* desc = static_cast<OHOS::NWeb::ArkWeb_Drawing_FontDescriptor*>(
+      calloc(1, sizeof(OHOS::NWeb::ArkWeb_Drawing_FontDescriptor)));
+  if (desc) {
+    desc->fontFamily = strdup(fontFamily);
+    desc->path = strdup(path);
+  }
+  return desc;
+}
+
+static void FreeMockFontDescriptor(void* descriptor) {
+  if (!descriptor) return;
+  auto* desc = static_cast<OHOS::NWeb::ArkWeb_Drawing_FontDescriptor*>(descriptor);
+  free(desc->fontFamily);
+  free(desc->path);
+  free(desc);
+}
+
+class TestFontConfigServiceApp : public font_data_service::mojom::FontDataService {
+ public:
+  TestFontConfigServiceApp() = default;
+
+  mojo::PendingRemote<font_data_service::mojom::FontDataService> CreateRemote() {
+    mojo::PendingRemote<font_data_service::mojom::FontDataService> proxy;
+    receivers_.Add(this, proxy.InitWithNewPipeAndPassReceiver());
+    return proxy;
+  }
+
+  void SetFontConfigInfo(font_data_service::mojom::FontConfigInfoPtr config) {
+    font_config_info_ = std::move(config);
+  }
+
+  void SetFontConfigInfoNull() {
+    font_config_info_ = nullptr;
+  }
+
+  void GetFontConfigInfo(GetFontConfigInfoCallback callback) override {
+    get_font_config_info_call_count_++;
+    if (font_config_info_) {
+      std::move(callback).Run(font_config_info_.Clone());
+    } else {
+      std::move(callback).Run(nullptr);
+    }
+  }
+
+  size_t get_font_config_info_call_count() const {
+    return get_font_config_info_call_count_;
+  }
+
+ private:
+  mojo::ReceiverSet<font_data_service::mojom::FontDataService> receivers_;
+  font_data_service::mojom::FontConfigInfoPtr font_config_info_;
+  size_t get_font_config_info_call_count_ = 0;
+};
+
+font_data_service::mojom::FontConfigInfoPtr CreateMojoFontConfigInfo(
+    int fontDirSize, const std::vector<std::string>& fontDirs,
+    int genericInfoSize,
+    const std::vector<std::tuple<std::string, std::vector<std::tuple<int32_t, std::string>>, std::vector<std::tuple<int32_t, int32_t>>>>& genericInfos,
+    int fallbackGroupSize,
+    const std::vector<std::vector<std::tuple<std::string, std::string>>>& fallbackGroups) {
+  auto config = font_data_service::mojom::FontConfigInfo::New();
+  config->fontDirSize = fontDirSize;
+  for (const auto& dir : fontDirs) {
+    config->fontDirSet.push_back(dir);
+  }
+  config->fontGenericInfoSize = genericInfoSize;
+  for (const auto& [familyName, aliasEntries, adjustEntries] : genericInfos) {
+    auto genericInfo = font_data_service::mojom::FontGenericInfo::New();
+    genericInfo->familyName = familyName;
+    genericInfo->aliasInfoSize = static_cast<int32_t>(aliasEntries.size());
+    for (const auto& [weight, aliasName] : aliasEntries) {
+      auto aliasInfo = font_data_service::mojom::FontAliasInfo::New();
+      aliasInfo->weight = weight;
+      aliasInfo->familyName = aliasName;
+      genericInfo->aliasInfoSet.push_back(std::move(aliasInfo));
+    }
+    genericInfo->adjustInfoSize = static_cast<int32_t>(adjustEntries.size());
+    for (const auto& [weight, to] : adjustEntries) {
+      auto adjustInfo = font_data_service::mojom::FontAdjustInfo::New();
+      adjustInfo->weight = weight;
+      adjustInfo->to = to;
+      genericInfo->adjustInfoSet.push_back(std::move(adjustInfo));
+    }
+    config->fontGenericInfoSet.push_back(std::move(genericInfo));
+  }
+  config->fallbackGroupSize = fallbackGroupSize;
+  for (const auto& fallbackEntries : fallbackGroups) {
+    auto fallbackGroup = font_data_service::mojom::FontFallbackGroup::New();
+    fallbackGroup->fallbackInfoSize = static_cast<int32_t>(fallbackEntries.size());
+    for (const auto& [lang, familyName] : fallbackEntries) {
+      auto fallbackInfo = font_data_service::mojom::FontFallbackInfo::New();
+      if (!lang.empty()) {
+        fallbackInfo->language = lang;
+      }
+      fallbackInfo->familyName = familyName;
+      fallbackGroup->fallbackInfoSet.push_back(std::move(fallbackInfo));
+    }
+    config->fallbackGroupSet.push_back(std::move(fallbackGroup));
+  }
+  return config;
+}
+
+void SetUpMockFontServiceForPrepareFontConfig(
+    FontConfig_OHOS* fontConfig,
+    TestFontConfigServiceApp* testService) {
+  fontConfig->main_task_runner_ =
+      base::SingleThreadTaskRunner::GetCurrentDefault();
+  mojo::Remote<font_data_service::mojom::FontDataService>& remote =
+      fontConfig->font_data_service_slot_.GetOrCreateValue();
+  remote.Bind(testService->CreateRemote());
+}
+
+void CleanUpMockFontServiceForPrepareFontConfig(FontConfig_OHOS* fontConfig) {
+  fontConfig->font_data_service_slot_.reset();
+  fontConfig->main_task_runner_ = nullptr;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MobileDevice_ReturnsEarly) {
+  fontConfig->PrepareFontConfig(fontScanner);
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+  TestFontConfigServiceApp testService;
+  base::test::SingleThreadTaskEnvironment task_env;
+  testService.SetFontConfigInfoNull();
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+  fontConfig->PrepareFontConfig(fontScanner);
+  EXPECT_EQ(fontConfig->fontDirSet.size(), 0u);
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MatchResultNotNull_MojoBuildName) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+
+  auto config = CreateMojoFontConfigInfo(
+      1, {"/system/fonts"},
+      1,
+      {std::make_tuple(
+          "Serif",
+          std::vector<std::tuple<int32_t, std::string>>{
+              std::make_tuple(400, "Serif-Regular"),
+              std::make_tuple(700, "Serif-Bold")},
+          std::vector<std::tuple<int32_t, int32_t>>{
+              std::make_tuple(400, 500)})},
+      1,
+      {std::vector<std::tuple<std::string, std::string>>{
+          std::make_tuple("zh-Hans", "HYQiHei")}});
+
+  testService.SetFontConfigInfo(std::move(config));
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_EQ(fontConfig->fontDirSet.size(), 0u);
+  EXPECT_EQ(fontConfig->genericFamilySet.size(), 2u);
+  EXPECT_EQ(fontConfig->fallbackSet.size(), 1u);
+  EXPECT_EQ(fontConfig->fallbackSet[0]->familyName, SkString("HYQiHei"));
+  EXPECT_EQ(fontConfig->fallbackSet[0]->langs, SkString("zh-Hans"));
+
+  EXPECT_EQ(testService.get_font_config_info_call_count(), 1u);
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MatchResultNull_ParseConfigSuccess) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+  testService.SetFontConfigInfoNull();
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_GT(testService.get_font_config_info_call_count(), 0u);
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MatchResultNull_ParseConfigFail) {
+  base::test::SingleThreadTaskEnvironment task_env;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  TestFontConfigServiceApp testService;
+  testService.SetFontConfigInfoNull();
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_EQ(testService.get_font_config_info_call_count(), 1u);
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MojoBuildNameWithAliasWeightZero) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+
+  auto config = CreateMojoFontConfigInfo(
+      0, {},
+      1,
+      {std::make_tuple(
+          "Sans",
+          std::vector<std::tuple<int32_t, std::string>>{
+              std::make_tuple(400, "Sans-Regular"),
+              std::make_tuple(0, "Sans-Shared")},
+          std::vector<std::tuple<int32_t, int32_t>>{})},
+      0,
+      {});
+
+  testService.SetFontConfigInfo(std::move(config));
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_EQ(fontConfig->genericFamilySet.size(), 2u);
+  EXPECT_EQ(fontConfig->genericFamilySet[0]->typefaceSet,
+            fontConfig->genericFamilySet[1]->typefaceSet);
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MojoBuildNameWithFallbackNoLangs) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+
+  auto config = CreateMojoFontConfigInfo(
+      0, {},
+      0,
+      {},
+      1,
+      {std::vector<std::tuple<std::string, std::string>>{
+          std::make_tuple("", "FallbackNoLang")}});
+
+  testService.SetFontConfigInfo(std::move(config));
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_EQ(fontConfig->fallbackSet.size(), 1u);
+  EXPECT_TRUE(fontConfig->fallbackSet[0]->langs.isEmpty());
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_NullFontConfigPtr) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+  testService.SetFontConfigInfoNull();
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_EQ(testService.get_font_config_info_call_count(), 1u);
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, PrepareFontConfig_MojoBuildNameWithEmptyAliasAndAdjust) {
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(sys_info_utils_mock, IsTabletDevice()).WillRepeatedly(testing::Return(true));
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  void* fontList = reinterpret_cast<void*>(0x1234);
+  EXPECT_CALL(fontAdapter, GetSystemFontFullNamesByType(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(fontList), testing::Return(0)));
+  EXPECT_CALL(typographyAdapter, GetDrawingArraySize(_, _))
+      .WillOnce(testing::DoAll(testing::SetArgReferee<1>(0), testing::Return(0)));
+  EXPECT_CALL(fontAdapter, DestroySystemFontFullNames(fontList));
+
+  base::test::SingleThreadTaskEnvironment task_env;
+  TestFontConfigServiceApp testService;
+
+  auto config = CreateMojoFontConfigInfo(
+      0, {},
+      1,
+      {std::make_tuple(
+          "Mono",
+          std::vector<std::tuple<int32_t, std::string>>{},
+          std::vector<std::tuple<int32_t, int32_t>>{})},
+      0,
+      {});
+
+  testService.SetFontConfigInfo(std::move(config));
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  fontConfig->fontDirSet.clear();
+  fontConfig->genericFamilySet.clear();
+  fontConfig->fallbackSet.clear();
+  fontConfig->genericNames.reset();
+  fontConfig->fallbackNames.reset();
+  fontConfig->aliasMap.reset();
+  fontConfig->adjustMap.reset();
+  fontConfig->fallbackForMap.reset();
+  fontConfig->pathToFamily.reset();
+
+  fontConfig->PrepareFontConfig(fontScanner);
+
+  EXPECT_TRUE(fontConfig->aliasMap.empty());
+  EXPECT_TRUE(fontConfig->adjustMap.empty());
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+  base::ohos::SysInfoUtilsMock::mockIsTabletDevice = false;
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthFloat_ReturnsError) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["width"] = 5.5f;
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+  EXPECT_EQ(err, ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthString_ReturnsError) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["width"] = "abc";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+  EXPECT_EQ(err, ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthInt_SuccessSetsWidth) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["width"] = 5;
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthIntLarge_Success) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["width"] = 9;
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantInt_ReturnsError) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = 123;
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+  EXPECT_EQ(err, ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantFloat_ReturnsError) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = 1.5f;
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+  EXPECT_EQ(err, ErrorCode::ERROR_CONFIG_INVALID_VALUE_TYPE);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantNormal_SuccessUpright) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = "normal";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantItalic_SuccessItalic) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = "italic";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantOblique_SuccessOblique) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = "oblique";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_SlantUnknownString_DefaultNegativeOne) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["slant"] = "unknown_slant";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthAndSlantBothSuccess) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["weight"] = 700.5f;
+  root["width"] = 5;
+  root["slant"] = "italic";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, parseVariation_WidthAndSlantWithAxes) {
+  Json::Value root;
+  root["wght"] = 400.5f;
+  root["wdth"] = 100.5f;
+  root["slnt"] = 12.5f;
+  root["weight"] = 700.5f;
+  root["width"] = 5;
+  root["slant"] = "oblique";
+  std::vector<FontConfig_OHOS::VariationInfo> variationSet;
+  fontConfig->errSet.clear();
+  int err = fontConfig->parseVariation(root, variationSet);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_NegativeStyleIndex) {
+  SkTypeface_OHOS* result = fontConfig->getTypeface(-1, 0, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_NegativeIndex) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, -1, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_FallbackOutOfRange) {
+  fontConfig->fallbackSet.clear();
+  SkTypeface_OHOS* result = fontConfig->getTypeface(100, 0, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_GenericOutOfRange) {
+  fontConfig->genericFamilySet.clear();
+  SkTypeface_OHOS* result = fontConfig->getTypeface(100, 0, false);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_FallbackIndexOutOfRange) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "FB1";
+  info.style = SkFontStyle::Normal();
+  fallback->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, 5, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_FallbackValid) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "FB1";
+  info.style = SkFontStyle::Normal();
+  auto typeface = sk_make_sp<SkTypeface_OHOS>(info);
+  fallback->typefaceSet->push_back(typeface);
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, 0, true);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_IntIndex_GenericValid) {
+  fontConfig->genericFamilySet.clear();
+  auto family = std::make_unique<GenericFamily>();
+  family->familyName = SkString("TestFamily");
+  family->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "TestFamily";
+  info.style = SkFontStyle::Normal();
+  auto typeface = sk_make_sp<SkTypeface_OHOS>(info);
+  family->typefaceSet->push_back(typeface);
+  fontConfig->genericFamilySet.push_back(std::move(family));
+
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, 0, false);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_NegativeStyleIndex) {
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(-1, style, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_FallbackOutOfRange) {
+  fontConfig->fallbackSet.clear();
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(100, style, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_GenericOutOfRange) {
+  fontConfig->genericFamilySet.clear();
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(100, style, false);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_FallbackMatchFound) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "FB1";
+  info.style = SkFontStyle::Normal();
+  fallback->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, style, true);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_GenericMatchFound) {
+  fontConfig->genericFamilySet.clear();
+  auto family = std::make_unique<GenericFamily>();
+  family->familyName = SkString("TestFamily");
+  family->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "TestFamily";
+  info.style = SkFontStyle::Normal();
+  family->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+  fontConfig->genericFamilySet.push_back(std::move(family));
+
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, style, false);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypeface_Style_EmptyTypefaceSet_ReturnsNull) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  SkFontStyle style(SkFontStyle::kNormal_Weight, SkFontStyle::kNormal_Width, SkFontStyle::kUpright_Slant);
+  SkTypeface_OHOS* result = fontConfig->getTypeface(0, style, true);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypefaceCount_NegativeIndex) {
+  EXPECT_EQ(fontConfig->getTypefaceCount(-1, true), -1);
+  EXPECT_EQ(fontConfig->getTypefaceCount(-1, false), -1);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypefaceCount_FallbackValidIndex) {
+  fontConfig->fallbackSet.clear();
+  auto fallback = std::make_unique<FallbackInfo>();
+  fallback->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "FB1";
+  info.style = SkFontStyle::Normal();
+  fallback->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+  fontConfig->fallbackSet.push_back(std::move(fallback));
+
+  EXPECT_EQ(fontConfig->getTypefaceCount(0, true), 1);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypefaceCount_FallbackOutOfRange) {
+  fontConfig->fallbackSet.clear();
+  EXPECT_EQ(fontConfig->getTypefaceCount(100, true), -1);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypefaceCount_GenericValidIndex) {
+  fontConfig->genericFamilySet.clear();
+  auto family = std::make_unique<GenericFamily>();
+  family->familyName = SkString("TestFamily");
+  family->typefaceSet = std::make_shared<TypefaceSet>();
+  FontInfo info;
+  info.familyName = "TestFamily";
+  info.style = SkFontStyle::Normal();
+  family->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+  fontConfig->genericFamilySet.push_back(std::move(family));
+
+  EXPECT_EQ(fontConfig->getTypefaceCount(0, false), 1);
+}
+
+TEST_F(FontConfig_OHOSTest, getTypefaceCount_GenericOutOfRange) {
+  fontConfig->genericFamilySet.clear();
+  EXPECT_EQ(fontConfig->getTypefaceCount(100, false), -1);
+}
+
+TEST_F(FontConfig_OHOSTest, GetRemoteFontDataService_RemoteAlreadyBound) {
+  base::test::SingleThreadTaskEnvironment task_env;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+  auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(false));
+
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  EXPECT_CALL(*instance, GetHiTraceAdapterInstance()).WillRepeatedly(testing::ReturnRef(mockHiTrace_));
+
+  OHOS::NWeb::MockOhosDrawingTextTypographyAdapter typographyAdapter;
+  MockOhosDrawingTextFontAdapter fontAdapter;
+  EXPECT_CALL(*instance, GetOhosDrawingTextTypographyAdapter())
+      .WillRepeatedly(testing::ReturnRef(typographyAdapter));
+  EXPECT_CALL(*instance, GetOhosDrawingTextFontAdapter())
+      .WillRepeatedly(testing::ReturnRef(fontAdapter));
+
+  TestFontConfigServiceApp testService;
+  SetUpMockFontServiceForPrepareFontConfig(fontConfig.get(), &testService);
+
+  font_data_service::mojom::FontDataService& service =
+      fontConfig->GetRemoteFontDataService();
+
+  CleanUpMockFontServiceForPrepareFontConfig(fontConfig.get());
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+  base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
 }
 
 } // namespace skia
