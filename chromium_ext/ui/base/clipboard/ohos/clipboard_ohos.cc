@@ -16,12 +16,16 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/pickle.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "base/types/optional_util.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -137,6 +141,45 @@ void WriteCustomDataToPickle(
     pickle->WriteString(it.first.GetName());
     pickle->WriteString(it.second);
   }
+}
+
+constexpr base::TimeDelta kGetPasteDataTimeout = base::Milliseconds(1000);
+std::atomic_bool g_get_paste_data_pending{false};
+
+class GetPasteDataResult
+    : public base::RefCountedThreadSafe<GetPasteDataResult> {
+ public:
+  GetPasteDataResult()
+      : done_event_(base::WaitableEvent::ResetPolicy::MANUAL,
+                    base::WaitableEvent::InitialState::NOT_SIGNALED) {}
+
+  void SetRecords(PasteRecordVector records) {
+    base::AutoLock lock(lock_);
+    records_ = std::move(records);
+    done_event_.Signal();
+  }
+
+  bool Wait(base::TimeDelta timeout) { return done_event_.TimedWait(timeout); }
+
+  PasteRecordVector TakeRecords() {
+    base::AutoLock lock(lock_);
+    return std::move(records_);
+  }
+
+ private:
+  friend class base::RefCountedThreadSafe<GetPasteDataResult>;
+  ~GetPasteDataResult() = default;
+
+  base::Lock lock_;
+  PasteRecordVector records_;
+  base::WaitableEvent done_event_;
+};
+
+void GetPasteDataOnWorker(scoped_refptr<GetPasteDataResult> result) {
+  PasteRecordVector records;
+  OhosAdapterHelper::GetInstance().GetPasteBoard().GetPasteData(records);
+  result->SetRecords(std::move(records));
+  g_get_paste_data_pending.store(false);
 }
 }  // namespace
 
@@ -309,6 +352,31 @@ class ClipboardOHOSInternal {
     return GetPasteDataFromSystem();
   }
 
+  static std::optional<PasteRecordVector> GetPasteDataFromSystemWithTimeout() {
+    bool expected = false;
+    if (!g_get_paste_data_pending.compare_exchange_strong(expected, true)) {
+      LOG(ERROR) << "GetPasteData is already pending";
+      return std::nullopt;
+    }
+
+    auto result = base::MakeRefCounted<GetPasteDataResult>();
+    if (!base::ThreadPool::PostTask(
+            FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+            base::BindOnce(&GetPasteDataOnWorker, result))) {
+      g_get_paste_data_pending.store(false);
+      LOG(ERROR) << "Post GetPasteData task failed";
+      return std::nullopt;
+    }
+
+    if (!result->Wait(kGetPasteDataTimeout)) {
+      LOG(ERROR) << "GetPasteData timeout after "
+                 << kGetPasteDataTimeout.InMilliseconds() << " ms";
+      return std::nullopt;
+    }
+
+    return result->TakeRecords();
+  }
+
   static PasteRecordVector GetPasteDataFromSystem() {
     PasteRecordVector records;
     OhosAdapterHelper::GetInstance().GetPasteBoard().GetPasteData(records);
@@ -341,7 +409,14 @@ class ClipboardOHOSInternal {
     }
     LOG(INFO) << "Update clipboard data, state=" << static_cast<int>(state_);
 
-    UpdateClipboardDataFromRecords(GetPasteDataFromSystem());
+    std::optional<PasteRecordVector> records =
+        GetPasteDataFromSystemWithTimeout();
+    if (!records.has_value()) {
+      LOG(ERROR) << "Update clipboard data timeout, keep state out of date";
+      return;
+    }
+
+    UpdateClipboardDataFromRecords(std::move(records.value()));
   }
 
   // Reads text from the ClipboardData.
@@ -666,11 +741,6 @@ class ClipboardOHOSInternal {
   }
 
   bool HasFormatInMisc(ClipboardInternalFormat format) {
-    UpdateClipboardData();
-    if (!read_data_) {
-      return false;
-    }
-
     auto& pasteboard = OhosAdapterHelper::GetInstance().GetPasteBoard();
     switch (format) {
       case ClipboardInternalFormat::kText:
@@ -681,10 +751,17 @@ class ClipboardOHOSInternal {
       case ClipboardInternalFormat::kPng:
         return pasteboard.HasType(kMiscServicesMimeTypePixelmap);
       case ClipboardInternalFormat::kCustom:
-        return read_data_->HasCustomData();
+        if (pasteboard.HasType(kMimeTypeOHOSCustomData)) {
+          return true;
+        }
+        UpdateClipboardData();
+        return read_data_ && read_data_->HasCustomData();
       case ClipboardInternalFormat::kFilenames:
-        return pasteboard.HasType(kMiscServicesMimeTypeTextUri) ||
-               read_data_->HasFileUri();
+        if (pasteboard.HasType(kMiscServicesMimeTypeTextUri)) {
+          return true;
+        }
+        UpdateClipboardData();
+        return read_data_ && read_data_->HasFileUri();
       default:
         return false;
     }
