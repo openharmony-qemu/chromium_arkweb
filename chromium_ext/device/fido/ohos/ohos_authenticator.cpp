@@ -94,6 +94,8 @@ void OhosAuthenticator::IsUserVerifyingPlatformAuthenticatorAvailable(
       {base::TaskPriority::USER_VISIBLE, base::MayBlock(),
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&OhosWebAuthnApi::IsUserVerifyingPlatformAuthenticatorAvailable,
+                     // base::Unretained is safe because OhosWebAuthnApi::Instance()
+                     // is a process-wide singleton that outlives all tasks.
                      base::Unretained(OhosWebAuthnApi::Instance())),
       std::move(callback));
 }
@@ -126,6 +128,8 @@ void OhosAuthenticator::GetClientCapabilities(
       {base::TaskPriority::USER_VISIBLE, base::MayBlock(),
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&OhosWebAuthnApi::GetClientCapabilities,
+                     // base::Unretained is safe because OhosWebAuthnApi::Instance()
+                     // is a process-wide singleton that outlives all tasks.
                      base::Unretained(OhosWebAuthnApi::Instance())),
       std::move(callback));
 }
@@ -163,6 +167,8 @@ void OhosAuthenticator::MakeCredential(
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::TaskPriority::USER_BLOCKING, base::MayBlock()},
       base::BindOnce(&OhosWebAuthnApi::Register,
+                     // base::Unretained is safe because OhosWebAuthnApi::Instance()
+                     // is a process-wide singleton that outlives all tasks.
                      base::Unretained(OhosWebAuthnApi::Instance()),
                      std::move(request),
                      std::move(options)),
@@ -207,6 +213,8 @@ void OhosAuthenticator::GetAssertion(CtapGetAssertionRequest request,
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::TaskPriority::USER_BLOCKING, base::MayBlock()},
       base::BindOnce(&OhosWebAuthnApi::GetAssertion,
+                     // base::Unretained is safe because OhosWebAuthnApi::Instance()
+                     // is a process-wide singleton that outlives all tasks.
                      base::Unretained(OhosWebAuthnApi::Instance()),
                      std::move(request),
                      std::move(options)),
