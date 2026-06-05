@@ -294,6 +294,36 @@ public:
     std::shared_ptr<VideoEncInfoAdapter> enc_info_ = nullptr;
 };
 
+class RecorderInfoAdapterMock : public RecorderInfoAdapter {
+public:
+    RecorderInfoAdapterMock() = default;
+
+    ~RecorderInfoAdapterMock() override = default;
+
+    std::string GetUrl() override
+    {
+        return url_;
+    }
+
+    ContainerFormatTypeAdapter GetFileFormat() override
+    {
+        return format_;
+    }
+
+    void SetUrl(const std::string& url)
+    {
+        url_ = url;
+    }
+
+    void SetFileFormat(ContainerFormatTypeAdapter format)
+    {
+        format_ = format;
+    }
+
+    std::string url_;
+    ContainerFormatTypeAdapter format_ = ContainerFormatTypeAdapter::CFT_MPEG_4A_TYPE;
+};
+
 class ScreenCaptureConfigAdapterMock : public ScreenCaptureConfigAdapter {
 public:
     ScreenCaptureConfigAdapterMock() = default;
@@ -449,7 +479,7 @@ bool ScreenCaptureAdapterImplFuzzTest(FuzzedDataProvider* fdp)
     micCapInfo->SetAudioSampleRate(audioSampleRate);
     int32_t audioChannels = fdp->ConsumeIntegralInRange<int32_t>(1, MAX_SET_CHANNELS);
     micCapInfo->SetAudioChannels(audioChannels);
-    int32_t rawValue = fdp->ConsumeIntegralInRange<int32_t>(-1, 1);
+    int32_t rawValue = fdp->ConsumeIntegralInRange<int32_t>(-1, 3);
     AudioCaptureSourceTypeAdapter audioSource = static_cast<AudioCaptureSourceTypeAdapter>(rawValue);
     micCapInfo->SetAudioSource(audioSource);
 
@@ -460,7 +490,7 @@ bool ScreenCaptureAdapterImplFuzzTest(FuzzedDataProvider* fdp)
     innerCapInfo->SetAudioSampleRate(innerAudioSampleRate);
     int32_t innerAudioChannels = fdp->ConsumeIntegralInRange<int32_t>(1, MAX_SET_CHANNELS);
     innerCapInfo->SetAudioChannels(innerAudioChannels);
-    int32_t innerRawValue = fdp->ConsumeIntegralInRange<int32_t>(2, 3);
+    int32_t innerRawValue = fdp->ConsumeIntegralInRange<int32_t>(-1, 3);
     AudioCaptureSourceTypeAdapter innerAudioSource = static_cast<AudioCaptureSourceTypeAdapter>(innerRawValue);
     innerCapInfo->SetAudioSource(innerAudioSource);
 
@@ -469,7 +499,7 @@ bool ScreenCaptureAdapterImplFuzzTest(FuzzedDataProvider* fdp)
         std::make_shared<AudioEncInfoAdapterMock>();
     int32_t innerAudioBitrate = fdp->ConsumeIntegralInRange<int32_t>(0, MAX_SET_RATE);
     audioEncInfo->SetAudioBitrate(innerAudioBitrate);
-    int32_t formatValue = fdp->ConsumeIntegralInRange<int32_t>(0, 1)*3;
+    int32_t formatValue = fdp->ConsumeIntegralInRange<int32_t>(0, 4);
     AudioCodecFormatAdapter codecFormat = static_cast<AudioCodecFormatAdapter>(formatValue);
     audioEncInfo->SetAudioCodecformat(codecFormat);
 
@@ -496,7 +526,7 @@ bool ScreenCaptureAdapterImplFuzzTest(FuzzedDataProvider* fdp)
     videoEncInfo->SetVideoBitrate(kVideoBitrate);
     int32_t kVideoFrameRate = fdp->ConsumeIntegralInRange<int32_t>(0, MAX_SET_FRAME);
     videoEncInfo->SetVideoFrameRate(kVideoFrameRate);
-    int32_t videoCodecFormatValue = fdp->ConsumeIntegralInRange<int32_t>(0, 5)*2;
+    int32_t videoCodecFormatValue = fdp->ConsumeIntegralInRange<int32_t>(0, 11);
     OHOS::NWeb::VideoCodecFormatAdapter videoCodecFormat =
         static_cast<OHOS::NWeb::VideoCodecFormatAdapter>(videoCodecFormatValue);
     videoEncInfo->SetVideoCodecFormat(videoCodecFormat);
@@ -511,18 +541,33 @@ bool ScreenCaptureAdapterImplFuzzTest(FuzzedDataProvider* fdp)
     int32_t captureModeValue = fdp->ConsumeIntegralInRange<int32_t>(-1, 2);
     CaptureModeAdapter captureMode = static_cast<CaptureModeAdapter>(captureModeValue);
     config->SetCaptureMode(captureMode);
-    int32_t dataTypeValue = 0;
+    int32_t dataTypeValue = fdp->ConsumeIntegralInRange<int32_t>(-1, 2);
     DataTypeAdapter dataType = static_cast<DataTypeAdapter>(dataTypeValue);
     config->SetDataType(dataType);
     config->SetAudioInfo(audioInfo);
     config->SetVideoInfo(videoInfo);
 
+    bool useRecorderInfo = fdp->ConsumeBool();
+    if (useRecorderInfo && dataType == DataTypeAdapter::CAPTURE_FILE_DATA_TYPE) {
+        auto recorderInfo = std::make_shared<RecorderInfoAdapterMock>();
+        recorderInfo->SetUrl("test_recorder.mp4");
+        int32_t fileFormatValue = fdp->ConsumeIntegralInRange<int32_t>(0, 2);
+        ContainerFormatTypeAdapter fileFormat = static_cast<ContainerFormatTypeAdapter>(fileFormatValue);
+        recorderInfo->SetFileFormat(fileFormat);
+        config->SetRecorderInfo(recorderInfo);
+    }
+
     int32_t nweb_id = fdp->ConsumeIntegralInRange<int32_t>(0, 100);
     screenCaptureAdapter->InitV2(config, nweb_id);
+    // Test re-init (screenCapture_ already exists path)
+    int32_t nweb_id2 = fdp->ConsumeIntegralInRange<int32_t>(0, 100);
+    screenCaptureAdapter->InitV2(config, nweb_id2);
+
+    // Test Init (base class method)
+    screenCaptureAdapter->Init(config);
+
     bool enable = fdp->ConsumeBool();
-    if (!enable) {
-        screenCaptureAdapter->SetMicrophoneEnable(enable);
-    }
+    screenCaptureAdapter->SetMicrophoneEnable(enable);
     auto callback = std::make_shared<OHOSScreenCaptureCallbackMock>();
     screenCaptureAdapter->SetCaptureCallback(callback);
     screenCaptureAdapter->StartCapture();
@@ -619,10 +664,14 @@ bool ScreenCaptureAdapterImplNullFuzzTest(FuzzedDataProvider* fdp)
         std::make_shared<ScreenCaptureConfigAdapterMock>();
     config->SetCaptureMode(OHOS::NWeb::CaptureModeAdapter::CAPTURE_HOME_SCREEN);
     if (kFuzzMaxOriginalStream <= kFuzzMaxOriginalStreamNums) {
-    config->SetDataType(OHOS::NWeb::DataTypeAdapter::ORIGINAL_STREAM_DATA_TYPE);
+        config->SetDataType(OHOS::NWeb::DataTypeAdapter::ORIGINAL_STREAM_DATA_TYPE);
         kFuzzMaxOriginalStream++;
     } else {
         config->SetDataType(OHOS::NWeb::DataTypeAdapter::CAPTURE_FILE_DATA_TYPE);
+        auto recorderInfo = std::make_shared<RecorderInfoAdapterMock>();
+        recorderInfo->SetUrl("test.mp4");
+        recorderInfo->SetFileFormat(ContainerFormatTypeAdapter::CFT_MPEG_4_TYPE);
+        config->SetRecorderInfo(recorderInfo);
     }
     config->SetAudioInfo(audioInfo);
     config->SetVideoInfo(videoInfo);
@@ -647,11 +696,188 @@ bool ScreenCaptureAdapterImplNullFuzzTest(FuzzedDataProvider* fdp)
     return true;
 }
 
-bool OH_SurfaceBufferAdapterImplFuzzTest(FuzzedDataProvider* fdp)
+bool ScreenCaptureAdapterImplEdgeCaseFuzzTest(FuzzedDataProvider* fdp)
 {
+    auto screenCaptureAdapter = CreateScreenCaptureAdapterMock();
+    if (!screenCaptureAdapter) {
+        return false;
+    }
+
+    // Test functions without Init (screenCapture_ is null)
+    screenCaptureAdapter->SetMicrophoneEnable(true);
+    screenCaptureAdapter->StartCapture();
+    screenCaptureAdapter->StopCapture();
+    screenCaptureAdapter->SetCaptureCallback(nullptr);
+    screenCaptureAdapter->AcquireVideoBuffer();
+    auto audiobufferImpl = std::make_shared<AudioBufferAdapterMock>();
+    screenCaptureAdapter->AcquireAudioBuffer(audiobufferImpl, AudioCaptureSourceTypeAdapter::SOURCE_DEFAULT);
+    screenCaptureAdapter->ReleaseVideoBuffer();
+    screenCaptureAdapter->ReleaseAudioBuffer(AudioCaptureSourceTypeAdapter::SOURCE_DEFAULT);
+
+    // Test InitV2 with nullptr config
+    screenCaptureAdapter->InitV2(nullptr, 0);
+
+    // Test config with null audio_info and video_info
+    auto config = std::make_shared<ScreenCaptureConfigAdapterMock>();
+    config->SetCaptureMode(CaptureModeAdapter::CAPTURE_HOME_SCREEN);
+    config->SetDataType(DataTypeAdapter::ORIGINAL_STREAM_DATA_TYPE);
+    config->SetAudioInfo(nullptr);
+    config->SetVideoInfo(nullptr);
+    config->SetRecorderInfo(nullptr);
+    screenCaptureAdapter->InitV2(config, 0);
+
+    // Test config with null sub-info objects
+    screenCaptureAdapter = CreateScreenCaptureAdapterMock();
+    config = std::make_shared<ScreenCaptureConfigAdapterMock>();
+    config->SetCaptureMode(CaptureModeAdapter::CAPTURE_HOME_SCREEN);
+    config->SetDataType(DataTypeAdapter::ORIGINAL_STREAM_DATA_TYPE);
+    auto audioInfo = std::make_shared<AudioInfoAdapterMock>();
+    auto videoInfo = std::make_shared<VideoInfoAdapterMock>();
+    config->SetAudioInfo(audioInfo);
+    config->SetVideoInfo(videoInfo);
+    screenCaptureAdapter->InitV2(config, 0);
+
+    // Test SetCaptureCallback before InitV2 (callback_index_ is 0)
+    auto adapter2 = CreateScreenCaptureAdapterMock();
+    auto callback = std::make_shared<OHOSScreenCaptureCallbackMock>();
+    adapter2->SetCaptureCallback(callback);
+
+    return true;
+}
+
+bool ScreenCaptureCallbackFuzzTest(FuzzedDataProvider* fdp)
+{
+    auto screenCaptureAdapter = CreateScreenCaptureAdapterMock();
+    if (!screenCaptureAdapter) {
+        return false;
+    }
+
+    auto config = std::make_shared<ScreenCaptureConfigAdapterMock>();
+    config->SetCaptureMode(CaptureModeAdapter::CAPTURE_HOME_SCREEN);
+    config->SetDataType(DataTypeAdapter::ORIGINAL_STREAM_DATA_TYPE);
+    
+    auto audioInfo = std::make_shared<AudioInfoAdapterMock>();
+    auto micCapInfo = std::make_shared<AudioCaptureInfoAdapterMock>();
+    micCapInfo->SetAudioSampleRate(kFuzzAudioSampleRate);
+    micCapInfo->SetAudioChannels(kFuzzAudioChannels);
+    micCapInfo->SetAudioSource(AudioCaptureSourceTypeAdapter::SOURCE_DEFAULT);
+    audioInfo->SetMicCapInfo(micCapInfo);
+    audioInfo->SetInnerCapInfo(nullptr);
+    audioInfo->SetAudioEncInfo(nullptr);
+    
+    auto videoInfo = std::make_shared<VideoInfoAdapterMock>();
+    auto videoCapInfo = std::make_shared<VideoCaptureInfoAdapterMock>();
+    videoCapInfo->SetVideoFrameWidth(MIN_SET_WIDTH);
+    videoCapInfo->SetVideoFrameHeight(MIN_SET_HEIGHT);
+    videoCapInfo->SetVideoSourceType(VideoSourceTypeAdapter::VIDEO_SOURCE_SURFACE_RGBA);
+    videoInfo->SetVideoCapInfo(videoCapInfo);
+    videoInfo->SetVideoEncInfo(nullptr);
+    
+    config->SetAudioInfo(audioInfo);
+    config->SetVideoInfo(videoInfo);
+
+    int32_t nweb_id = fdp->ConsumeIntegralInRange<int32_t>(0, 100);
+    screenCaptureAdapter->InitV2(config, nweb_id);
+    
+    auto callback = std::make_shared<OHOSScreenCaptureCallbackMock>();
+    screenCaptureAdapter->SetCaptureCallback(callback);
+
+    size_t callback_index = 1;
+
+    // Test ScreenCaptureCallbackOnError - valid path
+    ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnError(
+        nullptr, -1, reinterpret_cast<void*>(callback_index));
+
+    // Test ScreenCaptureCallbackOnError - null userData
+    ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnError(
+        nullptr, -1, nullptr);
+
+    // Test ScreenCaptureCallbackOnError - invalid callback index
+    ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnError(
+        nullptr, -1, reinterpret_cast<void*>(99999));
+
+    // Test ScreenCaptureCallbackOnBufferAvailable with video buffer
     int32_t capacity = fdp->ConsumeIntegralInRange<int32_t>(1, 8);
     OH_AVBuffer* buffer = OH_AVBuffer_Create(capacity);
+    if (buffer) {
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
+            12345, reinterpret_cast<void*>(callback_index));
+        
+        // Audio inner buffer
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_AUDIO_INNER,
+            12345, reinterpret_cast<void*>(callback_index));
+        
+        // Audio mic buffer (should be ignored)
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_AUDIO_MIC,
+            12345, reinterpret_cast<void*>(callback_index));
+        
+        // Unknown buffer type
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, buffer, static_cast<OH_AVScreenCaptureBufferType>(999),
+            12345, reinterpret_cast<void*>(callback_index));
+        
+        // Null buffer
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, nullptr, OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
+            0, reinterpret_cast<void*>(callback_index));
+        
+        // Null userData
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnBufferAvailable(
+            nullptr, buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
+            0, nullptr);
+
+        OH_AVBuffer_Destroy(buffer);
+    }
+
+    // Test ScreenCaptureCallbackOnStateChange with all valid state codes
+    for (int32_t i = 0; i <= 9; ++i) {
+        OH_AVScreenCaptureStateCode stateCode = static_cast<OH_AVScreenCaptureStateCode>(i);
+        ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnStateChange(
+            nullptr, stateCode, reinterpret_cast<void*>(callback_index));
+    }
+    // Unknown state code
+    ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnStateChange(
+        nullptr, static_cast<OH_AVScreenCaptureStateCode>(100),
+        reinterpret_cast<void*>(callback_index));
+    // Null userData
+    ScreenCaptureAdapterImpl::ScreenCaptureCallbackOnStateChange(
+        nullptr, OH_SCREEN_CAPTURE_STATE_STARTED, nullptr);
+
+    // AcquireVideoBuffer and AcquireAudioBuffer with queued data
+    screenCaptureAdapter->AcquireVideoBuffer();
+    auto audiobufferImpl = std::make_shared<AudioBufferAdapterMock>();
+    screenCaptureAdapter->AcquireAudioBuffer(
+        audiobufferImpl, AudioCaptureSourceTypeAdapter::ALL_PLAYBACK);
+
+    // Test AcquireAudioBuffer with null audiobuffer parameter
+    screenCaptureAdapter->AcquireAudioBuffer(
+        nullptr, AudioCaptureSourceTypeAdapter::ALL_PLAYBACK);
+
+    // Test queue not found with different nweb_id after re-init
+    int32_t nweb_id2 = fdp->ConsumeIntegralInRange<int32_t>(101, 200);
+    screenCaptureAdapter->InitV2(config, nweb_id2);
+    screenCaptureAdapter->AcquireVideoBuffer();
+    screenCaptureAdapter->AcquireAudioBuffer(
+        audiobufferImpl, AudioCaptureSourceTypeAdapter::ALL_PLAYBACK);
+
+    return true;
+}
+
+bool OH_SurfaceBufferAdapterImplFuzzTest(FuzzedDataProvider* fdp)
+{
+    int32_t capacity = fdp->ConsumeIntegralInRange<int32_t>(0, 8);
+    OH_AVBuffer* buffer = OH_AVBuffer_Create(capacity);
+    if (!buffer) {
+        return true;
+    }
     OH_NativeBuffer* nativeBuffer = OH_AVBuffer_GetNativeBuffer(buffer);
+    if (!nativeBuffer) {
+        OH_AVBuffer_Destroy(buffer);
+        return true;
+    }
     OH_NativeBuffer_Config config;
     OH_NativeBuffer_GetConfig(nativeBuffer, &config);
     auto surfaceBufferImpl = std::make_shared<OH_SurfaceBufferAdapterImpl>(buffer, config);
@@ -691,7 +917,41 @@ bool OH_AudioBufferAdapterImplFuzzTest(FuzzedDataProvider* fdp)
     audioBufferImpl->GetLength();
     audioBufferImpl->GetTimestamp();
     audioBufferImpl->GetSourcetype();
-    OH_AVBuffer_Destroy(buffer);
+    if (buffer) {
+        OH_AVBuffer_Destroy(buffer);
+    }
+
+    return true;
+}
+
+bool OH_AudioBufferAdapterImplErrorFuzzTest(FuzzedDataProvider* fdp)
+{
+    (void)fdp;
+    // Test with nullptr avBuffer
+    auto audioBufferImpl = std::make_shared<OH_AudioBufferAdapterImpl>(
+        nullptr, 0, OH_AudioCaptureSourceType::OH_SOURCE_DEFAULT);
+    audioBufferImpl->GetBuffer();
+    audioBufferImpl->GetLength();
+    audioBufferImpl->GetTimestamp();
+    audioBufferImpl->GetSourcetype();
+
+    // Test with invalid source type to cover ConvertAudioCaptureSourceType default
+    OH_AVBuffer* buffer = OH_AVBuffer_Create(4);
+    if (buffer) {
+        auto audioBufferImpl2 = std::make_shared<OH_AudioBufferAdapterImpl>(
+            buffer, 0, static_cast<OH_AudioCaptureSourceType>(999));
+        audioBufferImpl2->GetSourcetype();
+        OH_AVBuffer_Destroy(buffer);
+    }
+
+    // Test with capacity 0 (length_ <= 0 branch)
+    OH_AVBuffer* zeroBuffer = OH_AVBuffer_Create(0);
+    if (zeroBuffer) {
+        auto audioBufferImpl3 = std::make_shared<OH_AudioBufferAdapterImpl>(
+            zeroBuffer, 0, OH_AudioCaptureSourceType::OH_ALL_PLAYBACK);
+        audioBufferImpl3->GetBuffer();
+        OH_AVBuffer_Destroy(zeroBuffer);
+    }
 
     return true;
 }
@@ -709,8 +969,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     FuzzedDataProvider fdp(data, size);
     OHOS::ScreenCaptureAdapterImplFuzzTest(&fdp);
     OHOS::ScreenCaptureAdapterImplNullFuzzTest(&fdp);
+    OHOS::ScreenCaptureAdapterImplEdgeCaseFuzzTest(&fdp);
+    OHOS::ScreenCaptureCallbackFuzzTest(&fdp);
     OHOS::OH_SurfaceBufferAdapterImplFuzzTest(&fdp);
     OHOS::OH_AudioBufferAdapterImplFuzzTest(&fdp);
+    OHOS::OH_AudioBufferAdapterImplErrorFuzzTest(&fdp);
  
     return 0;
 }
