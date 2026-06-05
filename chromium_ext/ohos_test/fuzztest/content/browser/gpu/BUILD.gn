@@ -26,7 +26,6 @@ fuzzer_test("ark_web_compositor_util_fuzzer") {
   deps = [
     "//base",
     "//cc/base",
-    "//content/browser:browser",
     "//content/public/common:common",
     "//testing/gtest",
     "//third_party/googletest:gtest",
