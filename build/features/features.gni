@@ -168,6 +168,7 @@ declare_args() {
   arkweb_video_assistant = !is_component_build
   arkweb_viewport = true
   arkweb_warmup_serviceworker = false
+  arkweb_watch_optimize_sc = true
   arkweb_webrtc = true
   arkweb_webstorage = true
   arkweb_wpt = true
