@@ -40,7 +40,7 @@ protected:
  
 TEST_F(SetUserDataDirForArkwebTest, TestCase001) {
   base::FilePath user_data_dir = base::FilePath("/data/storage/el2/base/files/__arkweb");
-  bool result = SetUserDataDirForArkweb(user_data_dir);
+  bool result = SetUserDataDirForArkweb(user_data_dir, false);
   EXPECT_FALSE(result);
  
   base::FilePath target_user_data_dir;
@@ -52,7 +52,7 @@ TEST_F(SetUserDataDirForArkwebTest, TestCase001) {
  
 TEST_F(SetUserDataDirForArkwebTest, TestCase002) {
   base::FilePath user_data_dir = base::FilePath("/data/storage/el2/base/files/__arkweb2");
-  bool result = SetUserDataDirForArkweb(user_data_dir);
+  bool result = SetUserDataDirForArkweb(user_data_dir, false);
   EXPECT_FALSE(result);
  
   base::FilePath target_user_data_dir;
@@ -69,7 +69,7 @@ TEST_F(SetUserDataDirForArkwebTest, TestCase003) {
   base::WriteFile(test_file, "test");
  
   base::FilePath user_data_dir = base::FilePath("/data/storage/el2/base/tmp_test");
-  bool result = SetUserDataDirForArkweb(user_data_dir);
+  bool result = SetUserDataDirForArkweb(user_data_dir, false);
   EXPECT_TRUE(result);
  
   base::FilePath target_user_data_dir;
@@ -80,7 +80,7 @@ TEST_F(SetUserDataDirForArkwebTest, TestCase003) {
  
 TEST_F(SetUserDataDirForArkwebTest, TestCase004) {
   base::FilePath user_data_dir = base::FilePath("");
-  bool result = SetUserDataDirForArkweb(user_data_dir);
+  bool result = SetUserDataDirForArkweb(user_data_dir, false);
   EXPECT_TRUE(result);
  
   base::FilePath target_user_data_dir;

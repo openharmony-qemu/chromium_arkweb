@@ -1232,31 +1232,25 @@ void InitialWebEngineArgs(
     }
   }
 
-  base::FilePath app_sandbox_root_dir = base::FilePath();
   base::FilePath user_data_dir = base::FilePath();
   auto args_to_add = GetArgsToAdd(init_args);
   bool isMigration = false;
  
   for (auto arg : args_to_add) {
-    ParsePathFromArgForKey(arg, switches::kArkwebAppDataDir, app_sandbox_root_dir);
     ParsePathFromArgForKey(arg, switches::kUserDataDir, user_data_dir);
     ParseDataMigrateFromArgForKey(arg, switches::kEnableUserDataDirMigration, isMigration);
     web_engine_args.emplace_back(arg);
   }
-  base::FilePath target_cache_dir = app_sandbox_root_dir.Append(kUserCacheDir);
-  base::FilePath target_data_dir = app_sandbox_root_dir.Append(kUserDataDir);
+  base::FilePath target_cache_dir = user_data_dir.Append(kUserCacheDir);
+  base::FilePath target_data_dir = user_data_dir.Append(kUserDataDir);
   if (isMigration) {
     MigrateUserData(target_data_dir, target_cache_dir);
   }
-  target_data_dir = base::PathExists(target_cache_dir) && !base::PathExists(target_data_dir) ?
-                        target_cache_dir : target_data_dir;
-  web_engine_args.emplace_back("--user-data-dir=" + target_data_dir.value());
-  web_engine_args.emplace_back("--user-cache-dir=" + target_cache_dir.value());
-  web_engine_args.emplace_back("--arkweb-app-data-dir=" + app_sandbox_root_dir.value());
-  if (app_sandbox_root_dir.empty()) {
-    LOG(ERROR) << "app_sandbox_root_dir is empty.";
+  if (!(base::PathExists(target_cache_dir) && !base::PathExists(target_data_dir))) {
+    web_engine_args.emplace_back("--enable-cache-data-dir-separation");
+    LOG(INFO) << "dir data|cache isSeparation : true";
   }
-  LOG(INFO) << "user data|cache isMigration:" << isMigration;
+  LOG(INFO) << "dir data|cache isMigration : " << isMigration;
 
 #if BUILDFLAG(ARKWEB_GWP_ASAN)
   std::string gwpEnable = "--ohos-enable-gwp-asan-type=" + GetGwpAsanEnable();

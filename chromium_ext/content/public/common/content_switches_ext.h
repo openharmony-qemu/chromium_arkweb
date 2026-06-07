@@ -44,8 +44,7 @@ CONTENT_EXPORT extern const char kCalcTabletMode[];
 CONTENT_EXPORT extern const char kDisableMobileStyleSheet[];
 CONTENT_EXPORT extern const char kDisableNonAdvancedSecurityMode[];
 CONTENT_EXPORT extern const char kDisableNextPreviousFlag[];
-CONTENT_EXPORT extern const char kUserCacheDir[];
-CONTENT_EXPORT extern const char kArkwebAppDataDir[];
+CONTENT_EXPORT extern const char kEnableCacheDataDirSeparation[];
 CONTENT_EXPORT extern const char kEnableUserDataDirMigration[];
 #endif
 
