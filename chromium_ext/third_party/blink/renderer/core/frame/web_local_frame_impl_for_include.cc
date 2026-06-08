@@ -59,6 +59,22 @@ bool WebLocalFrameImpl::GetGlobalAdblockEnabled() {
   return Client()->AsWebLocalFrameClientExt()->GetGlobalAdblockEnabled();
 }
 
+bool WebLocalFrameImpl::GetAdBlockEnabled() {
+  LocalFrame* frame = GetFrame();
+  if (!frame) {
+    LOG(DEBUG) << "[Adblock] GetAdBlockEnabled: frame is null, return false";
+    return false;
+  }
+  // In strict site isolation mode, the adblock state is stored in the
+  // LocalFrameRoot. Read from there instead of the current frame, so that
+  // cross-site subframes (which may live in a different process) share the
+  // same site-level switch as the main frame.
+  LocalFrame& root_frame = frame->LocalFrameRoot();
+  LOG(DEBUG) << "[Adblock] GetAdBlockEnabledByFrame: " << root_frame.GetAdBlockEnableForSite()
+              << ", is LocalFrameRoot: " << (frame == &root_frame);
+  return root_frame.GetAdBlockEnableForSite();
+}
+
 void WebLocalFrameImpl::SetHasElemHideTypeOption(
     bool has_elemhide_type_option) {
   frame_->SetHasElemHideTypeOption(has_elemhide_type_option);
@@ -72,6 +88,19 @@ void WebLocalFrameImpl::SetHasDocumentTypeOption(
 void WebLocalFrameImpl::SetHasGenericHideTypeOption(
     bool has_generichide_type_option) {
   frame_->SetHasGenericHideTypeOption(has_generichide_type_option);
+}
+
+void WebLocalFrameImpl::UpdateAdBlockEnabledToRender(
+    bool site_adblock_enabled) {
+  LocalFrame* frame = GetFrame();
+  if (!frame) {
+    return;
+  }
+  // In strict site isolation mode, set adblock state on the LocalFrameRoot
+  LocalFrame& root_frame = frame->LocalFrameRoot();
+  LOG(DEBUG) << "[Adblock] web local frame update adblock:" << site_adblock_enabled
+            << ", is LocalFrameRoot: " << (frame == &root_frame);
+  root_frame.SetAdBlockEnableForSite(site_adblock_enabled);
 }
 #endif
 
