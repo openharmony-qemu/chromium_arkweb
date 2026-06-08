@@ -4,9 +4,9 @@
 
 #include "arkweb/chromium_ext/chrome/browser/ssl/ohos_https_upgrades_helper.h"
 
-#include "arkweb/chromium_ext/components/captive_portal/content/captive_portal_tab_helper_ohos.h"
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "net/base/network_change_notifier.h"
 
 OhosHttpsUpgradesHelper::~OhosHttpsUpgradesHelper() = default;
 
@@ -23,27 +23,18 @@ void OhosHttpsUpgradesHelper::set_is_arkweb_https_upgrades_enable(bool enable) {
   if (is_arkweb_https_upgrades_enable_ == enable) {
     return;
   }
-  auto* helper = captive_portal::CaptivePortalTabHelperOhos::FromWebContents(
-      &GetWebContents());
-  if (!helper) {
-    Profile* profile =
-        Profile::FromBrowserContext(GetWebContents().GetBrowserContext());
-    captive_portal::CaptivePortalTabHelperOhos::CreateForWebContents(
-        &GetWebContents(), CaptivePortalServiceFactory::GetForProfile(profile),
-        base::BindRepeating(&OhosHttpsUpgradesHelper::NullOpenLoginTabCallback,
-                            &GetWebContents(), false));
-    helper = captive_portal::CaptivePortalTabHelperOhos::FromWebContents(
-        &GetWebContents());
-  }
-  if (helper) {
-    helper->EnableArkWebHttpsUpgrade(enable);
-  }
-  LOG_FEEDBACK(INFO, kHttpsUpgrades) << "EnableHttpsUpgrades enable:" << enable;
+
+  LOG_FEEDBACK(INFO, kHttpsUpgrades)
+      << "EnableHttpsUpgrades enable:" << enable
+      << " isCaptivePortal:" << net::NetworkChangeNotifier::IsCaptivePortal()
+      << " isNetworkValidated:"
+      << net::NetworkChangeNotifier::IsNetworkValidated();
   is_arkweb_https_upgrades_enable_ = enable;
 }
 
 bool OhosHttpsUpgradesHelper::should_upgrade_to_https() const {
-  return captive_portal::CaptivePortalTabHelperOhos::IsInternetConnected() &&
+  return !net::NetworkChangeNotifier::IsCaptivePortal() &&
+         net::NetworkChangeNotifier::IsNetworkValidated() &&
          is_arkweb_https_upgrades_enable_;
 }
 

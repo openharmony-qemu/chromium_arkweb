@@ -41,14 +41,12 @@ class VpnListenerImpl : public OHOS::NWeb::VpnListener {
   raw_ptr<net::NetworkChangeNotifierPassive> network_change_notifier_ = nullptr;
 };
 
-void VpnListenerImpl::OnAvailable()
-{
+void VpnListenerImpl::OnAvailable() {
   LOG(INFO) << "ohos_network Vpn OnAvailable";
   network_change_notifier_->OnVpnAvailable();
 }
 
-void VpnListenerImpl::OnLost()
-{
+void VpnListenerImpl::OnLost() {
   LOG(INFO) << "ohos_network Vpn OnLost";
   network_change_notifier_->OnVpnLost();
 }
@@ -150,6 +148,11 @@ int32_t NetConnCallbackImpl::OnNetCapabilitiesChanged(
                             capabilities_->GetConnectType(),
                             capabilities_->GetConnectSubtype());
   }
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+  if (network_change_notifier_posix_) {
+    network_change_notifier_posix_->PostUpdateNetworkCapabilityTask();
+  }
+#endif
   return 0;
 }
 
@@ -385,20 +388,121 @@ NetworkChangeNotifierPassive::GetCurrentDnsServers() {
 #endif
 
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_NETWORK_BASE)
-void NetworkChangeNotifierPassive::OnVpnAvailable()
-{
+void NetworkChangeNotifierPassive::OnVpnAvailable() {
   LOG(INFO) << "ohos_network on vpn available";
   vpn_in_place_ = true;
   OnIPAddressChanged(net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
   OnConnectionChanged(connection_type_);
 }
 
-void NetworkChangeNotifierPassive::OnVpnLost()
-{
+void NetworkChangeNotifierPassive::OnVpnLost() {
   LOG(INFO) << "ohos_network on vpn lost";
   vpn_in_place_ = false;
   OnIPAddressChanged(net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
   OnConnectionChanged(connection_type_);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+void NetworkChangeNotifierPassive::ResetNetworkCapability() {
+  network_capability_.store(0, std::memory_order_release);
+}
+
+void NetworkChangeNotifierPassive::PostUpdateNetworkCapabilityTask() {
+  if (!ui_task_runner_) {
+    return;
+  }
+
+  if (ui_task_runner_->RunsTasksInCurrentSequence()) {
+    UpdateNetworkCapabilityOnUIThread();
+    return;
+  }
+  ui_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          &NetworkChangeNotifierPassive::UpdateNetworkCapabilityOnUIThread,
+          weak_ptr_factory_.GetWeakPtr()));
+}
+
+void NetworkChangeNotifierPassive::UpdateNetworkCapabilityOnUIThread() {
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          ::switches::kEnableNwebEx)) {
+    return;
+  }
+
+  NetConn_NetHandle net_handle;
+  int32_t ret = OH_NetConn_GetDefaultNet(&net_handle);
+  if (ret != 0) {
+    LOG_FEEDBACK(WARNING, kNetwork)
+        << "UpdateNetworkCapability ret:" << ret
+        << " netHandle:" << net_handle.netId << " message:getDefaultNetFailed";
+    ResetNetworkCapability();
+    return;
+  }
+  NetConn_NetCapabilities netCapabilities;
+  ret = OH_NetConn_GetNetCapabilities(&net_handle, &netCapabilities);
+  if (ret != 0) {
+    LOG_FEEDBACK(WARNING, kNetwork) << "UpdateNetworkCapability ret:" << ret
+                                    << " netHandle:" << net_handle.netId
+                                    << " message:getNetCapabilitiesFailed";
+    ResetNetworkCapability();
+    return;
+  }
+
+  uint8_t old_caps = network_capability_.load(std::memory_order_acquire);
+
+  uint8_t new_caps = 0;
+  for (int32_t i = 0; i < netCapabilities.netCapsSize; i++) {
+    if (netCapabilities.netCaps[i] == NETCONN_NET_CAPABILITY_PORTAL) {
+      new_caps |= kNetworkCapCaptivePortal;
+    } else if (netCapabilities.netCaps[i] == NETCONN_NET_CAPABILITY_VALIDATED) {
+      new_caps |= kNetworkCapValidated;
+    }
+  }
+
+  network_capability_.store(new_caps, std::memory_order_release);
+
+  auto convert_array_to_string = [](const auto* array, int32_t size) {
+    std::string result = "[";
+    for (int32_t i = 0; i < size; ++i) {
+      if (i > 0) {
+        result += ",";
+      }
+      result += std::to_string(array[i]);
+    }
+    result += "]";
+    return result;
+  };
+
+  std::string net_caps_str = convert_array_to_string(
+      netCapabilities.netCaps, netCapabilities.netCapsSize);
+  std::string bearer_types_str = convert_array_to_string(
+      netCapabilities.bearerTypes, netCapabilities.bearerTypesSize);
+
+  bool bearer_types_changed = (last_bearer_types_str_ != bearer_types_str);
+  if (old_caps != new_caps || bearer_types_changed) {
+    LOG_FEEDBACK(INFO, kNetwork)
+        << "UpdateNetworkCapability isCaptivePortal:"
+        << static_cast<bool>(old_caps & kNetworkCapCaptivePortal) << "->"
+        << static_cast<bool>(new_caps & kNetworkCapCaptivePortal)
+        << " isNetworkValidated:"
+        << static_cast<bool>(old_caps & kNetworkCapValidated) << "->"
+        << static_cast<bool>(new_caps & kNetworkCapValidated)
+        << " netHandle:" << net_handle.netId << " bearType:"
+        << last_bearer_types_str_ << "->" << bearer_types_str
+        << " netCaps:" << net_caps_str;
+    last_bearer_types_str_ = bearer_types_str;
+  }
+}
+
+bool NetworkChangeNotifierPassive::IsCaptivePortalInternal() {
+  return (network_capability_.load(std::memory_order_acquire) &
+          kNetworkCapCaptivePortal) != 0;
+}
+
+bool NetworkChangeNotifierPassive::IsNetworkValidatedInternal() {
+  return (network_capability_.load(std::memory_order_acquire) &
+          kNetworkCapValidated) != 0;
 }
 #endif
 

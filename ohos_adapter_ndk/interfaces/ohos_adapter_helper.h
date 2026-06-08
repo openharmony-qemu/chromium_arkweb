@@ -64,7 +64,6 @@
 #include "third_party/ohos_ndk/includes/ohos_adapter/sensor_adapter.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/net_config_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/background_task_adapter.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/net_event_adapter.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
 
 namespace OHOS::NWeb {
@@ -181,8 +180,6 @@ public:
     virtual std::unique_ptr<BackgroundTaskAdapter> CreateBackgroundTaskAdapter() {return nullptr;}
 
     virtual std::unique_ptr<NetConfigAdapter> GetNetConfigAdapter() = 0;
-
-    virtual std::unique_ptr<NetEventAdapter> CreateNetEventAdapter() = 0;
 
     virtual ColorPickerAdapter& GetColorPickerAdapter() = 0;
 
