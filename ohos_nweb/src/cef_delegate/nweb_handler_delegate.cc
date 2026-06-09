@@ -777,9 +777,8 @@ void NWebHandlerDelegate::RegisterReleaseSurfaceListener(
 }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-void NWebHandlerDelegate::RegisterArkWebAppClientExtensionListener(
-    std::shared_ptr<ArkWebAppClientExtensionCallback> callback) {
-  dispatcher_.RegisterCallback(callback);
+void NWebHandlerDelegate::RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback) {
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().RegisterCallback(nweb_id_, callback);
 }
 #endif  // ARKWEB_NWEB_EX
 
@@ -791,7 +790,7 @@ void NWebHandlerDelegate::RegisterWebAppClientExtensionListener(
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 void NWebHandlerDelegate::UnRegisterArkWebAppClientExtensionListener() {
-  dispatcher_.UnregisterCallback();
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().UnregisterCallback(nweb_id_);
 }
 void NWebHandlerDelegate::UnRegisterWebAppClientExtensionListener() {
   web_app_client_extension_listener_ = nullptr;
@@ -933,24 +932,9 @@ void NWebHandlerDelegate::OnNativeEmbedFirstFramePaint(
           request->GetEmbedId().ToString(), request->GetSurfaceId().ToString(),
           request->GetEmbedIdAttribute().ToString());
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnNativeEmbedFirstFramePaint(nweb_request);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnNativeEmbedFirstFramePaint(nweb_id_, nweb_request);
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "OnNativeEmbedFirstFramePaint failed, no listener";
-    return;
-  }
-  if (!web_app_client_extension_listener_->OnNativeEmbedFirstFramePaint) {
-    LOG(WARNING) << "OnNativeEmbedFirstFramePaint failed, no function";
-    return;
-  }
-  LOG(INFO) << "dpf NWebHandlerDelegate::OnNativeEmbedFirstFramePaint embedid "
-            << request->GetEmbedId().ToString().c_str() << " surfaceId is "
-            << request->GetSurfaceId().ToString().c_str();
-  web_app_client_extension_listener_->OnNativeEmbedFirstFramePaint(
-      web_app_client_extension_listener_->nweb_id, nweb_request);
 }
 #endif
 
@@ -1134,9 +1118,7 @@ void NWebHandlerDelegate::OnFrameCreated(CefRefPtr<CefBrowser> browser,
   LOG(DEBUG) << "NWebHandlerDelegate::OnFrameCreated childId:" << frameInfo.id
              << ", parentId:" << frameInfo.parentId;
 
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnFrameCreated(frameInfo);
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnFrameCreated(nweb_id_, frameInfo);
 }
 
 void NWebHandlerDelegate::OnFrameDetached(CefRefPtr<CefBrowser> browser,
@@ -1162,9 +1144,7 @@ void NWebHandlerDelegate::OnFrameDetached(CefRefPtr<CefBrowser> browser,
 
   LOG(DEBUG) << "NWebHandlerDelegate::OnFrameDetached childId:" << frameInfo.id
              << ", parentId:" << frameInfo.parentId;
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnFrameDetached(frameInfo);
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnFrameDetached(nweb_id_, frameInfo);
 }
 #endif
 /* CefFrameHandler methods end */
@@ -1611,20 +1591,9 @@ bool NWebHandlerDelegate::TrigAdBlockEnabledForSiteFromUi(
     int main_frame_tree_node_id) {
   LOG(DEBUG) << "[adblock] TrigAdBlockEnabledForSiteFromUi url = ***";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    return dispatcher_.TrigAdBlockEnabledForSiteFromUi(url,
-                                                       main_frame_tree_node_id);
-  }
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().TrigAdBlockEnabledForSiteFromUi(
+      nweb_id_, url, main_frame_tree_node_id);
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->TrigAdBlockEnabledForSiteFromUi !=
-          nullptr) {
-    return web_app_client_extension_listener_->TrigAdBlockEnabledForSiteFromUi(
-        url, main_frame_tree_node_id,
-        web_app_client_extension_listener_->nweb_id);
-  }
-
-  return false;
 }
 #endif
 
@@ -2281,19 +2250,12 @@ void NWebHandlerDelegate::OnMediaStateChanged(CefRefPtr<CefBrowser> browser,
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnActivityStateChanged(static_cast<int>(state),
-                                       static_cast<int>(mediaType));
-    return;
-  }
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnActivityStateChanged != nullptr) {
-    web_app_client_extension_listener_->OnActivityStateChanged(
-        static_cast<int>(state), static_cast<int>(mediaType),
-        web_app_client_extension_listener_->nweb_id);
-  }
-#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnActivityStateChanged(
+      nweb_id_, static_cast<int>(state), static_cast<int>(mediaType));
   return;
+#else
+  return;
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 }
 #endif
 
@@ -2940,31 +2902,16 @@ void NWebHandlerDelegate::OnLoadingProgressChange(CefRefPtr<CefBrowser> browser,
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    if (!on_load_start_notified_ && new_progress < MAX_LOADING_PROGRESS &&
-        dispatcher_.OnLoadStarted(
-            (browser && browser->AsArkWebBrowser())
-                ? browser->AsArkWebBrowser()->ShouldShowLoadingUI()
-                : false)) {
-      on_load_start_notified_ = true;
-    }
-  } else {
-    if (web_app_client_extension_listener_ != nullptr &&
-        web_app_client_extension_listener_->OnLoadStarted != nullptr &&
-        !on_load_start_notified_ && new_progress < MAX_LOADING_PROGRESS) {
-      on_load_start_notified_ = true;
-      web_app_client_extension_listener_->OnLoadStarted(
-          (browser && browser->AsArkWebBrowser())
-              ? browser->AsArkWebBrowser()->ShouldShowLoadingUI()
-              : false,
-          web_app_client_extension_listener_->nweb_id);
-    }
+  if (!on_load_start_notified_ && new_progress < MAX_LOADING_PROGRESS &&
+      nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnLoadStarted(nweb_id_,
+          (browser && browser->AsArkWebBrowser()) ? browser->AsArkWebBrowser()->ShouldShowLoadingUI() : false)) {
+    on_load_start_notified_ = true;
   }
+
   if (new_progress == MAX_LOADING_PROGRESS) {
     on_load_start_notified_ = false;
   }
 #endif  // ARKWEB_NWEB_EX
-
   return;
 }
 #if BUILDFLAG(ARKWEB_NWEB_EX)
@@ -2975,18 +2922,9 @@ bool NWebHandlerDelegate::OnAutoResize(CefRefPtr<CefBrowser> browser,
   }
   LOG(INFO) << "NWebHandlerDelegate::OnAutoResize width=" << new_size.width
             << " height=" << new_size.height;
-  if (IsNativeApiEnable()) {
-    return dispatcher_.OnAutoResize(new_size.width, new_size.height);
-  }
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnResizedDueToAutoResize != nullptr) {
-    web_app_client_extension_listener_->OnResizedDueToAutoResize(
-        web_app_client_extension_listener_->nweb_id,
-        new_size.width,
-        new_size.height);
-    return true;
-  }
-  return false;
+
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnAutoResize(
+      nweb_id_, new_size.width, new_size.height);
 }
 #endif
 
@@ -2997,45 +2935,24 @@ bool NWebHandlerDelegate::OnOpenURLFromTab(
     WindowOpenDisposition target_disposition,
     bool user_gesture) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    if (dispatcher_.HasOnOpenURLFromTabV2()) {
-      NWebExtensionOpenURLFromTabInfo info = {
-        target_url.ToString(),
-        static_cast<int>(target_disposition),
-        user_gesture
-      };
-      return dispatcher_.OnOpenURLFromTabV2(info);
-    }
-    return dispatcher_.OnOpenURLFromTab(target_url.ToString(),
-                                        static_cast<int>(target_disposition),
-                                        user_gesture);
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().HasOnOpenURLFromTabV2(nweb_id_)) {
+    NWebExtensionOpenURLFromTabInfo info = {target_url.ToString(), static_cast<int>(target_disposition), user_gesture};
+    return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnOpenURLFromTabV2(nweb_id_, info);
   }
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnOpenURLFromTab != nullptr) {
-    web_app_client_extension_listener_->OnOpenURLFromTab(
-        target_url.ToString(), static_cast<int>(target_disposition),
-        user_gesture, web_app_client_extension_listener_->nweb_id);
-    return true;
-  }
-#endif  // ARKWEB_NWEB_EX
-
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnOpenURLFromTab(
+      nweb_id_, target_url.ToString(), static_cast<int>(target_disposition), user_gesture);
+#else
   return false;
+#endif  // ARKWEB_NWEB_EX
 }
 
 void NWebHandlerDelegate::ShowPasswordDialog(bool is_update,
                                              const CefString& url) {
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnShowPasswordDialog(is_update, url.ToString());
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShowPasswordDialog(nweb_id_, is_update, url.ToString());
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnSaveOrUpdatePassword != nullptr) {
-    web_app_client_extension_listener_->OnSaveOrUpdatePassword(
-        is_update, url.ToString(), web_app_client_extension_listener_->nweb_id);
-  }
 #endif  // ARKWEB_EXT_PASSWORD
 }
 
@@ -3075,25 +2992,18 @@ void NWebHandlerDelegate::OnShowAutofillPopup(
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    if (is_password_popup_type) {
-      dispatcher_.OnShowAutofillPopup(
-          bounds.x * ratio, bounds.y * ratio, bounds.width * ratio,
-          bounds.height * ratio, right_aligned, label_list, sublabel_list);
-    }
-    return;
+  if (is_password_popup_type) {
+    nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShowAutofillPopup(nweb_id_,
+        bounds.x * ratio,
+        bounds.y * ratio,
+        bounds.width * ratio,
+        bounds.height * ratio,
+        right_aligned,
+        label_list,
+        sublabel_list);
   }
+  return;
 #endif  // ARKWEB_NWEB_EX
-
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnShowPasswordAutofillPopup !=
-          nullptr &&
-      is_password_popup_type) {
-    web_app_client_extension_listener_->OnShowPasswordAutofillPopup(
-        bounds.x * ratio, bounds.y * ratio, bounds.width * ratio,
-        bounds.height * ratio, right_aligned, label_list, sublabel_list,
-        web_app_client_extension_listener_->nweb_id);
-  }
 #endif  // ARKWEB_EXT_PASSWORD
 }
 
@@ -3106,20 +3016,9 @@ void NWebHandlerDelegate::OnHideAutofillPopup() {
 #endif
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnHideAutofillPopup();
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnHideAutofillPopup(nweb_id_);
+  return;
 #endif  // ARKWEB_NWEB_EX
-
-#if BUILDFLAG(ARKWEB_EXT_PASSWORD)
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnHidePasswordAutofillPopup !=
-          nullptr) {
-    web_app_client_extension_listener_->OnHidePasswordAutofillPopup(
-        web_app_client_extension_listener_->nweb_id);
-  }
-#endif  // ARKWEB_EXT_PASSWORD
 }
 
 #if BUILDFLAG(ARKWEB_ADBLOCK)
@@ -3137,15 +3036,7 @@ void NWebHandlerDelegate::OnAdsBlocked(
   LOG(DEBUG) << "[adblock] OnAdsBlocked size: " << adsBlocked_str.size()
              << "  url = ***";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnAdsBlocked(url, adsBlocked_str);
-  } else {
-    if (web_app_client_extension_listener_ != nullptr &&
-        web_app_client_extension_listener_->OnAdsBlocked != nullptr) {
-      web_app_client_extension_listener_->OnAdsBlocked(
-          url, adsBlocked_str, web_app_client_extension_listener_->nweb_id);
-    }
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnAdsBlocked(nweb_id_, url, adsBlocked_str);
 #endif  // ARKWEB_NWEB_EX
   if (nweb_handler_ != nullptr) {
     std::vector<std::string> blocked;
@@ -3164,40 +3055,20 @@ void NWebHandlerDelegate::OnTopControlsChanged(float top_controls_offset,
                                                float top_content_offset) {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    if (dispatcher_.OnTopControlsChanged(top_controls_offset,
-                                         top_content_offset)) {
-      top_content_offset_ = top_content_offset;
-    }
-    return;
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnTopControlsChanged(
+          nweb_id_, top_controls_offset, top_content_offset)) {
+    top_content_offset_ = top_content_offset;
   }
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnTopControlsChanged == nullptr) {
-    return;
-  }
-
-  top_content_offset_ = top_content_offset;
-  web_app_client_extension_listener_->OnTopControlsChanged(
-      top_controls_offset, top_content_offset,
-      web_app_client_extension_listener_->nweb_id);
 #endif
 }
 
 NO_SANITIZE("cfi-icall") int NWebHandlerDelegate::OnGetTopControlsHeight() {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    return dispatcher_.OnGetTopControlsHeight();
-  }
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnGetTopControlsHeight(nweb_id_);
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnGetTopControlsHeight == nullptr) {
-    return 0;
-  }
-
-  return web_app_client_extension_listener_->OnGetTopControlsHeight(
-      web_app_client_extension_listener_->nweb_id);
 #else
   return 0;
 #endif
@@ -3219,33 +3090,15 @@ bool NWebHandlerDelegate::DoBrowserControlsShrinkRendererSize() {
 #if BUILDFLAG(ARKWEB_EXT_PULL_TO_REFRESH)
 bool NWebHandlerDelegate::OnPullToRefreshAction(int action) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    return dispatcher_.OnPullToRefreshAction(action);
-  }
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnPullToRefreshAction(nweb_id_, action);
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnPullToRefreshAction == nullptr) {
-    return false;
-  }
-
-  return web_app_client_extension_listener_->OnPullToRefreshAction(
-      action, web_app_client_extension_listener_->nweb_id);
 }
 
 void NWebHandlerDelegate::OnPullToRefreshPull(float offset_x, float offset_y) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnPullToRefreshPull(offset_x, offset_y);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnPullToRefreshPull(nweb_id_, offset_x, offset_y);
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnPullToRefreshPull == nullptr) {
-    return;
-  }
-
-  web_app_client_extension_listener_->OnPullToRefreshPull(
-      offset_x, offset_y, web_app_client_extension_listener_->nweb_id);
 }
 #endif
 
@@ -3352,18 +3205,8 @@ void NWebHandlerDelegate::OnReceivedIconUrl(const CefString& image_url,
   int color_type_temp = TransformColorTypeToInt(TransformColorType(color_type));
   int alpha_type_temp = TransformAlphaTypeToInt(TransformAlphaType(alpha_type));
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnReceivedIconUrl(c_image_url, width, height, color_type_temp,
-                                  alpha_type_temp);
-  } else {
-    if (web_app_client_extension_listener_ == nullptr ||
-        web_app_client_extension_listener_->OnReceivedFaviconUrl == nullptr) {
-      return;
-    }
-    web_app_client_extension_listener_->OnReceivedFaviconUrl(
-        c_image_url, width, height, color_type_temp, alpha_type_temp,
-        web_app_client_extension_listener_->nweb_id);
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnReceivedIconUrl(
+      nweb_id_, c_image_url, width, height, color_type_temp, alpha_type_temp);
 #endif  // ARKWEB_NWEB_EX
   if (c_image_url) {
     delete[] c_image_url;
@@ -3375,25 +3218,12 @@ void NWebHandlerDelegate::OnTouchIconUrlWithSizesReceived(const CefString& image
                                                           bool precomposed,
                                                           const std::vector<IconSize>& sizes) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    char* c_image_url = CopyCefStringToChar(image_url);
-    dispatcher_.OnTouchIconUrlWithSizesReceived(c_image_url, precomposed,
-                                                sizes);
-    delete[] c_image_url;
-    return;
-  }
-#endif  // ARKWEB_NWEB_EX
-  if (!web_app_client_extension_listener_ ||
-      !web_app_client_extension_listener_->OnTouchIconUrlWithSizesReceived) {
-    return;
-  }
-
   char* c_image_url = CopyCefStringToChar(image_url);
-
-  web_app_client_extension_listener_->OnTouchIconUrlWithSizesReceived(
-      c_image_url, precomposed, sizes.data(), sizes.size(),
-      web_app_client_extension_listener_->nweb_id);
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnTouchIconUrlWithSizesReceived(
+      nweb_id_, c_image_url, precomposed, sizes);
   delete[] c_image_url;
+  return;
+#endif  // ARKWEB_NWEB_EX
 }
 #endif
 
@@ -3525,18 +3355,10 @@ void NWebHandlerDelegate::OnContentsBrowserZoomChange(double zoom_factor,
                                                       bool can_show_bubble) {
 #if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnContentsBrowserZoomChange(zoom_factor, can_show_bubble);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnContentsBrowserZoomChange(
+      nweb_id_, zoom_factor, can_show_bubble);
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->ContentsBrowserZoomChange !=
-          nullptr) {
-    web_app_client_extension_listener_->ContentsBrowserZoomChange(
-        zoom_factor, can_show_bubble,
-        web_app_client_extension_listener_->nweb_id);
-  }
 #endif
 }
 /* CefDisplayHandler method end */
@@ -3599,24 +3421,13 @@ void NWebHandlerDelegate::OnFormEditingStateChanged(
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnActivityStateChanged(
-        is_editing ? static_cast<int>(FormState::kHadInteraction)
-                   : static_cast<int>(FormState::kNoInteraction),
-        static_cast<int>(ActivityType::FORM));
-    return;
-  }
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnActivityStateChanged != nullptr) {
-    web_app_client_extension_listener_->OnActivityStateChanged(
-        is_editing ? static_cast<int>(FormState::kHadInteraction)
-                   : static_cast<int>(FormState::kNoInteraction),
-        static_cast<int>(ActivityType::FORM),
-        web_app_client_extension_listener_->nweb_id);
-  }
-#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
-
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnActivityStateChanged(nweb_id_,
+      is_editing ? static_cast<int>(FormState::kHadInteraction) : static_cast<int>(FormState::kNoInteraction),
+      static_cast<int>(ActivityType::FORM));
   return;
+#else
+  return;
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 }
 #endif
 /* CefFormHandler method end */
@@ -3645,43 +3456,23 @@ void NWebHandlerDelegate::OnPermissionRequest(
 #if BUILDFLAG(ARKWEB_EXT_PERMISSION)
   if ((*base::CommandLine::ForCurrentProcess())
           .HasSwitch(::switches::kEnableNwebExPermission)) {
-    if (request->ResourceAcessId() ==
-            NWebAccessRequest::Resources::CLIPBOARD_READ_WRITE ||
-        request->ResourceAcessId() ==
-            NWebAccessRequest::Resources::CLIPBOARD_SANITIZED_WRITE ||
-        request->ResourceAcessId() ==
-            NWebAccessRequest::Resources::PROTECTED_MEDIA_ID
+    if (request->ResourceAcessId() == NWebAccessRequest::Resources::CLIPBOARD_READ_WRITE ||
+        request->ResourceAcessId() == NWebAccessRequest::Resources::CLIPBOARD_SANITIZED_WRITE ||
+        request->ResourceAcessId() == NWebAccessRequest::Resources::PROTECTED_MEDIA_ID
 #if BUILDFLAG(ARKWEB_NOTIFICATION)
-        || request->ResourceAcessId() ==
-            NWebAccessRequest::Resources::NOTIFICATION
+        || request->ResourceAcessId() == NWebAccessRequest::Resources::NOTIFICATION
 #endif // ARKWEB_NOTIFICATION
-        ) {
+    ) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-      if (IsNativeApiEnable()) {
-        std::shared_ptr<NWebAccessRequest> access_request =
-            std::make_shared<NWebAccessRequestDelegate>(request);
-        std::shared_ptr<NWebPermissionRequest> nweb_request =
-            std::make_shared<NWebPermissionRequest>(GetNWebId(),
-                                                    access_request);
-        int nweb_request_key = InsertPermissionRequest(nweb_request);
-        if (dispatcher_.OnPermissionRequest(nweb_request_key)) {
-          return;
-        }
-        PermissionRequestDelete(nweb_request_key);
-      }
-#endif  // ARKWEB_NWEB_EX
-
-      if (web_app_client_extension_listener_ != nullptr &&
-          web_app_client_extension_listener_->OnPermissionRequest != nullptr) {
-        std::shared_ptr<NWebAccessRequest> access_request =
-            std::make_shared<NWebAccessRequestDelegate>(request);
-        std::shared_ptr<NWebPermissionRequest> nweb_request =
-            std::make_shared<NWebPermissionRequest>(
-                web_app_client_extension_listener_->nweb_id, access_request);
-        web_app_client_extension_listener_->OnPermissionRequest(
-            web_app_client_extension_listener_->nweb_id, nweb_request);
+      std::shared_ptr<NWebAccessRequest> access_request = std::make_shared<NWebAccessRequestDelegate>(request);
+      std::shared_ptr<NWebPermissionRequest> nweb_request =
+          std::make_shared<NWebPermissionRequest>(GetNWebId(), access_request);
+      int nweb_request_key = InsertPermissionRequest(nweb_request);
+      if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnPermissionRequest(nweb_id_, nweb_request_key)) {
         return;
       }
+      PermissionRequestDelete(nweb_request_key);
+#endif  // ARKWEB_NWEB_EX
     }
   }
 #endif  // BUILDFLAG(ARKWEB_EXT_PERMISSION)
@@ -5566,18 +5357,8 @@ void NWebHandlerDelegate::OnIntelligentTrackingPreventionResult(
     const CefString& tracker_host) {
   LOG(INFO) << "NWebHandlerDelegate::OnIntelligentTrackingPreventionResult";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnIntelligentTrackingPreventionResult(website_host,
-                                                      tracker_host);
-  } else {
-    if (web_app_client_extension_listener_ != nullptr &&
-        web_app_client_extension_listener_
-                ->OnIntelligentTrackingPreventionResult != nullptr) {
-      web_app_client_extension_listener_->OnIntelligentTrackingPreventionResult(
-          website_host, tracker_host,
-          web_app_client_extension_listener_->nweb_id);
-    }
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnIntelligentTrackingPreventionResult(
+      nweb_id_, website_host, tracker_host);
 #endif  // ARKWEB_NWEB_EX
   if (nweb_handler_ != nullptr) {
     nweb_handler_->OnIntelligentTrackingPreventionResult(website_host,
@@ -5750,24 +5531,9 @@ NWebHandlerDelegate::OnCreateCustomMediaPlayer(
 void NWebHandlerDelegate::OnShowToast(double duration, const CefString& toast) {
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnShowToast(duration, toast.ToString().c_str());
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShowToast(nweb_id_, duration, toast.ToString().c_str());
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "application extension listener is nullptr";
-    return;
-  }
-
-  if (!web_app_client_extension_listener_->OnShowToast) {
-    LOG(WARNING) << "show toast callback is nullptr";
-    return;
-  }
-
-  web_app_client_extension_listener_->OnShowToast(
-      web_app_client_extension_listener_->nweb_id, duration,
-      toast.ToString().c_str());
 #endif  // ARKWEB_VIDEO_ASSISTANT
 }
 
@@ -5775,24 +5541,10 @@ void NWebHandlerDelegate::OnShowVideoAssistant(
     const CefString& videoAssistantItems) {
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnShowVideoAssistant(videoAssistantItems.ToString().c_str());
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShowVideoAssistant(
+      nweb_id_, videoAssistantItems.ToString().c_str());
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "application extension listener is nullptr";
-    return;
-  }
-
-  if (!web_app_client_extension_listener_->OnShowVideoAssistant) {
-    LOG(WARNING) << "show video assistant callback is nullptr";
-    return;
-  }
-
-  web_app_client_extension_listener_->OnShowVideoAssistant(
-      web_app_client_extension_listener_->nweb_id,
-      videoAssistantItems.ToString().c_str());
 #endif  // ARKWEB_VIDEO_ASSISTANT
 }
 
@@ -5836,41 +5588,18 @@ NWebHandlerDelegate::OnFullScreenOverlayEnter(
     CefOwnPtr<CefMediaPlayerController> media_player_controller,
     const std::string& extra_info) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    nweb_media_player_controller_ =
-        std::make_unique<NWebMediaPlayerControllerImpl>(
-            std::move(media_player_controller));
+  nweb_media_player_controller_ =
+      std::make_unique<NWebMediaPlayerControllerImpl>(
+          std::move(media_player_controller));
 
-    auto listener =
-        dispatcher_.OnFullScreenOverlayEnter(nullptr, extra_info.c_str());
-    if (!listener) {
-      return nullptr;
-    }
-    return std::make_unique<NWebMediaPlayerListenerForVAST>(
-        std::unique_ptr<NWebMediaPlayerCallback>(listener));
-  }
-#endif  // ARKWEB_NWEB_EX
-
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "application extension listener is nullptr";
-    return nullptr;
-  }
-
-  if (!web_app_client_extension_listener_->OnFullScreenOverlayEnter) {
-    LOG(WARNING) << "OnFullScreenOverlayEnter is nullptr";
-    return nullptr;
-  }
-  auto controller = std::make_unique<NWebMediaPlayerControllerImpl>(
-      std::move(media_player_controller));
-
-  auto listener = web_app_client_extension_listener_->OnFullScreenOverlayEnter(
-      web_app_client_extension_listener_->nweb_id,
-      controller.release(), extra_info.c_str());
+  auto listener = nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnFullScreenOverlayEnter(
+      nweb_id_, nullptr, extra_info.c_str());
   if (!listener) {
     return nullptr;
   }
   return std::make_unique<NWebMediaPlayerListenerForVAST>(
-      std::unique_ptr<NWebMediaPlayerListener>(listener));
+      std::unique_ptr<NWebMediaPlayerCallback>(listener));
+#endif  // ARKWEB_NWEB_EX
 }
 void NWebHandlerDelegate::WebMediaPlayerControllerPlay() {
   (nweb_media_player_controller_.get()
@@ -5991,35 +5720,16 @@ void NWebHandlerDelegate::SetPopupSurface(void* popup_window) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 void NWebHandlerDelegate::OnUpdateTargetURL(CefRefPtr<CefBrowser> browser,
                                             const CefString& url) {
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnUpdateTargetURL(url.ToString());
-    return;
-  }
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnUpdateTargetURL != nullptr) {
-    web_app_client_extension_listener_->OnUpdateTargetURL(
-        url.ToString(), web_app_client_extension_listener_->nweb_id);
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnUpdateTargetURL(nweb_id_, url.ToString());
+  return;
 }
 #endif  // OHOS_NWEB_EX
 
 void NWebHandlerDelegate::OnRequestOpenDevTools(const RequestOpenDevToolsParams& params) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnRequestOpenDevTools(params);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnRequestOpenDevTools(nweb_id_, params);
+  return;
 #endif  // OHOS_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "OnRequestOpenDevTools failed, no listener";
-    return;
-  }
-  if (!web_app_client_extension_listener_->OnRequestOpenDevTools) {
-    LOG(WARNING) << "OnRequestOpenDevTools failed, no function";
-    return;
-  }
-  web_app_client_extension_listener_->OnRequestOpenDevTools(
-      web_app_client_extension_listener_->nweb_id);
 }
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
@@ -6029,21 +5739,9 @@ void NWebHandlerDelegate::OnActivateContent() {
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnActivateContent();
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnActivateContent(nweb_id_);
+  return;
 #endif  // ARKWEB_NWEB_EX
-
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnActivateContent == nullptr) {
-    LOG(ERROR)
-        << "The web_app_client_extension_listener onActivateContent is null";
-    return;
-  }
-  LOG(INFO) << "Handler delegate to extension listener onActivateContent";
-  web_app_client_extension_listener_->OnActivateContent(
-      web_app_client_extension_listener_->nweb_id);
 }
 #endif
 
@@ -6061,16 +5759,9 @@ void NWebHandlerDelegate::SetTransformHint(uint32_t rotation) {
 void NWebHandlerDelegate::OnBeforeUnloadFired(CefRefPtr<CefBrowser> browser,
                                               bool proceed) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnBeforeUnloadFired(proceed);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnBeforeUnloadFired(nweb_id_, proceed);
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnBeforeUnloadFired != nullptr) {
-    web_app_client_extension_listener_->OnBeforeUnloadFired(
-        proceed, web_app_client_extension_listener_->nweb_id);
-  }
 }
 #endif  // ARKWEB_DISATCH_BEFORE_UNLOAD
 
@@ -6078,20 +5769,9 @@ void NWebHandlerDelegate::OnBeforeUnloadFired(CefRefPtr<CefBrowser> browser,
 void NWebHandlerDelegate::OnShareFile(const std::string& file_path,
                                       const std::string& utd_type_id) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnShareFile(file_path, utd_type_id);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShareFile(nweb_id_, file_path, utd_type_id);
+  return;
 #endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnShareFile == nullptr) {
-    LOG(ERROR)
-        << "NWebHandlerDelegate::OnShareFile failed for nullptr, file_path "
-        << file_path;
-    return;
-  }
-  web_app_client_extension_listener_->OnShareFile(
-      file_path, utd_type_id, web_app_client_extension_listener_->nweb_id);
 }
 #endif
 
@@ -6173,17 +5853,9 @@ void NWebHandlerDelegate::OnPipEvent(CefRefPtr<CefBrowser> browser,
   LOG(INFO) << __func__ << " event:" << event;
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnPipEvent(event);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnPipEvent(nweb_id_, event);
+  return;
 #endif  // ARKWEB_NWEB_EX
-
-  if (web_app_client_extension_listener_ != nullptr &&
-      web_app_client_extension_listener_->OnPipEvent != nullptr) {
-    web_app_client_extension_listener_->OnPipEvent(
-        web_app_client_extension_listener_->nweb_id, event);
-  }
 }
 #endif
 
@@ -6216,41 +5888,18 @@ void NWebHandlerDelegate::OnIsPageDistillable(int page_type,
                                             const std::string& distillable_page_url, const std::string& title) {
   LOG(INFO) << "NWebHandlerDelegate::OnIsPageDistillable page_type:" << page_type;
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnIsPageDistillable(page_type, distillable_page_url.c_str(), title.c_str());
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnIsPageDistillable(
+      nweb_id_, page_type, distillable_page_url.c_str(), title.c_str());
+  return;
 #endif  // OHOS_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "OnIsPageDistillable failed, no listener";
-    return;
-  }
-  if (!web_app_client_extension_listener_->OnIsPageDistillable) {
-    LOG(WARNING) << "OnIsPageDistillable failed, no function";
-    return;
-  }
-  web_app_client_extension_listener_->OnIsPageDistillable(
-      web_app_client_extension_listener_->nweb_id, page_type, distillable_page_url.c_str(), title.c_str());
 }
 
 void NWebHandlerDelegate::OnDidMeaningfulLayout(const std::string& url) {
   LOG(INFO) << "NWebHandlerDelegate::OnDidMeaningfulLayout";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnDidMeaningfulLayout(url.c_str());
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnDidMeaningfulLayout(nweb_id_, url.c_str());
+  return;
 #endif  // OHOS_NWEB_EX
-  if (!web_app_client_extension_listener_) {
-    LOG(WARNING) << "OnDidMeaningfulLayout failed, no listener";
-    return;
-  }
-  if (!web_app_client_extension_listener_->OnDidMeaningfulLayout) {
-    LOG(WARNING) << "OnDidMeaningfulLayout failed, no function";
-    return;
-  }
-  web_app_client_extension_listener_->OnDidMeaningfulLayout(
-      web_app_client_extension_listener_->nweb_id, url.c_str());
 }
 #endif
 
@@ -6335,18 +5984,8 @@ void NWebHandlerDelegate::OnDestroyAISession(content::AISessionType type,
 bool NWebHandlerDelegate::OnStartBackgroundTask(int32_t type,
                                                 const std::string& message) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    return dispatcher_.OnStartBackgroundTask(type, message);
-  }
-#endif  // ARKWEB_NWEB_EX
-  if (web_app_client_extension_listener_ == nullptr ||
-      web_app_client_extension_listener_->OnStartBackgroundTask == nullptr) {
-    LOG(ERROR) << "NWebHandlerDelegate::OnStartBackgroundTask failed for "
-                  "nullptr. default return true";
-    return true;
-  }
-  return web_app_client_extension_listener_->OnStartBackgroundTask(
-      type, message, web_app_client_extension_listener_->nweb_id);
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnStartBackgroundTask(nweb_id_, type, message);
+#endif  // ARKWEB_NWEB_EX;
 }
 #endif  // RKWEB_PERFORMANCE_PERSISTENT_TASK
 
@@ -6360,23 +5999,17 @@ std::string NWebHandlerDelegate::OnRewriteUrlForNavigation(
     return "";
   }
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    const char* raw_url = dispatcher_.OnRewriteUrlForNavigation(
-        original_url.c_str(),
-        referrer.c_str(),
-        transition_type,
-        is_key_request);
-
-    if (!raw_url) {
-        return "";
-    }
-
-    std::string result(raw_url);
-    FreeExternalMemory(const_cast<void*>(static_cast<const void*>(raw_url)));
-    return result;
+  const char* raw_url = nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnRewriteUrlForNavigation(
+      nweb_id_, original_url.c_str(), referrer.c_str(), transition_type, is_key_request);
+  if (!raw_url) {
+      return "";
   }
-#endif  // ARKWEB_NWEB_EX
+  std::string result(raw_url);
+  FreeExternalMemory(const_cast<void*>(static_cast<const void*>(raw_url)));
+  return result;
+#else
   return "";
+#endif  // ARKWEB_NWEB_EX
 }
 
 void NWebHandlerDelegate::OnRewriteUrlForNavigationAsync(
@@ -6402,8 +6035,7 @@ void NWebHandlerDelegate::OnRewriteUrlForNavigationAsync(
 }
 #endif
 
-void NWebHandlerDelegate::OnInputMethodAttached()
-{
+void NWebHandlerDelegate::OnInputMethodAttached() {
   if (nweb_handler_) {
     nweb_handler_->OnInputMethodAttached();
   }
@@ -6666,8 +6298,8 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool isDispatcherCalledForResponseReceived = false;
-  if (IsNativeApiEnable() && dispatcher_.HasOnReceiveResponseV2()
-      && IsTargetResourceTypeValue(resource_type)) {
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().HasOnReceiveResponseV2(nweb_id_) &&
+      IsTargetResourceTypeValue(resource_type)) {
     CefRequest::HeaderMap cef_request_headers;
     request->GetHeaderMap(cef_request_headers);
     std::map<std::string, std::string> request_headers;
@@ -6691,11 +6323,12 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
         is_from_network, response_info->GetStatus(), response_info->GetMimeType(),
         response_info->GetCharset(), response_info->GetStatusText(), response_headers};
 
-    dispatcher_.OnReceiveResponseByPb(resource_request, resource_response);
+    nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnReceiveResponseByPb(
+        nweb_id_, resource_request, resource_response);
     isDispatcherCalledForResponseReceived = true;
   }
 
-  if (IsNativeApiEnable() && dispatcher_.HasOnReceiveResponseForAllResources()) {
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().HasOnReceiveResponseForAllResources(nweb_id_)) {
     CefRequest::HeaderMap cef_request_headers;
     request->GetHeaderMap(cef_request_headers);
     std::map<std::string, std::string> request_headers;
@@ -6716,11 +6349,12 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
     WebUrlResourceResponse resource_response = {
         is_from_network, response_info->GetStatus(), response_info->GetMimeType(),
         response_info->GetCharset(), response_info->GetStatusText(), response_headers};
- 
-    dispatcher_.OnReceiveResponseForAllResources(resource_request, resource_response);
+
+    nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnReceiveResponseForAllResources(
+        nweb_id_, resource_request, resource_response);
     isDispatcherCalledForResponseReceived = true;
   }
- 
+
   if (isDispatcherCalledForResponseReceived) {
     return;
   }
@@ -6757,12 +6391,9 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
   int nweb_request_key = InsertResourceRequest(nweb_request);
   int nweb_response_key = InsertResourceResponse(nweb_response);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnReceiveResponse(nweb_request_key, nweb_response_key);
-    return;
-  }
-  ResourceRequestDelete(nweb_request_key);
-  ResourceResponseDelete(nweb_response_key);
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnReceiveResponse(
+      nweb_id_, nweb_request_key, nweb_response_key);
+  return;
 #endif
 }
 #endif
@@ -6792,9 +6423,7 @@ void NWebHandlerDelegate::OnDocumentEndReady(const CefString& id, const CefStrin
   LOG(DEBUG) << "NWebHandlerDelegate::OnDocumentEndReady id:" << frameInfo.id
             << " ,parentId:" << frameInfo.parentId;
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnDocumentEndReady(frameInfo);
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnDocumentEndReady(nweb_id_, frameInfo);
 #endif
 }
 #endif
@@ -6818,10 +6447,8 @@ void NWebHandlerDelegate::OnSafeBrowsingCheckDetail(int code,
   param.threat = threat;
   LOG(INFO) << "NWebHandlerDelegate::OnSafeBrowsingCheckDetail";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnSafeBrowsingCheckDetail(param);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnSafeBrowsingCheckDetail(nweb_id_, param);
+  return;
 #endif
 }
 
@@ -6917,7 +6544,8 @@ void NWebHandlerDelegate::OnManifestDebugInfoReceived(
   LOG(INFO) << "NWebHandlerDelegate OnManifestDebugInfoReceived raw_manifest "
                "has value: "
             << !debug_info->raw_manifest.empty();
-  dispatcher_.OnManifestSeen(url.spec(), debug_info->raw_manifest);
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnManifestSeen(
+      nweb_id_, url.spec(), debug_info->raw_manifest);
 }
 #endif  // BUILDFLAG(ARKWEB_WEB_APP)
 
@@ -6954,10 +6582,8 @@ void NWebHandlerDelegate::OnReportNewNavigationInfo(
       << " url:" << url::LogUtils::ConvertUrlWithMask(nweb_info.url);
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    dispatcher_.OnReportNewNavigationInfo(nweb_info);
-    return;
-  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnReportNewNavigationInfo(nweb_id_, nweb_info);
+  return;
 #endif
 }
 #endif

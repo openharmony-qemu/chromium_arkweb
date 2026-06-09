@@ -14,30 +14,34 @@
  */
 
 #include "nweb_extension_top_sites_cef_delegate.h"
+
 #include "cef/libcef/browser/browser_host_base.h"
 #include "nweb_common.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_top_sites_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_top_sites_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
 namespace {
 static std::map<int32_t, TopSitesCallback> g_top_sites_callback_map_;
-} // namespace
+}  // namespace
 
-void NWebExtensionTopSitesCefDelegate::Get(TopSitesCallback callback,
-                                           const std::optional<NWebExtensionTopSitesQueryOptions>& options) {
+void NWebExtensionTopSitesCefDelegate::Get(
+    TopSitesCallback callback,
+    const std::optional<NWebExtensionTopSitesQueryOptions>& options) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   static int32_t request_id = 0;
   request_id++;
   g_top_sites_callback_map_[request_id] = std::move(callback);
-  NWebExtensionTopSitesDispatcher::Get(request_id, options);
+  nweb_ex::NWebExtensionTopSitesDelegateImpl::GetInstance().Get(request_id,
+                                                                options);
 #endif
 }
 
-void NWebExtensionTopSitesCefDelegate::GetCallback(int32_t request_id,
+void NWebExtensionTopSitesCefDelegate::GetCallback(
+    int32_t request_id,
     const std::vector<NWebExtensionTopSitesMostVisitedURL>& data,
     const std::optional<std::string>& error) {
   if (g_top_sites_callback_map_.count(request_id)) {

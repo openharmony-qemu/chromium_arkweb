@@ -25,7 +25,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_action_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_action_delegate_impl.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
@@ -253,30 +253,10 @@ void NWebExtensionActionCefDelegate::OnDisable(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnDisableV2()) {
-    NWebExtensionActionDisableOptionsV2 options = {tabId, contextType,
-                                                   includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnDisableV2(extensionId,
-                                                              options);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnDisable(extensionId, tabId);
-    return;
-  }
+  NWebExtensionActionDisableOptionsV2 options = {tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnDisableV2(extensionId, options);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnDisable) {
-    LOG(ERROR) << "g_action_api_listener OnDisable is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnDisable(extensionId, tabId);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -286,30 +266,10 @@ void NWebExtensionActionCefDelegate::OnEnable(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnEnableV2()) {
-    NWebExtensionActionEnableOptionsV2 options = {tabId, contextType,
-                                                  includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnEnableV2(extensionId,
-                                                             options);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnEnable(extensionId, tabId);
-    return;
-  }
+  NWebExtensionActionEnableOptionsV2 options = {tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnEnableV2(extensionId, options);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnEnable) {
-    LOG(ERROR) << "g_action_api_listener OnEnable is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnEnable(extensionId, tabId);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -319,32 +279,11 @@ void NWebExtensionActionCefDelegate::OnOpenPopup(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnOpenPopupV2()) {
-    NWebExtensionActionOpenPopupOptionsV2 optionsV2 = {
-        options.has_value() ? options->windowId : std::nullopt, contextType,
-        includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnOpenPopupV2(extensionId,
-                                                                optionsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnOpenPopup(extensionId,
-                                                              options);
-    return;
-  }
+  NWebExtensionActionOpenPopupOptionsV2 optionsV2 = {
+      options.has_value() ? options->windowId : std::nullopt, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnOpenPopupV2(extensionId, optionsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnOpenPopup) {
-    LOG(ERROR) << "g_action_api_listener OnOpenPopup is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnOpenPopup(extensionId, options);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -354,31 +293,10 @@ void NWebExtensionActionCefDelegate::OnSetTitle(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnSetTitleV2()) {
-    NWebExtensionActionSetTitleDetailsV2 detailsV2 = {
-        details.title, details.tabId, contextType, includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnSetTitleV2(extensionId,
-                                                               detailsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnSetTitle(extensionId,
-                                                             details);
-    return;
-  }
+  NWebExtensionActionSetTitleDetailsV2 detailsV2 = {details.title, details.tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetTitleV2(extensionId, detailsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnSetTitle) {
-    LOG(ERROR) << "g_action_api_listener OnSetTitle is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnSetTitle(extensionId, details);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -388,31 +306,10 @@ void NWebExtensionActionCefDelegate::OnSetPopup(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnSetPopupV2()) {
-    NWebExtensionActionSetPopupDetailsV2 detailsV2 = {
-        details.popup, details.tabId, contextType, includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnSetPopupV2(extensionId,
-                                                               detailsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnSetPopup(extensionId,
-                                                             details);
-    return;
-  }
+  NWebExtensionActionSetPopupDetailsV2 detailsV2 = {details.popup, details.tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetPopupV2(extensionId, detailsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnSetPopup) {
-    LOG(ERROR) << "g_action_api_listener OnSetPopup is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnSetPopup(extensionId, details);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -423,51 +320,12 @@ void NWebExtensionActionCefDelegate::OnSetIcon(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnSetIconV2()) {
-    LOG(INFO) << "OnSetIconV2 extension ID:" << extension_id;
-    NWebExtensionActionSetIconDetailsV2 details = GetActionSetIconDetailsV2(
-        icon_image, tab_id, contextType, includeIncognitoInfo);
-    NWebExtensionActionDispathcher::GetInstance().OnSetIconV2(extension_id,
-                                                              details);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    LOG(INFO) << "OnSetIcon extension ID:" << extension_id;
-    NWebExtensionActionIcon actionIcon =
-        CreateFromImageSkiaReps(icon_image.AsImageSkia().image_reps());
-#if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
-    NWebExtensionActionIcon* icon = new NWebExtensionActionIcon(actionIcon);
-#else
-    NWebExtensionActionIcon* addr =
-        (NWebExtensionActionIcon*)__real_malloc(sizeof(actionIcon));
-    NWebExtensionActionIcon* icon =
-        new (addr) NWebExtensionActionIcon(actionIcon);
+  LOG(INFO) << "OnSetIconV2 extension ID:" << extension_id;
+  NWebExtensionActionSetIconDetailsV2 details =
+      GetActionSetIconDetailsV2(icon_image, tab_id, contextType, includeIncognitoInfo);
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetIconV2(extension_id, details);
+  return;
 #endif
-    NWebExtensionActionDispathcher::GetInstance().OnSetIcon(extension_id, icon,
-                                                            tab_id);
-    DeleteNWebExtensionActionIcon(icon);
-    return;
-  }
-#endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  LOG(INFO) << "OnSetIcon extension ID:" << extension_id;
-  NWebExtensionActionIcon actionIcon =
-      CreateFromImageSkiaReps(icon_image.AsImageSkia().image_reps());
-#if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
-  NWebExtensionActionIcon* icon = new NWebExtensionActionIcon(actionIcon);
-#else
-  NWebExtensionActionIcon* addr =
-      (NWebExtensionActionIcon*)__real_malloc(sizeof(actionIcon));
-  NWebExtensionActionIcon* icon =
-      new (addr) NWebExtensionActionIcon(actionIcon);
-#endif
-  g_action_api_listener->OnSetIcon(extension_id.c_str(), icon, tab_id);
-  icon->bitmaps = std::map<double, NWebExtensionActionIconBitmap*>();
 }
 
 NO_SANITIZE("cfi-icall")
@@ -477,31 +335,10 @@ void NWebExtensionActionCefDelegate::OnSetBadgeText(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance().HasOnSetBadgeTextV2()) {
-    NWebExtensionActionSetBadgeTextDetailsV2 detailsV2 = {
-        details.text, details.tabId, contextType, includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeTextV2(extensionId,
-                                                                   detailsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeText(extensionId,
-                                                                 details);
-    return;
-  }
+  NWebExtensionActionSetBadgeTextDetailsV2 detailsV2 = {details.text, details.tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetBadgeTextV2(extensionId, detailsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnSetBadgeText) {
-    LOG(ERROR) << "g_action_api_listener OnSetBadgeText is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnSetBadgeText(extensionId, details);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -511,32 +348,11 @@ void NWebExtensionActionCefDelegate::OnSetBadgeTextColor(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance()
-          .HasOnSetBadgeTextColorV2()) {
-    NWebExtensionActionSetBadgeTextColorDetailsV2 detailsV2 = {
-        details.color, details.tabId, contextType, includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeTextColorV2(
-        extensionId, detailsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeTextColor(
-        extensionId, details);
-    return;
-  }
+  NWebExtensionActionSetBadgeTextColorDetailsV2 detailsV2 = {
+      details.color, details.tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetBadgeTextColorV2(extensionId, detailsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnSetBadgeTextColor) {
-    LOG(ERROR) << "g_action_api_listener OnSetBadgeTextColor is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnSetBadgeTextColor(extensionId, details);
 }
 
 NO_SANITIZE("cfi-icall")
@@ -546,57 +362,19 @@ void NWebExtensionActionCefDelegate::OnSetBadgeBackgroundColor(
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionActionDispathcher::GetInstance()
-          .HasOnSetBadgeBackgroundColorV2()) {
-    NWebExtensionActionSetBadgeBackgroundColorDetailsV2 detailsV2 = {
-        details.color, details.tabId, contextType, includeIncognitoInfo};
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeBackgroundColorV2(
-        extensionId, detailsV2);
-    return;
-  }
-  if (IsNativeApiEnable()) {
-    NWebExtensionActionDispathcher::GetInstance().OnSetBadgeBackgroundColor(
-        extensionId, details);
-    return;
-  }
+  NWebExtensionActionSetBadgeBackgroundColorDetailsV2 detailsV2 = {
+      details.color, details.tabId, contextType, includeIncognitoInfo};
+  nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnSetBadgeBackgroundColorV2(extensionId, detailsV2);
+  return;
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return;
-  }
-
-  if (!g_action_api_listener->OnSetBadgeBackgroundColor) {
-    LOG(ERROR) << "g_action_api_listener OnSetBadgeBackgroundColor is nullptr";
-    return;
-  }
-
-  g_action_api_listener->OnSetBadgeBackgroundColor(extensionId, details);
 }
 
 NO_SANITIZE("cfi-icall")
 std::optional<NWebExtensionActionUserSettings>
-NWebExtensionActionCefDelegate::OnGetUserSettings(
-    const std::string& extensionId) {
+NWebExtensionActionCefDelegate::OnGetUserSettings(const std::string& extensionId) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    return NWebExtensionActionDispathcher::GetInstance().OnGetUserSettings(
-        extensionId);
-  }
+  return nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnGetUserSettings(extensionId);
 #endif
-
-  if (!g_action_api_listener) {
-    LOG(ERROR) << "No web extension action api listener";
-    return std::nullopt;
-  }
-
-  if (!g_action_api_listener->OnGetUserSettings) {
-    LOG(ERROR) << "g_action_api_listener OnGetUserSettings is nullptr";
-    return std::nullopt;
-  }
-
-  LOG(DEBUG) << "Action OnGetUserSettings";
-  return g_action_api_listener->OnGetUserSettings(extensionId);
 }
 
 }  // namespace OHOS::NWeb

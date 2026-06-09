@@ -64,7 +64,7 @@
 
 #include "build/build_config.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_app_client_extension_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_app_client_extension_delegate_impl.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
@@ -123,8 +123,7 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   bool IsReady() override;
   void OnDestroy(bool is_close_all) override;
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  void RegisterArkWebAppClientExtensionListener(
-      std::shared_ptr<ArkWebAppClientExtensionCallback> callback) override;
+  void RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback) override;
 #endif
   void RegisterWebAppClientExtensionListener(
       std::shared_ptr<NWebAppClientExtensionCallback>

@@ -19,10 +19,6 @@
 #include "content/public/browser/browser_context.h"
 #include "cef/libcef/browser/request_context_impl.h"
 #include "nweb_extension_utils.h"
-
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_side_panel_dispatcher.h"
-#endif
  
 namespace OHOS::NWeb {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
@@ -39,22 +35,6 @@ NWebExtensionSidePanelCefDelegate* NWebExtensionSidePanelCefDelegate::GetInstanc
  
 NWebExtensionSidePanelCefDelegate::NWebExtensionSidePanelCefDelegate() {}
  
-bool NWebExtensionSidePanelCefDelegate::HasOnOpenByPbCallback() {
-#if !BUILDFLAG(ARKWEB_NWEB_EX)
-  return false;
-#else
-  return NWebExtensionSidePanelDispatcher::HasOnOpenByPbCallback();
-#endif
-}
- 
-bool NWebExtensionSidePanelCefDelegate::HasOnSetOptionsByPbCallback() {
-#if !BUILDFLAG(ARKWEB_NWEB_EX)
-  return false;
-#else
-  return NWebExtensionSidePanelDispatcher::HasOnSetOptionsByPbCallback();
-#endif
-}
- 
 // static
 NO_SANITIZE("cfi-icall")
 bool NWebExtensionSidePanelCefDelegate::OnOpenByPb(
@@ -69,7 +49,7 @@ bool NWebExtensionSidePanelCefDelegate::OnOpenByPb(
   g_sidepanel_open_map_[open_request_id ] = std::move(callback);
   options.requestId = open_request_id;
   
-  if (!NWebExtensionSidePanelDispatcher::OnOpenByPb(options)) {
+  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnOpenByPb(options)) {
     g_sidepanel_open_map_.erase(open_request_id);
     return false;
   }
@@ -90,7 +70,7 @@ bool NWebExtensionSidePanelCefDelegate::OnSetOptionsByPb(
   request_id++;
   options.requestId = request_id;
   
-  if (!NWebExtensionSidePanelDispatcher::OnSetOptionsByPb(options)) {
+  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnSetOptionsByPb(options)) {
     return false;
   }
  

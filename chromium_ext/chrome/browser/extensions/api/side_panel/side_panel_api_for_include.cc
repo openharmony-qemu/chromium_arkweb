@@ -15,7 +15,6 @@
 
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
-#include "ohos_nweb_ex/core/extension/nweb_extension_side_panel_dispatcher.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
@@ -68,83 +67,49 @@ void SidePanelSetOptionsFunction::RunFunctionForInclude(
     absolute_path = extension()->GetResourceURL(*params->options.path).spec();
   }
  
-  if (IsNativeApiEnable()) {
-    if (NWebExtensionSidePanelCefDelegate::GetInstance()->HasOnSetOptionsByPbCallback()) {
-      ExtensionSidePanelSetOptions options;
-      options.extensionId = extension()->id();
-      options.enabled = params->options.enabled;
-      options.tabId = params->options.tab_id;
-      options.path = absolute_path;
-      std::string context_type = GetExtensionContextType(browser_context());
-      if (!context_type.empty()) {
-        options.contextType = context_type;
-      }
-      options.includeIncognitoInfo = include_incognito_information();
-      NWebExtensionSidePanelCefDelegate::GetInstance()->OnSetOptionsByPb(options);
-    } else {
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-      NWebExtensionSidePanelDispatcher::OnSetOptionsNative(
-          extension()->id(), params->options.enabled, params->options.tab_id,
-          absolute_path);
-#endif // ARKWEB_NWEB_EX
-    }
-  } else {
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionSidePanelDispatcher::OnSetOptions(
-        extension()->id(), params->options.enabled, params->options.tab_id,
-        absolute_path);
-#endif // ARKWEB_NWEB_EX
+  ExtensionSidePanelSetOptions options;
+  options.extensionId = extension()->id();
+  options.enabled = params->options.enabled;
+  options.tabId = params->options.tab_id;
+  options.path = absolute_path;
+  std::string context_type = GetExtensionContextType(browser_context());
+  if (!context_type.empty()) {
+    options.contextType = context_type;
   }
+  options.includeIncognitoInfo = include_incognito_information();
+  NWebExtensionSidePanelCefDelegate::GetInstance()->OnSetOptionsByPb(options);
 }
 
 ExtensionFunction::ResponseAction SidePanelOpenFunction::RunOpenFunctionForInclude(
     std::optional<api::side_panel::Open::Params>& params) {
   LOG(INFO) << "SidePanelOpenFunction::RunFunction";
-  if (IsNativeApiEnable()) {
-    if (NWebExtensionSidePanelCefDelegate::GetInstance()->HasOnOpenByPbCallback()) {
-      call_on_open_ = true;
-      ExtensionSidePanelOpenOptions options;
-      options.extensionId = extension()->id();
-      if (params->options.tab_id.has_value()) {
-        options.tabId = params->options.tab_id.value();
-      }
-      if (params->options.window_id.has_value()) {
-        options.windowId = params->options.window_id.value();
-      }
-      std::string context_type = GetExtensionContextType(browser_context());
-      if (!context_type.empty()) {
-        options.contextType = context_type;
-      }
-      options.includeIncognitoInfo = include_incognito_information();
-      bool success = NWebExtensionSidePanelCefDelegate::GetInstance()->OnOpenByPb(
-          options, base::BindRepeating(&SidePanelOpenFunction::OnOpen,
-                                       weak_ptr_factory_.GetWeakPtr()));
-      call_on_open_ = false;
-      if (did_respond()) {
-        LOG(INFO) << "SidePanelOpenFunction did_respond";
-        return AlreadyResponded();
-      }
+  call_on_open_ = true;
+  ExtensionSidePanelOpenOptions options;
+  options.extensionId = extension()->id();
+  if (params->options.tab_id.has_value()) {
+    options.tabId = params->options.tab_id.value();
+  }
+  if (params->options.window_id.has_value()) {
+    options.windowId = params->options.window_id.value();
+  }
+  std::string context_type = GetExtensionContextType(browser_context());
+  if (!context_type.empty()) {
+    options.contextType = context_type;
+  }
+  options.includeIncognitoInfo = include_incognito_information();
+  bool success = NWebExtensionSidePanelCefDelegate::GetInstance()->OnOpenByPb(
+      options, base::BindRepeating(&SidePanelOpenFunction::OnOpen,
+                                    weak_ptr_factory_.GetWeakPtr()));
+  call_on_open_ = false;
+  if (did_respond()) {
+    LOG(INFO) << "SidePanelOpenFunction did_respond";
+    return AlreadyResponded();
+  }
  
-      if (success) {
-        AddRef();
-        LOG(INFO) << "SidePanelOpenFunction AddRef";
-        return RespondLater();
-      }
-    } else {
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-      NWebExtensionSidePanelDispatcher::OnOpenNative(
-          extension()->id(),
-          params->options.tab_id.value_or(api::tabs::TAB_ID_NONE),
-          params->options.window_id.value_or(api::windows::WINDOW_ID_NONE));
-#endif // ARKWEB_NWEB_EX
-    }
-  } else {
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionSidePanelDispatcher::OnOpen(
-        extension()->id(),
-        params->options.tab_id.value_or(api::tabs::TAB_ID_NONE),
-        params->options.window_id.value_or(api::windows::WINDOW_ID_NONE));
-#endif // ARKWEB_NWEB_EX
+  if (success) {
+    AddRef();
+    LOG(INFO) << "SidePanelOpenFunction AddRef";
+    return RespondLater();
   }
   return RespondNow(NoArguments());
 }

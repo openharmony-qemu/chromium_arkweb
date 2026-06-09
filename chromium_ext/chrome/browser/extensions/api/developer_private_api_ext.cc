@@ -25,7 +25,7 @@
 #include "ohos_nweb/src/nweb_common.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_manager_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_manager_delegate_impl.h"
 #endif // ARKWEB_NWEB_EX
 
 namespace extensions {
@@ -90,14 +90,9 @@ DeveloperPrivateOpenUrlFunction::Run() {
       api::developer_private::OpenUrl::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
-  if (IsNativeApiEnable()) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionManagerDispatcher::OnExtensionOpenUrlCallBack(params->url,
-                                                              params->type);
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionOpenUrlCallBack(params->url, params->type);
 #endif
-  } else {
-    ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(params->url);
-  }
 
   return RespondNow(NoArguments());
 }
@@ -124,15 +119,10 @@ ExtensionFunction::ResponseAction DeveloperPrivateShowOptionsFunction::Run() {
     return RespondNow(Error(kCouldNotFindWebContentsError));
  
   GURL url_to_navigate = OptionsPageInfo::GetOptionsPage(extension);
-  if (IsNativeApiEnable()) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionManagerDispatcher::OnExtensionOpenUrlCallBack(
-        url_to_navigate.spec(), URL_TYPE_OPTIONS);
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionOpenUrlCallBack(
+      url_to_navigate.spec(), URL_TYPE_OPTIONS);
 #endif
-  } else {
-    ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(
-        url_to_navigate.spec());
-  }
  
   return RespondNow(NoArguments());
 }

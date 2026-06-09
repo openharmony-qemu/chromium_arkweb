@@ -16,6 +16,7 @@
 #ifndef OHOS_NWEB_SRC_NWEB_CONTEXT_MENUS_ITEM_H_
 #define OHOS_NWEB_SRC_NWEB_CONTEXT_MENUS_ITEM_H_
 
+#include <optional>
 #include <string> 
 #include <vector>
 

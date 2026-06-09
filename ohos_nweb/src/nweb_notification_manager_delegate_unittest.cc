@@ -70,90 +70,13 @@ TEST_F(NWebNotificationManagerDelegateTest,
 }
 
 TEST_F(NWebNotificationManagerDelegateTest, OnShowNotificationTest_1stIf) {
-  EnableNativeApi();
   std::shared_ptr<NWebNotificationOptionsItem> options;
-  EXPECT_EQ(options, nullptr);
   NWebNotificationManagerDelegate::OnShowNotification(options);
-  bool result = IsNativeApiEnable();
-  EXPECT_TRUE(result);
-  g_is_native_api_enable = false;
-}
-
-TEST_F(NWebNotificationManagerDelegateTest, OnShowNotificationTest_2ndIf) {
-  g_is_native_api_enable = false;
-  bool result = IsNativeApiEnable();
-  EXPECT_FALSE(result);
-  std::shared_ptr<NWebNotificationOptionsItem> options;
-  EXPECT_EQ(options, nullptr);
-  NWebNotificationManagerDelegate::OnShowNotification(options);
-  EXPECT_EQ(options, nullptr);
-}
-
-TEST_F(NWebNotificationManagerDelegateTest, OnShowNotificationTest_3rdIf) {
-  g_is_native_api_enable = false;
-  bool result = IsNativeApiEnable();
-  EXPECT_FALSE(result);
-  std::shared_ptr options = std::make_shared<NWebNotificationOptionsItem>();
-  EXPECT_NE(options, nullptr);
-  auto callback = std::make_shared<NWebNotificationDelegateCallback>();
-  EXPECT_NE(callback, nullptr);
-  callback->showNotification =
-      [](std::shared_ptr<NWebNotificationOptionsItem>) {};
-  callback->closeNotification = [](std::string) {};
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = callback;
-  NWebNotificationManagerDelegate::OnShowNotification(options);
-  EXPECT_NE(NWebNotificationManagerDelegate::notification_delegate_listener_,
-            nullptr);
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = nullptr;
-}
-
-TEST_F(NWebNotificationManagerDelegateTest, OnShowNotificationTest_4thIf) {
-  g_is_native_api_enable = false;
-  bool result = IsNativeApiEnable();
-  EXPECT_FALSE(result);
-  std::shared_ptr options = std::make_shared<NWebNotificationOptionsItem>();
-  EXPECT_NE(options, nullptr);
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = nullptr;
-  NWebNotificationManagerDelegate::OnShowNotification(options);
-  EXPECT_EQ(NWebNotificationManagerDelegate::notification_delegate_listener_,
-            nullptr);
 }
 
 TEST_F(NWebNotificationManagerDelegateTest, OnCloseNotificationTest_1stIf) {
   std::string id = "123";
-  EnableNativeApi();
   NWebNotificationManagerDelegate::OnCloseNotification(id);
-  bool result = IsNativeApiEnable();
-  EXPECT_TRUE(result);
-  g_is_native_api_enable = false;
-}
-
-TEST_F(NWebNotificationManagerDelegateTest, OnCloseNotificationTest_2ndIf) {
-  g_is_native_api_enable = false;
-  std::string id = "123";
-  bool result = IsNativeApiEnable();
-  EXPECT_FALSE(result);
-  auto callback = std::make_shared<NWebNotificationDelegateCallback>();
-  EXPECT_NE(callback, nullptr);
-  callback->showNotification =
-      [](std::shared_ptr<NWebNotificationOptionsItem>) {};
-  callback->closeNotification = [](std::string) {};
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = callback;
-  NWebNotificationManagerDelegate::OnCloseNotification(id);
-  EXPECT_NE(NWebNotificationManagerDelegate::notification_delegate_listener_,
-            nullptr);
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = nullptr;
-}
-
-TEST_F(NWebNotificationManagerDelegateTest, OnCloseNotificationTest_3rdIf) {
-  g_is_native_api_enable = false;
-  std::string id = "123";
-  bool result = IsNativeApiEnable();
-  EXPECT_FALSE(result);
-  NWebNotificationManagerDelegate::notification_delegate_listener_ = nullptr;
-  NWebNotificationManagerDelegate::OnCloseNotification(id);
-  EXPECT_EQ(NWebNotificationManagerDelegate::notification_delegate_listener_,
-            nullptr);
 }
 
 TEST_F(NWebNotificationManagerDelegateTest, OnShowedTest) {

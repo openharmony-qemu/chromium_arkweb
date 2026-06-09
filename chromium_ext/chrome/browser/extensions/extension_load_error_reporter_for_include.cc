@@ -16,7 +16,7 @@
 #include "ohos_nweb/src/cef_delegate/nweb_extension_utils.h"
 
 #if BUILDFLAG(IS_ARKWEB_EXT)
-#include "ohos_nweb_ex/core/extension/nweb_extension_manager_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_manager_delegate_impl.h"
 #endif
 
 namespace extensions {
@@ -46,7 +46,7 @@ void LoadErrorReporter::ReportError(const std::u16string& message,
       error_data.contextType = "REGULAR";
     }
 
-    NWebExtensionManagerDispatcher::OnExtensionLoadErrorByPb(error_data);
+    nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionLoadErrorByPb(error_data);
   }
 #endif
 }

@@ -24,7 +24,7 @@
 #include "nweb_icon_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_prompt_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_prompt_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
@@ -132,7 +132,7 @@ bool NWebExtensionPromptCefDelegate::ShowExtensionPrompt(
   NWebExtensionActionIcon* icon = CreateActionIcon(icon_image);
   g_show_prompt_callbacks[id] = std::move(showPromptFunc);
   g_get_prompt_data_callbacks[id] = std::move(getPromptDataFunc);
-  if (NWebExtensionPromptDispatcher::GetInstance().ShowExtensionPrompt(
+  if (nweb_ex::NWebExtensionPromptDelegateImpl::GetInstance().ShowExtensionPrompt(
           id, type, extensionId.c_str(), icon)) {
     LOG(INFO) << "succeed to notify client to show extension prompt,id is "
               << id << ",type is " << type;
@@ -163,7 +163,7 @@ bool NWebExtensionPromptCefDelegate::ShowExtensionUninstallPrompt(
   NWebExtensionActionIcon* icon = CreateActionIcon(icon_image);
   g_show_prompt_callbacks[id] = showPromptFunc;
   g_get_prompt_data_callbacks[id] = getPromptDataFunc;
-  if (NWebExtensionPromptDispatcher::GetInstance().ShowExtensionPrompt(
+  if (nweb_ex::NWebExtensionPromptDelegateImpl::GetInstance().ShowExtensionPrompt(
           id, PROMPT_UNINSTALLATION, extensionId.c_str(), icon)) {
     LOG(INFO) << "succeed to call show extension uninstall prompt,id is " << id;
     ReleaseActionIcon(icon);
@@ -188,7 +188,7 @@ bool NWebExtensionPromptCefDelegate::ShowMultiExtensionUninstallPrompt(
   g_show_prompt_callbacks[id] = std::move(show_prompt_func);
 
   std::string empty_id;
-  if (NWebExtensionPromptDispatcher::GetInstance().ShowExtensionPrompt(
+  if (nweb_ex::NWebExtensionPromptDelegateImpl::GetInstance().ShowExtensionPrompt(
       id, PROMPT_MULTI_UNINSTALLATION, empty_id.c_str(), nullptr)) {
     LOG(INFO) << "succeed to call show multi-extensions prompt,id is " << id;
     return true;

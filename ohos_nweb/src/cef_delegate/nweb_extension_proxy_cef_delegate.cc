@@ -21,14 +21,14 @@
 #include "base/logging.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_proxy_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_proxy_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
 void NWebExtensionProxyCefDelegate::NotifyProxyInfo(const NWebExtensionProxyInfo& config) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionProxyDispatcher::NotifyProxyInfo(config);
+  nweb_ex::NWebExtensionProxyDelegateImpl::GetInstance().NotifyProxyInfo(config);
 #else
   LOG(ERROR) << "NWebExtensionProxyCefDelegate::NotifyProxyInfo: ARKWEB_NWEB_EX is not enabled";
 #endif

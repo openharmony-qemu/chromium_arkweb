@@ -29,7 +29,7 @@
 #include "nweb_extension_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_bookmarks_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_bookmarks_delegate_impl.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
@@ -162,7 +162,7 @@ bool NWebExtensionBookmarksCefDelegate::OnCreate(
     currentRequestId = ++requestId;
     g_bookmarks_create_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnCreate(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnCreate(
       currentRequestId, details);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_create_callback_map_mutex);
@@ -207,7 +207,7 @@ bool NWebExtensionBookmarksCefDelegate::OnGet(
     currentRequestId = ++requestId;
     g_bookmarks_get_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnGet(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnGet(
       currentRequestId, getParam);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_get_callback_map_mutex);
@@ -253,7 +253,7 @@ bool NWebExtensionBookmarksCefDelegate::OnGetChildren(
     g_bookmarks_getchildren_callback_map_[currentRequestId] =
         std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnGetChildren(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnGetChildren(
       currentRequestId, id);
   if (!result) {
     std::lock_guard<std::mutex> lock(
@@ -300,7 +300,7 @@ bool NWebExtensionBookmarksCefDelegate::OnGetRecent(
     currentRequestId = ++requestId;
     g_bookmarks_getrecent_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnGetRecent(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnGetRecent(
       currentRequestId, numberOfItems);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_getrecent_callback_map_mutex);
@@ -345,7 +345,7 @@ bool NWebExtensionBookmarksCefDelegate::OnGetSubTree(
     g_bookmarks_getsubtree_callback_map_[currentRequestId] =
         std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnGetSubTree(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnGetSubTree(
       currentRequestId, id);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_getsubtree_callback_map_mutex);
@@ -388,7 +388,7 @@ bool NWebExtensionBookmarksCefDelegate::OnGetTree(
     currentRequestId = ++requestId;
     g_bookmarks_gettree_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnGetTree(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnGetTree(
       currentRequestId);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_gettree_callback_map_mutex);
@@ -432,7 +432,7 @@ bool NWebExtensionBookmarksCefDelegate::OnMove(
     currentRequestId = ++requestId;
     g_bookmarks_move_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnMove(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnMove(
       currentRequestId, moveParam);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_move_callback_map_mutex);
@@ -476,7 +476,7 @@ bool NWebExtensionBookmarksCefDelegate::OnRemove(
     currentRequestId = ++requestId;
     g_bookmarks_remove_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnRemove(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnRemove(
       currentRequestId, id);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_remove_callback_map_mutex);
@@ -517,7 +517,7 @@ bool NWebExtensionBookmarksCefDelegate::OnRemoveTree(
     g_bookmarks_removetree_callback_map_[currentRequestId] =
         std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnRemoveTree(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnRemoveTree(
       currentRequestId, id);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_removetree_callback_map_mutex);
@@ -558,7 +558,7 @@ bool NWebExtensionBookmarksCefDelegate::OnSearch(
     currentRequestId = ++requestId;
     g_bookmarks_search_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnSearch(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnSearch(
       currentRequestId, searchParam);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_search_callback_map_mutex);
@@ -603,7 +603,7 @@ bool NWebExtensionBookmarksCefDelegate::OnUpdate(
     currentRequestId = ++requestId;
     g_bookmarks_update_callback_map_[currentRequestId] = std::move(callback);
   }
-  bool result = NWebExtensionBookmarksDispatcher::GetInstance().OnUpdate(
+  bool result = nweb_ex::NWebExtensionBookmarksDelegateImpl::GetInstance().OnUpdate(
       currentRequestId, updateParam);
   if (!result) {
     std::lock_guard<std::mutex> lock(g_bookmarks_update_callback_map_mutex);

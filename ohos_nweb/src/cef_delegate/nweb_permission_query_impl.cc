@@ -105,33 +105,24 @@ void CefPermissionQuery::GetPermissionStatusAsync(
   std::shared_ptr<OHOS::NWeb::NWebAccessQuery> access_query =
       std::make_shared<OHOS::NWeb::NWebAccessQueryDelegate>(query);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (IsNativeApiEnable()) {
-    int cef_access_query_key = InsertQuery(access_query);
-    ArkWebAccessQuery arkWebAccessQuery = {
-        .cef_access_query_key = cef_access_query_key,
-        .origin = ArkWebAccessQuery_Origin,
-        .resource_access_id = ArkWebAccessQuery_ResourceAccessId,
-        .report_query_result = ArkWebAccessQuery_ReportQueryResult,
-        .report_delete_by_key = DeleteQuery};
-    ArkWebPermissionStatusQuery arkWebPermissionStatusQuery = {
-        .arkweb_access_query = &arkWebAccessQuery};
-    if (access_query != nullptr) {
-      arkWebPermissionStatusQuery.resource_id = access_query->ResourceAcessId();
-      arkWebPermissionStatusQuery.origin_url =
-          NWebBasicTypesUtils::StringClassToStruct(access_query->Origin(),
-                                                   FreeAllocMemory);
-    }
-    OHOS::NWeb::NWebPermissionStatusQueryManager::QueryPermissionStatus(
-        &arkWebPermissionStatusQuery);
-    return;
+  int cef_access_query_key = InsertQuery(access_query);
+  ArkWebAccessQuery arkWebAccessQuery = {
+      .cef_access_query_key = cef_access_query_key,
+      .origin = ArkWebAccessQuery_Origin,
+      .resource_access_id = ArkWebAccessQuery_ResourceAccessId,
+      .report_query_result = ArkWebAccessQuery_ReportQueryResult,
+      .report_delete_by_key = DeleteQuery};
+  ArkWebPermissionStatusQuery arkWebPermissionStatusQuery = {
+      .arkweb_access_query = &arkWebAccessQuery};
+  if (access_query != nullptr) {
+    arkWebPermissionStatusQuery.resource_id = access_query->ResourceAcessId();
+    arkWebPermissionStatusQuery.origin_url =
+        NWebBasicTypesUtils::StringClassToStruct(access_query->Origin(),
+                                                 FreeAllocMemory);
   }
-#endif  // ARKWEB_NWEB_EX
-
-  NWebPermissionStatusQuery* nweb_query =
-      new NWebPermissionStatusQuery(access_query);
-
   OHOS::NWeb::NWebPermissionStatusQueryManager::QueryPermissionStatus(
-      nweb_query);
+      &arkWebPermissionStatusQuery);
+#endif  // ARKWEB_NWEB_EX
 }
 
 #if BUILDFLAG(ARKWEB_CLIPBOARD)

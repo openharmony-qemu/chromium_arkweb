@@ -79,7 +79,7 @@
 #include "ohos_nweb/src/capi/nweb_resource_response.h"
 #include "ohos_nweb/src/capi/nweb_resource_request_response.h"
 
-#include "ohos_nweb_ex/core/extension/nweb_app_client_extension_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_app_client_extension_delegate_impl.h"
 #include "ohos_nweb_ex/public/capi/nweb_static_types.h"
 #endif
 
@@ -159,8 +159,7 @@ class NWebHandlerDelegate : public ArkWebClientExt,
       std::shared_ptr<NWebReleaseSurfaceCallback> releaseSurfaceListener);
   void RegisterNWebHandler(std::shared_ptr<NWebHandler> handler);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  void RegisterArkWebAppClientExtensionListener(
-      std::shared_ptr<ArkWebAppClientExtensionCallback> callback);
+  void RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback);
 #endif
   void RegisterWebAppClientExtensionListener(
       std::shared_ptr<NWebAppClientExtensionCallback>
@@ -1385,10 +1384,6 @@ void OnMediaCastEnter() override;
   std::optional<bool> custom_web_media_player_enabled_;
   std::unique_ptr<NWebMediaPlayerControllerImpl> nweb_media_player_controller_;
 #endif  // ARKWEB_VIDEO_ASSISTANT
-
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebAppClientExtensionDispatcher dispatcher_;
-#endif  // ARKWEB_NWEB_EX
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   CefRefPtr<CefSafeBrowsingDetectionCallback>

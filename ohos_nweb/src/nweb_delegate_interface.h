@@ -57,7 +57,7 @@
 #endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
 
 #if BUILDFLAG(IS_ARKWEB_EXT)
-#include "ohos_nweb_ex/core/extension/nweb_app_client_extension_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_app_client_extension_delegate_impl.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
@@ -128,8 +128,7 @@ class NWebDelegateInterface
   virtual void RegisterRenderCb(
       std::function<void(const char*)> render_update_cb) = 0;
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  virtual void RegisterArkWebAppClientExtensionListener(
-      std::shared_ptr<ArkWebAppClientExtensionCallback> callback) = 0;
+  virtual void RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback) = 0;
 #endif
   virtual void RegisterWebAppClientExtensionListener(
       std::shared_ptr<NWebAppClientExtensionCallback>
