@@ -1202,6 +1202,7 @@ void AbortDistill() override;
   static constexpr int kMaxBufferEvictCount = 5;
   int32_t bufferEvictCount_ = 0;
 #endif
+  bool is_delegated_enabled_ = false;
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER) || BUILDFLAG(ARKWEB_PAGE_UP_DOWN) || BUILDFLAG(ARKWEB_VIEWPORT_AVOID) || \
     BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
   uint32_t width_ = 0;

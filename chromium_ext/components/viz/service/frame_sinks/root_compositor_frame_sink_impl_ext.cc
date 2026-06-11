@@ -139,6 +139,25 @@ void RootCompositorFrameSinkImplExt::SetIsOfflineWebComponentInactive(bool is_in
 }
 #endif
 
+void RootCompositorFrameSinkImplExt::DiscardCompositingResources() {
+#if !defined(COMPONENT_BUILD)
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->DiscardCompositingResources();
+  }
+#endif
+}
+
+void RootCompositorFrameSinkImplExt::UpdateFocusAndScreenStatus(
+    bool is_focused,
+    bool is_single_screen) {
+#if !defined(COMPONENT_BUILD)
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->UpdateFocusAndScreenStatus(is_focused,
+                                                          is_single_screen);
+  }
+#endif
+}
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
 void RootCompositorFrameSinkImplExt::UpdateVSyncFrequency(int frame_rate) {
   external_begin_frame_source_->UpdateVSyncFrequency(frame_rate);

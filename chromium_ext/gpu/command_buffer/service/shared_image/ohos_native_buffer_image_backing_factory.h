@@ -152,6 +152,7 @@ class GPU_GLES2_EXPORT OHOSNativeBufferImageBackingFactory
   scoped_refptr<base::RefCountedData<DawnProcTable>> dawn_procs_;
   const bool use_passthrough_;
   const GLFormatCaps gl_format_caps_;
+  bool is_delegated_enabled_ = false;
 };
 
 }  // namespace gpu

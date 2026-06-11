@@ -120,6 +120,28 @@ void CompositorUtils::SetIsOfflineWebComponentInactive(bool is_inactive) {
 }
 #endif
 
+bool CompositorUtils::IsValidManagerUtils() {
+  return compositor_ && compositor_->context_factory_ &&
+         compositor_->context_factory_->GetHostFrameSinkManager() &&
+         compositor_->context_factory_->GetHostFrameSinkManager()->managerUtils;
+}
+
+void CompositorUtils::DiscardCompositingResources() {
+  if (IsValidManagerUtils()) {
+    compositor_->context_factory_->GetHostFrameSinkManager()->managerUtils->
+      DiscardCompositingResources(compositor_->frame_sink_id());
+  }
+}
+
+void CompositorUtils::UpdateFocusAndScreenStatus(
+    bool is_focused, bool is_single_screen) {
+  if (IsValidManagerUtils()) {
+    compositor_->context_factory_->GetHostFrameSinkManager()->managerUtils->
+        UpdateFocusAndScreenStatus(
+            is_focused, is_single_screen, compositor_->frame_sink_id());
+  }
+}
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
 void CompositorUtils::UpdateVSyncFrequency() {
   compositor_->context_factory_->GetHostFrameSinkManager()->managerUtils->UpdateVSyncFrequency(

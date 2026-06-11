@@ -212,4 +212,35 @@ void FrameSinkManagerImplUtils::ClearBlanklessSnapshotInfo(uint64_t blankless_ke
 }
 //LCOV_EXCL_STOP
 #endif
+
+void FrameSinkManagerImplUtils::DiscardCompositingResources(
+    const FrameSinkId& root_frame_sink_id)
+{
+  TRACE_EVENT1("viz", "FrameSinkManagerImpl::DiscardCompositingResources",
+               "root_frame_sink_id", root_frame_sink_id.ToString());
+  auto root_it = frameSinkManagerImpl->root_sink_map_.find(root_frame_sink_id);
+  if (root_it != frameSinkManagerImpl->root_sink_map_.end()) {
+    if (!root_it->second) {
+      LOG(ERROR) << "DiscardCompositingResources Fail, no valid root sink";
+      return;
+    }
+    root_it->second->AsExt()->DiscardCompositingResources();
+  }
+}
+
+void FrameSinkManagerImplUtils::UpdateFocusAndScreenStatus(
+    bool is_focused, bool is_single_screen, const FrameSinkId& frame_sink_id) {
+  TRACE_EVENT1("viz", "FrameSinkManagerImpl::UpdateFocusAndScreenStatus",
+               "frame_sink_id", frame_sink_id.ToString());
+
+  auto root_it = frameSinkManagerImpl->root_sink_map_.find(frame_sink_id);
+  if (root_it != frameSinkManagerImpl->root_sink_map_.end()) {
+    if (!root_it->second) {
+      LOG(ERROR) << "UpdateFocusAndScreenStatus Fail, no valid root sink";
+      return;
+    }
+    root_it->second->AsExt()->UpdateFocusAndScreenStatus(is_focused,
+                                                        is_single_screen);
+  }
+}
 }

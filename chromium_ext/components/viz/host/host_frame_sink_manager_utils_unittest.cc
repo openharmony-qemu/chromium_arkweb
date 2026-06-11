@@ -133,6 +133,14 @@ class MockFrameSinkManager : public mojom::FrameSinkManager {
               ClearBlanklessSnapshotInfo,
               (uint64_t blankless_key),
               (override));
+  MOCK_METHOD(void,
+              UpdateFocusAndScreenStatus,
+              (bool is_focused, bool is_single_screen, const ::viz::FrameSinkId& frame_sink_id),
+              (override));
+  MOCK_METHOD(void,
+              DiscardCompositingResources,
+              (const ::viz::FrameSinkId& frame_sink_id),
+              (override));
 };
 
 class MockHostFrameSinkClient : public HostFrameSinkClient {

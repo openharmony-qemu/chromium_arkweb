@@ -36,6 +36,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/adapter_base.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
 
 
 using ::testing::_;
@@ -386,6 +387,14 @@ class MockOhosAdapterHelper : public OhosAdapterHelper {
   MOCK_METHOD(ColorPickerAdapter&, GetColorPickerAdapter, (), (override));
   MOCK_METHOD(HiAppeventAdapter&,
               GetHiAppeventAdapterInstance,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceControlAdapter&,
+              GetSurfaceControlAdapter,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceTransactionAdapter&,
+              GetSurfaceTransactionAdapter,
               (),
               (override));
   static MockOhosAdapterHelper& GetInstance() {

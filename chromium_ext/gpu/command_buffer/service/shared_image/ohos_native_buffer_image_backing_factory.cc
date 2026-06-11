@@ -19,6 +19,7 @@
 #include <vector>
 #include <native_buffer/native_buffer.h>
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/containers/flat_set.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
@@ -184,6 +185,9 @@ OHOSNativeBufferImageBackingFactory::OHOSNativeBufferImageBackingFactory(
   dawn_procs_ = base::MakeRefCounted<base::RefCountedData<DawnProcTable>>(
       dawn::native::GetProcs());
 #endif  // BUILDFLAG(USE_DAWN)
+
+  is_delegated_enabled_ = base::ohos::IsDelegatedCompositingEnabledOhos();
+  LOG(INFO) << "OHOSNativeBufferImageBackingFactory::is_delegated_enabled_: " << is_delegated_enabled_;
 }
 
 //LCOV_EXCL_START
@@ -283,12 +287,14 @@ OHOSNativeBufferImageBackingFactory::MakeBackingWithValidateConfig(
   configAdapter->SetBufferWidth(size.width());
   configAdapter->SetBufferHeight(size.height());
   configAdapter->SetBufferFormat(ConvertToNativeBufferFormat(format));
-  configAdapter->SetBufferUsage(
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_HW_RENDER |
+  int buffer_usage = gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_HW_RENDER |
       gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_HW_TEXTURE |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_MEM_DMA |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_READ |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_WRITE);
+      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_MEM_DMA;
+  if (!is_delegated_enabled_) {
+    buffer_usage |= (gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_READ |
+        gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_WRITE);
+  }
+  configAdapter->SetBufferUsage(buffer_usage);
 
   // Allocate a NativeBuffer.
   OHOS::NWeb::OhosNativeBufferAdapter& adapter =

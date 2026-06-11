@@ -81,6 +81,7 @@ const char kEnableNwebExNetworkLoad[] = "enable-nweb-ex-network-load";
 const char kEnableNwebExDownload[] = "enable-nweb-ex-download";
 const char kEnableNwebExGetZoomLevel[] = "enable-nweb-ex-get-zoom-level";
 const char kEnableNwebExPullToRefresh[] = "enable-nweb-ex-pull-to-refresh";
+const char kEnableNwebExDelegateCompositing[] = "enable-web-delegate-compositing";
 #endif
 
 #if BUILDFLAG(ARKWEB_BFCACHE)
