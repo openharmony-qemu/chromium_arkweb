@@ -101,6 +101,7 @@ build_component=0
 precise_build_ut=0
 is_official_build=1
 build_debug_version=0
+build_legacy=0
 debug_args="is_debug=false"
 npm config set registry http://mirrors.tools.huawei.com/npm/
 npm config set @ohpm-test:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
@@ -247,6 +248,9 @@ while [ "$1" != "" ]; do
     "-debug")
       build_debug_version=1
       ;;
+    "-legacy")
+      build_legacy=1
+      ;;
     "-G")
       shift
       additional_gn_args="$1"
@@ -374,6 +378,14 @@ if [ ${build_asan} -eq 1 ]; then
 else
   GN_ARGS="${GN_ARGS} is_asan=false"
 fi
+
+if [ ${build_legacy} -eq 1 ]; then
+  GN_ARGS="${GN_ARGS} is_nolegacy=false"
+  export OH_LEGACY=1
+else
+  GN_ARGS="${GN_ARGS} is_nolegacy=true"
+  export OH_LEGACY=0
+fi 
 
 if [ ${build_hwasan} -eq 1 ]; then
   GN_ARGS="${GN_ARGS} is_hwasan=true use_thin_lto=false v8_enable_pointer_compression=false v8_use_external_startup_data=false"

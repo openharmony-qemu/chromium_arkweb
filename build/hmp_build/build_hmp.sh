@@ -17,9 +17,12 @@ python3 $HW_HARMONY_ENGINE_ROOT/src/arkweb/build/hmp_build/process_hap.py \
 
 # Overwrite the original hap file
 cp ohos_nweb_processed.hap ohos_nweb.hap
+if [ "${OH_LEGACY}" -eq 0 ]; then
+  sh ./sign.sh
+else
+  sh ./sign_legacy.sh
+fi
 
-
-sh ./sign.sh
 
 if [ ! -f "$HW_HARMONY_ENGINE_ROOT/signature_nweb/NWeb-$ohos_mr_build_type.hap" ]; then
   echo -e "sign fail"

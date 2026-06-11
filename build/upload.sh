@@ -59,6 +59,7 @@ if [ -f "$OUT_DIR/NWeb-musl_64.hap" ]; then
     echo "hap SHA-256: $sha256"
     mv "$OUT_DIR/NWeb-musl_64.hap" "$OUT_DIR/NWeb.hap"
     cp "$OUT_DIR/NWeb.hap" "$OUT_DIR/ArkWebCore.hap"
+    cp "$OUT_DIR/NWeb.hap" "$OUT_DIR/ArkWebCoreLegacy.hap"
 fi
 if [ -f "$OUT_DIR/libarkweb_engine.so" ]; then
     md5=$(md5sum "$OUT_DIR/libarkweb_engine.so" | awk '{print $1}')
