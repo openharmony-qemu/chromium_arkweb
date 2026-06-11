@@ -1751,6 +1751,9 @@ NWebImpl::NWebImpl(uint32_t id) : nweb_id_(id) {
     GetSystemPropertiesInstance().GetLoadUrlStrategy();
   LOG(INFO) << "NWebImpl::kLoadUrlReportIntervalMs: " << kLoadUrlReportIntervalMs;
 #endif
+
+  is_delegated_enabled_ = base::ohos::IsDelegatedCompositingEnabledOhos();
+  LOG(INFO) << "NWebImpl::is_delegated_enabled_: " << is_delegated_enabled_;
 }
 
 NWebImpl::~NWebImpl() {
@@ -2043,6 +2046,16 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
     WVLOG_E("Init web engine failed, get native window from surface failed");
     delete[] argv;
     return false;
+  }
+
+  if (is_delegated_enabled_ && init_args) {
+    uint64_t node_id = init_args->GetSurfaceNodeId();
+    uint64_t handle = init_args->GetSurfaceRSHandle();
+    auto native_window = reinterpret_cast<NativeWindow*>(window_.get());
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetWindowAdapterInstance()
+        .SetWindowNodeIdAndRSHandle(native_window, node_id, handle);
+    WVLOG_I("InitWebEngine node_id = %{public}lu, handle = %{public}lu",
+        node_id, handle);
   }
 
   int32_t ret = OHOS::NWeb::OhosAdapterHelperExt::GetWindowAdapterNdkInstance()

@@ -254,6 +254,7 @@ if (!enable_arkweb) {
   arkweb_cert_authentication = false
   arkweb_fling = false
   arkweb_occluded_opt = false
+  arkweb_delegate_compositing = false
   arkweb_performance_trace = false
   arkweb_report_loss_frame = false
   arkweb_singleprocess_prefetch = false
@@ -540,6 +541,7 @@ buildflag_header("features") {
     "ARKWEB_FLING=$arkweb_fling",
     "ARKWEB_SKIA_CACHE=$arkweb_skia_cache",
     "ARKWEB_OCCLUDED_OPT=$arkweb_occluded_opt",
+    "ARKWEB_DELEGATE_COMPOSITING=$arkweb_delegate_compositing",
     "ARKWEB_OPTIMIZE_PARSER_BUDGET=$arkweb_optimize_parser_budget",
     "ARKWEB_PERFORMANCE_TRACE=$arkweb_performance_trace",
     "ARKWEB_REPORT_LOSS_FRAME=$arkweb_report_loss_frame",

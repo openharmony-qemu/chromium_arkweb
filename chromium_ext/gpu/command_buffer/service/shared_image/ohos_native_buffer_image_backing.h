@@ -71,12 +71,23 @@ class OhosNativeBufferImageBacking : public OhosImageBacking {
       MemoryTypeTracker* tracker,
       scoped_refptr<SharedContextState> context_state) override;
 
+  std::unique_ptr<GLTextureImageRepresentation> ProduceGLTextureInner(
+      SharedImageManager* manager,
+      MemoryTypeTracker* tracker);
+
+  std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
+      SharedImageManager* manager,
+      MemoryTypeTracker* tracker) override;
+
   const gpu::ScopedNativeBufferHandle native_buffer_handle_;
 
   const bool use_passthrough_;
 
   mutable RefCountedLockHelperDrDc drdc_lock_helper_;
   const GLFormatCaps gl_format_caps_;
+
+ private:
+  class DelegateNativeBufferImageRepresentation;
 };
 
 }  // namespace gpu

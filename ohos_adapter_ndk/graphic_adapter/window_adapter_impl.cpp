@@ -116,4 +116,10 @@ int WindowAdapterNdkImpl::GetNativeWindowQueueSize(NWebNativeWindow window)
     }
     return bufferQueueSize;
 }
+
+void WindowAdapterNdkImpl::SetWindowNodeIdAndRSHandle(void* native_window, uint64_t node_id, uint64_t handle)
+{
+    WVLOG_D("[adapter mock] SetWindowNodeIdAndRSHandle");
+}
+
 } // namespace OHOS::NWeb

@@ -91,6 +91,7 @@
 #include "ohos_adapter/bridge/ark_sensor_adapter_wrapper.h"
 #include "ohos_adapter/bridge/ark_soc_perf_client_adapter_wrapper.h"
 #include "ohos_adapter/bridge/ark_surface_buffer_adapter_wrapper.h"
+#include "ohos_adapter/bridge/ark_surface_control_adapter_wrapper.h"
 #include "ohos_adapter/bridge/ark_system_properties_adapter_wrapper.h"
 #include "ohos_adapter/bridge/ark_vsync_adapter_wrapper.h"
 #include "ohos_adapter/bridge/ark_web_timezone_info_wrapper.h"
@@ -609,5 +610,27 @@ ArkOhosAdapterHelperWrapper::CreateBackgroundTaskAdapter() {
 
 NWeb::HiAppeventAdapter& ArkOhosAdapterHelperWrapper::GetHiAppeventAdapterInstance() {
   return HiAppeventAdapterImpl::GetInstance();
+}
+
+NWeb::SurfaceControlAdapter&
+ArkOhosAdapterHelperWrapper::GetSurfaceControlAdapter() {
+  ArkWebRefPtr<ArkSurfaceControlAdapter> ref = nullptr;
+  if (!CHECK_REF_PTR_IS_NULL(ctocpp_)) {
+    ref = ctocpp_->GetSurfaceControlAdapter();
+  }
+
+  static ArkSurfaceControlAdapterWrapper instance(ref);
+  return instance;
+}
+
+NWeb::SurfaceTransactionAdapter&
+ArkOhosAdapterHelperWrapper::GetSurfaceTransactionAdapter() {
+  ArkWebRefPtr<ArkSurfaceTransactionAdapter> ref = nullptr;
+  if (!CHECK_REF_PTR_IS_NULL(ctocpp_)) {
+    ref = ctocpp_->GetSurfaceTransactionAdapter();
+  }
+
+  static ArkSurfaceTransactionAdapterWrapper instance(ref);
+  return instance;
 }
 }  // namespace OHOS::ArkWeb

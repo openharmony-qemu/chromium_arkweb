@@ -389,4 +389,9 @@ std::vector<std::shared_ptr<DisplayAdapter>> NativeDisplayManagerAdapterImpl::Ge
 {
    return std::vector<std::shared_ptr<DisplayAdapter>>();
 }
+
+bool NativeDisplayManagerAdapterImpl::IsSinglePhysicalDisplayForFold()
+{
+    return false;
+}
 }

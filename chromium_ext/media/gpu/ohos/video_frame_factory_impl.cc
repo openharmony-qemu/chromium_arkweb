@@ -11,6 +11,7 @@
 
 #include <memory>
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -67,7 +68,10 @@ VideoFrameFactoryImpl::VideoFrameFactoryImpl(
     : gpu::RefCountedLockHelperDrDc(std::move(drdc_lock)),
       image_provider_(std::move(image_provider)),
       gpu_task_runner_(std::move(gpu_task_runner)),
-      frame_info_helper_(std::move(frame_info_helper)) {}
+      frame_info_helper_(std::move(frame_info_helper)) {
+  is_delegated_enabled_ = base::ohos::IsDelegatedCompositingEnabledOhos();
+  LOG(INFO) << "VideoFrameFactoryImpl::is_delegated_enabled_: " << is_delegated_enabled_;
+}
 
 VideoFrameFactoryImpl::~VideoFrameFactoryImpl() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -110,8 +114,6 @@ bool VideoFrameFactoryImpl::GetVideoFrameCopyStatus() {
   int getValue = system_properties_adapter.
                  GetIntParameter("web.gpu.videocopy",
                                  static_cast<int>(VideoFrameCopyStatus::kDefault));
-  bool delegatedValue = system_properties_adapter.
-                        GetBoolParameter("web.delegatedCompositing.enable", false);
 
   switch (getValue) {
     case static_cast<int>(VideoFrameCopyStatus::kZeroCopy):
@@ -122,7 +124,7 @@ bool VideoFrameFactoryImpl::GetVideoFrameCopyStatus() {
       break;
     case static_cast<int>(VideoFrameCopyStatus::kDefault):
       if (base::FeatureList::IsEnabled(features::kVulkanVideoZeroCopy)) {
-        copy_required = copy_required || !delegatedValue;
+        copy_required = copy_required || !is_delegated_enabled_;
       } else {
         copy_required = true;
       }
@@ -247,8 +249,7 @@ void VideoFrameFactoryImpl::CreateVideoFrame_OnImageReady(
   }
 
   frame->metadata().copy_required = video_frame_copy_required;
-
-  frame->metadata().allow_overlay = false;
+  frame->metadata().allow_overlay = base::ohos::IsDelegatedCompositingEnabledOhos();
   frame->metadata().in_surface_view = is_texture_owner_backed;
   frame->SetReleaseMailboxCB(std::move(record.release_cb));
   std::move(output_cb).Run(std::move(frame));

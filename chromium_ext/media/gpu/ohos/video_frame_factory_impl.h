@@ -112,6 +112,7 @@ class MEDIA_GPU_EXPORT VideoFrameFactoryImpl
                                     IsPipEnable() ||
 #endif
                                     base::SysInfo::IsLowEndDevice();
+  bool is_delegated_enabled_ = false;
 
   std::unique_ptr<FrameInfoHelper> frame_info_helper_;
 

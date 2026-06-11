@@ -202,8 +202,8 @@ public:
     MOCK_METHOD(std::unique_ptr<NetConfigAdapter>, GetNetConfigAdapter, (), (override));
     MOCK_METHOD(ColorPickerAdapter &, GetColorPickerAdapter, (), (override));
     MOCK_METHOD(HiAppeventAdapter &, GetHiAppeventAdapterInstance, (), (override));
-    MOCK_METHOD(SurfaceControlAdapter&, GetSurfaceControlAdapter, ());
-    MOCK_METHOD(SurfaceTransactionAdapter&, GetSurfaceTransactionAdapter, ());
+    MOCK_METHOD(SurfaceControlAdapter&, GetSurfaceControlAdapter, (), (override));
+    MOCK_METHOD(SurfaceTransactionAdapter&, GetSurfaceTransactionAdapter, (), (override));
 };
 
 class CameraSurfaceBufferAdapterMock : public CameraSurfaceBufferAdapter {

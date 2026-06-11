@@ -15,6 +15,7 @@
 
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 
+#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/logging.h"
@@ -315,6 +316,31 @@ const std::string GetOSDistVersion() {
 }
 
 #endif
+
+BASE_EXPORT bool IsDelegatedCompositingEnabledOhos() {
+  static const bool is_delegated_enabled =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance()
+          .GetSystemPropertiesInstance()
+          .GetBoolParameter("web.delegatedCompositing.enable", false);
+  if (!is_delegated_enabled) {
+    return false;
+  }
+
+  static const bool is_delegated_enabled_test =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance()
+          .GetSystemPropertiesInstance()
+          .GetBoolParameter("web.delegatedCompositingTest.enable", false);
+  if (is_delegated_enabled_test) {
+    return true;
+  }
+
+  static const bool is_nweb_ex_delegated_enabled =
+      base::CommandLine::ForCurrentProcess() &&
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          ::switches::kEnableNwebExDelegateCompositing);
+
+  return is_nweb_ex_delegated_enabled;
+}
 }  // namespace ohos
 
 }  // namespace base

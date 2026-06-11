@@ -700,5 +700,98 @@ void HwVideoNativeBufferImageBacking::ContextLostObserverHelper::
   context_state_ = nullptr;
 }
 //LCOV_EXCL_STOP
+
+class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
+    : public OverlayImageRepresentation,
+      public RefCountedLockHelperDrDc {
+ public:
+  DelegateVideoImageRepresentation(SharedImageManager* manager,
+                                   SharedImageBacking* backing,
+                                   MemoryTypeTracker* tracker,
+                                   scoped_refptr<RefCountedLock> drdc_lock)
+      : OverlayImageRepresentation(manager, backing, tracker),
+        RefCountedLockHelperDrDc(std::move(drdc_lock)) {}
+
+  ~DelegateVideoImageRepresentation() override {
+#if DCHECK_IS_ON()
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
+    DCHECK(!scoped_native_buffer_);
+    DCHECK_EQ(in_use_count_, 0);
+#endif
+  }
+
+ private:
+  HwVideoNativeBufferImageBacking* ohnb_backing() {
+    return static_cast<HwVideoNativeBufferImageBacking*>(backing());
+  }
+
+  bool BeginReadAccess(gfx::GpuFenceHandle& acquire_fence) override {
+    TRACE_EVENT0("gpu", "DelegateVideoImageRepresentation::BeginReadAccess");
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
+    DCHECK(!scoped_native_buffer_);
+    if (scoped_native_buffer_ != nullptr) {
+      LOG(ERROR) << "scoped_native_buffer_ should be nullptr!";
+    }
+    scoped_native_buffer_ =
+        ohnb_backing()->stream_texture_sii_->GetNativeBuffer();
+    if (!scoped_native_buffer_) {
+      LOG(ERROR) << "Failed to get the hardware buffer.";
+      return false;
+    }
+    DCHECK(scoped_native_buffer_->buffer());
+
+    auto fd_to_wait_on = scoped_native_buffer_->TakeFence();
+    acquire_fence.Adopt(std::move(fd_to_wait_on));
+    return true;
+  }
+
+  void EndReadAccess(gfx::GpuFenceHandle release_fence) override {
+    TRACE_EVENT0("gpu", "DelegateVideoImageRepresentation::EndReadAccess");
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
+    DCHECK(scoped_native_buffer_);
+    if (scoped_native_buffer_ == nullptr) {
+      LOG(ERROR) << "EndReadAccess scoped_native_buffer_ is nullptr";
+      return;
+    }
+
+    // Pass the end read access sync fd to the scoped hardware buffer. This
+    // will make sure that the AImage associated with the hardware buffer will
+    // be deleted only when the read access is ending.
+    scoped_native_buffer_->SetReadFence(
+        base::ScopedFD(release_fence.Release()));
+    scoped_native_buffer_ = nullptr;
+  }
+
+  OH_NativeBuffer* GetOHNativeBuffer() override {
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
+    DCHECK(scoped_native_buffer_);
+    if (scoped_native_buffer_ == nullptr) {
+      LOG(ERROR) << "GetOHNativeBuffer: scoped_native_buffer_ is null!";
+      return nullptr;
+    }
+    return static_cast<OH_NativeBuffer*>(scoped_native_buffer_->buffer());
+  }
+
+  void InUseByWindowServerInc() override { ++in_use_count_; }
+
+  void InUseByWindowServerDec() override {
+    DCHECK_GE(in_use_count_, 0);
+    --in_use_count_;
+  }
+
+  bool IsInUseByWindowServer() const override { return in_use_count_ > 0; }
+
+  std::atomic<uint32_t> in_use_count_ = 0;
+  std::unique_ptr<ScopedNativeBufferFenceSync> scoped_native_buffer_;
+};
+
+std::unique_ptr<OverlayImageRepresentation>
+HwVideoNativeBufferImageBacking::ProduceOverlay(SharedImageManager* manager,
+                                                MemoryTypeTracker* tracker) {
+  base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
+  TRACE_EVENT0("gpu", "HwVideoNativeBufferImageBacking::ProduceOverlay");
+  return std::make_unique<DelegateVideoImageRepresentation>(
+      manager, this, tracker, GetDrDcLock());
+}
+
 }  // namespace gpu
-                   
