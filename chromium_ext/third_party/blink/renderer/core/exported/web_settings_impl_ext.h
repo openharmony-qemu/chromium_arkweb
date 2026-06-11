@@ -98,6 +98,10 @@ class CORE_EXPORT WebSettingsImplExt final : public WebSettingsImpl {
   void SetCustomVideoPlayerOverlay(bool overlay) override;
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  void SetFullscreenVideoOverlayEnabled(bool enable) override;
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   void SetUsageScenario(int32_t usage_scenario) override;
 #endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE

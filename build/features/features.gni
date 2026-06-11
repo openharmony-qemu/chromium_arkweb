@@ -259,6 +259,7 @@ if (defined(enable_arkweb_ext) && enable_arkweb_ext) {
   arkweb_canvas_commit = true
   arkweb_vsync_schedule = true
   arkweb_pip = !is_component_build
+  arkweb_fullscreen_video_overlay = true
   arkweb_immediate_destory = false
   arkweb_cwnd = true
   arkweb_blank_optimize = !is_component_build

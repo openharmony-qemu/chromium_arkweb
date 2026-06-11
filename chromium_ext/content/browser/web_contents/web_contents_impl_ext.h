@@ -59,6 +59,10 @@ class MediaPlayerListener;
 class VideoAssistant;
 #endif  // ARKWEB_VIDEO_ASSISTANT
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+enum class VideoPlaybackNotificationType;
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
  public:
   WebContentsImplExt(BrowserContext* browser_context);
@@ -426,6 +430,12 @@ private:
   void DelVideoAssistant();
   void ReportVideoDecoderName(const std::string& decoder_name);
 #endif  // ARKWEB_VIDEO_ASSISTANT
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  bool IsFullscreenVideoOverlayEnabled() const;
+  void OnVideoStatusChanged(VideoPlaybackNotificationType action,
+                            std::map<std::string, std::string>& param);
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
   void OnShowConfirmInfoBar(const std::string& title,

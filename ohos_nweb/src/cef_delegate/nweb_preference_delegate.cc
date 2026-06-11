@@ -338,6 +338,10 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
   browser_settings.custom_video_player_overlay =
       std::get<1>(native_video_player_config_);
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  browser_settings.fullscreen_video_overlay_enable =
+      fullscreen_video_overlay_enable_;
+#endif  // BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   browser_settings.supports_multiple_windows = IsMultiWindowAccess();
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
@@ -1293,6 +1297,21 @@ void NWebPreferenceDelegate::SetNativeVideoPlayerConfig(bool enable,
             << enable;
   browser_->GetHost()->SetEnableCustomVideoPlayer(enable);
 }
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+void NWebPreferenceDelegate::PutFullScreenVideoOverlayEnable(bool enable) {
+  if (fullscreen_video_overlay_enable_ == enable) {
+    return;
+  }
+  LOG(INFO) << __func__ << " enable:" << enable;
+  fullscreen_video_overlay_enable_ = enable;
+  WebPreferencesChanged();
+}
+
+bool NWebPreferenceDelegate::GetFullScreenVideoOverlayEnable() {
+  return fullscreen_video_overlay_enable_;
+}
+#endif
 
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
 void NWebPreferenceDelegate::PutOverlayScrollbarEnabled(bool enable) {

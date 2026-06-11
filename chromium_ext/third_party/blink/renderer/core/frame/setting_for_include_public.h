@@ -116,6 +116,15 @@
   }
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  void SetFullscreenVideoOverlayEnabled(bool enable) {
+    fullscreen_video_overlay_enabled_ = enable;
+  }
+  bool IsFullscreenVideoOverlayEnabled() const {
+    return fullscreen_video_overlay_enabled_;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   void SetUsageScenario(int32_t usage_scenario) {
     usage_scenario_ = usage_scenario;

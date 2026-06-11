@@ -11,6 +11,23 @@
 
 namespace content {
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+enum class VideoPlaybackNotificationType {
+    kStatusChanged = 0,
+ 	kVolumeChanged,
+ 	kMutedChanged,
+ 	kPlaybackRateChanged,
+ 	kDurationChanged,
+ 	kTimeUpdate,
+    kBufferedEndTimeChanged,
+ 	kEnded,
+ 	kSeeking,
+ 	kSeekDone,
+ 	kError,
+ 	kVideoSizeChanged
+};
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 // LCOV_EXCL_START
 #if BUILDFLAG(ARKWEB_ACTIVITY_STATE)
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::OnMediaPlayerGone() {
@@ -54,6 +71,17 @@ bool MediaWebContentsObserver::MediaPlayerObserverHostImpl::
   }
 
   return web_contents_impl->AsWebContentsImplExt() != nullptr;
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+bool MediaWebContentsObserver::MediaPlayerObserverHostImpl::
+    IsFullscreenVideoOverlayEnabled() {
+  if (!IsWebContentsAvailable()) {
+    return false;
+  }
+  return media_web_contents_observer_->web_contents_impl()
+      ->AsWebContentsImplExt()->IsFullscreenVideoOverlayEnabled();
 }
 #endif
 
@@ -298,6 +326,21 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::UpdatePlayStateOverlay(
     uint32_t playState) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO) << "MediaWebContentsObserver::UpdatePlayStateOverlay enter. "
+                 "playState is "
+              << playState;
+    std::map<std::string, std::string> param = {
+        {"playState", std::to_string(playState)}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(VideoPlaybackNotificationType::kStatusChanged,
+                               param);
+    return;
+  }
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -306,6 +349,21 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::UpdatePlayStateOverl
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::MutedChangedOverlay(bool muted) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO)
+        << "MediaWebContentsObserver::MutedChangedOverlay enter. muted is "
+        << muted;
+    std::string isMuted = muted ? "true" : "false";
+    std::map<std::string, std::string> param = {{"muted", isMuted}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(VideoPlaybackNotificationType::kMutedChanged,
+                               param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -314,6 +372,21 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::MutedChangedOverlay(
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::PlaybackRateChangedOverlay(double playback_rate) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO) << "MediaWebContentsObserver::PlaybackRateChangedOverlay enter. "
+                 "playback_rate is "
+              << playback_rate;
+    std::map<std::string, std::string> param = {
+        {"playbackRate", std::to_string(playback_rate)}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(
+            VideoPlaybackNotificationType::kPlaybackRateChanged, param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -322,6 +395,21 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::PlaybackRateChangedO
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::DurationChangedOverlay(double duration) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO) << "MediaWebContentsObserver::DurationChangedOverlay enter. "
+                 "duration is "
+              << duration;
+    std::map<std::string, std::string> param = {
+        {"duration", std::to_string(duration)}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(
+            VideoPlaybackNotificationType::kDurationChanged, param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -330,6 +418,18 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::DurationChangedOverl
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::TimeUpdateOverlay(double current_time) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    std::map<std::string, std::string> param = {
+        {"currentTime", std::to_string(current_time)}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(VideoPlaybackNotificationType::kTimeUpdate,
+                               param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -337,6 +437,21 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::TimeUpdateOverlay(do
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::BufferedEndTimeChangedOverlay(double buffered_end_time) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO) << "MediaWebContentsObserver::BufferedEndTimeChangedOverlay "
+                 "enter. buffered_end_time is "
+              << buffered_end_time;
+    std::map<std::string, std::string> param = {
+        {"bufferedEndTime", std::to_string(buffered_end_time)}};
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(
+            VideoPlaybackNotificationType::kBufferedEndTimeChanged, param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -345,6 +460,17 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::BufferedEndTimeChang
 
 // LCOV_EXCL_START
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::EndedOverlay() {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO) << "MediaWebContentsObserver::EndedOverlay enter.";
+    std::map<std::string, std::string> param;
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(VideoPlaybackNotificationType::kEnded, param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }
@@ -391,6 +517,22 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::ErrorOverlay(int32_t
 }
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::VideoSizeChangedOverlay(int32_t width, int32_t height) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled()) {
+    LOG(INFO)
+        << "MediaWebContentsObserver::VideoSizeChangedOverlay enter. width = "
+        << width << ", height = " << height;
+    std::map<std::string, std::string> param;
+    param["width"] = std::to_string(width);
+    param["height"] = std::to_string(height);
+    media_web_contents_observer_->web_contents_impl()
+        ->AsWebContentsImplExt()
+        ->OnVideoStatusChanged(
+            VideoPlaybackNotificationType::kVideoSizeChanged, param);
+    return;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
   if (!media_player_listener_) {
     return;
   }

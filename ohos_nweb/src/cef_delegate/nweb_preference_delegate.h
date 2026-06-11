@@ -255,6 +255,12 @@ class NWebPreferenceDelegate : public NWebPreference {
 #endif  // BUILDFLAG(ARKWEB_MEDIA_POLICY)
 
   void SetNativeVideoPlayerConfig(bool enable, bool shouldOverlay) override;
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  void PutFullScreenVideoOverlayEnable(bool enable) override;
+  bool GetFullScreenVideoOverlayEnable();
+#endif
+
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
   void PutOverlayScrollbarEnabled(bool enable) override;
 #endif
@@ -488,6 +494,9 @@ class NWebPreferenceDelegate : public NWebPreference {
   int32_t background_color_{0xffffffff};
 #endif  // BUILDFLAG(ARKWEB_BACKGROUND_COLOR)
   std::tuple<bool, bool> native_video_player_config_{false, false};
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  bool fullscreen_video_overlay_enable_{false};
+#endif
 #if BUILDFLAG(ARKWEB_MEDIA_POLICY)
   bool audio_exclusive_{true};
   int32_t resume_interval_{0};

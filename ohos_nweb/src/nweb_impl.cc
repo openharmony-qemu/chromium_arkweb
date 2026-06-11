@@ -329,6 +329,10 @@ extern bool g_siteIsolationMode;
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+#include "base/strings/string_number_conversions.h"
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #include "arkweb/chromium_ext/base/arkweb_report_statistics.h"
 #include "ohos_nweb/src/nweb_common.h"
 
@@ -446,6 +450,18 @@ const int32_t SITE_ISOLATION_SET_SUCCESS = 1;
 bool g_siteIsolationModeInit = false;
 SiteIsolationInitMode g_siteIsolationModeInitValue = SiteIsolationInitMode::INIT;
 #endif  // BUILDFLAG(ARKWEB_SITE_ISOLATION)
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+enum class MediaControlActionType {
+    kPlay,
+    kPause,
+ 	kSeek,
+ 	kSetMuted,
+ 	kSetPlaybackRate,
+ 	kExit,
+ 	kUnsupported
+};
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 
 #if BUILDFLAG(ARKWEB_NO_STATE_PREFETCH)
 const int32_t MIN_TIME_BETWEEN_PREFETCHES = 500;
@@ -783,6 +799,16 @@ void ApplyANGLEStatus(std::list<std::string>& web_engine_args) {
   }
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+ MediaControlActionType ConvertToMediaControlActionType(const int32_t action) {
+ 	if (action >= 0 &&
+ 	    action <= static_cast<int32_t>(MediaControlActionType::kExit)) {
+ 	    return static_cast<MediaControlActionType>(action);
+ 	}
+ 	return MediaControlActionType::kUnsupported;
+}
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 
 static bool IsAdvancedSecurityMode() {
 #if BUILDFLAG(ARKWEB_ADVANCED_SECURITY_MODE)
@@ -4739,6 +4765,57 @@ void NWebImpl::OnContextMenuClosed() {
   nweb_delegate_->OnContextMenuClosed();
 }
 #endif  // BUILDFLAG(ARKWEB_NWEB_EX)
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+void NWebImpl::SetVideoSurface(void* native_window) {
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "failed to SetVideoSurface, delegate is null";
+    return;
+  }
+  LOG(INFO) << "NWebImpl::SetVideoSurface";
+  nweb_delegate_->WebMediaPlayerControllerSetVideoSurface(native_window);
+}
+
+void NWebImpl::RequestMediaControl(int32_t action, const std::string& param) {
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "failed to RequestMediaControl, delegate is null";
+    return;
+  }
+
+  auto media_control_type = ConvertToMediaControlActionType(action);
+  switch (media_control_type) {
+    case MediaControlActionType::kPlay:
+      nweb_delegate_->WebMediaPlayerControllerPlay();
+      break;
+    case MediaControlActionType::kPause:
+      nweb_delegate_->WebMediaPlayerControllerPause();
+      break;
+    case MediaControlActionType::kSeek:{
+      double current_time = 0.0;
+      base::StringToDouble(param, &current_time);
+      nweb_delegate_->WebMediaPlayerControllerSeek(current_time);
+      break;
+    }
+    case MediaControlActionType::kSetMuted:{
+      bool muted = (param == "1");
+      nweb_delegate_->WebMediaPlayerControllerSetMuted(muted);
+      break;
+    }
+    case MediaControlActionType::kSetPlaybackRate:{
+      double playback_rate = 1.0;
+      base::StringToDouble(param, &playback_rate);
+      nweb_delegate_->WebMediaPlayerControllerSetPlaybackRate(playback_rate);
+      break;
+    }
+    case MediaControlActionType::kExit:
+      nweb_delegate_->WebMediaPlayerControllerExitFullscreen();
+      break;
+    default:
+      LOG(WARNING) << "unsupported media control action: " << action;
+      break;
+  }
+}
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 void NWebImpl::EnableVideoAssistant(bool enable) {

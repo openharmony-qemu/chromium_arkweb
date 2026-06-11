@@ -957,6 +957,12 @@ class NWebHandlerDelegate : public ArkWebClientExt,
       const std::string& extra_info) override;
 #endif // ARKWEB_VIDEO_ASSISTANT
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  bool IsFullscreenVideoOverlayEnabled() const override;
+  void OnVideoStatusChanged(int action,
+                            std::map<std::string, std::string>& param) override;
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_MENU)
   void SetIsRichText(bool is_rich_text) { is_rich_text_ = is_rich_text; }
 #endif

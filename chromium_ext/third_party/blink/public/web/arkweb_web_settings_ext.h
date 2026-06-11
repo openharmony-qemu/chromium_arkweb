@@ -82,6 +82,10 @@ public:
   virtual void SetCustomVideoPlayerOverlay(bool overlay) = 0;
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  virtual void SetFullscreenVideoOverlayEnabled(bool enable) = 0;
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_COPY_OPTION)
   virtual void SetCopyOption(mojom::CopyOptionMode) = 0;
 #endif  // BUILDFLAG(ARKWEB_COPY_OPTION)

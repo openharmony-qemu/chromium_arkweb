@@ -132,6 +132,15 @@ virtual void OnHideConfirmInfoBar(const std::string& title,
                                   const std::string& buttonLabelOK,
                                   const std::string& buttonLabelCancel);
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+virtual void OnVideoStatusChanged(VideoPlaybackNotificationType action,
+                                  std::map<std::string, std::string>& param){};
+virtual bool IsFullscreenVideoOverlayEnabled() const {
+  return false;
+}
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_PDF)
 virtual void OnPdfScrollAtBottom(const std::string& url) {}
 virtual void OnPdfLoadEvent(int32_t result, const std::string& url) {}
