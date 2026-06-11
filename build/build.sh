@@ -13,7 +13,8 @@
 # limitations under the License.
 
 # use ./build.sh -nosym to build content_shell without symbol.
-set -e
+# 禁用set -e 以确保编译出错时脚本不会停止
+# set -e
 basedir=$(dirname "$0")
 CUR_DIR=$PWD
 ROOT_DIR="${CUR_DIR%/src*}""/src"
@@ -82,6 +83,7 @@ build_v8=0
 build_dir="out/rk3568/"
 build_product_name="product_name=\"rk3568\""
 build_target="${BUILD_TARGET_NATIVE}"
+build_modules=""
 build_output=""
 artifact_mode=0
 with_nweb_ex=0
@@ -93,9 +95,26 @@ build_fuzz=0
 use_thin_lto=0
 additional_gn_args=""
 build_hmp=0
+build_hap=0
 build_type="$1"
 build_component=0
+precise_build_ut=0
 is_official_build=1
+build_debug_version=0
+debug_args="is_debug=false"
+npm config set registry http://mirrors.tools.huawei.com/npm/
+npm config set @ohpm-test:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
+npm config set @ohos:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
+npm config set @baize:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
+npm config set strict-ssl false
+cat ${HOME}/.npmrc | grep 'lockfile=false' || echo 'lockfile=false' >> ${HOME}/.npmrc
+cp -rf ./src/upper_level/include_vector_patch.py ./
+cp -rf ./src/upper_level/.cloudbuild ./
+cp -rf ./src/upper_level/.codecheck ./
+cp -rf ./src/upper_level/.gclient ./
+cp -rf ./src/upper_level/.gclient_entries ./
+cp -rf ./src/upper_level/.gclient_previous_sync_commits ./
+cp -rf ./src/upper_level/.gcs_entries ./
 if [ -d "${ROOT_DIR}/arkweb/ohos_nweb_ex" ]; then
   with_nweb_ex=1
 fi
@@ -106,6 +125,7 @@ usage() {
 ${TEXT_BOLD}OPTIONS${TEXT_NORMAL}:
   -j N              force number of build jobs
   -ccache           Enable CCache.
+  -debug            Enable debug build.
   -t <target>       Build target, supports:
                       n Build native files.
                       b Build BrowserShell.
@@ -113,12 +133,16 @@ ${TEXT_BOLD}OPTIONS${TEXT_NORMAL}:
                       m Build NWebEx napi module.
                       M Build NWebEx napi npm package.
                       p Build HMP and NWeb WebView.
+                      component Build .so in split.
   -o <output_dir>   Output directory, for example: Default.
   -r                release build.
   -A, -artifact     Artifact mode, using pre-built NDK rather than building
                     them locally.
   -asan             Enable AddressSanitizer (ASan).
   -fuzzer           Enable Fuzzer test(with Asan).
+  -use-pac          Enable cfi protection.
+  -use-ptr-check    Enable raw_ptr_plugin check.
+  -use-blink-gc     Enable blink_gc_plugin check.
   -coverage         Enable use_clang_coverage.
   -G <gn_args>      Additional gn args.
 
@@ -201,9 +225,27 @@ while [ "$1" != "" ]; do
     "-without-nweb-ex")
       with_nweb_ex=0
       ;;
+    "-use-pac")
+      buildargs="${buildargs}
+      build_pac_cfi=true"
+      ;;
     "-coverage")
       buildargs="${buildargs}
       use_clang_coverage=true"
+      ;;
+    "-use-ptr-check")
+      buildargs="${buildargs}
+      clang_use_raw_ptr_plugin=true
+      enable_check_raw_ref_fields=true
+      enable_check_raw_ptr_fields=true
+      force_enable_raw_ptr_exclusion=true"
+      ;;
+    "-use-blink-gc")
+      buildargs="${buildargs}
+      enable_blink_gc_check=true"
+      ;;
+    "-debug")
+      build_debug_version=1
       ;;
     "-G")
       shift
