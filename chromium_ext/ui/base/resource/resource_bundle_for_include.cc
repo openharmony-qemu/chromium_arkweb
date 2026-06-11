@@ -113,15 +113,50 @@ static std::unordered_set<std::string> supportLocaleList = {
 
 #if BUILDFLAG(ARKWEB_HAP_DECOMPRESSED)
 bool LocaleDataPakExistsExt(std::string_view locale) {
+  if (locale.empty()) {
+    return false;
+  }
   const auto path = ResourceBundle::GetLocaleFilePath(locale);
   // If the hap package is not decompressed, the directory does not exist.
   ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   if (path.empty() || !base::PathExists(path)) {
-    return supportLocaleList.count(std::string(locale)) > 0;
+    const std::optional<std::string> pakLocale =
+        l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
+    if (!pakLocale) {
+      LOG(ERROR) << "CheckAndResolveLocale false, locale:" << locale;
+      return false;
+    }
+    return supportLocaleList.count(pakLocale.value()) > 0;
   } else {
     return true;
   }
 }
 #endif
+
+// static
+base::FilePath ResourceBundle::GetLocaleFilePath(std::string_view locale) {
+  if (locale.empty()) {
+    return base::FilePath();
+  }
+  const std::optional<std::string> pakLocale =
+      l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
+  if (!pakLocale) {
+    LOG(ERROR) << "CheckAndResolveLocale false, locale:" << locale;
+    return base::FilePath();
+  }
+
+  base::FilePath locale_file_path;
+
+  if (base::PathService::Get(base::DIR_ASSETS, &locale_file_path)) {
+    std::string locale_path = "locales/";
+    locale_path += pakLocale.value();
+    locale_path += ".pak";
+    locale_file_path = locale_file_path.AppendASCII(locale_path);
+  }
+
+  LOG(INFO) << "GetLocaleFilePath pakLocale:" << pakLocale.value();
+  // Don't try to load from paths that are not absolute.
+  return locale_file_path.IsAbsolute() ? locale_file_path : base::FilePath();
+}
 
 }  // namespace ui
