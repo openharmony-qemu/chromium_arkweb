@@ -66,6 +66,9 @@ private:
     bool ParseRawData(const uint8_t* data, uint32_t size);
     void NativeBufferFromPixelMap();
     void SetMemoryName(AllocatorType type);
+    uint32_t ComputeDownsampleFactor(int32_t width, int32_t height);
+    uint32_t downsampleFactor_ = 1;
+    bool downsampleFactorComputed_ = false;
 };
 
 }  // namespace NWeb
