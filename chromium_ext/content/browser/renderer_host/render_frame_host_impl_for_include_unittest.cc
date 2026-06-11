@@ -405,4 +405,124 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnNestedFling_BasicCall) {
   RenderFrameHostImpl* rfh = main_test_rfh();
   ASSERT_NO_FATAL_FAILURE(rfh->OnNestedFling(velocity_x, velocity_y));
 }
+
+#if BUILDFLAG(ARKWEB_MENU)
+TEST_F(RenderFrameHostImplForIncludeTest, HideQuickMenu_WithDelegateNotShowing) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->HideQuickMenu());
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, HideQuickMenu_NoDelegate) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  auto delegate = rfh->delegate();
+  SetDelegate(rfh, nullptr);
+  ASSERT_FALSE(rfh->delegate());
+  rfh->HideQuickMenu();
+  SetDelegate(rfh, delegate);
+  ASSERT_TRUE(rfh->delegate());
+}
+#endif  // BUILDFLAG(ARKWEB_MENU)
+
+TEST_F(RenderFrameHostImplForIncludeTest, GetAllImage_WithFrame) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->GetAllImage(1, "https://example.com/img.png", base::DoNothing()));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, GetImageByXPath_WithFrame) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->GetImageByXPath(1, "/html/body/img[1]", base::DoNothing()));
+}
+
+#if BUILDFLAG(ARKWEB_MENU) || BUILDFLAG(IS_ARKWEB_EXT)
+TEST_F(RenderFrameHostImplForIncludeTest, GetImageFromCache_BasicCall) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->GetImageFromCache("https://example.com/icon.png", base::DoNothing()));
+}
+#endif  // BUILDFLAG(ARKWEB_MENU) || BUILDFLAG(IS_ARKWEB_EXT)
+
+#if BUILDFLAG(ARKWEB_PDF)
+TEST_F(RenderFrameHostImplForIncludeTest, SetIsPDF_True) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->SetIsPDF(true));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, SetIsPDF_False) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->SetIsPDF(false));
+}
+#endif  // BUILDFLAG(ARKWEB_PDF)
+
+#if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+TEST_F(RenderFrameHostImplForIncludeTest, OnOverScrollOffsetChanged_BasicCall) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->OnOverScrollOffsetChanged(10.0f, 20.0f));
+}
+#endif  // BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+TEST_F(RenderFrameHostImplForIncludeTest, SetBlankScreenDetectionConfig_Enable) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  std::vector<double> timing = {1.0, 2.0, 3.0};
+  std::vector<int32_t> methods = {1, 2};
+  ASSERT_NO_FATAL_FAILURE(rfh->SetBlankScreenDetectionConfig(true, timing, methods, 5));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, SetBlankScreenDetectionConfig_Disable) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  std::vector<double> timing;
+  std::vector<int32_t> methods;
+  ASSERT_NO_FATAL_FAILURE(rfh->SetBlankScreenDetectionConfig(false, timing, methods, 0));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, DetectBlankScreen_Disabled) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->DetectBlankScreen("https://example.com"));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, DetectBlankScreen_Enabled) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  std::vector<double> timing = {1.0};
+  std::vector<int32_t> methods = {1};
+  rfh->SetBlankScreenDetectionConfig(true, timing, methods, 5);
+  ASSERT_NO_FATAL_FAILURE(rfh->DetectBlankScreen("https://example.com"));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, OnDetectedBlankScreen_BasicCall) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->OnDetectedBlankScreen("https://example.com", 1, 0));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, OnDetectedBlankScreen_Enabled) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  std::vector<double> timing = {1.0};
+  std::vector<int32_t> methods = {1};
+  rfh->SetBlankScreenDetectionConfig(true, timing, methods, 5);
+  ASSERT_NO_FATAL_FAILURE(rfh->OnDetectedBlankScreen("https://example.com", 1, 0));
+}
+#endif  // BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+
+#if BUILDFLAG(ARKWEB_FIRST_SCREEN_PAINT)
+TEST_F(RenderFrameHostImplForIncludeTest, OnFirstScreenPaint_BasicCall) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->OnFirstScreenPaint("https://example.com", 1000, 2000));
+}
+#endif  // BUILDFLAG(ARKWEB_FIRST_SCREEN_PAINT)
+
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+TEST_F(RenderFrameHostImplForIncludeTest, NotifyContextMenuWillShow_BasicCall) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->NotifyContextMenuWillShow());
+}
+#endif  // BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+
+#if BUILDFLAG(ARKWEB_ACCESSIBILITY)
+TEST_F(RenderFrameHostImplForIncludeTest, SendAccessibilityEvent_SecondCall) {
+  int64_t accessibilityId = 456;
+  int32_t eventType = 2;
+  std::string argument = "second test";
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->SendAccessibilityEvent(accessibilityId, eventType, argument));
+}
+#endif  // BUILDFLAG(ARKWEB_ACCESSIBILITY)
+
 }  // namespace content

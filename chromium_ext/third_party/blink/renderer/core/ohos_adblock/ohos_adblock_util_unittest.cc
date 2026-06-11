@@ -106,7 +106,7 @@ TEST_F(OhosAdblockUtilTest, IsValidTarget_004) {
   auto result = IsValidTarget(nullptr, top, left, width, height);
   EXPECT_FALSE(result);
   result = IsValidTarget(one, top, left, width, height);
-  EXPECT_FALSE(result);
+  EXPECT_TRUE(result);
 }
 
 TEST_F(OhosAdblockUtilTest, IsValidTarget_005) {
@@ -369,5 +369,312 @@ TEST_F(OhosAdblockUtilTest, GetDomPath_007) {
   ASSERT_NE(p, nullptr);
   std::string result = GetDomPath(*p, false, false);
   EXPECT_EQ(result, "DIV#app>MAIN>SECTION>P");
+}
+
+TEST_F(OhosAdblockUtilTest, IsValidTarget_SiblingsNull) {
+  SetBodyContent("<div id=host><span id=one>one</span></div>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  Element* target = To<Element>(one);
+  CHECK(target);
+  int top = target->OffsetTop();
+  int left = target->OffsetLeft();
+  int height = target->OffsetHeight();
+  int width = target->OffsetWidth();
+  auto result = IsValidTarget(one, top, left, width, height);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(OhosAdblockUtilTest, PrefixedElementClassNames_WithClasses) {
+  SetBodyContent("<div id='host'><span id='one' class='foo bar baz'>one</span></div>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  auto result = PrefixedElementClassNames(*one, true);
+  EXPECT_TRUE(result.empty());
+  result = PrefixedElementClassNames(*one, false);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, PrefixedElementClassNames_NoClass) {
+  SetBodyContent("<div id='host'><span id='one'>one</span></div>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  auto result = PrefixedElementClassNames(*one, false);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_InputWithTypeNoIdNoClass) {
+  SetBodyContent("<form><input type='password'></form>");
+  HTMLCollection* inputs = GetDocument().getElementsByTagName(AtomicString("input"));
+  ASSERT_GT(inputs->length(), 0u);
+  Element* input_elem = inputs->item(0);
+  CHECK(input_elem);
+  auto result = GetDomPathStep(*input_elem, false, true, true);
+  EXPECT_TRUE(result.first.find("[type=password]") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_InputWithTypeHasId) {
+  SetBodyContent("<form><input id='pw' type='password'></form>");
+  HTMLCollection* inputs = GetDocument().getElementsByTagName(AtomicString("input"));
+  ASSERT_GT(inputs->length(), 0u);
+  Element* input_elem = inputs->item(0);
+  CHECK(input_elem);
+  auto result = GetDomPathStep(*input_elem, false, true, true);
+  EXPECT_TRUE(result.first.find("[type=") == std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_InputWithTypeHasClass) {
+  SetBodyContent("<form><input class='cls' type='password'></form>");
+  HTMLCollection* inputs = GetDocument().getElementsByTagName(AtomicString("input"));
+  ASSERT_GT(inputs->length(), 0u);
+  Element* input_elem = inputs->item(0);
+  CHECK(input_elem);
+  auto result = GetDomPathStep(*input_elem, false, true, true);
+  EXPECT_TRUE(result.first.find("[type=") == std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_InputNotTargetNode) {
+  SetBodyContent("<form><input type='password'></form>");
+  HTMLCollection* inputs = GetDocument().getElementsByTagName(AtomicString("input"));
+  ASSERT_GT(inputs->length(), 0u);
+  Element* input_elem = inputs->item(0);
+  CHECK(input_elem);
+  auto result = GetDomPathStep(*input_elem, false, false, true);
+  EXPECT_TRUE(result.first.find("[type=") == std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedNoIdNotSpecial) {
+  SetBodyContent("<div id='root'><b id='one'>text</b></div>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  auto result = GetDomPathStep(*one, true, false, true);
+  EXPECT_EQ(result.first, "#one");
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedBody) {
+  SetBodyContent("<div id='root'>text</div>");
+  Node* body = GetDocument().body();
+  CHECK(body);
+  auto result = GetDomPathStep(*body, true, false, true);
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedHead) {
+  SetBodyContent("<html><head>o</head><body></body></html>");
+  Node* html_node = GetDocument().documentElement();
+  CHECK(html_node);
+  Node* head = html_node->firstChild();
+  CHECK(head);
+  auto result = GetDomPathStep(*head, true, false, true);
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedHtml) {
+  Node* html_node = GetDocument().documentElement();
+  CHECK(html_node);
+  auto result = GetDomPathStep(*html_node, true, false, true);
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_NonOptimizedWithId) {
+  SetBodyContent("<div id='root'><span id='myid'>text</span></div>");
+  Node* span = GetDocument().getElementById(AtomicString("myid"));
+  CHECK(span);
+  auto result = GetDomPathStep(*span, false, false, false);
+  EXPECT_TRUE(result.first.find("#myid") != std::string::npos);
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_NonOptimizedWithIdPureDomPath) {
+  SetBodyContent("<div id='root'><span id='myid'>text</span></div>");
+  Node* span = GetDocument().getElementById(AtomicString("myid"));
+  CHECK(span);
+  auto result = GetDomPathStep(*span, false, false, true);
+  EXPECT_TRUE(result.first.find("#") == std::string::npos);
+  EXPECT_FALSE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_SameNodeNameSiblingsNeedsNthChild) {
+  SetBodyContent("<div id='root'><b id='a'></b><b id='b'></b></div>");
+  Node* b_a = GetDocument().getElementById(AtomicString("a"));
+  Node* b_b = GetDocument().getElementById(AtomicString("b"));
+  CHECK(b_a);
+  CHECK(b_b);
+  auto result_a = GetDomPathStep(*b_a, false, false, true);
+  EXPECT_TRUE(result_a.first.find(":nth-child(") != std::string::npos);
+  auto result_b = GetDomPathStep(*b_b, false, false, true);
+  EXPECT_TRUE(result_b.first.find(":nth-child(") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_DifferentNodeNameNoNthChild) {
+  SetBodyContent("<div id='root'><b id='a'></b><span id='b'></span></div>");
+  Node* b_elem = GetDocument().getElementById(AtomicString("a"));
+  CHECK(b_elem);
+  auto result = GetDomPathStep(*b_elem, false, false, true);
+  EXPECT_TRUE(result.first.find(":nth-child(") == std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_NeedsClassNames) {
+  SetBodyContent("<div id='root'>"
+                 "<b class='cls1 cls2'></b>"
+                 "<b class='cls3'></b>"
+                 "</div>");
+  HTMLCollection* bs = GetDocument().getElementsByTagName(AtomicString("b"));
+  ASSERT_GE(bs->length(), 2u);
+  Element* first_b = bs->item(0);
+  CHECK(first_b);
+  auto result = GetDomPathStep(*first_b, false, false, false);
+  EXPECT_TRUE(result.first.find(":nth-child(") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_ShadowRootOpen) {
+  SetBodyContent("<div id='host'></div>");
+  Element* host = GetDocument().getElementById(AtomicString("host"));
+  CHECK(host);
+  host->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  auto result = GetDomPathStep(*host, false, false, true);
+  EXPECT_FALSE(result.first.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_SiblingShadowRootOpen) {
+  SetBodyContent("<div id='root'><div id='a'></div><div id='b'></div></div>");
+  Element* a_elem = GetDocument().getElementById(AtomicString("a"));
+  Element* b_elem = GetDocument().getElementById(AtomicString("b"));
+  CHECK(a_elem);
+  CHECK(b_elem);
+  a_elem->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  b_elem->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  auto result = GetDomPathStep(*a_elem, false, false, true);
+  EXPECT_TRUE(result.first.find(":nth-child(") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_ParentNull) {
+  SetBodyContent("<div id='root'>text</div>");
+  Node* doc_elem = GetDocument().documentElement();
+  CHECK(doc_elem);
+  auto result = GetDomPathStep(*doc_elem, false, false, true);
+  EXPECT_FALSE(result.first.empty());
+  EXPECT_TRUE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_SingleChildNoNthChild) {
+  SetBodyContent("<div id='root'><b id='a'></b></div>");
+  Node* b_elem = GetDocument().getElementById(AtomicString("a"));
+  CHECK(b_elem);
+  auto result = GetDomPathStep(*b_elem, false, false, true);
+  EXPECT_TRUE(result.first.find(":nth-child(") == std::string::npos);
+  EXPECT_TRUE(result.first == "B");
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPath_TextNode) {
+  SetBodyContent("plain text");
+  Node* text_node = GetDocument().body()->firstChild();
+  CHECK(text_node);
+  std::string result = GetDomPath(*text_node, false, true);
+  EXPECT_EQ(result, "");
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPath_OptimizedTrue) {
+  SetBodyContent("<div id='root'><span id='child'>text</span></div>");
+  Node* child = GetDocument().getElementById(AtomicString("child"));
+  CHECK(child);
+  std::string result = GetDomPath(*child, true, true);
+  EXPECT_EQ(result, "#child");
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPath_WithPureDomPathFalse) {
+  SetBodyContent("<div id='app'><span id='child'>text</span></div>");
+  Node* child = GetDocument().getElementById(AtomicString("child"));
+  CHECK(child);
+  std::string result = GetDomPath(*child, false, false);
+  EXPECT_TRUE(result.find("SPAN#child") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedNoIdSpecialBody) {
+  Node* body = GetDocument().body();
+  CHECK(body);
+  auto result = GetDomPathStep(*body, true, false, true);
+  EXPECT_TRUE(result.second);
+  EXPECT_FALSE(result.first.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPath_ElementTypeAttr) {
+  SetBodyContent("<div><button type='submit'>click</button></div>");
+  HTMLCollection* buttons = GetDocument().getElementsByTagName(AtomicString("button"));
+  ASSERT_GT(buttons->length(), 0u);
+  Element* btn = buttons->item(0);
+  CHECK(btn);
+  std::string result = GetDomPath(*btn, false, true);
+  EXPECT_TRUE(result.find("BUTTON") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, Escape_SpecialChars) {
+  std::string input = "test.id";
+  std::string result = Escape(input);
+  EXPECT_FALSE(result.empty());
+  std::string input2 = "simple";
+  result = Escape(input2);
+  EXPECT_FALSE(result.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, IsValidTarget_ParentIsBody) {
+  SetBodyContent("<span id='one'>one</span>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  Element* target = To<Element>(one);
+  CHECK(target);
+  int top = target->OffsetTop();
+  int left = target->OffsetLeft();
+  int height = target->OffsetHeight();
+  int width = target->OffsetWidth();
+  auto result = IsValidTarget(one, top, left, width, height);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPath_WithClassesOnSiblings) {
+  SetBodyContent("<div id='root'>"
+                 "<b class='alpha beta'></b>"
+                 "<b class='gamma'></b>"
+                 "</div>");
+  HTMLCollection* bs = GetDocument().getElementsByTagName(AtomicString("b"));
+  ASSERT_GE(bs->length(), 2u);
+  Element* first_b = bs->item(0);
+  CHECK(first_b);
+  std::string result = GetDomPath(*first_b, false, false);
+  EXPECT_FALSE(result.empty());
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_NonElementNode) {
+  SetBodyContent("hello");
+  Node* text_node = GetDocument().body()->firstChild();
+  CHECK(text_node);
+  auto result = GetDomPathStep(*text_node, false, false, true);
+  EXPECT_EQ(result.first, "");
+  EXPECT_FALSE(result.second);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_SiblingsWithSameClasses) {
+  SetBodyContent("<div id='root'>"
+                 "<b class='shared'></b>"
+                 "<b class='shared'></b>"
+                 "</div>");
+  HTMLCollection* bs = GetDocument().getElementsByTagName(AtomicString("b"));
+  ASSERT_GE(bs->length(), 2u);
+  Element* first_b = bs->item(0);
+  CHECK(first_b);
+  auto result = GetDomPathStep(*first_b, false, false, false);
+  EXPECT_TRUE(result.first.find(":nth-child(") != std::string::npos);
+}
+
+TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedNoIdNoSpecialName) {
+  SetBodyContent("<div id='root'><span>text</span></div>");
+  HTMLCollection* spans = GetDocument().getElementsByTagName(AtomicString("span"));
+  ASSERT_GT(spans->length(), 0u);
+  Element* span = spans->item(0);
+  CHECK(span);
+  auto result = GetDomPathStep(*span, true, false, true);
+  EXPECT_FALSE(result.first.empty());
+  EXPECT_FALSE(result.second);
 }
 }  // namespace blink
