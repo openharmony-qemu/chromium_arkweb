@@ -176,6 +176,8 @@ private:
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   int media_player_waiting_cnt_ = 0;
   bool has_reported_experience_{false};
+  bool video_src_same_{false};
+  KURL video_src_;
   std::string GetMainUrl() const;
 #endif // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
  };
