@@ -71,6 +71,9 @@ struct NWebAppClientExtensionCallback {
   void (*OnTopControlsChanged)(float top_controls_offset,
                                float top_content_offset,
                                int nweb_id);
+  void (*OnBottomControlsChanged)(float bottom_controls_offset,
+                                  float bottom_content_offset,
+                                  int nweb_id);
   void (*ContentsBrowserZoomChange)(double zoom_factor,
                                     bool can_show_bubble,
                                     int nweb_id);

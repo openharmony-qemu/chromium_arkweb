@@ -715,6 +715,13 @@ class MockNWebDelegate : public NWebDelegateInterface {
               UpdateBrowserControlsHeight,
               (int height, bool animate),
               (override));
+  MOCK_METHOD(void,
+              SetBrowserControlsParams,
+              (float top_controls_height,
+               float top_controls_min_height,
+               float bottom_controls_height,
+               float bottom_controls_min_height),
+              (override));
 #endif
 #if BUILDFLAG(ARKWEB_POST_URL)
   MOCK_METHOD(int,
