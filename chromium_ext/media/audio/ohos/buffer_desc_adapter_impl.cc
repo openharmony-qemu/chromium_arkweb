@@ -18,7 +18,7 @@
 namespace OHOS::NWeb {
 
 uint8_t* BufferDescAdapterImpl::GetBuffer() {
-  return buffer_;
+  return buffer_.get();
 }
 
 size_t BufferDescAdapterImpl::GetBufLength() {
@@ -30,7 +30,7 @@ size_t BufferDescAdapterImpl::GetDataLength() {
 }
 
 void BufferDescAdapterImpl::SetBuffer(uint8_t* buffer) {
-  buffer_ = buffer;
+  buffer_ = raw_ptr<uint8_t>(buffer);
 }
 
 void BufferDescAdapterImpl::SetBufLength(size_t bufLength) {

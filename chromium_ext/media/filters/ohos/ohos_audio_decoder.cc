@@ -67,7 +67,7 @@ int32_t OHOSAudioDecoderFormat::GetSetupHeader() {
 }
 
 uint8_t* OHOSAudioDecoderFormat::GetCodecConfig() {
-  return codec_config_;
+  return codec_config_.get();
 }
 
 uint32_t OHOSAudioDecoderFormat::GetCodecConfigSize() {
@@ -107,7 +107,7 @@ void OHOSAudioDecoderFormat::SetSetupHeader(int32_t setupHeader) {
 }
 
 void OHOSAudioDecoderFormat::SetCodecConfig(uint8_t* codecConfig) {
-  codec_config_ = codecConfig;
+  codec_config_ = raw_ptr<uint8_t>(codecConfig);
 }
 
 void OHOSAudioDecoderFormat::SetCodecConfigSize(uint32_t size) {

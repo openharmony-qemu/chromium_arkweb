@@ -39,11 +39,11 @@ public:
 
   ~OHOSAudioCencInfo();
 
-  uint8_t* GetKeyId() override { return keyId_; }
+  uint8_t* GetKeyId() override { return keyId_.get(); }
 
   uint32_t GetKeyIdLen() override { return keyIdLen_; }
 
-  uint8_t* GetIv() override { return iv_; }
+  uint8_t* GetIv() override { return iv_.get(); }
 
   uint32_t GetIvLen() override { return ivLen_; }
 
@@ -61,11 +61,11 @@ public:
 
   uint32_t GetMode() override { return mode_; }
 
-  void SetKeyId(uint8_t* keyId) override { keyId_ = keyId; }
+  void SetKeyId(uint8_t* keyId) override { keyId_ = raw_ptr<uint8_t>(keyId); }
 
   void SetKeyIdLen(uint32_t keyIdLen) override { keyIdLen_ = keyIdLen; }
 
-  void SetIv(uint8_t* iv) override { iv_ = iv; }
+  void SetIv(uint8_t* iv) override { iv_ = raw_ptr<uint8_t>(iv); }
 
   void SetIvLen(uint32_t ivLen) override { ivLen_ = ivLen; }
 
@@ -84,11 +84,11 @@ public:
   void SetMode(uint32_t mode) override { mode_ = mode; }
 
 private:
-  uint8_t* keyId_;
+  raw_ptr<uint8_t> keyId_;
 
   uint32_t keyIdLen_;
 
-  uint8_t* iv_;
+  raw_ptr<uint8_t> iv_;
 
   uint32_t ivLen_;
 
@@ -174,7 +174,7 @@ public:
 
   int32_t setup_header_;
 
-  uint8_t* codec_config_;
+  raw_ptr<uint8_t> codec_config_;
 
   uint32_t codec_config_size_;
 };
