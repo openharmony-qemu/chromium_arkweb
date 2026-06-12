@@ -3114,11 +3114,19 @@ void NWebHandlerDelegate::OnTopControlsChanged(float top_controls_offset,
                                                float top_content_offset) {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnTopControlsChanged(
-          nweb_id_, top_controls_offset, top_content_offset)) {
-    top_content_offset_ = top_content_offset;
-  }
-  return;
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+      .OnTopControlsChanged(nweb_id_, top_controls_offset, top_content_offset);
+#endif  // ARKWEB_NWEB_EX
+#endif
+}
+
+void NWebHandlerDelegate::OnBottomControlsChanged(float bottom_controls_offset,
+                                                  float bottom_content_offset) {
+#if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+      .OnBottomControlsChanged(nweb_id_, bottom_controls_offset,
+                               bottom_content_offset);
 #endif  // ARKWEB_NWEB_EX
 #endif
 }
@@ -3126,25 +3134,13 @@ void NWebHandlerDelegate::OnTopControlsChanged(float top_controls_offset,
 NO_SANITIZE("cfi-icall") int NWebHandlerDelegate::OnGetTopControlsHeight() {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnGetTopControlsHeight(nweb_id_);
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+      .OnGetTopControlsHeight(nweb_id_);
 #endif  // ARKWEB_NWEB_EX
 #else
   return 0;
 #endif
 }
-
-bool NWebHandlerDelegate::DoBrowserControlsShrinkRendererSize() {
-#if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
-  if (CefCommandLine::GetGlobalCommandLine()->HasSwitch(
-          ::switches::kEnableNwebExTopControls) &&
-      top_content_offset_ > 0) {
-    return true;
-  }
-#endif
-
-  return false;
-}
-// BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 
 #if BUILDFLAG(ARKWEB_EXT_PULL_TO_REFRESH)
 bool NWebHandlerDelegate::OnPullToRefreshAction(int action) {
@@ -4365,7 +4361,7 @@ bool NWebHandlerDelegate::RunContextMenu(
   if (!nweb_handler_ || !render_handler_) {
     return false;
   }
-  int32_t view_port_height = 0;
+  float view_port_height = 0;
 #if defined(OHOS_EX_TOPCONTROLS)
   if (browser && browser->GetHost()) {
     view_port_height = browser->GetHost()->GetShrinkViewportHeight();

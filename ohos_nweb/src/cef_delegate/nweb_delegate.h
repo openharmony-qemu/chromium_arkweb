@@ -658,6 +658,10 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
                                   int current,
                                   bool animate) const override;
   void UpdateBrowserControlsHeight(int height, bool animate) override;
+  void SetBrowserControlsParams(float top_controls_height,
+                                float top_controls_min_height,
+                                float bottom_controls_height,
+                                float bottom_controls_min_height) override;
 #endif
 
 #if BUILDFLAG(ARKWEB_PRINT)

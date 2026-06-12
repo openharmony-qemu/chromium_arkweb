@@ -483,8 +483,8 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(bool, Discard, (), (override));
   MOCK_METHOD(bool, Restore, (), (override));
   MOCK_METHOD(void, SetBrowserZoomLevel, (double), (override));
-  MOCK_METHOD(int, GetTopControlsOffset, (), (override));
-  MOCK_METHOD(int, GetShrinkViewportHeight, (), (override));
+  MOCK_METHOD(float, GetTopControlsOffset, (), (override));
+  MOCK_METHOD(float, GetShrinkViewportHeight, (), (override));
   MOCK_METHOD(void, OnEyeDropperResult, (bool, uint32_t), (override));
   MOCK_METHOD(void, SetPrintBackground, (bool), (override));
   MOCK_METHOD(bool, GetPrintBackground, (), (override));
@@ -606,6 +606,10 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(void, PasswordSuggestionSelected, (int), (override));
   MOCK_METHOD(void, UpdateBrowserControlsState, (int, int, bool), (override));
   MOCK_METHOD(void, UpdateBrowserControlsHeight, (int, bool), (override));
+  MOCK_METHOD(void,
+              SetBrowserControlsParams,
+              (float, float, float, float),
+              (override));
   MOCK_METHOD(void,
               PrefetchPage,
               (const OHOS::NWeb::PrefetchOptions&),

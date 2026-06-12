@@ -182,7 +182,7 @@ namespace OHOS::NWeb {
 NWebContextMenuParamsImpl::NWebContextMenuParamsImpl(
     CefRefPtr<CefContextMenuParams> params,
     float virutal_device_ratio,
-    int32_t view_port_height)
+    float view_port_height)
     : params_(params),
       virutal_device_ratio_(virutal_device_ratio),
       view_port_height_(view_port_height) {}
