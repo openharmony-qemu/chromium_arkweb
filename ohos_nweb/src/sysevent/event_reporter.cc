@@ -476,6 +476,20 @@ void ReportAvSessionStatus(const std::string& disable_web_av_session_status) {
       {DISABLE_WEB_AV_SESSION_STATUS, disable_web_av_session_status});
 }
 
+inline bool IsReleaseVersion() {
+  const char* osReleaseType = OH_GetOsReleaseType();
+  const char* distributionReleaseType = OH_GetDistributionOSReleaseType();
+  auto IsNullOrEmpty = [](const char* str) {
+    return str == nullptr || str[0] == '\0';
+  };
+  auto IsRelease = [](const char* str) {
+    return str != nullptr && strcmp(str, "Release") == 0;
+  };
+  return IsRelease(osReleaseType) || IsRelease(distributionReleaseType) ||
+      (IsNullOrEmpty(osReleaseType) && IsNullOrEmpty(distributionReleaseType));
+}
+
+// The image of the release version does not report the URL, which poses privacy and security risks.
 void ReportRendererMem(const std::string& type,
                        const std::string& pid,
                        const std::string& rss,
@@ -485,10 +499,18 @@ void ReportRendererMem(const std::string& type,
                        const std::string& gpu_mem,
                        const std::string& url)
 {
-  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
-      PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
-      {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
-       JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem, URL, url});
+  bool isReleaseVersion = IsReleaseVersion();
+  if (isReleaseVersion) {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+        PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
+        {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
+         JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem});
+  } else {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+        PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
+        {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
+         JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem, URL, url});
+  }
 }
 
 void ReportBasicRendererMem(const std::string& pid,
