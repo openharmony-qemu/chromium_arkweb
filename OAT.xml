@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <oatconfig>
+        <licensefile>LICENSE</licensefile>
+        <policylist>
+            <policy name="projectPolicy" desc="chromium_arkweb project compliance policy">
+                <policyitem type="compatibility" name="InvalidLicense" path="build/ohpm/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter" desc="npm packages referenced by ohpm module declare license in Markdown format but content is standard MIT license, widely used by open source community"/>
+                <policyitem type="compatibility" name="InvalidLicense" path="ohos_browser_shell/AppScope/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter" desc="app.json5 is a HarmonyOS application configuration file that does not require a source code license header"/>
+                <policyitem type="compatibility" name="InvalidLicense" path="ohos_nweb_turbo/tools/.*/AppScope/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter" desc="app.json5 is a HarmonyOS application configuration file that does not require a source code license header"/>
+                <policyitem type="compatibility" name="GPL-2.0-or-later" path="build/hmp_build/tools/sign_tool/.*" rule="may" group="defaultGroup" filefilter="defaultPolicyFilter" desc="sign_tool references GPL components only for build-time signature verification, not linked at runtime, complies with GPL propagation requirements"/>
+            </policy>
+        </policylist>
+        <filefilterlist>
+            <filefilter name="defaultFilter" desc="third-party build artifacts and binary files filter">
+                <filteritem type="filename" name="*.so|*.jar|*.pem|*.img|*.png|*.wasm.z|OAT.xml.bak.*" desc="build artifacts and binary files are required for signing tools, SELinux policy libraries, ext2 filesystem tools and frontend resources"/>
+                <filteritem type="filepath" name="build/.*" desc="build directory contains third-party open source build artifacts, needed for device image packaging, not involved in source compilation propagation"/>
+                <filteritem type="filepath" name="ohos_adapter_ndk/stub/.*" desc="NDK stub library is HarmonyOS adaptation layer interface definition, does not contain actual implementation, only used for cross-architecture compilation and linking"/>
+                <filteritem type="filepath" name="ohos_browser_shell/.*/resources/.*/media/.*" desc="browser shell application icon and other media resource files"/>
+                <filteritem type="filepath" name="ohos_nweb_turbo/tools/.*/resources/.*/media/.*" desc="NWebTurbo tools resource image files"/>
+                <filteritem type="filepath" name="build/ohpm/resources/.*" desc="ohpm package manager configuration files"/>
+                <filteritem type="filepath" name="ut_tools/filters/.*" desc="unit test filter configuration files"/>
+                <filteritem type="filepath" name="ci_tools/.*" desc="CI tool scripts"/>
+            </filefilter>
+            <filefilter name="defaultPolicyFilter" desc="license compatibility policy filter">
+                <filteritem type="filename" name="OAT.xml.bak.*" desc="OAT backup files do not need to be checked"/>
+            </filefilter>
+            <filefilter name="copyrightPolicyFilter" desc="copyright header policy filter"/>
+            <filefilter name="licenseFileNamePolicyFilter" desc="LICENSE file policy filter"/>
+            <filefilter name="readmeFileNamePolicyFilter" desc="README file policy filter"/>
+            <filefilter name="readmeOpenSourcefileNamePolicyFilter" desc="README.OpenSource file policy filter"/>
+            <filefilter name="binaryFileTypePolicyFilter" desc="binary file policy filter">
+                <filteritem type="filename" name="*.so|*.jar|*.pem|*.img|*.png|*.wasm.z|OAT.xml.bak.*" desc="build artifacts and binary files filter"/>
+                <filteritem type="filepath" name="build/.*" desc="build directory artifacts filter"/>
+                <filteritem type="filepath" name="ohos_adapter_ndk/stub/.*" desc="NDK stub library filter"/>
+                <filteritem type="filepath" name="ohos_browser_shell/.*/resources/.*/media/.*" desc="media resources filter"/>
+                <filteritem type="filepath" name="ohos_nweb_turbo/tools/.*/resources/.*/media/.*" desc="tools resources filter"/>
+                <filteritem type="filepath" name="build/ohpm/resources/.*" desc="ohpm configuration filter"/>
+                <filteritem type="filepath" name="ut_tools/filters/.*" desc="test filter configuration filter"/>
+                <filteritem type="filepath" name="ci_tools/.*" desc="CI tools filter"/>
+            </filefilter>
+        </filefilterlist>
+        <licensematcherlist>
+            <licensematcher name="MIT License" desc="npm packages license referenced by ohpm module">
+                <licensetext name="
+                    MIT License
+
+                    Permission is hereby granted, free of charge, to any person obtaining a copy
+                    of this software and associated documentation files (the &quot;Software&quot;), to deal
+                    in the Software without restriction, including without limitation the rights
+                    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                    copies of the Software, and to permit persons to whom the Software is
+                    furnished to do so, subject to the following conditions:
+
+                    The above copyright notice and this permission notice shall be included in all
+                    copies or substantial portions of the Software.
+                 " desc=""/>
+            </licensematcher>
+        </licensematcherlist>
+    </oatconfig>
+</configuration>
