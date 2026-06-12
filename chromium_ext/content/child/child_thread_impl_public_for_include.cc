@@ -50,6 +50,11 @@
     HicollieReporter::ReportFreezeToHicollie();
   }
 #endif
+
+  void NotifyFreezeReported() override {
+    LOG(INFO) << "Browser reported freeze, marking as reported";
+    ::OnFreezeReportedFromBrowser();
+  }
 #endif
 
 #if BUILDFLAG(ARKWEB_RENDERER_ANR_DUMP)

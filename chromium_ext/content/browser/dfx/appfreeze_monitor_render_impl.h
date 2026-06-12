@@ -21,6 +21,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 
 void ReportRenderFreeze(int32_t pid, const std::string& processName, const std::string& freezeMsg, int32_t uid);
+void OnFreezeReportedFromBrowser();
 
 class AppfreezeMonitorImpl {
 public:
@@ -32,6 +33,7 @@ public:
   bool IsReported() {
     return reported_;
   }
+  bool IsReportedFromBrowser();
 private:
   std::unique_ptr<base::SingleThreadTaskExecutor> task_executor_ =
     std::make_unique<base::SingleThreadTaskExecutor>(base::MessagePumpType::DEFAULT);
