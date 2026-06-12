@@ -1766,3 +1766,448 @@ TEST_F(SelectionControllerForIncludeTest, IsValidAISelection_EmptyRangeAtZero) {
   select.push_back(0);
   EXPECT_FALSE(SelectionControllerUtils::IsValidAISelection(select));
 }
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSibling_NullNode) {
+  Node* result = SelectionControllerUtils::SameEditablePreviousSibling(nullptr);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSibling_NoPreviousSibling) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='first'>first</div>
+      <div id='second'>second</div>
+    </body>
+  )HTML");
+
+  Node* second = GetDocument().getElementById(AtomicString("second"))->firstChild();
+  ASSERT_TRUE(second != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditablePreviousSibling(second);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSibling_DifferentEditable) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='parent' contenteditable="true">
+        <div id='first' contenteditable="false">first</div>
+        <div id='second'>second</div>
+      </div>
+    </body>
+  )HTML");
+
+  Node* second = GetDocument().getElementById(AtomicString("second"))->firstChild();
+  ASSERT_TRUE(second != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditablePreviousSibling(second);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSibling_SameEditable) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='parent' contenteditable="true">
+        <span id='first'>first</span>
+        <span id='second'>second</span>
+      </div>
+    </body>
+  )HTML");
+
+  Node* second = GetDocument().getElementById(AtomicString("second"))->firstChild();
+  ASSERT_TRUE(second != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditablePreviousSibling(second);
+  EXPECT_TRUE(result != nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParent_NullNode) {
+  Node* result = SelectionControllerUtils::SameEditableParent(nullptr);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParent_NoParent) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample'>sample</div>
+    </body>
+  )HTML");
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditableParent(sample);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParent_DifferentEditable) {
+  SetHtmlInnerHTML(R"HTML(
+    <body contenteditable="true">
+      <div id='sample' contenteditable="false">sample</div>
+    </body>
+  )HTML");
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditableParent(sample);
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParent_SameEditable) {
+  SetHtmlInnerHTML(R"HTML(
+    <body contenteditable="true">
+      <div id='parent'>
+        <span id='child'>child</span>
+      </div>
+    </body>
+  )HTML");
+
+  Node* child = GetDocument().getElementById(AtomicString("child"))->firstChild();
+  ASSERT_TRUE(child != nullptr);
+
+  Node* result = SelectionControllerUtils::SameEditableParent(child);
+  EXPECT_TRUE(result != nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpace_HasPreviousSibling) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='parent' contenteditable="true">
+        <span id='first'>first</span>
+        <span id='second'>second</span>
+        <span id='third'>   </span>
+      </div>
+    </body>
+  )HTML");
+
+  Node* third = GetDocument().getElementById(AtomicString("third"))->firstChild();
+  ASSERT_TRUE(third != nullptr);
+
+  const blink::PositionInFlatTree pos(third, 0);
+  Node* result = SelectionControllerUtils::UpdateAnchorIfWhiteSpace(third, pos);
+  EXPECT_TRUE(result != nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpace_SameEditableParentContinue) {
+  SetHtmlInnerHTML(R"HTML(
+    <body contenteditable="true">
+      <div id='parent'>
+        <span id='whitespace1'>   </span>
+        <span id='whitespace2'>   </span>
+        <span id='content'>content</span>
+      </div>
+    </body>
+  )HTML");
+
+  Node* whitespace2 = GetDocument().getElementById(AtomicString("whitespace2"))->firstChild();
+  ASSERT_TRUE(whitespace2 != nullptr);
+
+  const blink::PositionInFlatTree pos(whitespace2, 0);
+  Node* result = SelectionControllerUtils::UpdateAnchorIfWhiteSpace(whitespace2, pos);
+  EXPECT_TRUE(result != nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpace_ElseBreak) {
+  SetHtmlInnerHTML(R"HTML(
+    <body contenteditable="true">
+      <div id='parent'>
+        <span id='content1'>content</span>
+      </div>
+    </body>
+  )HTML");
+
+  Node* content1 = GetDocument().getElementById(AtomicString("content1"))->firstChild();
+  ASSERT_TRUE(content1 != nullptr);
+
+  const blink::PositionInFlatTree pos(content1, 0);
+  Node* result = SelectionControllerUtils::UpdateAnchorIfWhiteSpace(content1, pos);
+  EXPECT_TRUE(result != nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_StringLeft) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        this is a very long text that exceeds maximum length for testing purposes here
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(sample);
+  const HitTestResult& result = hit_test_result;
+
+  const blink::PositionInFlatTree pos(sample, 5);
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity(pos, blink::TextAffinity::kDownstream);
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, sample, pos_with_affinity, false, false);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_StringRight) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        this is a very long text that exceeds maximum length for testing purposes here
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(sample);
+  const HitTestResult& result = hit_test_result;
+
+  unsigned text_len = sample->textContent().length();
+  const blink::PositionInFlatTree pos(sample, text_len - 5);
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity(pos, blink::TextAffinity::kDownstream);
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, sample, pos_with_affinity, false, false);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_StringMiddle) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        this is a very long text that exceeds maximum length for testing purposes here
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(sample);
+  const HitTestResult& result = hit_test_result;
+
+  const blink::PositionInFlatTree pos(sample, 50);
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity(pos, blink::TextAffinity::kDownstream);
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, sample, pos_with_affinity, false, false);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleMouseReleaseEventWithMenuExt_6thIf) {
+  const char* body_content = "<span id=top>top</span><span id=host></span>";
+  const char* shadow_content = "<span id=bottom>bottom</span>";
+  SetBodyContent(body_content);
+  ShadowRoot* shadow_root = SetShadowContent(shadow_content, "host");
+  ASSERT_TRUE(shadow_root != nullptr);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  Node* bottom =
+      shadow_root->getElementById(AtomicString("bottom"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+  ASSERT_TRUE(bottom != nullptr);
+
+  SetNonDirectionalSelectionIfNeeded(SelectionInFlatTree::Builder()
+                                         .Collapse(PositionInFlatTree(top, 1))
+                                         .Extend(PositionInFlatTree(bottom, 3))
+                                         .Build(),
+                                     TextGranularity::kCharacter);
+
+  SelectionController& controller_ = Controller();
+  SetStartSelect(true);
+  SetClickSelection(false);
+  SetDownAllow(false);
+  SetMenuShow(false);
+
+  WebMouseEvent mouse_event;
+  mouse_event.SetModifiers(WebInputEvent::kShiftKey);
+  HitTestLocation location((gfx::Point(0, 0)));
+
+  HitTestResult hit_test_result;
+  Node* node = GetDocument().getElementById(AtomicString("top"));
+  ASSERT_TRUE(node != nullptr);
+
+  hit_test_result.SetInnerNode(node);
+  hit_test_result.InnerNode()->SetLayoutObject(nullptr);
+  const HitTestResult hit_test_result_ = hit_test_result;
+
+  const MouseEventWithHitTestResults evnet_(mouse_event, location,
+                                            hit_test_result_);
+
+  blink::SelectionControllerUtils::HandleMouseReleaseEventWithMenuExt(
+      &controller_, evnet_);
+  EXPECT_FALSE(GetMenuShow());
+}
+
+TEST_F(SelectionControllerForIncludeTest, SelectClosestWordFromLiveLink_IsCreateFlatTreeByUrlElement) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <a href='#' id='link'>this is link text</a>
+    </body>
+  )HTML");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  Node* text_node =
+      GetDocument().getElementById(AtomicString("link"))->firstChild();
+  ASSERT_TRUE(text_node != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(text_node);
+  hit_test_result.SetURLElement(
+      GetDocument().getElementById(AtomicString("link")));
+  const HitTestResult hit_test_result_ = hit_test_result;
+
+  bool result = GetFrame()
+                    .GetEventHandler()
+                    .GetSelectionController()
+                    .SelectClosestWordFromLiveLink(hit_test_result_);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, FocusDocumentViewTest_2ndIf) {
+  GetFrame().Detach(FrameDetachType::kRemove);
+  GetFrame().GetEventHandler().GetSelectionController().FocusDocumentView();
+}
+
+TEST_F(SelectionControllerForIncludeTest, SelectClosestWordFromLiveLink_URLElementNotDescendant) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <a href='#' id='link'><span id='span'>click me</span></a>
+      <p id='outside'>outside link</p>
+    </body>
+  )HTML");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  Node* text_node =
+      GetDocument().getElementById(AtomicString("outside"))->firstChild();
+  ASSERT_TRUE(text_node != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(text_node);
+  hit_test_result.SetURLElement(To<Element>(
+      GetDocument().getElementById(AtomicString("span"))->parentNode()));
+  const HitTestResult hit_test_result_ = hit_test_result;
+
+  bool result = GetFrame()
+                    .GetEventHandler()
+                    .GetSelectionController()
+                    .SelectClosestWordFromLiveLink(hit_test_result_);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_DoubleClickWithEmptyLine) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        <span>first</span>
+        <span>   </span>
+        <span>third</span>
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* whitespace = GetDocument().getElementById(AtomicString("sample"))->firstChild()->nextSibling();
+  ASSERT_TRUE(whitespace != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(whitespace);
+  const HitTestResult& result = hit_test_result;
+
+  const blink::PositionInFlatTree pos(whitespace, 0);
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity(pos, blink::TextAffinity::kDownstream);
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, whitespace, pos_with_affinity, true, false);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_PosIsNull) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        sample text
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(sample);
+  const HitTestResult& result = hit_test_result;
+
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity;
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, sample, pos_with_affinity, false, false);
+  EXPECT_TRUE(selection.IsNone());
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleArkWebAISelectionExt_LongTextMiddlePosition) {
+  SetHtmlInnerHTML(R"HTML(
+    <body>
+      <div id='sample' contenteditable="true">
+        this is a very long text that exceeds maximum length for testing purposes here and has many words
+      </div>
+    </body>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Node* sample = GetDocument().getElementById(AtomicString("sample"))->firstChild();
+  ASSERT_TRUE(sample != nullptr);
+
+  HitTestResult hit_test_result;
+  hit_test_result.SetInnerNode(sample);
+  const HitTestResult& result = hit_test_result;
+
+  const blink::PositionInFlatTree pos(sample, 45);
+  const blink::PositionInFlatTreeWithAffinity pos_with_affinity(pos, blink::TextAffinity::kDownstream);
+
+  auto selection = blink::SelectionControllerUtils::HandleArkWebAISelectionExt(
+      &Controller(), result, sample, pos_with_affinity, false, false);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleEmptyLineTest_5thIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 1);
+
+  auto pos_ = blink::SelectionControllerUtils::HandleEmptyLine(top, pos, 1);
+  EXPECT_NE(pos, pos_);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleEmptyLineTest_6thIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "<span id='next'>content</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 0);
+
+  auto pos_ = blink::SelectionControllerUtils::HandleEmptyLine(top, pos, 1);
+  EXPECT_NE(pos, pos_);
+}

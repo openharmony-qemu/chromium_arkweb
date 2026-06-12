@@ -31,7 +31,7 @@ class CORE_EXPORT ScrollbarThemeUtils {
 
   ScrollbarPart HitTestUtils(const Scrollbar&, const gfx::Point&);
 #endif  // ARKWEB_SCROLLBAR_AVOID_AREA
-  ScrollbarTheme* scrollbar_theme_ = nullptr;
+  raw_ptr<ScrollbarTheme> scrollbar_theme_ = nullptr;
 };
 }  // namespace blink
 
