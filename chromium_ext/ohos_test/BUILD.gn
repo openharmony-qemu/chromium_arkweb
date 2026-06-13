@@ -314,14 +314,30 @@ fuzzer_test("clipboard_fuzzer") {
   ]
 }
 
+config("arkweb_child_process_launcher_helper_utils_fuzzer_wrap_config") {
+  ldflags = [
+    "-Wl,--wrap=_Z26ReportChildProcessInitFailbi",
+    "-Wl,--wrap=_Z28ReportRenderProcessTerminatebiRKNSt4__Cr12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEi",
+    "-Wl,--wrap=_ZN4base13LaunchProcessERKNS_11CommandLineERKNS_13LaunchOptionsE",
+    "-Wl,--wrap=_ZN4OHOS4NWeb17OhosAdapterHelper11GetInstanceEv",
+    "-Wl,--wrap=_ZN4OHOS4NWeb21ResSchedClientAdapter15ReportKeyThreadENS0_21ResSchedStatusAdapterEiiNS0_19ResSchedRoleAdapterE",
+  ]
+}
+
 fuzzer_test("arkweb_child_process_launcher_helper_utils_fuzzer") {
-  sources = [ "fuzztest/content/browser/arkweb_child_process_launcher_helper_utils_fuzzer.cc" ]
+  sources = [
+    "fuzztest/content/browser/arkweb_child_process_launcher_helper_utils_fuzzer.cc",
+    "fuzztest/content/browser/arkweb_child_process_launcher_helper_utils_fuzzer_wrappers.cc",
+  ]
   include_dirs = [
     "//cef",
     "//cef/include",
     "//ohos_nweb/include",
   ]
+  additional_configs =
+      [ ":arkweb_child_process_launcher_helper_utils_fuzzer_wrap_config" ]
   deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
     "//cef:libcef_static",
     "//ohos_nweb:nweb_sources",
     "//third_party/googletest:gtest",
