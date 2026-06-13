@@ -133,6 +133,7 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
   }
 
   void HandleExtendAction(int32_t action);
+  bool GetFocusRect(int& x, int& y, int& width, int& height);
 
 #if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
   void SetKeyboardImmersiveMode(int32_t mode);

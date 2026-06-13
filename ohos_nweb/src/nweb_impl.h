@@ -36,6 +36,7 @@
 #include "nweb.h"
 #include "nweb_download_callback.h"
 #include "nweb_errors.h"
+#include "nweb_ai_inputmethod_controller.h"
 #include "nweb_input_handler.h"
 #include "nweb_inputmethod_handler.h"
 #include "nweb_output_handler.h"
@@ -198,6 +199,7 @@ class NWebImpl : public NWeb {
   void DeleteNavigateHistory() override;
   void ClearSslCache() override;
   void ClearClientAuthenticationCache() override;
+  bool AIInputCommandAction(const std::string& json, std::shared_ptr<NWebStringValueCallback> callback);
 #if BUILDFLAG(ARKWEB_CERT_AUTHENTICATION)
   static void ClearClientAuthenticationCache(bool incognito_mode);
 #endif
@@ -1476,6 +1478,7 @@ void SetVisibility(bool isVisible) override;
   std::shared_ptr<NWebOutputHandler> output_handler_ = nullptr;
   std::shared_ptr<NWebInputHandler> input_handler_ = nullptr;
   CefRefPtr<NWebInputMethodHandler> inputmethod_handler_ = nullptr;
+  std::shared_ptr<NWebAIInputMethodController> ai_inputmethod_controller_ = nullptr;
 
   std::shared_ptr<NWebDelegateInterface> nweb_delegate_ = nullptr;
   std::list<std::string> web_engine_args_;

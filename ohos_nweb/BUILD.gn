@@ -521,6 +521,8 @@ static_library("nweb_sources") {
     "src/nweb_hilog.h",
     "src/nweb_impl.cc",
     "src/nweb_impl.h",
+    "src/nweb_ai_inputmethod_controller.cc",
+    "src/nweb_ai_inputmethod_controller.h",
     "src/nweb_input_handler.cc",
     "src/nweb_input_handler.h",
     "src/nweb_inputmethod_handler.cc",
