@@ -1315,6 +1315,95 @@ TEST(DynamicFrameRateDecisionTest, Integration003) {
   EXPECT_FALSE(dynamixFrameRateDecision.frame_rate_linker_enable_);
 }
 
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+// SetWebComponentVisible: 001 - nullptr task runner
+TEST(DynamicFrameRateDecisionTest, SetWebComponentVisible001) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  dynamixFrameRateDecision.curent_task_runner_ = nullptr;
+  dynamixFrameRateDecision.invisible_throttler_ = nullptr;
+  dynamixFrameRateDecision.SetWebComponentVisible(1, true);
+  EXPECT_EQ(dynamixFrameRateDecision.curent_task_runner_, nullptr);
+}
+
+// SetWebComponentVisible: 002 - nullptr throttler
+TEST(DynamicFrameRateDecisionTest, SetWebComponentVisible002) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  scoped_refptr<SingleThreadTaskRunner> task_runner_1(MakeRefCounted<TestSimpleTaskRunner>());
+  SingleThreadTaskRunner::CurrentDefaultHandle sttcd1(task_runner_1);
+  dynamixFrameRateDecision.Init();
+  dynamixFrameRateDecision.invisible_throttler_ = nullptr;
+  dynamixFrameRateDecision.SetWebComponentVisible(1, true);
+  EXPECT_NE(dynamixFrameRateDecision.curent_task_runner_, nullptr);
+}
+
+// SetWebComponentVisible: 003 - valid call
+TEST(DynamicFrameRateDecisionTest, SetWebComponentVisible003) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  scoped_refptr<SingleThreadTaskRunner> task_runner_1(MakeRefCounted<TestSimpleTaskRunner>());
+  SingleThreadTaskRunner::CurrentDefaultHandle sttcd1(task_runner_1);
+  dynamixFrameRateDecision.Init();
+  dynamixFrameRateDecision.invisible_throttler_ = std::make_unique<InvisibleRenderingThrottler>();
+  dynamixFrameRateDecision.invisible_throttler_->InitConfigWithParams(5000, 2);
+  dynamixFrameRateDecision.SetWebComponentVisible(1, true);
+  EXPECT_NE(dynamixFrameRateDecision.invisible_throttler_, nullptr);
+}
+
+// InitInvisibleThrottle: 001 - duplicate initialization
+TEST(DynamicFrameRateDecisionTest, InitInvisibleThrottle001) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  scoped_refptr<SingleThreadTaskRunner> task_runner_1(MakeRefCounted<TestSimpleTaskRunner>());
+  SingleThreadTaskRunner::CurrentDefaultHandle sttcd1(task_runner_1);
+  dynamixFrameRateDecision.Init();
+  dynamixFrameRateDecision.InitInvisibleThrottle(1, 5000, 2);
+  auto first_throttler = dynamixFrameRateDecision.invisible_throttler_.get();
+  auto first_timer = dynamixFrameRateDecision.evaluate_timer_.get();
+  dynamixFrameRateDecision.InitInvisibleThrottle(1, 6000, 3);
+  EXPECT_EQ(dynamixFrameRateDecision.invisible_throttler_.get(), first_throttler);
+  EXPECT_EQ(dynamixFrameRateDecision.evaluate_timer_.get(), first_timer);
+}
+
+// EvaluateAllThrottleStates: 001 - nullptr throttler
+TEST(DynamicFrameRateDecisionTest, EvaluateAllThrottleStates001) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  dynamixFrameRateDecision.invisible_throttler_ = nullptr;
+  dynamixFrameRateDecision.EvaluateAllThrottleStates();
+  EXPECT_EQ(dynamixFrameRateDecision.invisible_throttler_, nullptr);
+}
+
+// EvaluateAllThrottleStates: 002 - DISABLED strategy
+TEST(DynamicFrameRateDecisionTest, EvaluateAllThrottleStates002) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  scoped_refptr<SingleThreadTaskRunner> task_runner_1(MakeRefCounted<TestSimpleTaskRunner>());
+  SingleThreadTaskRunner::CurrentDefaultHandle sttcd1(task_runner_1);
+  dynamixFrameRateDecision.Init();
+  dynamixFrameRateDecision.invisible_throttler_ = std::make_unique<InvisibleRenderingThrottler>();
+  dynamixFrameRateDecision.invisible_throttler_->InitConfigWithParams(5000, 2);
+  dynamixFrameRateDecision.strategy_ = LTPOStrategy::DISABLED;
+  dynamixFrameRateDecision.EvaluateAllThrottleStates();
+  EXPECT_EQ(dynamixFrameRateDecision.strategy_, LTPOStrategy::DISABLED);
+}
+
+// ThrottleRatio: 001 - nullptr throttler
+TEST(DynamicFrameRateDecisionTest, ThrottleRatio001) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  dynamixFrameRateDecision.invisible_throttler_ = nullptr;
+  int32_t ratio = dynamixFrameRateDecision.ThrottleRatio();
+  EXPECT_EQ(ratio, 1);
+}
+
+// ThrottleRatio: 002 - valid throttler
+TEST(DynamicFrameRateDecisionTest, ThrottleRatio002) {
+  DynamicFrameRateDecision dynamixFrameRateDecision;
+  scoped_refptr<SingleThreadTaskRunner> task_runner_1(MakeRefCounted<TestSimpleTaskRunner>());
+  SingleThreadTaskRunner::CurrentDefaultHandle sttcd1(task_runner_1);
+  dynamixFrameRateDecision.Init();
+  dynamixFrameRateDecision.invisible_throttler_ = std::make_unique<InvisibleRenderingThrottler>();
+  dynamixFrameRateDecision.invisible_throttler_->InitConfigWithParams(5000, 3);
+  int32_t ratio = dynamixFrameRateDecision.ThrottleRatio();
+  EXPECT_EQ(ratio, 1);
+}
+#endif  // BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+
 }  // namespace ohos
 }  // namespace base
 #endif

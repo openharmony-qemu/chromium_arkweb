@@ -60,6 +60,10 @@ void GpuHostImpl::SetLTPOStrategy(int32_t strategy) {
 void GpuHostImpl::SetWebComponentVisible(int32_t nweb_id, bool visible) {
   gpu_service_remote_->SetWebComponentVisible(nweb_id, visible);
 }
+
+void GpuHostImpl::InitInvisibleThrottle(int32_t strategy, int32_t timeout, int32_t ratio) {
+  gpu_service_remote_->InitInvisibleThrottle(strategy, timeout, ratio);
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_D_VSYNC)

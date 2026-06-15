@@ -1669,6 +1669,26 @@ void NWebImpl::InitializeWebEngine(
     MigratePasswordsToPasswordVault();
   }
 #endif
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  if (auto* host = content::GpuProcessHost::Get()) {
+    if (auto* host_impl = host->gpu_host()) {
+      int32_t throttle_strategy = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+          .GetSystemPropertiesInstance()
+          .GetLTPOIntConfig("throttle_strategy", 0);
+      if (throttle_strategy) {
+        int32_t throttle_timeout = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetLTPOIntConfig("throttle_timeout", 0);
+        int32_t throttle_ratio = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetLTPOIntConfig("throttle_ratio", 1);
+        LOG(INFO) << "InitInvisibleThrottle strategy=" << throttle_strategy
+                  << " timeout=" << throttle_timeout << " ratio=" << throttle_ratio;
+        host_impl->InitInvisibleThrottle(throttle_strategy, throttle_timeout, throttle_ratio);
+      }
+    }
+  }
+#endif
   LOG_FEEDBACK(INFO, kNetwork) << "NWebImpl::InitializeWebEngine end";
 }
 #endif  // BUILDFLAG(ARKWEB_API_INIT_WEB_ENGINE)
