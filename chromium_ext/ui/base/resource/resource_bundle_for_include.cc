@@ -120,6 +120,9 @@ bool LocaleDataPakExistsExt(std::string_view locale) {
   // If the hap package is not decompressed, the directory does not exist.
   ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   if (path.empty() || !base::PathExists(path)) {
+    if (supportLocaleList.count(std::string(locale)) > 0) {
+      return true;
+    }
     const std::optional<std::string> pakLocale =
         l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
     if (!pakLocale) {
@@ -138,11 +141,15 @@ base::FilePath ResourceBundle::GetLocaleFilePath(std::string_view locale) {
   if (locale.empty()) {
     return base::FilePath();
   }
-  const std::optional<std::string> pakLocale =
-      l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
-  if (!pakLocale) {
-    LOG(ERROR) << "CheckAndResolveLocale false, locale:" << locale;
-    return base::FilePath();
+  std::optional<std::string> pakLocale;
+  if (supportLocaleList.count(std::string(locale)) > 0) {
+    pakLocale = locale;
+  } else {
+    pakLocale = l10n_util::CheckAndResolveLocale(locale, l10n_util::CheckLocaleMode::kUseKnownLocalesList);
+    if (!pakLocale) {
+      LOG(ERROR) << "CheckAndResolveLocale false, locale:" << locale;
+      return base::FilePath();
+    }
   }
 
   base::FilePath locale_file_path;
