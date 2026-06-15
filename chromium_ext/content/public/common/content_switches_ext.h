@@ -45,7 +45,7 @@ CONTENT_EXPORT extern const char kDisableMobileStyleSheet[];
 CONTENT_EXPORT extern const char kDisableNonAdvancedSecurityMode[];
 CONTENT_EXPORT extern const char kDisableNextPreviousFlag[];
 CONTENT_EXPORT extern const char kEnableCacheDataDirSeparation[];
-CONTENT_EXPORT extern const char kEnableUserDataDirMigration[];
+CONTENT_EXPORT extern const char kEnableCacheDataDirMigration[];
 #endif
 
 #if BUILDFLAG(ARKWEB_SCHEME_HANDLER)

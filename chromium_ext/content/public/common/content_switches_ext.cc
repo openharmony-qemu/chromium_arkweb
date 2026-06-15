@@ -43,7 +43,7 @@ const char kDisableNonAdvancedSecurityMode[] =
     "disable-non-advanced-security-mode";
 const char kDisableNextPreviousFlag[] = "ohos-disable-next-previous-flag";
 const char kEnableCacheDataDirSeparation[] = "enable-cache-data-dir-separation";
-const char kEnableUserDataDirMigration[] = "enable-user-data-dir-migration";
+const char kEnableCacheDataDirMigration[] = "enable-cache-data-dir-migration";
 
 #endif
 

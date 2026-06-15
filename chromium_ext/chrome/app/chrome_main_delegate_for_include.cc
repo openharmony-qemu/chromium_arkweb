@@ -27,6 +27,11 @@ static bool SetUserDataDirForArkweb(const base::FilePath& user_data_dir, bool is
       !cache_web_data_dir.empty() &&
       base::PathService::OverrideAndCreateIfNeeded(
         chrome::DIR_USER_DATA, cache_web_data_dir, false, true);
+
+  if (!cache_web_data_dir.empty()) {
+      base::PathService::OverrideAndCreateIfNeeded(
+ 	    base::DIR_USER_DATA, cache_web_data_dir, false, true);
+  }
  
   bool specified_directory_was_invalid = false;
   if (!cache_web_directory_valid) {
@@ -34,6 +39,11 @@ static bool SetUserDataDirForArkweb(const base::FilePath& user_data_dir, bool is
         !user_data_dir.empty() &&
         !base::PathService::OverrideAndCreateIfNeeded(
           chrome::DIR_USER_DATA, user_data_dir, false, true);
+
+    if (!user_data_dir.empty()) {
+        base::PathService::OverrideAndCreateIfNeeded(
+ 	      base::DIR_USER_DATA, user_data_dir, false, true);
+    }
   }
  
   return specified_directory_was_invalid;
