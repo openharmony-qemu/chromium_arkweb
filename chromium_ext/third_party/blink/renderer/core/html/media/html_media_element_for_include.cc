@@ -21,6 +21,9 @@
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
+#include "third_party/blink/renderer/core/frame/viewport_data.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
+#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
@@ -47,11 +50,32 @@ extern std::string GetFormatFromType(std::string type);
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
 extern String BuildElementErrorMessage(const String& error);
 #endif // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
+}  // anonymous namespace
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
-float PageConstraintInitalScale(const Document& document) {
+float HTMLMediaElement::PageConstraintInitialScale(const Document& document) {
   float scale = 1.0;
   if (auto* page = document.GetPage()) {
+    if (base::ohos::IsTabletDevice() && !base::ohos::IsPcMode()) {
+      float parsed_scale = document.GetViewportData().GetParsedInitialScale();
+      if (parsed_scale > 0) {
+        LOG(INFO) << "PageConstraintInitialScale, parsed_scale: " << parsed_scale;
+        scale = parsed_scale;
+        return scale;
+      }
+      if (!is_first_scale_) {
+        auto* web_frame = WebLocalFrameImpl::FromFrame(document.GetFrame());
+        if (auto* widget = web_frame ? web_frame->FrameWidget() : nullptr) {
+          resolved_scale_ = widget->PageScaleInMainFrame();
+          is_first_scale_ = true;
+        }
+      }
+      if (resolved_scale_ > 0 && resolved_scale_ <= 1.0f) {
+        LOG(INFO) << "PageConstraintInitialScale, resolved_scale: " << resolved_scale_;
+        scale = resolved_scale_;
+        return scale;
+      }
+    }
     scale = page->GetPageScaleConstraintsSet().FinalConstraints().initial_scale;
   } else {
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
@@ -60,10 +84,6 @@ float PageConstraintInitalScale(const Document& document) {
   }
   return scale;
 }
-#endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
-}  // anonymous namespace
-
-#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 bool HTMLMediaElement::IsMuted() {
   return muted_;
 }
@@ -248,7 +268,7 @@ void HTMLMediaElement::OnLayerRectChange(const gfx::Rect& rect) {
     return;
   }
   layer_rect_ = rect;
-  float scale = PageConstraintInitalScale(GetDocument());
+  float scale = PageConstraintInitialScale(GetDocument());
   for (auto& observer : media_player_observer_remote_set_->Value()) {
     observer->UpdateLayerRect(gfx::ScaleToEnclosingRect(layer_rect_, scale));
   }
