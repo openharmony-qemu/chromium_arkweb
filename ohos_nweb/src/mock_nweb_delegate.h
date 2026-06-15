@@ -893,6 +893,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   MOCK_METHOD(void, EnableVideoAssistant, (bool enable), (override));
+  MOCK_METHOD(void, EnableVideoAssistantAVCast, (bool enable), (override));
   MOCK_METHOD(void,
               ExecuteVideoAssistantFunction,
               (const std::string& cmd_id),

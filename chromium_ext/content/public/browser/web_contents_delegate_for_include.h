@@ -116,6 +116,9 @@ virtual void OnReportStatisticLog(const std::string& content);
 virtual std::unique_ptr<MediaPlayerListener> OnFullScreenOverlayEnter(
     media::mojom::MediaInfoForVASTPtr media_info,
     const MediaPlayerId& media_player_id);
+virtual std::unique_ptr<MediaPlayerListener> OnAVCastStarted(
+    media::mojom::MediaInfoForVASTPtr media_info,
+    const MediaPlayerId& media_player_id);
 #endif  // ARKWEB_VIDEO_ASSISTANT
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)

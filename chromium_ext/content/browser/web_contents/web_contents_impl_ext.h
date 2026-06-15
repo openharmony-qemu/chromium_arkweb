@@ -407,6 +407,7 @@ private:
 #endif  // ARKWEB_TEST
  public:
   void EnableVideoAssistant(bool enable) override;
+  void EnableVideoAssistantAVCast(bool enable) override;
   void ExecuteVideoAssistantFunction(const std::string& cmdId) override;
   void OnShowToast(double duration, const std::string& toast);
   void OnShowVideoAssistant(const std::string& videoAssistantItems);
@@ -421,6 +422,9 @@ private:
       const MediaPlayerId& id);
   void OnVideoDestroyed(const MediaPlayerId& id);
   std::unique_ptr<MediaPlayerListener> OnFullScreenOverlayEnter(
+      media::mojom::MediaInfoForVASTPtr media_info,
+      const MediaPlayerId& media_player_id);
+  std::unique_ptr<MediaPlayerListener> OnAVCastStarted(
       media::mojom::MediaInfoForVASTPtr media_info,
       const MediaPlayerId& media_player_id);
 
