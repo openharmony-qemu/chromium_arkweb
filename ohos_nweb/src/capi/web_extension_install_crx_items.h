@@ -16,14 +16,24 @@
 #ifndef OHOS_NWEB_EX_BROWSER_WEB_EXTENSION_INSTALL_CRX_ITEMS_H_
 #define OHOS_NWEB_EX_BROWSER_WEB_EXTENSION_INSTALL_CRX_ITEMS_H_
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+enum class NWebExtensionInstallSource : int32_t {
+  kUnknown = -1,
+  kFromHwStore = 0,
+  kFromGoogleStore = 1,
+  kFromExternal = 2,
+};
+
 struct NWebExtensionInstallProperties {
   std::optional<bool> silent;
   std::optional<std::vector<std::vector<uint8_t>>> publisherKeys;
+  // nullopt keeps the existing installExtensionFile behavior.
+  std::optional<NWebExtensionInstallSource> install_source;
 };
 
 #endif  // OHOS_NWEB_EX_BROWSER_WEB_EXTENSION_INSTALL_CRX_ITEMS_H_
