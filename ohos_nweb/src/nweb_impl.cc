@@ -372,6 +372,9 @@ std::shared_ptr<OHOS::NWeb::NWebEngineInitArgs>
     OHOS::NWeb::NWebImpl::save_initargs_ = nullptr;
 std::atomic<bool> OHOS::NWeb::NWebImpl::should_lazy_init_web_engine_{false};
 #endif
+#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
+bool OHOS::NWeb::NWebImpl::should_report_universal_access_blocked_ = true;
+#endif
 
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
 #include "arkweb/chromium_ext/base/ohos/blankless/blankless_controller.h"
@@ -7690,6 +7693,34 @@ int NWebImpl::SetUrlTrustListWithErrMsg(const std::string& urlTrustList,
 }
 
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
+void NWebImpl::MayBeReportUniversalAccessBlocked(const std::vector<std::string>& pathList) {
+  if (!should_report_universal_access_blocked_) {
+    return;
+  }
+
+  base::FilePath user_data_path;
+  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_path)) {
+    return;
+  }
+  for (auto& p : pathList) {
+    base::FilePath path(p);
+    auto real_path =
+        base::MakeAbsoluteFilePathNoResolveSymbolicLinks(path).value_or(
+            base::FilePath());
+    if (real_path.empty()) {
+      continue;
+    }
+
+    if (user_data_path != real_path && !user_data_path.IsParent(real_path)) {
+      continue;
+    }
+    if (ReportUniversalAccessBlocked()) {
+      should_report_universal_access_blocked_ = false; // report only once
+      break;
+    }
+  }
+}
+
 void NWebImpl::SetPathAllowingUniversalAccess(
     const std::vector<std::string>& pathList,
     const std::vector<std::string>& moduleName,
@@ -7711,6 +7742,8 @@ void NWebImpl::SetPathAllowingUniversalAccess(
 
   std::vector<std::string> excludedPathList;
   GetExcludedPathList(excluded_path_list, excludedPathList);
+
+  MayBeReportUniversalAccessBlocked(pathList);
 
   for (auto& p : pathList) {
     base::FilePath path(p);

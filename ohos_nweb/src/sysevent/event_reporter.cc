@@ -16,6 +16,7 @@
 #include <deviceinfo.h>
 #include "event_reporter.h"
 
+#include "arkweb/chromium_ext/third_party/crashpad/crashpad/util/linux/crashpad_dfx.h"
 #include "oh_web_performance_timing.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "base/logging.h"
@@ -168,6 +169,9 @@ constexpr char SKIA_OOM_ERROR[] = "SKIA_OOM_ERROR";
 constexpr char RENDER_PROCESS_TERMINATE[] = "RENDER_PROCESS_TERMINATE";
 constexpr char RENDER_PROCESS_NOTRESPONDING[] = "RENDER_PROCESS_NOTRESPONDING";
 constexpr char RENDER_PROCESS_RESPONDING[] = "RENDER_PROCESS_RESPONDING";
+
+constexpr char BUNDLE_NAME[] = "BUNDLE_NAME";
+constexpr char UNIVERSAL_ACCESS_BLOCKED[] = "UNIVERSAL_ACCESS_BLOCKED";
 
 // for uma/ukm log report
 constexpr char HISTOGRAM_UMA_UKM[] = "HISTOGRAM_UMA_UKM";
@@ -626,4 +630,17 @@ void ReportMetricsLogData(const std::string& compressed_log_data, const std::str
       {HISTOGRAM_TYPE, "arkweb.histogram.ukm", HISTOGRAM_CONTENT, base::HexEncode(log_data)}
     );
   }
+}
+
+bool ReportUniversalAccessBlocked() {
+  std::string bundle_name = crashpad::CrashpadDfx::GetProcessBundleName();
+  if (bundle_name.empty()) {
+    return false;
+  }
+  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      UNIVERSAL_ACCESS_BLOCKED, HiSysEventAdapter::EventType::STATISTIC,
+      {
+        BUNDLE_NAME, bundle_name
+      });
+  return true;
 }

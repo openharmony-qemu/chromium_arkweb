@@ -1587,6 +1587,11 @@ void SetVisibility(bool isVisible) override;
   static std::shared_ptr<NWebEngineInitArgs> save_initargs_;
   static std::atomic<bool> should_lazy_init_web_engine_;
 #endif
+#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
+  void MayBeReportUniversalAccessBlocked(const std::vector<std::string>& pathList);
+  static bool should_report_universal_access_blocked_;
+#endif
+
 
   base::WeakPtrFactory<NWebImpl> weak_factory_{this};
 };
