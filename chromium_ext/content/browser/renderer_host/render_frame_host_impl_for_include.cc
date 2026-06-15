@@ -42,6 +42,10 @@
 #include "arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_ext.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
+#include "cef/ohos_cef_ext/libcef/browser/useragent/arkweb_useragent_utils.h"
+#endif
+
 namespace content {
 
 // ExecuteJavascriptInFrames need create new worldId, this is the min value;
@@ -564,6 +568,24 @@ void RenderFrameHostImpl::OnDidCommitNavigationInternal(
     const base::UnguessableToken& navigation_token) {}
 void RenderFrameHostImpl::OnResetOwnedNavigationRequests(
     NavigationDiscardReason reason) {}
+#endif
+
+#if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
+void RenderFrameHostImpl::DownloadURLForOverrideUA(
+    blink::mojom::DownloadURLParamsPtr& blink_parameters,
+    download::DownloadUrlParameters* parameters) {
+  WebContents* web_contents = WebContents::FromRenderFrameHost(this);
+  if (web_contents) {
+    std::string ua_string = arkweb_useragent_utils::GetUAStringForHost(
+        web_contents, std::string(blink_parameters->url.host()));
+    if (!ua_string.empty()) {
+      parameters->add_request_header(net::HttpRequestHeaders::kUserAgent, ua_string);
+      LOG(INFO) << "RenderFrameHostImpl::DownloadURLForOverrideUA use overrideUA";
+    } else {
+      LOG(INFO) << "RenderFrameHostImpl::DownloadURLForOverrideUA no overrideUA";
+    }
+  }
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_FLING)
