@@ -30,6 +30,14 @@
 
 namespace extensions {
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+namespace devtools_util {
+void InspectServiceWorkerBackgroundV2(const Extension* extension,
+                                      Profile* profile,
+                                      DevToolsOpenedByAction opened_by);
+} // devtools_util
+#endif // ARKWEB_DEVTOOLS
+
 namespace developer = api::developer_private;
 
 namespace {

@@ -5889,10 +5889,10 @@ void NWebHandlerDelegate::OnUpdateTargetURL(CefRefPtr<CefBrowser> browser,
 }
 #endif  // OHOS_NWEB_EX
 
-void NWebHandlerDelegate::OnRequestOpenDevTools() {
+void NWebHandlerDelegate::OnRequestOpenDevTools(const RequestOpenDevToolsParams& params) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   if (IsNativeApiEnable()) {
-    dispatcher_.OnRequestOpenDevTools();
+    dispatcher_.OnRequestOpenDevTools(params);
     return;
   }
 #endif  // OHOS_NWEB_EX
