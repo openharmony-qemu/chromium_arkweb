@@ -49,7 +49,7 @@
 #include "arkweb/ohos_adapter_ndk/interfaces/net_connect_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/net_proxy_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_drawing_text_adapter.h"
-#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_image_decoder_adapter.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_image_decoder_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_init_web_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_native_buffer_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_resource_adapter.h"

@@ -38,10 +38,15 @@
 #include "third_party/skia/include/codec/SkEncodedImageFormat.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/public/platform/platform.h"
 
 #if defined(ARCH_CPU_BIG_ENDIAN)
 #error Blink assumes a little-endian target.
 #endif
+
+// Actual pixel data size per row of RGBA_8888
+constexpr int32_t kPixelFormatBytes = 4;
+constexpr size_t kHeifMinHeaderSize = 12;
 
 namespace {
 
@@ -169,6 +174,15 @@ void HEIFImageDecoder::OnSetData(SegmentReader* data) {
   }
   LOG(INFO) << "[HeifSupport] HEIFImageDecoder::OnSetData parse image size "
             << data->size();
+  // First obtain the first 12 bytes to check the format
+  base::span<const uint8_t> header = data->GetSomeData(0);
+  if (header.size() >= kHeifMinHeaderSize) {
+    is_heifs_format_ = MatchesHeifsBrand(header);
+    if (is_heifs_format_) {
+      LOG(INFO) << "[HeifSupport] Format detected: heifs";
+    }
+  }
+
   auto sk_data = data->GetAsSkData();
   std::span<const uint8_t> encoded_data =
       std::span(sk_data->bytes(), sk_data->size());
@@ -266,6 +280,19 @@ void HEIFImageDecoder::Decode(wtf_size_t index) {
     SetFailed();
     return;
   }
+
+  // Select the decoding path according to the format
+  if (ShouldUseGpuDecode()) {
+    LOG(INFO) << "[HeifSupport] Using GPU decode path";
+    if (!DecodeHeifSync(index)) {
+      LOG(ERROR) << "[HeifSupport] GPU decode failed";
+      SetFailed();
+    }
+    return;
+  }
+
+  // CPU software decoding path (existing logic)
+  LOG(INFO) << "[HeifSupport] Using CPU decode path";
 
   base::span<const uint8_t> segment = data_->GetSomeData(0);
   if (segment.empty()) {
@@ -383,6 +410,155 @@ OHOS::NWeb::OhosImageDecoderAdapter* HEIFImageDecoder::GetDecoderAdapter() {
   }
 
   return decoder_adapter_.get();
+}
+
+bool HEIFImageDecoder::MatchesHeifsBrand(base::span<const uint8_t> data) {
+  const size_t kFtypOffset = 4;
+  const size_t kBrandOffset = 8;
+  const size_t kFtypSize = 4;
+  const size_t kBrandSize = 4;
+
+  if (data.size() < kHeifMinHeaderSize) {
+    return false;
+  }
+  if (std::memcmp(data.data() + kFtypOffset, "ftyp", kFtypSize) != 0) {
+    return false;
+  }
+  const uint8_t* brand = data.data() + kBrandOffset;
+  bool is_heifs = std::memcmp(brand, "msf1", kBrandSize) == 0 ||
+                  std::memcmp(brand, "hevc", kBrandSize) == 0 ||
+                  std::memcmp(brand, "hevx", kBrandSize) == 0;
+  
+  if (is_heifs) {
+    LOG(INFO) << "[HeifSupport] Detected heifs format, brand: "
+              << std::string(reinterpret_cast<const char*>(brand), kBrandSize);
+  }
+  return is_heifs;
+}
+
+bool HEIFImageDecoder::ShouldUseGpuDecode() const {
+  return is_heifs_format_;
+}
+
+bool HEIFImageDecoder::DecodeHeifSync(wtf_size_t index) {
+  
+  if (!IsAllDataReceived()) {
+    LOG(ERROR) << "[HeifSupport] GPU decode: data not fully received";
+    return false;
+  }
+
+  if (Failed()) {
+    return false;
+  }
+
+  LOG(INFO) << "[HeifSupport] Starting GPU decode, data size: "
+            << data_->size();
+
+  // Prepare complete data
+  std::vector<uint8_t> heif_data_vec;
+  heif_data_vec.reserve(data_->size());
+
+  size_t position = 0;
+  while (position < data_->size()) {
+    base::span<const uint8_t> segment = data_->GetSomeData(position);
+    if (segment.empty()) {
+      break;
+    }
+    heif_data_vec.insert(heif_data_vec.end(), segment.begin(), segment.end());
+    position += segment.size();
+  }
+
+  LOG(INFO) << "[HeifSupport] Prepared GPU data buffer: " 
+            << heif_data_vec.size() << " bytes";
+
+  std::vector<uint8_t> pixels;
+  gfx::Size size;
+  std::string error;
+
+  bool success = Platform::Current()->DecodeHeifOnGpuSync(
+      heif_data_vec,
+      &pixels,
+      &size,
+      &error);
+  
+  if (!error.empty()) {
+    LOG(ERROR) << "[HeifSupport] GPU decode error: " << error;
+    return false;
+  }
+
+  if (pixels.empty() || size.IsEmpty()) {
+    LOG(ERROR) << "[HeifSupport] Invalid GPU decode result";
+    return false;
+  }
+
+  LOG(INFO) << "[HeifSupport] GPU decode succeeded: " 
+            << size.width() << "x" << size.height() 
+            << ", " << pixels.size() << " bytes";
+
+  // Set image size
+  if (!IsSizeAvailable()) {
+    if (!SetSize(static_cast<unsigned>(size.width()),
+                 static_cast<unsigned>(size.height()))) {
+      LOG(ERROR) << "[HeifSupport] Failed to set size";
+      return false;
+    }
+  }
+
+  // Initialize frame buffer
+  if (frame_buffer_cache_.empty()) {
+    frame_buffer_cache_.resize(1);
+  }
+
+  ImageFrame& frame = frame_buffer_cache_[index];
+
+  if (frame.GetStatus() == ImageFrame::kFrameEmpty) {
+    if (!InitFrameBuffer(index)) {
+      LOG(ERROR) << "[HeifSupport] Failed to init frame buffer";
+      return false;
+    }
+    frame.SetOriginalFrameRect(gfx::Rect(Size()));
+  }
+
+  // Verify pixel data size
+  base::CheckedNumeric<size_t> checked_size = 
+      base::CheckedNumeric<size_t>(size.width()) * size.height() * kPixelFormatBytes;
+
+  if (!checked_size.IsValid()) {
+    LOG(ERROR) << "[HeifSupport] Image dimensions too large, overflow detected: "
+              << size.width() << "x" << size.height();
+    return false;
+  }
+  size_t expected_size = checked_size.ValueOrDie();
+
+  if (pixels.size() != expected_size) {
+    LOG(ERROR) << "[HeifSupport] Pixel size mismatch, expected: "
+               << expected_size << ", got: " << pixels.size();
+    return false;
+  }
+
+  // Copy pixel data (copy line by line, for greater security)
+  const uint8_t* src = pixels.data();
+  size_t rowBytes = frame.Bitmap().rowBytes();
+
+  for (int y = 0; y < size.height(); ++y) {
+    ImageFrame::PixelData* row = frame.GetAddr(0, y);
+    const uint8_t* src_row = src + y * size.width() * kPixelFormatBytes;
+    
+    errno_t err = memcpy_s(row, rowBytes, src_row, size.width() * kPixelFormatBytes);
+    if (err != 0) {
+      LOG(ERROR) << "[HeifSupport] memcpy_s failed at row " << y 
+                << ", error: " << err;
+      return false;
+    }
+  }
+
+  // mark complete
+  frame.SetHasAlpha(true);
+  frame.SetPixelsChanged(true);
+  frame.SetStatus(ImageFrame::kFrameComplete);
+
+  LOG(INFO) << "[HeifSupport] GPU frame decode complete";
+  return true;
 }
 
 }  // namespace blink

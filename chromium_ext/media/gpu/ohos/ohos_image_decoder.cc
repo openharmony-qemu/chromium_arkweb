@@ -30,7 +30,8 @@ constexpr int kMaxDecodedImageWidth = 7680;
 constexpr int kMaxDecodedImageHeight = 4320;
 constexpr int kMinDecodedImageWidth = 2;
 constexpr int kMinDecodedImageHeight = 2;
-
+// Actual pixel data size per row of RGBA_8888
+constexpr int32_t kPixelFormatBytes = 4;
 }  // namespace
 
 OhosImageDecoder::OhosImageDecoder() = default;
@@ -52,6 +53,55 @@ OhosImageDecodeStatus OhosImageDecoder::Decode(
   }
   LOG(INFO) << "[HeifSupport] Decode native window buffer";
   return OhosImageDecodeStatus::kSuccess;
+}
+
+OhosImageDecodeStatus OhosImageDecoder::Decode(const uint8_t* data, uint32_t size) {
+  if (!OhosImageDecoderAdapter_->Decode(
+          data, size, GetDecodeAllocatorType(),
+          IsYuvFormat())) {
+    LOG(ERROR) << "[HeifSupport] Decode image failed.";
+    return OhosImageDecodeStatus::kExecuteDecodeFailed;
+  }
+  LOG(INFO) << "[HeifSupport] Decode native window buffer "
+            << GetOhosImageDecoderAdapter()->GetNativeWindowBuffer();
+  return OhosImageDecodeStatus::kSuccess;
+}
+
+std::vector<uint8_t> OhosImageDecoder::GetPixelData() {
+  // 1. Calculate the buffer size (using stride instead of width * 4)
+  int32_t height = OhosImageDecoderAdapter_->GetImageHeight();
+  int32_t width = OhosImageDecoderAdapter_->GetImageWidth();
+  base::CheckedNumeric<size_t> checked_size = 
+      base::CheckedNumeric<size_t>(width) * height * kPixelFormatBytes;
+  if (!checked_size.IsValid()) {
+    LOG(ERROR) << "[HeifSupport] Image dimensions too large, overflow detected: "
+              << width << "x" << height;
+    return {};
+  }
+  size_t bufferSize = checked_size.ValueOrDie();
+  LOG(INFO) << "[HeifSupport] OhosImageDecoder::GetPixelData"
+            << " height: " << height
+            << " width: " << width
+            << " bufferSize: " << bufferSize;
+
+  // 2. Allocate a buffer
+  std::vector<uint8_t> pixelBuffer(bufferSize);
+  
+  // 3. Read pixel data
+  bool success = OhosImageDecoderAdapter_->ReadPixels(pixelBuffer.data(), &bufferSize);
+  if (!success) {
+    LOG(ERROR) << "[HeifSupport] read pixels error";
+    return {};
+  }
+  return pixelBuffer;
+}
+
+int32_t OhosImageDecoder::GetImageWidth() const {
+  return OhosImageDecoderAdapter_->GetImageWidth();
+}
+
+int32_t OhosImageDecoder::GetImageHeight() const {
+  return OhosImageDecoderAdapter_->GetImageHeight();
 }
 
 // LCOV_EXCL_START

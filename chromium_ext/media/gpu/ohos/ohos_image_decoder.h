@@ -18,7 +18,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "gpu/config/gpu_info.h"
-#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 
 namespace gfx {
@@ -72,6 +72,10 @@ class OhosImageDecoder {
   virtual bool Initialize();
 
   virtual OhosImageDecodeStatus Decode(base::span<const uint8_t> encoded_image);
+
+  virtual OhosImageDecodeStatus Decode(const uint8_t* data,
+                                       uint32_t size);
+
   virtual void ReleaseDecodedPixelMap();
 
   virtual gpu::ImageDecodeAcceleratorType GetType() const = 0;
@@ -95,6 +99,10 @@ class OhosImageDecoder {
   virtual std::unique_ptr<media::NativePixmapAndSizeInfo>
   ExportAsNativePixmapDmaBuf(OhosImageDecodeStatus* status);
 
+  virtual std::vector<uint8_t> GetPixelData();
+
+  int32_t GetImageWidth() const;
+  int32_t GetImageHeight() const;
  private:
   std::unique_ptr<OHOS::NWeb::OhosImageDecoderAdapter> OhosImageDecoderAdapter_;
 };

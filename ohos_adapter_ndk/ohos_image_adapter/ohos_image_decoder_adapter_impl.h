@@ -16,7 +16,7 @@
 #ifndef OHOS_IMAGE_DECODER_ADAPTER_IMPL
 #define OHOS_IMAGE_DECODER_ADAPTER_IMPL
 
-#include "ohos_image_decoder_adapter.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_image_decoder_adapter.h"
 
 #include <multimedia/image_framework/image/pixelmap_native.h>
 #include <multimedia/image_framework/image/image_common.h>
@@ -51,6 +51,7 @@ public:
     OH_PixelmapNative* GetPixelMap() { return pixelMap_; }
     void* GetDecodeData() override;
     bool DecodeByPath(const std::string& path, AllocatorType type) override;
+    bool ReadPixels(uint8_t *destination, size_t *bufferSize) override;
 private:
     OH_ImageSourceNative* imageSource_ = nullptr;
     OH_ImageSource_Info* imageInfo_ = nullptr;
