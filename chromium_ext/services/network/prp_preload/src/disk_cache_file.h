@@ -78,7 +78,7 @@ class DiskCacheReadHelper {
   base::WeakPtrFactory<DiskCacheReadHelper> weak_ptr_factory_{this};
 };
 
-class DiskCacheFile : public base::RefCounted<DiskCacheFile> {
+class DiskCacheFile : public base::RefCountedThreadSafe<DiskCacheFile> {
  public:
   DiskCacheFile(const scoped_refptr<DiskCacheBackendFactory>& disk_cache_backend_factory,
                 const std::string& url,
@@ -93,7 +93,7 @@ class DiskCacheFile : public base::RefCounted<DiskCacheFile> {
   void StoreInfoAsync(const std::string& entry_content);
   void LoadInfoAsync();
  private:
-  friend class base::RefCounted<DiskCacheFile>;
+  friend class base::RefCountedThreadSafe<DiskCacheFile>;
   friend class DiskCacheEntry;
   friend class DiskCacheReadHelper;
 

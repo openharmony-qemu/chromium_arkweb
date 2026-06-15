@@ -16,7 +16,7 @@ class URLRequestContext;
 namespace ohos_prp_preload {
 using PRPPOnPageOriginCB = base::RepeatingCallback<void(const std::string& url,
   const std::string& page_origin)>;
-class ResPreloadScheduler : public base::RefCounted<ResPreloadScheduler> {
+class ResPreloadScheduler : public base::RefCountedThreadSafe<ResPreloadScheduler> {
  public:
   ResPreloadScheduler(const std::string& url,
     const scoped_refptr<base::SingleThreadTaskRunner>& net_task_runner,
