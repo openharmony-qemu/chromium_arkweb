@@ -22,15 +22,16 @@
 #include <unistd.h>
 
 #include "src/base/platform/platform.h"
-#define PrintError v8::base::OS::PrintError
+#include "hilog.h"
+
 namespace v8 {
 namespace base {
-
 #define JITFORT_PRCTL_OPTION 0x6a6974
 #define JITFORT_SET_ENABLED			1
 #define JITFORT_SWITCH_IN			3
 #define JITFORT_SWITCH_OUT			4
 #define JITFORT_CREATE_COPGTABLE	5
+#define JITFORT_QUERY_VERSION 8
 
 #define XPM_SET_JITFORT_ENABLE _IOW('x', 0x3, unsigned long)
 
@@ -38,11 +39,11 @@ void JITFort::EnableJitfort()
 {
     int fd = open("/dev/xpm", O_RDWR);
     if (fd < 0) {
-        PrintError("[jitfort]: Open /dev/xpm failed");
+        HilogPrint(INFO, "[jitfort]: Open /dev/xpm failed");
         return;
     }
     if (ioctl(fd, XPM_SET_JITFORT_ENABLE, 0) < 0) {
-        PrintError("[jitfort]: Ioctl /dev/xpm failed");
+        HilogPrint(INFO, "[jitfort]: Ioctl /dev/xpm failed");
     }
     close(fd);
     return;
@@ -77,29 +78,51 @@ __attribute__((always_inline)) static int inline PrctlWrapper(
 #endif
 }
 
+bool JITFort::IsSupported()
+{
+    static bool isSupported = []() -> bool {
+        long version = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_QUERY_VERSION);
+        HilogPrint(INFO, "[jitfort]: JitFort os version is %{public}ld", version);
+        if (version >= 2) {
+            HilogPrint(INFO, "[jitfort]: JitFort is supported in current os");
+            return true;
+        } else {
+            HilogPrint(INFO, "[jitfort]: JitFort is not supported in current os");
+            return false;
+        }
+    }();
+    return isSupported;
+}
+
 void JITFort::Init()
 {
     // TODO: Open EnableJitfort in hdc param.
+    if (!IsSupported()) return;
     JITFort::EnableJitfort();
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_CREATE_COPGTABLE);
     if (ret != 0) {
-        PrintError("[jitfort]: InitJitfort create copytable faild, err = %d, msg = %s\n", errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: InitJitfort create copytable faild, err = %{public}d, msg = %{public}s",
+                            errno, strerror(errno));
     }
 }
 
 void JITFort::SetJITMemoryWritable()
 {
+    if (!IsSupported()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_IN);
 	if (ret != 0) {
-		PrintError("[jitfort]: Writable prctl in failed, err = %d, msg = %s\n", errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: Writable prctl in failed, err = %{public}d, msg = %{public}s",
+                            errno, strerror(errno));
 	}
 }
 
 void JITFort::SetJITMemoryExecutable()
 {
+    if (!IsSupported()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_OUT);
 	if (ret != 0) {
-		PrintError("[jitfort]: Executable prctl out failed, err = %d, msg = %s\n", errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: Executable prctl out failed, err = %{public}d, msg = %s{public}\n",
+                            errno, strerror(errno));
 	}
 }
 
