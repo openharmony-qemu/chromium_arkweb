@@ -145,8 +145,10 @@ void NWebDownloadHandlerDelegate::OnDownloadUpdated(
     if (item->state == NWebDownloadItemState::INTERRUPTED ||
         item->state == NWebDownloadItemState::CANCELED) {
       ReportPageDownLoadErrorInfo(item->download_item_id, item->last_error_code);
+      suggested_file_name_for_guid_map.erase(item->guid);
     } else if (item->state == NWebDownloadItemState::COMPLETE) {
       ReportPageDownLoadErrorInfo(item->download_item_id, 0);
+      suggested_file_name_for_guid_map.erase(item->guid);
     }
   }
 #endif
@@ -158,9 +160,14 @@ void NWebDownloadHandlerDelegate::OnDownloadUpdated(
 NWebDownloadItem* NWebDownloadHandlerDelegate::CreateNWebDownloadItem(
     CefRefPtr<CefDownloadItem> download_item) {
   struct NWebDownloadItem* item = new NWebDownloadItem(download_item);
-  // generate suggested filename
-  item->suggested_file_name =
-      strdup(GenerateSuggestedFilename(download_item).c_str());
+  auto it = suggested_file_name_for_guid_map.find(item->guid);
+  if (it != suggested_file_name_for_guid_map.end()) {
+    item->suggested_file_name = strdup(it->second.c_str());
+  } else {
+    // generate suggested filename
+    item->suggested_file_name = strdup(GenerateSuggestedFilename(download_item).c_str());
+    suggested_file_name_for_guid_map[item->guid] = item->suggested_file_name;
+  }
   LOG(INFO) << "web_download_item params, nweb_id:" << item->nweb_id
             << ",id:" << item->download_item_id << ",guid:" << item->guid
             << ",suggested:" << DesensitizeStr(item->suggested_file_name)
