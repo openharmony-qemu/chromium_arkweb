@@ -5,8 +5,8 @@
 // Based on stream_texture_android.h originally written by
 // Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
- 
+// found in the LICENSE file.
+
 #ifndef GPU_IPC_SERVICE_STREAM_TEXTURE_OHOS_H_
 #define GPU_IPC_SERVICE_STREAM_TEXTURE_OHOS_H_
 
@@ -89,7 +89,7 @@ class StreamTexture : public RefCountedLockHelperDrDc,
   std::unique_ptr<ScopedNativeBufferFenceSync> GetNativeBuffer() override;
 
   // OHOS-specific methods (not in base class).
-  TextureBase* GetTextureBase() const;
+  TextureBase* GetTextureBase() const override;
   bool TextureOwnerBindsTextureOnUpdate();
 
   gpu::Mailbox CreateSharedImage(const gfx::Size& coded_size);

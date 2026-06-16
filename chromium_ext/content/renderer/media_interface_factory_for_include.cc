@@ -37,4 +37,26 @@ void MediaInterfaceFactory::CreateCustomMediaPlayerRenderer(
 }
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void MediaInterfaceFactory::CreateMediaPlayerRenderer(
+    mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
+        client_extension_remote,
+    mojo::PendingReceiver<media::mojom::Renderer> receiver,
+    int player_id,
+    const media::MediaPlayerUrlParams& params) {
+  if (task_runner_ && !task_runner_->BelongsToCurrentThread()) {
+    task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&MediaInterfaceFactory::CreateMediaPlayerRenderer,
+                       weak_this_, std::move(client_extension_remote),
+                       std::move(receiver),
+                       player_id, params));
+    return;
+  }
+
+  GetMediaInterfaceFactory()->CreateMediaPlayerRenderer(
+      std::move(client_extension_remote), std::move(receiver),
+      player_id, params);
+}
+#endif // BUILDFLAG(ARKWEB_MEDIA_HLS)
 }  // namespace content

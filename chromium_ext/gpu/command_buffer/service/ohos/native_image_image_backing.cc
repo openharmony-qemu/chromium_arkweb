@@ -5,8 +5,8 @@
 // Based on shared_image_video_surface_texture.cc originally written by
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
- 
+// found in the LICENSE file.
+
 #include "gpu/command_buffer/service/ohos/native_image_image_backing.h"
 
 #include <utility>
@@ -235,6 +235,8 @@ NativeImageImageBacking::ProduceSkiaGanesh(
   if (!texture) {
     return nullptr;
   }
+
+  texture->BindToServiceId(stream_texture_sii_->GetTextureBase()->service_id());
 
   std::unique_ptr<gpu::GLTextureImageRepresentationBase> gl_representation;
   if (passthrough) {

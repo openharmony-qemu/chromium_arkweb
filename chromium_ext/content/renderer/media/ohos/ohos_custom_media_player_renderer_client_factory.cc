@@ -5,7 +5,7 @@
 // Based on media_player_renderer_client_factory.cc originally written by
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
+// found in the LICENSE file.
 
 #include "content/renderer/media/ohos/ohos_custom_media_player_renderer_client_factory.h"
 
@@ -39,19 +39,7 @@ OHOSCustomMediaPlayerRendererClientFactory::CreateRenderer(
     media::VideoRendererSink* video_renderer_sink,
     media::RequestOverlayInfoCB request_surface_cb,
     const gfx::ColorSpace& target_color_space) {
-
-  std::unique_ptr<media::MojoRenderer> mojo_renderer =
-      mojo_renderer_factory_->CreateMediaPlayerRenderer(
-          media_task_runner,
-          video_renderer_sink);
-
-  media::ScopedNativeTextureWrapper native_texture_wrapper =
-      get_native_texture_wrapper_cb_.Run();
-
-  return std::make_unique<OHOSMediaPlayerRendererClient>(
-      media_task_runner,
-      compositor_task_runner_, std::move(mojo_renderer),
-      std::move(native_texture_wrapper), video_renderer_sink);
+  return nullptr;
 }
 
 std::unique_ptr<media::Renderer>
@@ -64,7 +52,6 @@ OHOSCustomMediaPlayerRendererClientFactory::CreateCustomRenderer(
     const gfx::ColorSpace& target_color_space,
     int player_id,
     const media::MediaPlayerUrlParams& params) {
- 
   // Used to send messages from the MPR (Browser process), to the MPRC (Renderer
   // process). The |client_extension_request| will be bound in
   // MediaPlayerRendererClient.

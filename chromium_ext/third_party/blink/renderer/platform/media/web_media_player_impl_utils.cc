@@ -261,18 +261,25 @@ void WebMediaPlayerImplUtils::CreateRendererExtSetRendererType() {
 
 std::unique_ptr<media::Renderer> WebMediaPlayerImplUtils::CreateRendererExtConfigRenderer(
     media::RequestOverlayInfoCB request_overlay_info_cb) {
-  if (impl->should_create_custom_renderer_) {
+  if (impl->media_player_url_params_.GetMediaPlayerUrlType() == media::MediaPlayerUrlType::kHlsMediaPlayer) {
+    return impl->renderer_factory_selector_->GetCurrentFactory()->CreateOHOSMediaPlayerRenderer(
+          impl->media_task_runner_, impl->worker_task_runner_,
+          impl->audio_source_provider_.get(), impl->compositor_.get(),
+          std::move(request_overlay_info_cb), impl->client_->TargetColorSpace(),
+          impl->GetPlayerId(), impl->media_player_url_params_);
+  } else if (impl->should_create_custom_renderer_) {
+    impl->media_player_url_params_.SetMediaPlayerUrlType(media::MediaPlayerUrlType::kCustomMediaPlayer);
     auto renderer =
         impl->renderer_factory_selector_->GetCurrentFactory()->CreateCustomRenderer(
             impl->media_task_runner_, impl->worker_task_runner_,
             impl->audio_source_provider_.get(), impl->compositor_.get(),
             std::move(request_overlay_info_cb), impl->client_->TargetColorSpace(),
-            impl->GetPlayerId(), impl->custom_media_player_url_params_);
-            
+            impl->GetPlayerId(), impl->media_player_url_params_);
+
     std::vector<media::Renderer::MediaSourceInfo> media_source_list;
     media::Renderer::MediaSourceInfo media_source_info;
     media_source_info.media_format = impl->client_->GetMediaFormat();
-    media_source_info.media_source = impl->custom_media_player_url_params_.MediaUrl().spec();
+    media_source_info.media_source = impl->media_player_url_params_.MediaUrl().spec();
     media_source_list.emplace_back(media_source_info);
     for (const auto& source_info : impl->client_->GetRemainSourceInfos()) {
       media_source_list.emplace_back(source_info);
@@ -310,25 +317,22 @@ std::unique_ptr<media::Renderer> WebMediaPlayerImplUtils::CreateRendererExtConfi
   return nullptr;
 }
 
-void WebMediaPlayerImplUtils::GenerateCustomMediaPlayerUrlParams(base::flat_map<std::string, std::string> headers) {
+void WebMediaPlayerImplUtils::GenerateMediaPlayerUrlParams(base::flat_map<std::string, std::string> headers) {
   // Create MediaPlayerUrlParams for OHOS custom media player.
   // This encapsulates all necessary information that was previously in MediaUrlParams.
-  if (impl->should_create_custom_renderer_) {
-    if (impl->demuxer_manager_) {
-      GURL url = impl->demuxer_manager_->LoadedUrl();
-      impl->custom_media_player_url_params_.SetMediaUrl(std::move(url));
-    }
-  impl->custom_media_player_url_params_.SetHeaders(headers);
-  impl->custom_media_player_url_params_.SetSiteForCookies(
-    std::move(impl->frame_->GetDocument().SiteForCookies()));
-  impl->custom_media_player_url_params_.SetTopFrameOrigin(
-    std::move(impl->frame_->GetDocument().TopFrameOrigin()));
-  impl->custom_media_player_url_params_.SetStorageAccessApiStatus(
-    std::move(impl->frame_->GetDocument().StorageAccessApiStatus()));
-  impl->custom_media_player_url_params_.SetPreloadType(impl->initial_preload_);
-  impl->custom_media_player_url_params_.SetMediaSourceType(static_cast<uint32_t>(impl->load_type_));
-  impl->custom_media_player_url_params_.SetIsHls(false);
+  if (impl->demuxer_manager_) {
+    GURL url = impl->demuxer_manager_->LoadedUrl();
+    impl->media_player_url_params_.SetMediaUrl(std::move(url));
   }
+  impl->media_player_url_params_.SetHeaders(headers);
+  impl->media_player_url_params_.SetSiteForCookies(
+      std::move(impl->frame_->GetDocument().SiteForCookies()));
+  impl->media_player_url_params_.SetTopFrameOrigin(
+      std::move(impl->frame_->GetDocument().TopFrameOrigin()));
+  impl->media_player_url_params_.SetStorageAccessApiStatus(
+      std::move(impl->frame_->GetDocument().StorageAccessApiStatus()));
+  impl->media_player_url_params_.SetPreloadType(impl->initial_preload_);
+  impl->media_player_url_params_.SetMediaSourceType(static_cast<uint32_t>(impl->load_type_));
 }
 
 // LCOV_EXCL_START

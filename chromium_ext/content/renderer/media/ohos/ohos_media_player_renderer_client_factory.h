@@ -44,6 +44,15 @@ class CONTENT_EXPORT OHOSMediaPlayerRendererClientFactory
       media::RequestOverlayInfoCB request_surface_cb,
       const gfx::ColorSpace& target_color_space) override;
 
+  std::unique_ptr<media::Renderer> CreateOHOSMediaPlayerRenderer(
+      const scoped_refptr<base::SequencedTaskRunner>& media_task_runner,
+      const scoped_refptr<base::TaskRunner>& worker_task_runner,
+      media::AudioRendererSink* audio_renderer_sink,
+      media::VideoRendererSink* video_renderer_sink,
+      media::RequestOverlayInfoCB request_surface_cb,
+      const gfx::ColorSpace& target_color_space,
+      int player_id,
+      const media::MediaPlayerUrlParams& params) override;
   // Note: GetRequiredMediaResourceType() method removed in Chromium 141
   // MediaResource::Type enumeration no longer exists in the new architecture
 

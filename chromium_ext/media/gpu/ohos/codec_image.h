@@ -5,7 +5,7 @@
 // Based on codec_image.h originally written by
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
+// found in the LICENSE file.
 
 #ifndef MEDIA_GPU_OHOS_CODEC_IMAGE_H_
 #define MEDIA_GPU_OHOS_CODEC_IMAGE_H_
@@ -47,7 +47,7 @@ class MEDIA_GPU_EXPORT CodecImage
   bool IsUsingGpuMemory() const override;
   void UpdateAndBindTexImage(GLuint service_id) override;
   bool HasTextureOwner() const override;
-  gpu::TextureBase* GetTextureBase() const;
+  gpu::TextureBase* GetTextureBase() const override;
   void NotifyOverlayPromotion(bool promotion, const gfx::Rect& bounds) override;
   bool RenderToOverlay() override;
   bool TextureOwnerBindsTextureOnUpdate();

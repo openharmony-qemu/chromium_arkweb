@@ -23,6 +23,27 @@
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
 namespace content {
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void MediaInterfaceProxy::CreateMediaPlayerRenderer(
+    mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
+        client_extension_remote,
+    mojo::PendingReceiver<media::mojom::Renderer> receiver,
+    int player_id,
+    const media::MediaPlayerUrlParams& params) {
+  if (render_frame_host().GetProcess()) {
+    media::MojoRendererService::Create(
+        nullptr,
+        std::make_unique<OHOSMediaPlayerRenderer>(
+            render_frame_host().GetProcess()->GetDeprecatedID(),
+            render_frame_host().GetRoutingID(),
+            WebContents::FromRenderFrameHost(&render_frame_host()),
+            std::move(client_extension_remote), params
+            ),
+        std::move(receiver));
+  }
+}
+#endif // BUILDFLAG(ARKWEB_MEDIA_HLS)
+
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 void MediaInterfaceProxy::CreateCustomMediaPlayerRenderer(
     mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension>
@@ -31,7 +52,7 @@ void MediaInterfaceProxy::CreateCustomMediaPlayerRenderer(
     int player_id,
     const media::MediaPlayerUrlParams& params) {
   DCHECK(thread_checker_.CalledOnValidThread());
- 
+
   media::MojoRendererService::Create(
       nullptr,
       std::make_unique<OHOSCustomMediaPlayerRenderer>(

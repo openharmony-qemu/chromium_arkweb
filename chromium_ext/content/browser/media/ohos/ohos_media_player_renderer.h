@@ -23,6 +23,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
+#include "arkweb/chromium_ext/media/base/media_player_url_params.h"
 
 namespace content {
 class WebContents;
@@ -33,14 +34,17 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
       public media::OHOSMediaPlayerBridge::Client {
  public:
   // Deprecated interfaces removed in Chromium 141
-
+  using ClientExtension =
+      media::mojom::MediaPlayerRendererClientExtension;
   OHOSMediaPlayerRenderer(const OHOSMediaPlayerRenderer&) = delete;
   OHOSMediaPlayerRenderer& operator=(const OHOSMediaPlayerRenderer&) = delete;
 
   OHOSMediaPlayerRenderer(
       int process_id,
       int routing_id,
-      WebContents* web_contents);
+      WebContents* web_contents,
+      mojo::PendingRemote<ClientExtension> client_extension_remote,
+      const media::MediaPlayerUrlParams& params);
 
   ~OHOSMediaPlayerRenderer() override;
 
@@ -110,7 +114,7 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
 
   void GetGrantMediaFileAccessDirs(std::vector<std::string>& grantMediaFileAccessDirs);
 
-  // ClientExtension remote removed in Chromium 141
+  mojo::Remote<ClientExtension> client_extension_;
 
   raw_ptr<media::RendererClient> renderer_client_ = nullptr;
 
@@ -140,7 +144,8 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
 
   int native_window_id_ = -1;
 
-  // MediaUrlParams removed in Chromium 141
+  // MediaUrlParams is removed in Chromium 141 and replaced by MediaPlayerUrlParams
+  std::unique_ptr<media::MediaPlayerUrlParams> url_params_;
 
   base::WeakPtr<WebContents> web_contents_ = nullptr;
 
