@@ -202,7 +202,7 @@ TEST_F(Fido2ApiUtilsTest, ParseTest_007)
     auto ret = Parse(&credential);
     EXPECT_FALSE(ret.has_value());
 }
- 
+
 TEST_F(Fido2ApiUtilsTest, ParseTest_008)
 {
     // Test with valid packed attestation but invalid authData
@@ -216,7 +216,7 @@ TEST_F(Fido2ApiUtilsTest, ParseTest_008)
     auto ret = Parse(&credential);
     EXPECT_FALSE(ret.has_value());
 }
- 
+
 TEST_F(Fido2ApiUtilsTest, ParseTest_009)
 {
     // Test with non-packed format
@@ -230,7 +230,7 @@ TEST_F(Fido2ApiUtilsTest, ParseTest_009)
     auto ret = Parse(&credential);
     EXPECT_FALSE(ret.has_value());
 }
- 
+
 TEST_F(Fido2ApiUtilsTest, ParseTest_010)
 {
     // Test with empty x5c array
@@ -244,7 +244,19 @@ TEST_F(Fido2ApiUtilsTest, ParseTest_010)
     auto ret = Parse(&credential);
     EXPECT_FALSE(ret.has_value());
 }
- 
+
+TEST_F(Fido2ApiUtilsTest, ExtractAttestationObjectAsJsonTest_005)
+{
+    FIDO2_PublicKeyAttestationCredential credential;
+    const char* json_str = "[ \"value1\", \"value2\" ]";
+    uint8_t* json_data = reinterpret_cast<uint8_t*>(const_cast<char*>(json_str));
+    const size_t len = strlen(json_str);
+    Uint8Buff buffer = {static_cast<uint32_t>(len), json_data};
+    credential.response.attestationObject = buffer;
+    auto ret = ExtractAttestationObjectAsJson(&credential);
+    EXPECT_FALSE(ret.has_value());
+}
+
 TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_006)
 {
     // Test with multiple x5c certificates
@@ -259,7 +271,7 @@ TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_006)
     auto ret = BuildPackedAttestationStatement(&att_stmt);
     EXPECT_NE(ret, nullptr);
 }
- 
+
 TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_007)
 {
     // Test with ES256 algorithm (-7)
@@ -272,7 +284,7 @@ TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_007)
     auto ret = BuildPackedAttestationStatement(&att_stmt);
     EXPECT_NE(ret, nullptr);
 }
- 
+
 TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_008)
 {
     // Test with RS256 algorithm (-257)
@@ -285,5 +297,5 @@ TEST_F(Fido2ApiUtilsTest, BuildPackedAttestationStatementTest_008)
     auto ret = BuildPackedAttestationStatement(&att_stmt);
     EXPECT_NE(ret, nullptr);
 }
- 
+
 } // namespace device

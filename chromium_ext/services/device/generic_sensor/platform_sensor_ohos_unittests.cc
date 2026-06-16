@@ -248,7 +248,9 @@ TEST_F(PlatformSensorOHOSTest, CreateTest_002)
     EXPECT_NE(ret, nullptr);
     type = mojom::SensorType::MAGNETOMETER;
     ret = PlatformSensorOHOS::Create(type, &reading_buffer, provider);
+    auto callback = std::make_unique<OHOSSensorCallback>(nullptr, nullptr);
+    callback->UpdateOhosSensorData(1000000000.0, 1.0, 2.0, 3.0, 4.0);
     EXPECT_NE(ret, nullptr);
 }
- 
+
 } // namespace device
