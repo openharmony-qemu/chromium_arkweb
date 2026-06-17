@@ -361,8 +361,7 @@ void ArkwebDisplayUtils::JudgePartialSwap() {
       return;
     }
 
-    if (!base::ohos::IsPageScale() && (draw_mode_ == 0) &&
-        display_->renderer_->GetInitPartialSwap()) {
+    if (display_->renderer_->GetInitPartialSwap()) {
       display_->renderer_->enable_partial_swap();
     }
   }
