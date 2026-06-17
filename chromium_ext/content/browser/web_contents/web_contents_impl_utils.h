@@ -55,7 +55,6 @@ class WebContentsImplUtils {
 #endif
 
 #if BUILDFLAG(ARKWEB_PDF)
-  static bool is_pdf_static;
   void JudgeIsPdfPageVisibilityChanged(Visibility visibility);
 #endif
 
