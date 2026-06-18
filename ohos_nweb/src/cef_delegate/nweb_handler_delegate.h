@@ -192,6 +192,7 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void RegisterNativeLoadEndCallback(std::function<void(void)>&& callback);
 #if BUILDFLAG(ARKWEB_AI)
   void RegisterOnLoadStartedCbForContentChange(std::function<void(void)>&& callback);
+  void RegisterOnLoadStartedCbForImageChange(std::function<void(void)>&& callback);
 #endif
   int GetFlowbufCount(void* mem);
   char* FlowbufStrAtIndex(void* mem,
@@ -1339,6 +1340,7 @@ void OnMediaCastEnter() override;
   std::function<void(void)> onLoadEndCallback_ = nullptr;
 #if BUILDFLAG(ARKWEB_AI)
   std::function<void(void)> onLoadStartedCbForContentChange_ = nullptr;
+  std::function<void(void)> onLoadStartedCbForImageChange_ = nullptr;
 #endif
 
 #if BUILDFLAG(ARKWEB_ADBLOCK)

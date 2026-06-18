@@ -284,6 +284,8 @@ static_library("cef_nweb") {
       sources += [
         "src/cef_delegate/nweb_content_change_detection.cc",
         "src/cef_delegate/nweb_content_change_detection.h",
+        "src/cef_delegate/nweb_image_change_detection.cc",
+        "src/cef_delegate/nweb_image_change_detection.h",
       ]
     }
 
@@ -639,6 +641,7 @@ static_library("nweb_sources") {
   if (defined(arkweb_ai) && arkweb_ai) {
     deps += [
       "//ohos_resources/content_change_detection:content_change_detection_resources",
+      "//ohos_resources/image_change_detection:image_change_detection_resources",
       "//ohos_resources/dom_tree_extractor:dom_tree_extractor_resources",
     ]
   }

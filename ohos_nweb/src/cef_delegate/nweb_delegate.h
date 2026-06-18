@@ -907,6 +907,7 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
 
 #if BUILDFLAG(ARKWEB_AI)
   void RegisterOnLoadStartedCbForContentChange(std::function<void(void)>&& callback) override;
+  void RegisterOnLoadStartedCbForImageChange(std::function<void(void)>&& callback);
 #endif
 
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)

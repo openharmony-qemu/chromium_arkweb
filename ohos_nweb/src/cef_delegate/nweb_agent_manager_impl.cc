@@ -24,6 +24,7 @@ NWebAgentManagerImpl::NWebAgentManagerImpl(
     : nweb_delegate_(nweb_delegate) {
     content_change_detection_ = std::make_unique<NWebContentChangeDetection>(nweb_delegate);
     highlight_specified_content_ = std::make_unique<NWebHighlightSpecifiedContent>(nweb_delegate);
+    image_change_detection_ = std::make_unique<NWebImageChangeDetection>(nweb_delegate);
 }
 
 void NWebAgentManagerImpl::SetAgentEnabled(bool enabled) {
@@ -34,6 +35,9 @@ void NWebAgentManagerImpl::SetAgentEnabled(bool enabled) {
     }
     if (content_change_detection_) {
       content_change_detection_->SetContentChangeDetectionEnable(enabled);
+    }
+    if (image_change_detection_) {
+      image_change_detection_->SetImageChangeDetectionEnable(enabled);
     }
     if (highlight_specified_content_) {
       highlight_specified_content_->SetHighlightSpecifiedContentEnable(enabled);
