@@ -764,6 +764,7 @@ void GetLastJavaScriptProxyCallingFrameInfo(
                          const bool& allow_https_upgrade,
                          int32_t transition_type) override {}
 #if BUILDFLAG(ARKWEB_READER_MODE)
+  void EnableReaderMode(bool enabled) override {}
   void Distill(uint64_t request_id, const DistillOptions& distill_options,
     CefRefPtr<CefDistillCallback> callback) override {}
   void AbortDistill() override {}
