@@ -181,11 +181,11 @@ void OnUidRetrieved(int32_t pid, int32_t uid) {
 #endif
 }
 
-void ArkwebRenderProcessHostImplExt::ReportRenderUnresponsive(int32_t pid) {
-  child_process_->GetUid(base::BindOnce(&OnUidRetrieved, pid));
+void ArkwebRenderProcessHostImplExt::ReportRenderUnresponsive(int32_t pid, const std::string& stack) {
 #if defined(OS_OHOS)
-  child_process_->ReportHicollie();
+  child_process_->ReportHicollie(stack);
 #endif
+  child_process_->GetUid(base::BindOnce(&OnUidRetrieved, pid));
 }
 #endif
 

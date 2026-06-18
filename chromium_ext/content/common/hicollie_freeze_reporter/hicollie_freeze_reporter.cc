@@ -66,6 +66,11 @@ std::string GetFreezeMessage() {
 void ReportFreezeToHicollie() {
     std::lock_guard<std::mutex> lock(g_hicollieMutex);
 
+    static int reportCount = 2;
+    if (reportCount <= 0) {
+        return;
+    }
+
     if (!g_isCallbackRegistered) {
         OH_HiCollie_SetFreezeCallback(&FreezeCallback);
         g_isCallbackRegistered = true;
@@ -77,6 +82,7 @@ void ReportFreezeToHicollie() {
     }
 
     g_isFreezeEvent = !g_isFreezeEvent;
+    --reportCount;
 }
 
 } // namespace HicollieReporter

@@ -41,8 +41,12 @@
   }
 
 #if defined(OS_OHOS)
-  void ReportHicollie() override {
-    HicollieReporter::SetFreezeMessage("render js freeze");
+  void ReportHicollie(const std::string& js_stack) override {
+    if (!js_stack.empty()) {
+      HicollieReporter::SetFreezeMessage(js_stack);
+    } else {
+      HicollieReporter::SetFreezeMessage("render js freeze");
+    }
     HicollieReporter::ReportFreezeToHicollie();
   }
 #endif
