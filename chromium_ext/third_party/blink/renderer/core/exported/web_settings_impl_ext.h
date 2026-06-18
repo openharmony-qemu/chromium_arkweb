@@ -141,6 +141,8 @@ class CORE_EXPORT WebSettingsImplExt final : public WebSettingsImpl {
   bool IsTouchHandleExist() override;
   void SetViewportScaleState(bool viewportScale) override;
   bool IsViewportScale() override;
+  void SetSmartEdgeState(bool state) override;
+  bool GetSmartEdgeState() override;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)

@@ -94,6 +94,7 @@
 #if BUILDFLAG(ARKWEB_MENU)
   bool touch_handle_exist_ = false;
   bool viewport_scale_ = false;
+  bool smart_edge_state_ = false;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
