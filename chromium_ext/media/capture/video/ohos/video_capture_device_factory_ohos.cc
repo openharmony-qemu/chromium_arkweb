@@ -184,10 +184,24 @@ void VideoCaptureDeviceFactoryOHOS::OnCameraStatusChanged(
     if (!OhosAdapterHelper::GetInstance()
              .GetCameraManagerAdapter()
              .IsExistCaptureTask()) {
+      LOG(WARNING) << "OnCameraStatusChanged, IsExistCaptureTask is false";
       return;
     }
     OhosAdapterHelper::GetInstance().GetCameraManagerAdapter().RestartSession();
   }
+}
+
+void VideoCaptureDeviceFactoryOHOS::OnFlashlightStatusChanged(
+    FlashStatusAdapter flash_status,
+    const std::string camera_id) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  std::string current_device_Id = OhosAdapterHelper::GetInstance()
+                                      .GetCameraManagerAdapter()
+                                      .GetCurrentDeviceId();
+  LOG(INFO) << "flashlight status changed, current_device_Id is "
+            << current_device_Id << ", callback_device_id is "
+            << camera_id << ", flash_status is "
+            << static_cast<int32_t>(flash_status);
 }
 
 }  // namespace media

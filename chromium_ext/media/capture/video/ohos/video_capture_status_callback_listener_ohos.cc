@@ -24,11 +24,23 @@ VideoCaptureCameraStatusCallbackListenerOHOS::
 void VideoCaptureCameraStatusCallbackListenerOHOS::OnCameraStatusChanged(
     CameraStatusAdapter camera_status,
     std::string callback_device_id) {
+  LOG(INFO) << "VideoCaptureCameraStatusCallbackListenerOHOS::OnCameraStatusChanged";
   task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&VideoCaptureDeviceFactoryOHOS::OnCameraStatusChanged,
                      capture_device_factory_, camera_status,
                      callback_device_id));
+}
+
+void VideoCaptureCameraStatusCallbackListenerOHOS::OnFlashlightStatusChanged(
+    FlashStatusAdapter flash_status,
+    const std::string cameraID) {
+  LOG(INFO) << "VideoCaptureCameraStatusCallbackListenerOHOS::OnFlashlightStatusChanged";
+  task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&VideoCaptureDeviceFactoryOHOS::OnFlashlightStatusChanged,
+                     capture_device_factory_, flash_status,
+                     cameraID));
 }
 
 }  // namespace media

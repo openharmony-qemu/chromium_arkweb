@@ -312,6 +312,45 @@ void OHOSCaptureDelegate::GetFlashState(
   }
 }
 
+void OHOSCaptureDelegate::GetTorchModeSupported(
+    mojom::PhotoStatePtr& photo_capabilities) {
+  if (!OhosAdapterHelper::GetInstance()
+          .GetCameraManagerAdapter().HasFlash()) {
+    LOG(WARNING) << "current device not support flash";
+    photo_capabilities->supports_torch = false;
+    return;
+  }
+
+  if (!OhosAdapterHelper::GetInstance()
+          .GetCameraManagerAdapter()
+          .IsFlashModeSupported(FlashModeAdapter::FLASH_MODE_ALWAYS_OPEN)) {
+    LOG(WARNING) << "current device not support FLASH_MODE_ALWAYS_OPEN";
+    photo_capabilities->supports_torch = false;
+    return;
+  }
+  LOG(INFO) << "current device support flash";
+  photo_capabilities->supports_torch = true;
+}
+
+void OHOSCaptureDelegate::GetTorchModeState(
+    mojom::PhotoStatePtr& photo_capabilities) {
+  if (!photo_capabilities->supports_torch) {
+    LOG(WARNING) << "current device not support flash";
+    return;
+  }
+
+  FlashModeAdapter flash_mode = OhosAdapterHelper::GetInstance()
+                                    .GetCameraManagerAdapter()
+                                    .GetFlashMode();
+
+  if (flash_mode == FlashModeAdapter::FLASH_MODE_ALWAYS_OPEN) {
+    photo_capabilities->torch = true;
+  } else {
+    photo_capabilities->torch = false;
+  }
+  LOG(INFO) << "get current torch mode, torch is " << photo_capabilities->torch;
+}
+
 void OHOSCaptureDelegate::GetPhotoState(
     VideoCaptureDevice::GetPhotoStateCallback callback) {
   DCHECK(capture_stask_runner_->BelongsToCurrentThread());
@@ -323,6 +362,8 @@ void OHOSCaptureDelegate::GetPhotoState(
   GetExposureState(photo_capabilities);
   GetFocusState(photo_capabilities);
   GetFlashState(photo_capabilities);
+  GetTorchModeSupported(photo_capabilities);
+  GetTorchModeState(photo_capabilities);
 
   photo_capabilities->height = mojom::Range::New(
       capture_format_.frame_size.height(), capture_format_.frame_size.height(),
@@ -341,6 +382,20 @@ void OHOSCaptureDelegate::SetPhotoOptions(
   if (!is_capturing_) {
     return;
   }
+
+  if (settings->has_torch) {
+    FlashModeAdapter flash_mode = settings->torch
+        ? FlashModeAdapter::FLASH_MODE_ALWAYS_OPEN
+        : FlashModeAdapter::FLASH_MODE_CLOSE;
+
+    if (OhosAdapterHelper::GetInstance()
+          .GetCameraManagerAdapter()
+          .SetFlashMode(flash_mode) ==
+      CameraManagerAdapterCode::CAMERA_OK) {
+      LOG(INFO) << "set photo options torch success, torch is " << settings->torch;
+    }
+  }
+
   std::move(callback).Run(true);
 }
 

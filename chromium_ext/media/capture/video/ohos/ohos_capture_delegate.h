@@ -98,6 +98,8 @@ class CAPTURE_EXPORT OHOSCaptureDelegate final {
   mojom::RangePtr RetrieveUserControlRange(RangeIDAdapter rangeID);
   void GetFocusState(mojom::PhotoStatePtr& photo_capabilities);
   void GetFlashState(mojom::PhotoStatePtr& photo_capabilities);
+  void GetTorchModeSupported(mojom::PhotoStatePtr& photo_capabilities);
+  void GetTorchModeState(mojom::PhotoStatePtr& photo_capabilities);
   int GetCameraRotation(int surface_rotation);
   int ConvertToPixel(const int byte_stride, const VideoPixelFormat& pixel_format);
   const scoped_refptr<base::SingleThreadTaskRunner> capture_stask_runner_;
