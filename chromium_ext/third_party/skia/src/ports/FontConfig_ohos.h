@@ -23,6 +23,13 @@
 #include "src/ports/SkFontScanner_FreeType_priv.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
+#include "base/memory/scoped_refptr.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/threading/sequence_local_storage_slot.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/remote.h"
+#include "arkweb/chromium_ext/components/services/font_data/public/mojom/font_data_service.mojom.h"
+
 #ifdef ENABLE_DEBUG
 
 #define LOGE(fmt, args...)                                                 \
@@ -125,6 +132,7 @@ class FontConfig_OHOS {
   int getTypefaceCount(int styleIndex, bool isFallback = false) const;
   int getStyleIndex(const char* familyName, bool& isFallback) const;
   void buildNameToFamilyMap();
+  void buildNameToFamilyMap(font_data_service::mojom::FontConfigInfoPtr fontconfig);
   void buildStyleNameToFamilyMap(
       OHOS::NWeb::ArkWeb_Drawing_SystemFontType fontType);
   int checkNewFontengineISOK();
@@ -140,6 +148,7 @@ class FontConfig_OHOS {
   void InvalidateThemeFont(const SkFontScanner& fontScanner, const std::vector<int>& fds);
   ThemeTypefaceSet getThemeFontTypefaceSet() const;
 #endif
+  void PrepareFontConfig(const SkFontScanner& fontScanner);
 
 #if ENABLE_DEBUG
   void dumpFont(const FontInfo& font) const;
@@ -223,6 +232,11 @@ class FontConfig_OHOS {
   ThemeTypefaceSet themeFontTypefaceSet;
 #endif
 
+  scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
+  mutable base::SequenceLocalStorageSlot<
+      mojo::Remote<font_data_service::mojom::FontDataService>>
+      font_data_service_slot_;
+
   NamesMap
       genericNames;  // a map to store the index of a family for generic family
   NamesMap fallbackNames;  // a map to store the index of a family for fallback
@@ -287,6 +301,7 @@ class FontConfig_OHOS {
   FontConfig_OHOS& operator=(const FontConfig_OHOS&) = delete;
   FontConfig_OHOS(FontConfig_OHOS&&) = delete;
   FontConfig_OHOS& operator=(FontConfig_OHOS&&) = delete;
+  font_data_service::mojom::FontDataService& GetRemoteFontDataService() const;
 };
 
 #endif /* FONTCONFIG_OHOS_H */

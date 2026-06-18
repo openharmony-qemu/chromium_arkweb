@@ -523,6 +523,12 @@ void SkFontMgr_OHOS::onInvalidateThemeFont(const std::vector<int>& fds) {
 }
 #endif
 
+void SkFontMgr_OHOS::onPrepareFontConfig() {
+  if (fontConfig) {
+    fontConfig->PrepareFontConfig(fontScanner);
+  }
+}
+
 //LCOV_EXCL_START
 /*! To create SkFontMgr object for Harmony platform
  * \param fname the full name of system font configuration documents
