@@ -7659,6 +7659,16 @@ std::string NWebImpl::GetAllTextInfo()
 }
 #endif // ARKWEB_AI_WRITE
 
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+void NWebImpl::SetKeyboardImmersiveMode(int32_t mode) {
+  if (inputmethod_handler_ == nullptr) {
+    WVLOG_E("inputmethod_handler_ is nullptr");
+    return;
+  }
+  inputmethod_handler_->SetKeyboardImmersiveMode(mode);
+}
+#endif // ARKWEB_KEYBOARD_APPEARANCE
+
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
 void NWebImpl::SetBorderRadiusFromWeb(double borderRadiusTopLeft,
                                       double borderRadiusTopRight,

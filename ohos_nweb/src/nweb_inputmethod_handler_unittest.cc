@@ -1896,6 +1896,13 @@ TEST_F(NWebInputMethodHandlerTest, GetSelectStartIndex) {
   EXPECT_EQ(result, 5);
 }
 
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+TEST_F(NWebInputMethodHandlerTest, SetKeyboardImmersiveMode) {
+  int32_t mode = 2;
+  inputmethod_handler_->SetKeyboardImmersiveMode(mode);
+  EXPECT_EQ(inputmethod_handler_->imf_input_appearance_, IMFAdapterKeyboardAppearanceType::LIGHT_IMMERSIVE);
+}
+#endif // ARKWEB_KEYBOARD_APPEARANCE
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
 TEST_F(NWebInputMethodHandlerTest, AutoFillWithIMFEventOnUI) {
   CefRefPtr<MockCefBrowserHost> mockHost = new MockCefBrowserHost();

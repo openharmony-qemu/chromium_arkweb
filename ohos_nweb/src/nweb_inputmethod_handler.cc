@@ -392,6 +392,13 @@ void NWebInputMethodHandler::ComputeEditorInfo(InputInfo inputInfo,
   }
 }
 
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+void NWebInputMethodHandler::SetKeyboardImmersiveMode(int32_t mode) 
+{
+  imf_input_appearance_ = static_cast<IMFAdapterKeyboardAppearanceType>(mode);
+}
+#endif // ARKWEB_KEYBOARD_APPEARANCE
+
 bool NWebInputMethodHandler::AttachToSystemIME(bool is_need_reset_listener, int32_t requestKeyboardReason) {
   if (inputmethod_adapter_ == nullptr) {
     LOG(ERROR) << "inputmethod_adapter_ is nullptr";
@@ -412,6 +419,9 @@ bool NWebInputMethodHandler::AttachToSystemIME(bool is_need_reset_listener, int3
   inputAttribute->SetInputPattern(static_cast<int32_t>(imf_input_mode_));
   inputAttribute->SetEnterKeyType(static_cast<int32_t>(imf_input_action_));
 
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+  inputAttribute->SetKeyboardImmersiveMode(static_cast<int32_t>(imf_input_appearance_));
+#endif // ARKWEB_KEYBOARD_APPEARANCE
   std::shared_ptr<IMFCursorInfoAdapter> cursorInfo = GetCursorInfo();
 
   std::shared_ptr<NWebIMFTextConfigAdapterImpl> textConfig =

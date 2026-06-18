@@ -953,6 +953,9 @@ class NWebImpl : public NWeb {
   int GetSelectEndIndex() override;
   std::string GetAllTextInfo() override;
 #endif // ARKWEB_AI_WRITE
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+  void SetKeyboardImmersiveMode(int32_t mode) override;
+#endif // ARKWEB_KEYBOARD_APPEARANCE
 #if BUILDFLAG(ARKWEB_USERAGENT)
   static std::string GetDefaultUserAgent();
 #endif

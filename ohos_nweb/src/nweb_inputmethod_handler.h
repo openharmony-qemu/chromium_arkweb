@@ -134,6 +134,9 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
 
   void HandleExtendAction(int32_t action);
 
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+  void SetKeyboardImmersiveMode(int32_t mode);
+#endif // ARKWEB_KEYBOARD_APPEARANCE
  private:
   void SetIMEStatusOnUI(bool status);
   void WebBlurKeyboardHideOnUI();
@@ -206,6 +209,8 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
   bool isNeedReattachOncontinue_ = false;
   IMFAdapterTextInputType imf_input_mode_ = IMFAdapterTextInputType::TEXT;
   IMFAdapterEnterKeyType imf_input_action_ = IMFAdapterEnterKeyType::GO;
+  IMFAdapterKeyboardAppearanceType imf_input_appearance_ 
+    = IMFAdapterKeyboardAppearanceType::NONE_IMMERSIVE;
   bool type_text_flag_multi_line_ = false;
   std::chrono::high_resolution_clock::time_point lastCloseInputMethodTime_;
   bool isNeedReattachOnfocus_ = false;

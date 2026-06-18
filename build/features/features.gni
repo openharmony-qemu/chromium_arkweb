@@ -90,6 +90,7 @@ declare_args() {
   arkweb_ion_buffer = true
   arkweb_itp = true
   arkweb_jsproxy = true
+  arkweb_keyboard_appearance = true
   arkweb_load_per = true
   arkweb_media = true
   arkweb_media_avsession = true

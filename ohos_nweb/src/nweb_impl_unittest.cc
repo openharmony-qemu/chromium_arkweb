@@ -147,6 +147,9 @@ class MockNWebInputMethodHandler : public NWebInputMethodHandler {
   MOCK_METHOD0(GetSelectEndIndex, int());
   MOCK_METHOD0(GetAllTextInfo, std::string());
 #endif // ARKWEB_AI_WRITE
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+  MOCK_METHOD(void, SetKeyboardImmersiveMode, (int32_t mode));
+#endif // ARKWEB_KEYBOARD_APPEARANCE
   MOCK_METHOD(bool, Reattach, (uint32_t, ReattachType), ());
   MOCK_METHOD(void, SetFocusStatus, (bool), ());
 };
@@ -7206,7 +7209,24 @@ TEST_F(NWebImplTest, GetAllTextInfo002) {
   EXPECT_TRUE(result.empty());
 }
 #endif // BUILDFLAG(ARKWEB_AI_WRITE)
+#if BUILDFLAG(ARKWEB_KEYBOARD_APPEARANCE)
+TEST_F(NWebImplTest, SetKeyboardImmersiveMode001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  CefRefPtr<MockNWebInputMethodHandler> inputmethod_handler = new MockNWebInputMethodHandler();
+  nweb_impl_->inputmethod_handler_ = nullptr;
+  EXPECT_CALL(*inputmethod_handler, SetKeyboardImmersiveMode(0)).Times(0);
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_EQ(nweb_impl_->inputmethod_handler_, nullptr);
+}
 
+TEST_F(NWebImplTest, SetKeyboardImmersiveMode002) {
+  nweb_impl_->inputmethod_handler_ = new NWebInputMethodHandler();
+  nweb_impl_->SetKeyboardImmersiveMode(2);
+  EXPECT_NE(nweb_impl_->inputmethod_handler_, nullptr);
+  EXPECT_EQ(nweb_impl_->inputmethod_handler_->imf_input_appearance_, 
+    IMFAdapterKeyboardAppearanceType::LIGHT_IMMERSIVE);
+}
+#endif // ARKWEB_KEYBOARD_APPEARANCE
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
 TEST_F(NWebImplTest, SetBorderRadiusFromWeb001) {
   double borderRadiusTopLeft = 1.0;

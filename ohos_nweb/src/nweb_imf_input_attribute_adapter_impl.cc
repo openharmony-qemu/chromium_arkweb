@@ -25,6 +25,10 @@ int32_t NWebIMFInputAttributeAdapterImpl::GetEnterKeyType() {
   return enterKey_type_;
 }
 
+int32_t NWebIMFInputAttributeAdapterImpl::GetKeyboardImmersiveMode() {
+  return immersive_mode_;
+}
+
 void NWebIMFInputAttributeAdapterImpl::SetInputPattern(int32_t inputPattern) {
   input_pattern_ = inputPattern;
 }
@@ -33,4 +37,7 @@ void NWebIMFInputAttributeAdapterImpl::SetEnterKeyType(int32_t enterKeyType) {
   enterKey_type_ = enterKeyType;
 }
 
+void NWebIMFInputAttributeAdapterImpl::SetKeyboardImmersiveMode(int32_t immersiveMode) {
+  immersive_mode_ = immersiveMode;
+}
 }  // namespace OHOS::NWeb

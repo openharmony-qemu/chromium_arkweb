@@ -28,13 +28,18 @@ class NWebIMFInputAttributeAdapterImpl : public IMFInputAttributeAdapter {
 
   int32_t GetEnterKeyType() override;
 
+  int32_t GetKeyboardImmersiveMode() override;
+
   void SetInputPattern(int32_t inputPattern);
 
   void SetEnterKeyType(int32_t enterKeyType);
 
+  void SetKeyboardImmersiveMode(int32_t immersiveMode);
+
  private:
   int32_t input_pattern_ = 0;
   int32_t enterKey_type_ = 0;
+  int32_t immersive_mode_ = 0;
 };
 
 }  // namespace OHOS::NWeb
