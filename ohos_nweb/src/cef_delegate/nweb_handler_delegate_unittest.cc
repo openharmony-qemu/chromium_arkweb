@@ -138,6 +138,7 @@ class MockNWebHandler : public NWebHandler {
   MOCK_METHOD2(OnFileSelectorShow,
                bool(std::shared_ptr<NWebStringVectorValueCallback>,
                     std::shared_ptr<NWebFileSelectorParams>));
+  MOCK_METHOD(void, OnInputMethodAttached, (), (override));
 };
 
 class MockWebAppClientExtensionListener
@@ -700,4 +701,15 @@ TEST_F(NWebHandlerDelegateTest, RegisterGetAllImageByXPathCallback) {
   int32_t imagenum = 10;
   bool result = delegate->RegisterGetAllImageByXPathCallback(taskid, imagenum, nullptr);
   EXPECT_TRUE(result);
+}
+
+TEST_F(NWebHandlerDelegateTest, OnInputMethodAttached_001) {
+  delegate->nweb_handler_ = nullptr;
+  delegate->OnInputMethodAttached();
+  EXPECT_EQ(delegate->nweb_handler_, nullptr);
+}
+
+TEST_F(NWebHandlerDelegateTest, OnInputMethodAttached_002) {
+  EXPECT_CALL(*mock_handler_, OnInputMethodAttached()).Times(1);
+  delegate->OnInputMethodAttached();
 }
