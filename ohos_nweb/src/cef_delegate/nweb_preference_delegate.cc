@@ -49,6 +49,11 @@ namespace OHOS::NWeb {
 constexpr int fontMinSize = 1;
 constexpr int fontMaxSize = 72;
 
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+const std::string FONTFAMILYRESETFLAG = "";
+constexpr int FONTSIZERESETFLAG = 0;
+#endif
+
 enum class WebScrollType : int32_t {
   UNKNOWN = -1,
   EVENT = 0,
@@ -68,6 +73,7 @@ int ConvertCacheMode(NWebPreference::CacheModeFlag flag) {
 }
 
 const std::string ACCESS_LOCATION = "ohos.permission.INTERNET";
+
 NWebPreferenceDelegate::NWebPreferenceDelegate() {
   has_internet_permission_ = OhosAdapterHelper::GetInstance()
                                  .GetAccessTokenAdapterInstance()
@@ -75,6 +81,25 @@ NWebPreferenceDelegate::NWebPreferenceDelegate() {
   is_network_blocked_ = !has_internet_permission_;
 
   SetBrowserSettingsToNetHelpers();
+
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (base::CommandLine::ForCurrentProcess()) {
+    is_browser_used_ = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kEnableNwebEx);
+  } else {
+    is_browser_used_ = false;
+  }
+  if (!is_browser_used_) {
+    has_web_set_default_font_size_ = true;
+    has_web_set_default_fixed_font_size_ = true;
+    has_web_set_font_size_lower_limit_ = true;
+    has_web_set_standard_font_ = true;
+    has_web_set_fixed_font_ = true;
+    has_web_set_serif_font_ = true;
+    has_web_set_sans_serif_font_ = true;
+    has_web_set_cursive_font_ = true;
+    has_web_set_fantasy_font_ = true;
+  }
+#endif
 }
 
 NWebPreferenceDelegate::~NWebPreferenceDelegate() {}
@@ -149,6 +174,17 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
   browser_settings.default_fixed_font_size = DefaultFixedFontSize();
   browser_settings.minimum_font_size = FontSizeLowerLimit();
   browser_settings.minimum_logical_font_size = LogicalFontSizeLowerLimit();
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  browser_settings.has_web_set_cursive_font = has_web_set_cursive_font_;
+  browser_settings.has_web_set_fantasy_font = has_web_set_fantasy_font_;
+  browser_settings.has_web_set_serif_font = has_web_set_serif_font_;
+  browser_settings.has_web_set_fixed_font = has_web_set_fixed_font_;
+  browser_settings.has_web_set_sans_serif_font = has_web_set_sans_serif_font_;
+  browser_settings.has_web_set_standard_font = has_web_set_standard_font_;
+  browser_settings.has_web_set_default_font_size = has_web_set_default_font_size_;
+  browser_settings.has_web_set_default_fixed_font_size = has_web_set_default_fixed_font_size_;
+  browser_settings.has_web_set_font_size_lower_limit = has_web_set_font_size_lower_limit_;
+#endif
   browser_settings.initialize_at_minimum_page_scale =
       IsLoadWithOverviewMode() ? STATE_ENABLED : STATE_DISABLED;
 
@@ -361,6 +397,15 @@ void NWebPreferenceDelegate::PutLoadImageFromNetworkDisabled(bool flag) {
 }
 
 void NWebPreferenceDelegate::PutCursiveFontFamilyName(const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_cursive_font_ = false;
+    } else {
+      has_web_set_cursive_font_ = true;
+    }
+  }
+#endif
   cursive_font_family_name_ = font;
   WebPreferencesChanged();
 }
@@ -370,10 +415,28 @@ void NWebPreferenceDelegate::PutDatabaseAllowed(bool flag) {
 }
 
 void NWebPreferenceDelegate::PutDefaultFixedFontSize(int size) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (size < FONTSIZERESETFLAG) {
+      has_web_set_default_fixed_font_size_ = false;
+    } else {
+      has_web_set_default_fixed_font_size_ = true;
+    }
+  }
+#endif
   default_fixed_font_size_ = std::clamp(size, fontMinSize, fontMaxSize);
   WebPreferencesChanged();
 }
 void NWebPreferenceDelegate::PutDefaultFontSize(int size) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (size < FONTSIZERESETFLAG) {
+      has_web_set_default_font_size_ = false;
+    } else {
+      has_web_set_default_font_size_ = true;
+    }
+  }
+#endif
   default_font_size_ = std::clamp(size, fontMinSize, fontMaxSize);
   WebPreferencesChanged();
 }
@@ -390,11 +453,29 @@ void NWebPreferenceDelegate::PutDomStorageEnabled(bool flag) {
 }
 
 void NWebPreferenceDelegate::PutFantasyFontFamilyName(const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_fantasy_font_ = false;
+    } else {
+      has_web_set_fantasy_font_ = true;
+    }
+  }
+#endif
   fantasy_font_family_name_ = font;
   WebPreferencesChanged();
 }
 
 void NWebPreferenceDelegate::PutFixedFontFamilyName(const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_fixed_font_ = false;
+    } else {
+      has_web_set_fixed_font_ = true;
+    }
+  }
+#endif
   fixed_font_family_name_ = font;
   WebPreferencesChanged();
 }
@@ -486,6 +567,15 @@ void NWebPreferenceDelegate::PutImageLoadingAllowed(bool flag) {
 }
 
 void NWebPreferenceDelegate::PutFontSizeLowerLimit(int size) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (size < FONTSIZERESETFLAG) {
+      has_web_set_font_size_lower_limit_ = false;
+    } else {
+      has_web_set_font_size_lower_limit_ = true;
+    }
+  }
+#endif
   font_size_lower_limit_ = std::clamp(size, fontMinSize, fontMaxSize);
   WebPreferencesChanged();
 }
@@ -502,17 +592,44 @@ void NWebPreferenceDelegate::PutLoadWithOverviewMode(bool flag) {
 
 void NWebPreferenceDelegate::PutSansSerifFontFamilyName(
     const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_sans_serif_font_ = false;
+    } else {
+      has_web_set_sans_serif_font_ = true;
+    }
+  }
+#endif
   sans_serif_font_family_name_ = font;
   WebPreferencesChanged();
 }
 
 void NWebPreferenceDelegate::PutSerifFontFamilyName(const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_serif_font_ = false;
+    } else {
+      has_web_set_serif_font_ = true;
+    }
+  }
+#endif
   serif_font_family_name_ = font;
   WebPreferencesChanged();
 }
 
 void NWebPreferenceDelegate::PutStandardFontFamilyName(
     const std::string& font) {
+#if BUILDFLAG(ARKWEB_FONT_SETTINGS)
+  if (is_browser_used_) {
+    if (FONTFAMILYRESETFLAG == font) {
+      has_web_set_standard_font_ = false;
+    } else {
+      has_web_set_standard_font_ = true;
+    }
+  }
+#endif
   standard_font_family_name_ = font;
   WebPreferencesChanged();
 }

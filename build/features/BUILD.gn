@@ -320,6 +320,7 @@ if (!enable_arkweb) {
   arkweb_blank_optimize = true
   arkweb_blank_screen_detection = false
   arkweb_first_screen_paint = false
+  arkweb_font_settings = false
   arkweb_bgtask = false
   arkweb_privacy_compliance = true
   arkweb_v8_compile = false
@@ -618,6 +619,7 @@ buildflag_header("features") {
     "ARKWEB_JSHEAP_DUMP=$arkweb_jsheap_dump",
     "ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE=$arkweb_clean_buffers_when_invisible",
     "ARKWEB_NOT_LOAD_IFRAME=$arkweb_not_load_iframe",
+    "ARKWEB_FONT_SETTINGS=$arkweb_font_settings",
   ]
 
 
