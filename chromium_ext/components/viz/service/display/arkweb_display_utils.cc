@@ -354,9 +354,9 @@ void ArkwebDisplayUtils::Resize(const gfx::Size& size) {
 }
 
 #if BUILDFLAG(ARKWEB_VULKAN_INC_PRESENT)
-void ArkwebDisplayUtils::JudgePartialSwap() {
+void ArkwebDisplayUtils::JudgePartialSwap(bool has_copy_requests) {
   if (features::IsUsingVulkan() && display_ && display_->renderer_) {
-    if (base::ohos::IsPageScale() || (draw_mode_ != 0)) {
+    if (has_copy_requests || base::ohos::IsPageScale() || (draw_mode_ != 0)) {
       display_->renderer_->disable_partial_swap();
       return;
     }
@@ -372,7 +372,7 @@ void ArkwebDisplayUtils::DrawAndSwap(AggregatedRenderPass& last_render_pass,
                                      gfx::Size current_surface_size,
                                      AggregatedFrame& frame) {
 #if BUILDFLAG(ARKWEB_VULKAN_INC_PRESENT)
-  JudgePartialSwap();
+  JudgePartialSwap(frame.has_copy_requests);
 #endif
   if (draw_mode_ ||
       (display_->settings_.auto_resize_output_surface &&
