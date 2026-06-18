@@ -14,13 +14,18 @@
  */
 
 #include "css_utils.h"
+
+#include "base/command_line.h"
+#include "content/public/common/content_switches_ext.h"
 #include "ohos_nweb/src/nweb_advanced_security.h"
 
 namespace blink {
 
 bool Cssutils::IsMathFormulaDisabledMode() {
   return OHOS::NWeb::NWebAdvancedSecurityHelper::Inst().
-        IsSecFeatureEnabled(OHOS::NWeb::NWebAdvancedSecurityHelper::Feature::ENABLE_MATHML);
+IsSecFeatureEnabled(OHOS::NWeb::NWebAdvancedSecurityHelper::Feature::ENABLE_MATHML)
+      || base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kDisableMathml);
 }
 
 }  // namespace
