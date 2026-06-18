@@ -1548,7 +1548,8 @@ arkweb_content_browser_unittests_sources =[
   "//arkweb/chromium_ext/content/browser/host_zoom_map_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ohos/overscroll_controller_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/message_port_provider_for_include_unittest.cc",
-  "//arkweb/chromium_ext/content/browser/ohos/software_compositor_host_ohos_unittest.cc"
+  "//arkweb/chromium_ext/content/browser/ohos/software_compositor_host_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager_unittest.cc"
 ]
 
 arkweb_components_captive_portal_content_sources = [
@@ -1573,3 +1574,14 @@ if (is_arkweb_ext) {
     "//arkweb/chromium_ext/components/page_load_metrics/browser/metrics_web_contents_observer_ext.cc"
   ]
 }
+
+arkweb_custom_font_lookup_mojom_sources = [
+  "//arkweb/chromium_ext/third_party/blink/public/mojom/custom_font_lookup/arkweb_custom_font_lookup.mojom"
+]
+
+arkweb_custom_font_lookup_content_browser_sources = [
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_lookup_service.cc",
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_lookup_service.h",
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.cc",
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.h"
+]

@@ -8879,6 +8879,12 @@ TEST_F(NWebImplTest,
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+TEST_F(NWebImplTest, SetCustomFonts001) {
+  NWebCustomFontInfoVector customFonts;
+  EXPECT_TRUE(NWebImpl::SetCustomFonts(customFonts));
+}
+#endif // ARKWEB_CUSTOM_FONTS
 
 TEST_F(NWebImplTest, ReloadIgnoreCache001) {
   nweb_impl_->nweb_delegate_ = nullptr;

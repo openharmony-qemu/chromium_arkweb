@@ -241,6 +241,8 @@ if (!enable_arkweb) {
   arkweb_webrtc = false
   arkweb_webstorage = false
   arkweb_wpt = true
+  arkweb_custom_fonts = false
+  arkweb_use_fuzzing_engine = false
   arkweb_zoom = true
   arkweb_report_sys_event = true
   arkweb_get_scroll_offset = false
@@ -516,6 +518,8 @@ buildflag_header("features") {
     "ARKWEB_WEBRTC=$arkweb_webrtc",
     "ARKWEB_WEBSTORAGE=$arkweb_webstorage",
     "ARKWEB_WPT=$arkweb_wpt",
+    "ARKWEB_CUSTOM_FONTS=$arkweb_custom_fonts",
+    "ARKWEB_USE_FUZZING_ENGINE=$arkweb_use_fuzzing_engine",
     "ARKWEB_ZOOM=$arkweb_zoom",
     "ARKWEB_REPORT_SYS_EVENT=$arkweb_report_sys_event",
     "ARKWEB_GET_SCROLL_OFFSET=$arkweb_get_scroll_offset",

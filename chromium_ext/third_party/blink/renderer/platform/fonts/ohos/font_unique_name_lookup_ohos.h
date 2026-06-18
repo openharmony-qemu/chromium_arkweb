@@ -13,6 +13,10 @@
 #include "third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+#include "arkweb/chromium_ext/third_party/blink/public/mojom/custom_font_lookup/arkweb_custom_font_lookup.mojom-blink.h"
+#endif
+
 namespace blink {
 
 class FontUniqueNameLookupOhos : public FontUniqueNameLookup {
@@ -37,9 +41,24 @@ class FontUniqueNameLookupOhos : public FontUniqueNameLookup {
   void ReceiveReadOnlySharedMemoryRegion(
       base::ReadOnlySharedMemoryRegion shared_memory_region);
 
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+  void EnsureCustomFontsServiceConnected();
+  void CustomFontsPrefetched(HashMap<String, base::File> font_files);
+  bool RequestedNameInQueryableFonts(const String &font_unique_name);
+  sk_sp<SkTypeface>
+  MatchUniqueNameFromArkwebCustomFonts(const String &font_unique_name);
+#endif // ARKWEB_CUSTOM_FONTS
+
   mojo::Remote<mojom::blink::FontUniqueNameLookup> ohos_font_lookup_service_;
   Deque<NotifyFontUniqueNameLookupReady> pending_callbacks_;
   std::optional<bool> sync_available_;
+
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+  mojo::Remote<mojom::blink::ArkwebCustomFontLookup>
+      arkweb_custom_font_lookup_service_;
+  std::optional<Vector<String>> queryable_fonts_;
+  HashMap<String, base::File> prefetched_font_map_;
+#endif // ARKWEB_CUSTOM_FONTS
 
   SEQUENCE_CHECKER(sequence_checker_);
 

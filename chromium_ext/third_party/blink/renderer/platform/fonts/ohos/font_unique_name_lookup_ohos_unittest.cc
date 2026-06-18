@@ -140,4 +140,36 @@ TEST_F(FontUniqueNameLookupOhosTest, IsFontUniqueNameLookupReadyForSyncLookup003
   flag = lookup_.IsFontUniqueNameLookupReadyForSyncLookup();
   EXPECT_FALSE(flag);
 }
+
+#if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
+TEST_F(FontUniqueNameLookupOhosTest, CustomFonts_CustomFontsPrefetched) {
+  HashMap<String, base::File> font_files;
+  auto font_name = String("testname");
+  auto file_path = ::base::FilePath("/path/to/font/file");
+  auto font_file = ::base::File(file_path, ::base::File::FLAG_OPEN |
+                                               ::base::File::FLAG_READ);
+  font_files.insert(std::move(font_name), std::move(font_file));
+  lookup_.CustomFontsPrefetched(std::move(font_files));
+  EXPECT_EQ(lookup_.prefetched_font_map_.size(), 1u);
+  EXPECT_TRUE(lookup_.queryable_fonts_.has_value());
+  EXPECT_EQ(lookup_.queryable_fonts_->size(), 1u);
+}
+
+TEST_F(FontUniqueNameLookupOhosTest,
+       CustomFonts_RequestedNameInQueryableFonts) {
+  std::string font_name = "testname";
+  Vector<String> fake_fonts;
+  fake_fonts.push_back(String(font_name));
+  lookup_.queryable_fonts_ = std::move(fake_fonts);
+  bool result = lookup_.RequestedNameInQueryableFonts(String(font_name));
+  EXPECT_TRUE(result);
+}
+
+TEST_F(FontUniqueNameLookupOhosTest,
+       CustomFonts_MatchUniqueNameFromArkwebCustomFonts) {
+  std::string font_name = "testname";
+  auto result = lookup_.MatchUniqueNameFromArkwebCustomFonts(String(font_name));
+  EXPECT_EQ(result, nullptr);
+}
+#endif // ARKWEB_CUSTOM_FONTS
 }  // namespace blink

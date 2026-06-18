@@ -97,6 +97,8 @@ namespace base {
 #include "capi/nweb_extension_distill_item.h"
 #endif // ARKWEB_READER_MODE
 
+#include "ohos_nweb/src/capi/nweb_custom_font_info.h"
+
 namespace OHOS::NWeb {
 #if BUILDFLAG(IS_ARKWEB)
 class NWebPrintDocumentAdapterAdapterImpl :
@@ -424,6 +426,9 @@ class NWebImpl : public NWeb {
   void SetAdBlockEnabledForSite(bool is_adblock_enabled,
                                 int main_frame_tree_node_id);
 #endif
+
+  static bool SetCustomFonts(
+      const NWebCustomFontInfoVector& customFonts);
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
   void SetSavePasswordAutomatically(bool enable) const;
