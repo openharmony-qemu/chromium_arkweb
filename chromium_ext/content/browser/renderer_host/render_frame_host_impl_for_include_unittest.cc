@@ -390,4 +390,11 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnDocumentEndReady) {
   ASSERT_NO_FATAL_FAILURE(rfh->OnDocumentEndReady());
 }
 
+TEST_F(RenderFrameHostImplForIncludeTest, OnNestedScroll_BasicCall) {
+  float delta_x = 10.0f;
+  float delta_y = 10.0f;
+
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  ASSERT_NO_FATAL_FAILURE(rfh->OnNestedScroll(delta_x, delta_y));
+}
 }  // namespace content

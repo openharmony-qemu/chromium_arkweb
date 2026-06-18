@@ -254,5 +254,15 @@ void FlingController::SetScrollable(bool enable) {
   touchscreen_tap_suppression_controller_.SetScrollable(enable);
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_FLING)
+bool FlingController::OnNestedScroll(float& delta_x, float& delta_y) {
+  bool ret = false;
+  if (scheduler_client_) {
+    ret = scheduler_client_->OnNestedScroll(delta_x, delta_y);
+  }
+  return ret;
+}
+#endif
 }
 #endif

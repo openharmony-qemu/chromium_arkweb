@@ -563,4 +563,21 @@ void RenderFrameHostImpl::OnDidCommitNavigationInternal(
 void RenderFrameHostImpl::OnResetOwnedNavigationRequests(
     NavigationDiscardReason reason) {}
 #endif
+
+#if BUILDFLAG(ARKWEB_FLING)
+bool RenderFrameHostImpl::OnNestedScroll(float& delta_x, float& delta_y) {
+  if (!render_view_host_ || !render_view_host_->GetWidget()) {
+    LOG(ERROR)
+        << "RenderFrameHostImpl::OnNestedScroll cannot get view.";
+    return false;
+  }
+  RenderWidgetHostViewBase* view = static_cast<RenderWidgetHostViewBase*>(
+      render_view_host_->GetWidget()->GetView());
+  bool ret = false;
+  if (view) {
+    ret = view->OnNestedScroll(delta_x, delta_y);
+  }
+  return ret;
+}
+#endif
 }  // namespace content

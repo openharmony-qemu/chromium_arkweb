@@ -1483,22 +1483,15 @@ bool NWebRenderHandler::FilterScrollEvent(CefRefPtr<CefBrowser> browser,
 
 bool NWebRenderHandler::OnNestedScroll(CefRefPtr<CefBrowser> browser,
                                        float& x,
-                                       float& y,
-                                       float& fling_x,
-                                       float& fling_y,
-                                       bool& isAvailable)
+                                       float& y)
 {
   if (auto handler = handler_.lock()) {
     // Value multiplied by virtual pixel ratio.
     x = x * screen_info_.display_ratio;
     y = y * screen_info_.display_ratio;
-    fling_x = fling_x * screen_info_.display_ratio;
-    fling_y = fling_y * screen_info_.display_ratio;
-    bool consumed = handler->OnNestedScroll(x, y, fling_x, fling_y, isAvailable);
+    bool consumed = handler->OnNestedScrollV2(x, y);
     x = x / screen_info_.display_ratio;
     y = y / screen_info_.display_ratio;
-    fling_x = fling_x / screen_info_.display_ratio;
-    fling_y = fling_y / screen_info_.display_ratio;
     return consumed;
   }
   return false;
