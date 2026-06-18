@@ -29,19 +29,6 @@ const std::vector<std::string> NetworkChangeNotifier::GetCurrentDnsServers() {
 }
 #endif
 
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
-const std::vector<std::string> NetworkChangeNotifier::GetCurrentNetAddrList() {
-  return std::vector<std::string>();
-}
-const std::vector<std::string> NetworkChangeNotifier::GetNetAddrListByNetId(int32_t netId) {
-  return std::vector<std::string>();
-}
-
-void NetworkChangeNotifier::SetNetAddrList(std::vector<std::string> new_addr_list) {
-  return;
-}
-#endif
-
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
 // static
 void NetworkChangeNotifier::BindToNetwork(int32_t network_for_dns) {
