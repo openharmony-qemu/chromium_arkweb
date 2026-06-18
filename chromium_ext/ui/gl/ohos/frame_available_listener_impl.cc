@@ -15,16 +15,23 @@
 
 #include "frame_available_listener_impl.h"
 
+#include "arkweb/chromium_ext/ui/gl/ohos/ohos_native_image.h"
+
 namespace OHOS::NWeb {
 
 FrameAvailableListenerImpl::FrameAvailableListenerImpl(
-  raw_ptr<OhosNativeImageAdapter> adapter) : ohos_native_image_adapter_(adapter) {}
+        base::RepeatingClosure frame_available_cb)
+        : frame_available_cb_(std::move(frame_available_cb)) {}
 
 void FrameAvailableListenerImpl::OnFrameAvailableListener() {
-  if (!ohos_native_image_adapter_) {
-    return;
+  // Immediately signal the wait coordinator on the callback thread to avoid timeout.
+  // This is critical for timely wakeup of WaitForFrameAvailable() which has a
+  // short timeout window (5-20ms). Posting to another thread introduces scheduling
+  // delays that can cause timeouts.
+  //
+  // base::WaitableEvent::Signal() is thread-safe and can be called from any thread.
+  if (frame_available_cb_) {
+    frame_available_cb_.Run();
   }
-  ohos_native_image_adapter_->OnFrameAvailableListener();
 }
-
 }  // namespace OHOS::NWeb
