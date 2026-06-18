@@ -21,6 +21,7 @@ if [ "${OH_LEGACY}" -eq 0 ]; then
   sh ./sign.sh
 else
   sh ./sign_legacy.sh
+  cp NWeb-$ohos_mr_build_type.hap $HW_HARMONY_ENGINE_OUT_RELEASE/Nweb-Legacy.hap
 fi
 
 
