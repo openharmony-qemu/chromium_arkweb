@@ -21,12 +21,20 @@
 #include "ohos_resources/content_change_detection/grit/content_change_detection_resources.h"
 #include "ohos_resources/dom_tree_extractor/grit/dom_tree_extractor_resources.h"
 
+namespace features {
+BASE_FEATURE(kReportDomTreeAsync,
+             "ReportDomTreeAsync",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+}
+
 namespace OHOS::NWeb {
 
 constexpr std::string_view kStartTemplate = "(function(window) { window.viewportFontMonitor.start($1, $2); })(window);";
 constexpr std::string_view kStopTemplate = "(function(window) { window.viewportFontMonitor.stop(); })(window);";
 constexpr std::string_view kRequestWebDomTemplate = "window.__arkWebDomTree.getWebDom();";
 constexpr std::string_view kWebDomReportedTemplate = "window.__arkWebDomTree.addDomTreeReported();";
+constexpr std::string_view kWebDomReportedAsyncTemplate = "window.__arkWebDomTree.addDomTreeReportedAsync();";
+constexpr std::string_view kRemoveWebDomReportedTemplate = "window.__arkWebDomTree.removeDomTreeReported();";
 
 NWebContentChangeDetection::NWebContentChangeDetection(
     base::WeakPtr<NWebDelegateInterface> nweb_delegate)
@@ -89,7 +97,14 @@ void NWebContentChangeDetection::StartDetection() {
   }
   
   std::string dom_script_extractor(js_dom_extrator);
-  std::string dom_final_js = dom_script_extractor + std::string(kWebDomReportedTemplate);
+  std::string dom_final_js;
+  if (base::FeatureList::IsEnabled(features::kReportDomTreeAsync)) {
+    LOG(INFO) << "NWebContentChangeDetection run web dom tree report async";
+    dom_final_js = dom_script_extractor + std::string(kWebDomReportedAsyncTemplate);
+  } else {
+    dom_final_js = dom_script_extractor + std::string(kWebDomReportedTemplate);
+  }
+
   nweb_delegate_->ExecuteJavaScript(dom_final_js);
 }
 
@@ -100,6 +115,8 @@ void NWebContentChangeDetection::StopDetection() {
   LOG(INFO) << "NWebContentChangeDetection::StopDetection";
   std::string final_js = std::string(kStopTemplate);
   nweb_delegate_->ExecuteJavaScript(final_js);
+  std::string dom_final_js = std::string(kRemoveWebDomReportedTemplate);
+  nweb_delegate_->ExecuteJavaScript(dom_final_js);
 }
 
 void NWebContentChangeDetection::RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback) {
