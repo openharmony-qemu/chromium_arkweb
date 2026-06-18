@@ -6198,6 +6198,69 @@ void NWebHandlerDelegate::OnPdfLoadEvent(int32_t result, const std::string& url)
 }
 #endif  // BUILDFLAG(ARKWEB_PDF)
 
+#if BUILDFLAG(ARKWEB_AI)
+namespace {
+
+class AISessionCallbackImpl : public NWebStringVectorValueCallback {
+ public:
+  explicit AISessionCallbackImpl(content::AISessionCallback callback)
+      : callback_(std::move(callback)) {}
+
+  void OnReceiveValue(const std::vector<std::string>& value) override {
+    if (value.size() < 2) {
+      return;
+    }
+    int state_int = std::stoi(value[0]);
+    content::AISessionResultType state =
+        static_cast<content::AISessionResultType>(state_int);
+    if (callback_) {
+      callback_.Run(state, value[1]);
+    }
+  }
+
+ private:
+  content::AISessionCallback callback_;
+};
+
+}  // namespace
+
+void NWebHandlerDelegate::OnCreateAISession(
+    content::AISessionType type,
+    const std::string& id,
+    const std::string& params,
+    content::AISessionCallback callback) {
+  if (nweb_agent_handler_) {
+    auto callback_impl =
+        std::make_shared<AISessionCallbackImpl>(std::move(callback));
+    nweb_agent_handler_->OnCreateAISession(
+        static_cast<NWebAgentHandler::AISessionType>(type), id, params,
+        callback_impl);
+  }
+}
+
+void NWebHandlerDelegate::OnExecuteAIAction(
+    content::AISessionType type,
+    const std::string& id,
+    const std::string& params,
+    content::AISessionCallback callback) {
+  if (nweb_agent_handler_) {
+    auto callback_impl =
+        std::make_shared<AISessionCallbackImpl>(std::move(callback));
+    nweb_agent_handler_->OnExecuteAIAction(
+        static_cast<NWebAgentHandler::AISessionType>(type), id, params,
+        callback_impl);
+  }
+}
+
+void NWebHandlerDelegate::OnDestroyAISession(content::AISessionType type,
+                                             const std::string& id) {
+  if (nweb_agent_handler_) {
+    nweb_agent_handler_->OnDestroyAISession(
+        static_cast<NWebAgentHandler::AISessionType>(type), id);
+  }
+}
+#endif  // BUILDFLAG(ARKWEB_AI)
+
 #if BUILDFLAG(ARKWEB_PERFORMANCE_PERSISTENT_TASK)
 bool NWebHandlerDelegate::OnStartBackgroundTask(int32_t type,
                                                 const std::string& message) {

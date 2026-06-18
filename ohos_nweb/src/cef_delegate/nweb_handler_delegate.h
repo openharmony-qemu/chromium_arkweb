@@ -1061,6 +1061,19 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void OnPdfLoadEvent(int32_t result, const std::string& url) override;
 #endif
 
+#if BUILDFLAG(ARKWEB_AI)
+  void OnCreateAISession(content::AISessionType type,
+                         const std::string& id,
+                         const std::string& params,
+                         content::AISessionCallback callback) override;
+  void OnExecuteAIAction(content::AISessionType type,
+                         const std::string& id,
+                         const std::string& params,
+                         content::AISessionCallback callback) override;
+  void OnDestroyAISession(content::AISessionType type,
+                          const std::string& id) override;
+#endif  // BUILDFLAG(ARKWEB_AI)
+
 #if BUILDFLAG(ARKWEB_MENU)
   void OnVisibleChanged(bool isVisible);
   void SetHandleVisibleCallback(

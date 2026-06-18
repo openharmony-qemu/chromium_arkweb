@@ -232,6 +232,27 @@ arkweb_ui_native_theme_sources = [
   "//arkweb/chromium_ext/ui/native_theme/native_theme_aura_utils.h",
 ]
 
+arkweb_content_browser_ai_ohos_sources = [
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_base_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_base_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_manager_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_manager_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_summarizer_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_summarizer_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_writer_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_writer_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_rewriter_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_rewriter_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_proofreader_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_proofreader_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_language_model_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/echo_ai_language_model_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/language_detector_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/language_detector_ohos.h",
+  "//arkweb/chromium_ext/content/browser/ai/translator_ohos.cc",
+  "//arkweb/chromium_ext/content/browser/ai/translator_ohos.h"
+]
+
 arkweb_content_browser_media_ohos_sources = [
   "//arkweb/chromium_ext/content/browser/media/ohos/native_web_contents_observer.cc",
   "//arkweb/chromium_ext/content/browser/media/ohos/native_web_contents_observer.h",

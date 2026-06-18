@@ -207,6 +207,14 @@ void WebView::ApplyWebPreferencesForInclude(
   LOG(DEBUG) << "WebViewImpl::UpdateMainFrameLayoutSize,forceZeroLayoutHeight:"
              << prefs.force_zero_layout_height;
   RuntimeEnabledFeatures::SetMediaCaptureEnabled(true);
+  RuntimeEnabledFeatures::SetAIWriterAPIEnabled(true);
+  RuntimeEnabledFeatures::SetAISummarizationAPIEnabled(true);
+  RuntimeEnabledFeatures::SetAIRewriterAPIEnabled(true);
+  RuntimeEnabledFeatures::SetAIProofreadingAPIEnabled(true);
+  RuntimeEnabledFeatures::SetAIPromptAPIEnabled(true);
+  RuntimeEnabledFeatures::SetAIPromptAPIMultimodalInputEnabled(true);
+  RuntimeEnabledFeatures::SetTranslationAPIEnabled(true);
+  RuntimeEnabledFeatures::SetLanguageDetectionAPIEnabled(true);
   RuntimeEnabledFeatures::SetEyeDropperAPIEnabled(
       OHOS::NWeb::OhosAdapterHelper::GetInstance()
           .GetSystemPropertiesInstance()
