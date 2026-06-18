@@ -301,10 +301,11 @@ media::mojom::blink::VideoAttributesForVASTPtr HTMLMediaElementUtils::CollectVid
   attributes->show_playback_rate_menu = true;
   attributes->current_playback_rate = htmlMediaElement_->playbackRate();
   attributes->rect = htmlMediaElement_->video_rect_;
-  attributes->supports_save = htmlMediaElement_->SupportsSave();
+  attributes->supports_save = htmlMediaElement_->SupportVideoAssistantDownload();
   attributes->duration = htmlMediaElement_->duration();
   attributes->visible = htmlMediaElement_->video_visible_ && IsMediaPlayerShown() &&
       !htmlMediaElement_->video_rect_.IsEmpty();
+  attributes->is_hls = htmlMediaElement_->IsHLSURL(htmlMediaElement_->downloadURL());
   LOG(INFO) << "attributes->visible:" << attributes->visible;
   return attributes;
 }
