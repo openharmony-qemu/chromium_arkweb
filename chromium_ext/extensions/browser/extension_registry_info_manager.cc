@@ -15,6 +15,7 @@
 
 #include "extensions/browser/extension_registry_info_manager.h"
 
+#include "base/containers/fixed_flat_map.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/strings/stringprintf.h"
@@ -358,6 +359,18 @@ void GetManifestSettingsOverridesInfo(Profile* profile,
     manifest.settings_overrides->search_provider.emplace(
         GetSearchProvider(profile, extension, settings));
   }
+}
+
+NWebExtensionState UnloadedReasonToState(UnloadedExtensionReason reason) {
+  static const auto kReasonToState =
+      base::MakeFixedFlatMap<UnloadedExtensionReason, NWebExtensionState>({
+          {UnloadedExtensionReason::DISABLE, NWebExtensionState::DISABLED},
+          {UnloadedExtensionReason::TERMINATE, NWebExtensionState::TERMINATED},
+          {UnloadedExtensionReason::BLOCKLIST, NWebExtensionState::BLOCKLISTED},
+          {UnloadedExtensionReason::UNINSTALL, NWebExtensionState::UNINSTALLED},
+      });
+  auto it = kReasonToState.find(reason);
+  return it != kReasonToState.end() ? it->second : NWebExtensionState::DISABLED;
 }
 #ifndef BUILDFLAG(ARKWEB_TEST)
 }
@@ -741,11 +754,28 @@ void ExtensionRegistryInfoManager::Loaded(const std::string& extension_id) {
   StartNotifyingExtensionLoaded(*extension);
 }
 
+void ExtensionRegistryInfoManager::OnExtensionLoaded(
+    content::BrowserContext* browser_context,
+    const Extension* extension) {
+  LOG(INFO) << "ExtensionLoaded " << extension->id();
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+      extension->id(), static_cast<int>(NWebExtensionState::ENABLED));
+#endif
+}
+
 void ExtensionRegistryInfoManager::OnExtensionUnloaded(content::BrowserContext* browser_context,
                                                        const Extension* extension,
                                                        UnloadedExtensionReason reason) {
   // It must be triggered after the observer notification.
 #if BUILDFLAG(ARKWEB_NWEB_EX)
+  // UNINSTALLED state is notified in OnExtensionUninstalled.
+  if (reason != UnloadedExtensionReason::UNINSTALL) {
+    NWebExtensionState state = UnloadedReasonToState(reason);
+    NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+        extension->id(), static_cast<int>(state));
+  }
+
   NWebExtensionManagerDispatcher::OnExtensionUnLoadedCallBack(
       extension->id(), UnloadedExtensionReasonEnumToInt(reason));
 #endif
@@ -768,7 +798,9 @@ void ExtensionRegistryInfoManager::OnExtensionUninstalled(content::BrowserContex
                                                           const Extension* extension,
                                                           UninstallReason reason) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionManagerDispatcher::OnExtensionUninstalledCallBack(
+  NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+      extension->id(), static_cast<int>(NWebExtensionState::UNINSTALLED));
+  NWebExtensionManagerDispatcher::OnExtensionUninstalledCallBack(
       extension->id(), static_cast<int>(reason));
 #endif
 }
