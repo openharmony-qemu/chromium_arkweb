@@ -41,6 +41,7 @@ class BlankScreenDetector : public GarbageCollected<BlankScreenDetector> {
                          int32_t contentful_nodes_count_threshold);
   void OnInputOrScroll();
   void Trace(Visitor* visitor) const;
+  void SetLocalFrame(LocalFrame* local_frame);
 
  private:
   void GenerateTestPointsByMethodDetection17(int32_t width, int32_t height);

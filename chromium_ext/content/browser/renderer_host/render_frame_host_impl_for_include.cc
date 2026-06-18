@@ -444,7 +444,7 @@ void RenderFrameHostImpl::OnDetectedBlankScreen(
     int32_t detectedContentfulNodesCount) {
   RenderWidgetHostViewBase* view = static_cast<RenderWidgetHostViewBase*>(
       render_view_host_->GetWidget()->GetView());
-  if (view && blank_screen_detection_enable_) {
+  if (view) {
     view->OnDetectedBlankScreen(url, blankScreenReason,
                                 detectedContentfulNodesCount);
   }

@@ -239,6 +239,7 @@ void FirstScreenCalculator::NotifyImagePaint(
     LOG(INFO) << "FirstScreenCalculator::NotifyImagePaint image_ratio "
               << image_ratio << " is too large.";
     if (!DoesRectIntersectExistingRects(rect)) {
+      background_rect_ = rect;
       background_image_id_ = record_id_hash;
     }
     return;
@@ -397,6 +398,7 @@ void FirstScreenCalculator::RestartRecordingFirstScreenPaint() {
   intersected_image_ids_.clear();
   occupied_rect_ = gfx::Rect();
   viewport_rect_ = gfx::Rect();
+  background_rect_ = gfx::Rect();
 }
 
 void FirstScreenCalculator::GetPaintRects(std::vector<gfx::Rect>& paint_rects) {
@@ -411,6 +413,9 @@ void FirstScreenCalculator::GetPaintRects(std::vector<gfx::Rect>& paint_rects) {
       continue;
     }
     paint_rects.emplace_back(it->rect_);
+  }
+  if (background_image_id_ != 0) {
+    paint_rects.emplace_back(background_rect_);
   }
 }
 

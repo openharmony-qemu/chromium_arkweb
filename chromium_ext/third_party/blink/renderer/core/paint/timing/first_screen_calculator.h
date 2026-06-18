@@ -78,6 +78,7 @@ class FirstScreenCalculator : public GarbageCollected<FirstScreenCalculator> {
   MediaRecordIdHash background_image_id_ = 0;
   gfx::Rect viewport_rect_{gfx::Rect()};
   gfx::Rect occupied_rect_{gfx::Rect()};
+  gfx::Rect background_rect_{gfx::Rect()};
   bool nearly_finished_ = false;
 #if BUILDFLAG(ARKWEB_CRASHPAD)
     base::ThreadChecker thread_check_;

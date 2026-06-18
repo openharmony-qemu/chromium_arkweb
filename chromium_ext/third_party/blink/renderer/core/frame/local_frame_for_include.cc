@@ -131,6 +131,10 @@ BlankScreenDetector* LocalFrame::GetBlankScreenDetector(
   }
   return blank_screen_detector_;
 }
+
+void LocalFrame::SetBlankScreenDetector(BlankScreenDetector* detector) {
+  blank_screen_detector_ = detector;
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_FIRST_SCREEN_PAINT)
