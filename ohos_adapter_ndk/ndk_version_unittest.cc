@@ -18,113 +18,92 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
-#include "build/buildflag.h"
-#include "ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_ndk_api.h"
 
-using namespace OHOS::NWeb;
+using ::testing::MockFunction;
 using ::testing::Return;
-using ::testing::ReturnRef;
 
-const int DEFAULT_API_VERSION = 60000;
-const int TEST_API_VERSION_60000 = 60000;
-const int TEST_API_VERSION_70000 = 70000;
-const char* API_VERSION_STRING_60000 = "60000";
-const char* API_VERSION_STRING_70000 = "70000";
-const char* EMPTY_STRING = "";
-const char* INVALID_STRING = "abc";
-const char* OVERFLOW_STRING = "999999999999999999999999999999";
-const char* UNDERFLOW_STRING = "-999999999999999999999999999999";
+namespace {
+
+constexpr int TEST_API_VERSION_SMALL = 5;
+constexpr int TEST_API_VERSION_LARGE = 10;
+constexpr int TEST_API_VERSION_0 = 0;
+constexpr int TEST_API_VERSION_NEGATIVE = -1;
+
+struct GetParamApiVersionCase {
+  int sdk_api_version;
+  int expected_api_version;
+};
+
+struct CheckTargetApiVersionCase {
+  int sdk_api_version;
+  int target_api_version;
+  bool expected_result;
+};
+
+}  // namespace
 
 class NdkVersionTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    mock_helper_ = new MockOhosAdapterHelper();
-    mock_system_properties_ = new MockSystemPropertiesAdapter();
-
-    EXPECT_CALL(*mock_helper_, GetSystemPropertiesInstance())
-        .WillRepeatedly(ReturnRef(*mock_system_properties_));
-
-#if BUILDFLAG(ARKWEB_TEST)
-    OhosAdapterHelper::SetInstance(mock_helper_);
-#endif
+    MockNdkApi::g_mock_OH_GetSdkApiVersion = [this]() {
+      return mock_oh_get_sdk_api_version_.Call();
+    };
   }
 
   void TearDown() override {
-#if BUILDFLAG(ARKWEB_TEST)
-    OhosAdapterHelper::SetInstance(nullptr);
-#endif
-    delete mock_system_properties_;
-    delete mock_helper_;
-    mock_system_properties_ = nullptr;
-    mock_helper_ = nullptr;
+    MockNdkApi::g_mock_OH_GetSdkApiVersion = nullptr;
   }
 
-  MockOhosAdapterHelper* mock_helper_ = nullptr;
-  MockSystemPropertiesAdapter* mock_system_properties_ = nullptr;
+  MockFunction<int(void)> mock_oh_get_sdk_api_version_;
 };
 
-TEST_F(NdkVersionTest, GetParamApiVersion_Normal) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(API_VERSION_STRING_60000));
+class GetParamApiVersionTest
+    : public NdkVersionTest,
+      public ::testing::WithParamInterface<GetParamApiVersionCase> {};
 
-  int version = GetParamApiVersion();
-  EXPECT_EQ(TEST_API_VERSION_60000, version);
+TEST_P(GetParamApiVersionTest, ReturnsExpectedValueForEachSdkApiVersionBranch) {
+  const auto& test_case = GetParam();
+  EXPECT_CALL(mock_oh_get_sdk_api_version_, Call())
+      .WillOnce(Return(test_case.sdk_api_version));
+
+  EXPECT_EQ(test_case.expected_api_version, GetParamApiVersion());
 }
 
-TEST_F(NdkVersionTest, GetParamApiVersion_EmptyString) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(EMPTY_STRING));
+INSTANTIATE_TEST_SUITE_P(
+    NdkVersionBranches,
+    GetParamApiVersionTest,
+    ::testing::Values(
+        GetParamApiVersionCase{TEST_API_VERSION_SMALL, TEST_API_VERSION_SMALL},
+        GetParamApiVersionCase{TEST_API_VERSION_0, TEST_API_VERSION_0},
+        GetParamApiVersionCase{TEST_API_VERSION_NEGATIVE, TEST_API_VERSION_0}));
 
-  int version = GetParamApiVersion();
-  EXPECT_EQ(DEFAULT_API_VERSION, version);
+class CheckTargetApiVersionTest
+    : public NdkVersionTest,
+      public ::testing::WithParamInterface<CheckTargetApiVersionCase> {};
+
+TEST_P(CheckTargetApiVersionTest, CoversAllTargetComparisonBranches) {
+  const auto& test_case = GetParam();
+  EXPECT_CALL(mock_oh_get_sdk_api_version_, Call())
+      .WillOnce(Return(test_case.sdk_api_version));
+
+  EXPECT_EQ(test_case.expected_result,
+            CheckTargetApiVersion(test_case.target_api_version));
 }
 
-TEST_F(NdkVersionTest, GetParamApiVersion_InvalidString) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(INVALID_STRING));
-
-  int version = GetParamApiVersion();
-  EXPECT_EQ(DEFAULT_API_VERSION, version);
-}
-
-TEST_F(NdkVersionTest, GetParamApiVersion_Overflow) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(OVERFLOW_STRING));
-
-  int version = GetParamApiVersion();
-  EXPECT_EQ(DEFAULT_API_VERSION, version);
-}
-
-TEST_F(NdkVersionTest, GetParamApiVersion_Underflow) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(UNDERFLOW_STRING));
-
-  int version = GetParamApiVersion();
-  EXPECT_EQ(DEFAULT_API_VERSION, version);
-}
-
-TEST_F(NdkVersionTest, CheckTargetApiVersion_GreaterThan) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(API_VERSION_STRING_60000));
-
-  bool result = CheckTargetApiVersion(TEST_API_VERSION_70000);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(NdkVersionTest, CheckTargetApiVersion_Equal) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(API_VERSION_STRING_60000));
-
-  bool result = CheckTargetApiVersion(TEST_API_VERSION_60000);
-  EXPECT_FALSE(result);
-}
-
-TEST_F(NdkVersionTest, CheckTargetApiVersion_LessThan) {
-  EXPECT_CALL(*mock_system_properties_, GetDeviceInfoApiVersion())
-      .WillOnce(Return(API_VERSION_STRING_70000));
-
-  bool result = CheckTargetApiVersion(TEST_API_VERSION_60000);
-  EXPECT_FALSE(result);
-}
+INSTANTIATE_TEST_SUITE_P(
+    NdkVersionBranches,
+    CheckTargetApiVersionTest,
+    ::testing::Values(
+        CheckTargetApiVersionCase{TEST_API_VERSION_SMALL,
+                                  TEST_API_VERSION_LARGE,
+                                  true},
+        CheckTargetApiVersionCase{TEST_API_VERSION_SMALL,
+                                  TEST_API_VERSION_SMALL,
+                                  false},
+        CheckTargetApiVersionCase{TEST_API_VERSION_LARGE,
+                                  TEST_API_VERSION_SMALL,
+                                  false},
+        CheckTargetApiVersionCase{TEST_API_VERSION_NEGATIVE,
+                                  TEST_API_VERSION_SMALL,
+                                  true}));

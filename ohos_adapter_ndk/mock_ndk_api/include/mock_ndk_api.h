@@ -23,6 +23,7 @@
 #include <BasicServicesKit/oh_commonevent.h>
 #include <BasicServicesKit/oh_commonevent_support.h>
 #include <BasicServicesKit/ohbattery_info.h>
+#include <deviceinfo.h>
 #include <BasicServicesKit/time_service.h>
 #include <network/netmanager/net_connection_type.h>
 #include <network/netmanager/net_connection.h>
@@ -197,6 +198,10 @@ extern std::function<BufferHandle* (OHNativeWindowBuffer *buffer)>
     g_mock_OH_NativeWindow_GetBufferHandleFromNative;
 BufferHandle* __real_OH_NativeWindow_GetBufferHandleFromNative(OHNativeWindowBuffer *buffer);
 BufferHandle* __wrap_OH_NativeWindow_GetBufferHandleFromNative(OHNativeWindowBuffer *buffer);
+
+extern std::function<int(void)> g_mock_OH_GetSdkApiVersion;
+int __real_OH_GetSdkApiVersion(void);
+int __wrap_OH_GetSdkApiVersion(void);
 
 #ifdef __cplusplus
 }

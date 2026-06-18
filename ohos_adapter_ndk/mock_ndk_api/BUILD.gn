@@ -125,6 +125,7 @@ config("mock_ndk_api_config") {
   ]
   #arkweb_base_oh_ndk_config
   ldflags += [
+    "-Wl,--wrap=OH_GetSdkApiVersion",
     "-Wl,--wrap=OH_FileUri_GetPathFromUri", 
     "-Wl,--wrap=OH_FileUri_GetFileName",
     "-Wl,--wrap=OH_CommonEvent_CreateSubscribeInfo",
