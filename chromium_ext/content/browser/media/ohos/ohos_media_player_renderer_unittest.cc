@@ -55,6 +55,9 @@ class OHOSMediaPlayerRendererTest : public RenderViewHostTestHarness {
     web_contents_ = static_cast<WebContentsImpl*>(web_contents());
     ASSERT_NE(web_contents_, nullptr);
     mock_resource_ = std::make_unique<media::MockMediaResource>();
+    test_url_ = GURL("https://example");
+    test_origin_ = url::Origin::Create(test_url_);
+    test_site_for_cookies_ = net::SiteForCookies::FromUrl(test_url_);
   }
 
   void TearDown() override {
@@ -63,18 +66,27 @@ class OHOSMediaPlayerRendererTest : public RenderViewHostTestHarness {
     RenderViewHostTestHarness::TearDown();
   }
 
+  media::MediaPlayerUrlParams CreateUrlParams() {
+    return media::MediaPlayerUrlParams(
+        test_url_, test_site_for_cookies_, test_origin_,
+        net::StorageAccessApiStatus::kNone, false,
+        base::flat_map<std::string, std::string>(), 0, 0);
+  }
+
   void CreateRenderer() {
-    const int process_id = main_rfh()->GetProcess()->GetID();
+    const auto process_id = main_rfh()->GetProcess()->GetID();
     const int routing_id = main_rfh()->GetRoutingID();
-    mojo::PendingReceiver<media::mojom::MediaPlayerRendererExtension>
-        renderer_receiver;
     mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
         client_remote;
 
     renderer_ = std::make_unique<OHOSMediaPlayerRenderer>(
-        process_id, routing_id, web_contents_, std::move(renderer_receiver),
-        std::move(client_remote));
+        process_id.value(), routing_id, web_contents_, std::move(client_remote),
+        CreateUrlParams());
   }
+
+  GURL test_url_;
+  url::Origin test_origin_;
+  net::SiteForCookies test_site_for_cookies_;
 
   void OnInitCallback(media::PipelineStatus status) {
     callback_called_ = true;
@@ -101,14 +113,12 @@ class OHOSMediaPlayerRendererTest : public RenderViewHostTestHarness {
 TEST_F(OHOSMediaPlayerRendererTest, Initialize1) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  EXPECT_CALL(*mock_resource_, GetType())
-      .WillOnce(Return(media::MediaResource::Type::kStream));
+  renderer_->url_params_.reset();
   callback_called_ = false;
-  auto init_cb = base::BindOnce(&OHOSMediaPlayerRendererTest::OnInitCallback,
-                                base::Unretained(this));
-  ASSERT_NO_FATAL_FAILURE(renderer_->Initialize(
-      mock_resource_.get(), &mock_client_, media::RequestSurfaceCB(),
-      media::VideoDecoderChangedCB(), std::move(init_cb)));
+  renderer_->init_cb_ = base::BindOnce(&OHOSMediaPlayerRendererTest::OnInitCallback,
+                                 base::Unretained(this));
+  ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
+  base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(callback_called_);
   EXPECT_EQ(callback_status_, media::PIPELINE_ERROR_INITIALIZATION_FAILED);
 }
@@ -116,14 +126,6 @@ TEST_F(OHOSMediaPlayerRendererTest, Initialize1) {
 TEST_F(OHOSMediaPlayerRendererTest, Initialize2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-
-  EXPECT_CALL(*mock_resource_, GetType())
-      .WillOnce(Return(media::MediaResource::Type::KUrl));
-  EXPECT_CALL(*mock_resource_, GetMediaUrlParams())
-      .WillOnce(ReturnRef(url_params));
   callback_called_ = false;
   auto init_cb = base::BindOnce(&OHOSMediaPlayerRendererTest::OnInitCallback,
                                 base::Unretained(this));
@@ -150,10 +152,7 @@ TEST_F(OHOSMediaPlayerRendererTest, CreateMediaPlayer1) {
 TEST_F(OHOSMediaPlayerRendererTest, CreateMediaPlayer2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   callback_called_ = false;
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
@@ -177,10 +176,7 @@ TEST_F(OHOSMediaPlayerRendererTest, StartPlayingFrom2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
   renderer_->has_error_ = true;
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -214,11 +210,7 @@ TEST_F(OHOSMediaPlayerRendererTest, StartPlayingFrom4) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
   renderer_->has_error_ = false;
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -232,10 +224,7 @@ TEST_F(OHOSMediaPlayerRendererTest, StartPlayingFrom4) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate1) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -249,10 +238,7 @@ TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate1) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -266,10 +252,7 @@ TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate2) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate3) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -283,10 +266,7 @@ TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate3) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate4) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -300,10 +280,7 @@ TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate4) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate5) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -317,10 +294,7 @@ TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate5) {
 TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRate6) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -341,6 +315,7 @@ TEST_F(OHOSMediaPlayerRendererTest, TryOrCreateMediaPlayer1) {
 TEST_F(OHOSMediaPlayerRendererTest, TryOrCreateMediaPlayer2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
+  renderer_->url_params_.reset();
   renderer_->SetNativeWindowSurface(123);
   EXPECT_EQ(renderer_->url_params_, nullptr);
   EXPECT_EQ(renderer_->media_player_, nullptr);
@@ -349,10 +324,7 @@ TEST_F(OHOSMediaPlayerRendererTest, TryOrCreateMediaPlayer2) {
 TEST_F(OHOSMediaPlayerRendererTest, TryOrCreateMediaPlayer3) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   callback_called_ = false;
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
@@ -371,13 +343,11 @@ TEST_F(OHOSMediaPlayerRendererTest, GetMediaResourceGetter1) {
 }
 
 TEST_F(OHOSMediaPlayerRendererTest, GetMediaResourceGetter2) {
-  mojo::PendingReceiver<media::mojom::MediaPlayerRendererExtension>
-      renderer_receiver;
   mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
       client_remote;
   auto bad_render = std::make_unique<OHOSMediaPlayerRenderer>(
-      -12345, 0, web_contents_, std::move(renderer_receiver),
-      std::move(client_remote));
+      -12345, 0, web_contents_, std::move(client_remote),
+      CreateUrlParams());
   auto* getter = bad_render->GetMediaResourceGetter();
   EXPECT_EQ(getter, nullptr);
 }
@@ -450,13 +420,11 @@ TEST_F(OHOSMediaPlayerRendererTest, OnPlayerInterruptEvent1) {
 TEST_F(OHOSMediaPlayerRendererTest, OnPlayerInterruptEvent2) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
-  mojo::PendingReceiver<media::mojom::MediaPlayerRendererExtension>
-      renderer_receiver;
   mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
       client_remote;
   auto temp = std::make_unique<OHOSMediaPlayerRenderer>(
-      -12345, 0, web_contents_, std::move(renderer_receiver),
-      std::move(client_remote));
+      -12345, 0, web_contents_, std::move(client_remote),
+      CreateUrlParams());
   ASSERT_NE(temp, nullptr);
   ASSERT_NO_FATAL_FAILURE(temp->OnPlayerInterruptEvent(2));
 }
@@ -628,10 +596,7 @@ TEST_F(OHOSMediaPlayerRendererTest, PipEnable) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
   renderer_->has_error_ = true;
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -647,10 +612,7 @@ TEST_F(OHOSMediaPlayerRendererTest, RecycleDmaBuffer) {
   CreateRenderer();
   ASSERT_NE(renderer_, nullptr);
   renderer_->has_error_ = true;
-  static media::MediaUrlParams url_params(
-      GURL("https://example"), net::SiteForCookies(), url::Origin(),
-      net::StorageAccessApiStatus::kNone, false, false);
-  renderer_->url_params_ = std::make_unique<media::MediaUrlParams>(url_params);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(CreateUrlParams());
   renderer_->init_cb_ = base::BindOnce(
       &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
   ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
@@ -664,14 +626,109 @@ TEST_F(OHOSMediaPlayerRendererTest, RecycleDmaBuffer) {
 #endif  // ARKWEB_MEDIA_DMABUF
 
 TEST_F(OHOSMediaPlayerRendererTest, CtorNoObserver) {
-  mojo::PendingReceiver<media::mojom::MediaPlayerRendererExtension>
-      renderer_receiver;
   mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
       client_remote;
   auto result = std::make_unique<OHOSMediaPlayerRenderer>(
-      main_rfh()->GetProcess()->GetID(), main_rfh()->GetRoutingID(), nullptr,
-      std::move(renderer_receiver), std::move(client_remote));
+      main_rfh()->GetProcess()->GetID().value(), main_rfh()->GetRoutingID(), nullptr,
+      std::move(client_remote), media::MediaPlayerUrlParams(CreateUrlParams()));
   ASSERT_NE(result, nullptr);
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, OnPlaybackComplete) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->renderer_client_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(renderer_->OnPlaybackComplete());
+  renderer_->renderer_client_ = &mock_client_;
+  EXPECT_CALL(mock_client_, OnEnded()).Times(1);
+  ASSERT_NO_FATAL_FAILURE(renderer_->OnPlaybackComplete());
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, OnUpdateAudioMutingState) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->media_player_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(renderer_->OnUpdateAudioMutingState(true));
+  ASSERT_NO_FATAL_FAILURE(renderer_->OnUpdateAudioMutingState(false));
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, OnWebContentsDestroyed) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  ASSERT_NO_FATAL_FAILURE(renderer_->OnWebContentsDestroyed());
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, SetLatencyHint) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetLatencyHint(std::nullopt));
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetLatencyHint(base::Milliseconds(100)));
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, Flush) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  bool flush_done = false;
+  auto flush_cb = base::BindOnce(
+      [](bool* flag) { *flag = true; }, &flush_done);
+  ASSERT_NO_FATAL_FAILURE(renderer_->Flush(std::move(flush_cb)));
+  EXPECT_TRUE(flush_done);
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, GetRendererType) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  EXPECT_EQ(renderer_->GetRendererType(),
+            media::RendererType::kOHOSMediaPlayer);
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, StartPlayingFromNoClient) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->url_params_ = std::make_unique<media::MediaPlayerUrlParams>(
+      test_url_, test_site_for_cookies_, test_origin_,
+      net::StorageAccessApiStatus::kNone, false,
+      base::flat_map<std::string, std::string>(), 0, 0);
+  renderer_->init_cb_ = base::BindOnce(
+      &OHOSMediaPlayerRendererTest::OnInitCallback, base::Unretained(this));
+  ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_NE(renderer_->media_player_, nullptr);
+  renderer_->renderer_client_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(renderer_->StartPlayingFrom(base::Seconds(10)));
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, SetPlaybackRateWithError) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->has_error_ = true;
+  renderer_->media_player_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetPlaybackRate(1.0));
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, SetNativeWindowSurface) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->url_params_.reset();
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetNativeWindowSurface(1));
+  EXPECT_EQ(renderer_->native_window_id_, 1);
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, SetVolume) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->media_player_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetVolume(0.5));
+  EXPECT_EQ(renderer_->volume_, 0.5f);
+  ASSERT_NO_FATAL_FAILURE(renderer_->SetVolume(1.0));
+  EXPECT_EQ(renderer_->volume_, 1.0f);
+}
+
+TEST_F(OHOSMediaPlayerRendererTest, GetMediaTime) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+  renderer_->media_player_ = nullptr;
+  EXPECT_EQ(renderer_->GetMediaTime(), base::Milliseconds(0));
 }
 
 }  // namespace content
