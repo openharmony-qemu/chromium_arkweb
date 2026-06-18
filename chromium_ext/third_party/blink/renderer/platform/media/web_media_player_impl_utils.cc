@@ -149,7 +149,6 @@ void WebMediaPlayerImplUtils::ExitedFullscreenExt() {
 bool WebMediaPlayerImplUtils::DoLoadExt(WebMediaPlayer::CorsMode cors_mode, bool is_cache_disabled) {
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
   if (impl->demuxer_manager_->LoadedUrl().SchemeIs(media::remoting::kRemotingScheme)) {
-    LOG(INFO) << "disable custom renderer for remote scheme";
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
     LOG_FEEDBACK(INFO) << "disable custom renderer for remote scheme";
 #endif  // ARKWEB_LOGGER_REPORT
@@ -370,12 +369,11 @@ void WebMediaPlayerImplUtils::PauseExt() {
 
 void WebMediaPlayerImplUtils::DoSeekExt(base::TimeDelta time) {
 #if BUILDFLAG(ARKWEB_MEDIA)
-  LOG(WARNING) << "OhMedia::DoSeek(hash" << std::hex << base::FastHash(base::byte_span_from_ref(impl.get()))
-               << "), seconds = " << time.InSecondsF() << "s)";
-#endif // BUILDFLAG(ARKWEB_MEDIA)
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
-  LOG_FEEDBACK(WARNING) << "OhMedia::DoSeek(" << (void*)this
+  LOG_FEEDBACK(WARNING) << "OhMedia::DoSeek(hash"
+                        << base::FastHash(base::byte_span_from_ref(impl.get()))
                         << "), seconds = " << time.InSecondsF() << "s)";
+#endif
 #endif
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
@@ -385,13 +383,12 @@ void WebMediaPlayerImplUtils::DoSeekExt(base::TimeDelta time) {
 
 void WebMediaPlayerImplUtils::SetVolumeExt(double volume) {
 #if BUILDFLAG(ARKWEB_MEDIA)
-  LOG(INFO) << "OhMedia:: " << __func__ << "(hash"
-            << std::hex << base::FastHash(base::byte_span_from_ref(impl.get())) << "), volume =" << volume;
-#endif // BUILDFLAG(ARKWEB_MEDIA)
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
-  LOG_FEEDBACK(INFO) << "OhMedia:: " << __func__ << "(" << (void*)this
+  LOG_FEEDBACK(INFO) << "OhMedia:: " << __func__ << "(hash" << std::hex
+                     << base::FastHash(base::byte_span_from_ref(impl.get()))
                      << "), volume =" << volume;
 #endif
+#endif  // BUILDFLAG(ARKWEB_MEDIA)
 }
 
 void WebMediaPlayerImplUtils::OnFrameShownExt() {
@@ -406,13 +403,11 @@ void WebMediaPlayerImplUtils::OnFrameShownExt() {
 
 void WebMediaPlayerImplUtils::OnFrameHiddenExt() {
 #if BUILDFLAG(ARKWEB_MEDIA)
-  LOG(INFO) << "WebMediaPlayerImpl::OnFrameHidden()"
-            << " delegate_id_:" << impl->delegate_id_;
-#endif  // BUILDFLAG(ARKWEB_MEDIA)
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
   LOG_FEEDBACK(INFO) << "WebMediaPlayerImpl::OnFrameHidden()"
                      << " delegate_id_:" << impl->delegate_id_;
 #endif
+#endif  // BUILDFLAG(ARKWEB_MEDIA)
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   impl->client_->OnPageVisibilityChanged();

@@ -94,7 +94,7 @@ class NetConnCallbackImpl : public OHOS::NWeb::NetConnCallback {
 };
 
 int32_t NetConnCallbackImpl::NetAvailable() {
-  LOG(INFO) << "ohos_network NetAvailable";
+  LOG_FEEDBACK(INFO, kNetwork) << __func__;
   capabilities_ = nullptr;
   properties_ = nullptr;
   return 0;
@@ -125,7 +125,7 @@ int32_t NetConnCallbackImpl::NetConnectionPropertiesChange() {
 }
 
 int32_t NetConnCallbackImpl::NetUnavailable() {
-  LOG(INFO) << "ohos_network NetUnavailable";
+  LOG_FEEDBACK(INFO, kNetwork) << __func__;
   capabilities_ = nullptr;
   properties_ = nullptr;
   if (network_change_notifier_posix_) {
@@ -139,10 +139,10 @@ int32_t NetConnCallbackImpl::OnNetCapabilitiesChanged(
     const std::shared_ptr<OHOS::NWeb::NetCapabilitiesAdapter> capabilities) {
   capabilities_ = capabilities;
   if (capabilities_) {
-    LOG(INFO) << "ohos_network NetCapabilitiesChange, net_id "
-              << capabilities_->GetNetId() << ", connectType "
-              << (int)capabilities_->GetConnectType() << ", subtype "
-              << (int)capabilities_->GetConnectSubtype();
+    LOG_FEEDBACK(INFO, kNetwork)
+        << __func__ << " netId:" << capabilities_->GetNetId()
+        << " connectType:" << (int)capabilities_->GetConnectType()
+        << " connectSubType:" << (int)capabilities_->GetConnectSubtype();
   }
   if (network_change_notifier_posix_ && capabilities_ && properties_) {
     ConnectionTypeChangedTo(capabilities_->GetNetId(),
@@ -156,9 +156,11 @@ int32_t NetConnCallbackImpl::OnNetConnectionPropertiesChanged(
     const std::shared_ptr<OHOS::NWeb::NetConnectionPropertiesAdapter>
         properties) {
   properties_ = properties;
-  if (properties_) {
-    LOG(INFO) << "ohos_network NetConnectionPropertiesChange, net_id "
-              << properties_->GetNetId();
+  if (properties_ && capabilities_) {
+    LOG_FEEDBACK(INFO, kNetwork)
+        << __func__ << " netId:" << properties_->GetNetId()
+        << " connectType:" << (int)capabilities_->GetConnectType()
+        << " connectSubType:" << (int)capabilities_->GetConnectSubtype();
   }
   if (network_change_notifier_posix_ && capabilities_ && properties_) {
     ConnectionTypeChangedTo(properties_->GetNetId(),
@@ -169,8 +171,8 @@ int32_t NetConnCallbackImpl::OnNetConnectionPropertiesChanged(
 }
 
 void NetConnCallbackImpl::BindDnsToNetwork(int32_t network_for_dns) {
-  LOG(INFO) << "NetConnCallbackImpl::BindDnsToNetwork, network_for_dns "
-            << network_for_dns;
+  LOG_FEEDBACK(INFO, kNetwork)
+      << __func__ << " networkForDns:" << network_for_dns;
   network_for_dns_ = network_for_dns;
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
   if (!network_change_notifier_posix_) {
@@ -382,13 +384,13 @@ const std::vector<std::string> NetworkChangeNotifierPassive::GetNetAddrListByNet
   }
     return net_addr_list;
 }
- 
+
 const std::vector<std::string>
 NetworkChangeNotifierPassive::GetCurrentNetAddrList() {
   base::AutoLock scoped_lock(lock_);
   return net_addr_list_;
 }
- 
+
 void NetworkChangeNotifierPassive::SetNetAddrList(std::vector<std::string> new_addr_list) {
   base::AutoLock scoped_lock(lock_);
   if (!new_addr_list.empty()) {

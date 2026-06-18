@@ -63,8 +63,7 @@ std::string GetProtocol(const GURL& url, const net::HttpResponseInfo& info)
   return protocol;
 }
 
-void ReportUrlQuicInfo(net::URLRequest* url_request, int error_code)
-{
+void ReportMainResourceMetrics(net::URLRequest* url_request, int error_code) {
   net::LoadTimingInfo load_timing_info;
   url_request->GetLoadTimingInfo(&load_timing_info);
   std::string host = url_request->url().GetHost();
@@ -74,7 +73,6 @@ void ReportUrlQuicInfo(net::URLRequest* url_request, int error_code)
   if (response_info.DidUseQuic()) {
     use_quic = true;
   }
-  bool socket_reused = load_timing_info.socket_reused;
   int64_t dns_start_ms =
       load_timing_info.connect_timing.domain_lookup_start.since_origin()
           .InMilliseconds();
@@ -101,30 +99,20 @@ void ReportUrlQuicInfo(net::URLRequest* url_request, int error_code)
       base::TimeTicks::Now().since_origin().InMilliseconds();
   int64_t send_start_to_on_complete = on_complete_ms - send_start_ms;
 
-  LOG(INFO) << "event_message: " << kLoadTimingInfoEvent << " " << kErrorCode
-            << ":" << error_code << ", " << kProtocol << ":" << protocol << ", "
-            << kUseQuic << ":" << use_quic << ", " << kSocketReused << ":"
-            << socket_reused << ", " << kDnsDurationMs << ":" << dns_duration_ms
-            << ", " << kConnectDurationMs << ":" << connect_duration_ms << ", "
-            << kSendStartToReceiveHeadersEndMs << ":"
-            << send_start_to_receive_headers_end_ms << ", " << kTotalSendBytes
-            << ":" << total_send_bytes << ", " << kTotalRecvBytes << ":"
-            << total_recv_bytes << ", " << kSendStartToOnComplete << ":"
-            << send_start_to_on_complete << ".";
-  LOG(DEBUG) << "event_message: " << kHost << ":" << host << ".";
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
-  LOG_FEEDBACK(INFO) << "event_message: " << kLoadTimingInfoEvent << " "
-                     << kErrorCode << ":" << error_code << ", " << kProtocol
-                     << ":" << protocol << ", " << kUseQuic << ":" << use_quic
-                     << ", " << kSocketReused << ":" << socket_reused << ", "
-                     << kDnsDurationMs << ":" << dns_duration_ms << ", "
-                     << kConnectDurationMs << ":" << connect_duration_ms << ", "
-                     << kSendStartToReceiveHeadersEndMs << ":"
-                     << send_start_to_receive_headers_end_ms << ", "
-                     << kTotalSendBytes << ":" << total_send_bytes << ", "
-                     << kTotalRecvBytes << ":" << total_recv_bytes << ", "
-                     << kSendStartToOnComplete << ":"
-                     << send_start_to_on_complete << ".";
+  LOG_FEEDBACK(INFO, kNavigation)
+      << "MainResourceMetrics netCode:" << net::ErrorToDebugString(error_code)
+      << " protocol:" << protocol
+      << " useHttpDns:" << url_request->used_http_dns()
+      << " useQuic:" << use_quic << " dnsDuration:" << dns_duration_ms
+      << "ms connectDuration:" << connect_duration_ms
+      << "ms sendStartToReceiveHeadersEnd:"
+      << send_start_to_receive_headers_end_ms
+      << "ms totalSendBytes:" << total_send_bytes
+      << " totalRecvBytes:" << total_recv_bytes
+      << " sendStartToOnComplete:" << send_start_to_on_complete << "ms "
+      << load_timing_info << " url:"
+      << url::LogUtils::ConvertUrlWithMask(url_request->url().spec());
 #endif
 }
 #endif

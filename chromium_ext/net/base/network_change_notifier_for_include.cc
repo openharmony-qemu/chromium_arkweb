@@ -48,9 +48,6 @@ void NetworkChangeNotifier::BindToNetwork(int32_t network_for_dns) {
   if (g_network_change_notifier) {
     g_network_change_notifier->BindDnsToNetwork(network_for_dns);
   } else {
-    LOG(ERROR) << "NetworkChangeNotifier bindDnsToNetwork failed, "
-                  "network_for_dns "
-               << network_for_dns;
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
     LOG_FEEDBACK(ERROR) << "NetworkChangeNotifier bindDnsToNetwork failed, "
                            "network_for_dns "
@@ -60,9 +57,6 @@ void NetworkChangeNotifier::BindToNetwork(int32_t network_for_dns) {
 }
  
 void NetworkChangeNotifier::BindDnsToNetwork(int32_t network_for_dns) {
-  LOG(INFO) << "NetworkChangeNotifier bindDnsToNetwork, network_for_dns "
-            << network_for_dns;
- 
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
   LOG_FEEDBACK(INFO)
       << "NetworkChangeNotifier bindDnsToNetwork, network_for_dns "

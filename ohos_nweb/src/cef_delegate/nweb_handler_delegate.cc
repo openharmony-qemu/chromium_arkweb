@@ -20,6 +20,7 @@
 #include <thread>
 
 #include "base/hash/hash.h"
+#include "base/strings/stringprintf.h"
 #include "arkweb/build/features/features.h"
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "arkweb/chromium_ext/url/ohos/log_utils.h"
@@ -182,6 +183,7 @@
 #endif
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
 #include "arkweb/chromium_ext/base/ohos/logger.h"
+#include "cef/ohos_cef_ext/libcef/common/net/ssl_info_util_ex.h"
 #endif
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
 #include "nweb_autolayout.h"
@@ -1163,7 +1165,7 @@ void NWebHandlerDelegate::InjectJsToWebInner(
     ScriptItemsByOrder& scriptItemsByOrder) {
   if (!main_browser_ || !main_browser_->GetHost()) {
     return;
-  } 
+  }
   switch (time) {
     case JsRunTime::Start:
       scriptItems = preference_delegate_->GetJavaScriptOnDocumentStart();
@@ -1815,7 +1817,6 @@ void NWebHandlerDelegate::OnLoadStart(CefRefPtr<CefBrowser> browser,
                                       CefRefPtr<CefFrame> frame,
                                       const CefString& url,
                                       TransitionType transition_type) {
-  LOG(INFO) << "NWebHandlerDelegate::OnLoadStart";
   if (frame == nullptr || !frame->IsMain()) {
     return;
   }
@@ -1824,9 +1825,17 @@ void NWebHandlerDelegate::OnLoadStart(CefRefPtr<CefBrowser> browser,
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
       ::switches::kEnableNwebEx) &&
       IsPrerendering(frame)) {
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnPageBegin transitionType:" << transition_type
+        << " prerenderingUrl:"
+        << url::LogUtils::ConvertUrlWithMask(url.ToString());
     return;
   }
 #endif
+
+  LOG_FEEDBACK(INFO, kNavigation)
+      << "OnPageBegin transitionType:" << transition_type
+      << " url:" << url::LogUtils::ConvertUrlWithMask(url.ToString());
 
 #if BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
   if (!setWebPaintedTask_.IsCancelled()) {
@@ -1852,15 +1861,22 @@ void NWebHandlerDelegate::OnLoadEnd(CefRefPtr<CefBrowser> browser,
   if (frame == nullptr || !frame->IsMain()) {
     return;
   }
-  LOG(INFO) << "NWebHandlerDelegate:: Mainframe OnLoadEnd";
 
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
       ::switches::kEnableNwebEx) &&
       IsPrerendering(frame)) {
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnPageEnd httpStatusCode:" << http_status_code
+        << " prerenderingUrl:"
+        << url::LogUtils::ConvertUrlWithMask(frame->GetURL().ToString());
     return;
   }
 #endif
+
+  LOG_FEEDBACK(INFO, kNavigation)
+      << "OnPageEnd httpStatusCode:" << http_status_code << " url:"
+      << url::LogUtils::ConvertUrlWithMask(frame->GetURL().ToString());
 
 #if BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
   setWebPaintedTask_.Reset(
@@ -1977,14 +1993,20 @@ void NWebHandlerDelegate::OnDataResubmission(CefRefPtr<CefBrowser> browser,
 
 void NWebHandlerDelegate::OnNavigationEntryCommitted(
     CefRefPtr<CefLoadCommittedDetails> details) {
-  LOG(INFO) << "NWebHandlerDelegate::OnNavigationEntryCommitted";
 #if BUILDFLAG(ARKWEB_NAVIGATION)
   if (nweb_handler_ != nullptr) {
     if (!details) {
-      LOG(WARNING) << "NWebHandlerDelegate::OnNavigationEntryCommitted failed "
-                      "for details is null";
+      LOG_FEEDBACK(WARNING, kNavigation)
+          << "NavigationEntryCommitted message:detailsIsNull";
       return;
     }
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "NavigationEntryCommitted type:" << details->GetNavigationType()
+        << " mainFrame:" << details->IsMainFrame()
+        << " sameDocument:" << details->IsSameDocument()
+        << " didReplaceEntry:" << details->DidReplaceEntry() << " url:"
+        << url::LogUtils::ConvertUrlWithMask(
+               details->GetCurrentURL().ToString());
     auto type = static_cast<NWebLoadCommittedDetails::NavigationType>(
         details->GetNavigationType());
     std::shared_ptr<NWebLoadCommittedDetails> web_details =
@@ -2048,6 +2070,11 @@ void NWebHandlerDelegate::OnLoadError(CefRefPtr<CefBrowser> browser,
                                       const CefString& failed_url) {
   LOG(INFO) << "NWebHandlerDelegate::OnLoadError";
   CEF_REQUIRE_UI_THREAD();
+
+  LOG_FEEDBACK(INFO, kNavigation)
+      << __func__ << " errorCode:" << net::ErrorToDebugString(error_code)
+      << " mainFrame:" << (frame ? (frame->IsMain() ? "1" : "0") : "-1")
+      << " url:" << url::LogUtils::ConvertUrlWithMask(failed_url.ToString());
 
   // Don't display an error for downloaded files.
   if (error_code == ERR_ABORTED) {
@@ -2136,10 +2163,10 @@ void NWebHandlerDelegate::OnHttpError(CefRefPtr<CefRequest> request,
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE, base::BindOnce(&NWebHandlerDelegate::OnHttpError,
-                                  weak_this_, request, is_main_frame, 
+                                  weak_this_, request, is_main_frame,
                                   has_user_gesture, response));
     return;
-  }  
+  }
   if (nweb_handler_ != nullptr) {
     CefRequest::HeaderMap cef_request_headers;
     request->GetHeaderMap(cef_request_headers);
@@ -2275,9 +2302,12 @@ bool NWebHandlerDelegate::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
   bool result = false;
   if (nweb_handler_ != nullptr) {
     result = nweb_handler_->OnHandleInterceptUrlLoading(nweb_request);
-    LOG(DEBUG) << "NWebHandlerDelegate::OnBeforeBrowse "
-                  "OnHandleInterceptUrlLoading result: "
-               << result;
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnLoadIntercept result:" << result
+        << " requestMethod:" << request->GetMethod().ToString()
+        << " userGesture:" << user_gesture << " mainFrame:" << frame->IsMain()
+        << " isServerRedirect:" << is_redirect << " url:"
+        << url::LogUtils::ConvertUrlWithMask(request->GetURL().ToString());
   } else {
     LOG(DEBUG) << "NWebHandlerDelegate::OnBeforeBrowse result: " << result;
   }
@@ -2295,17 +2325,27 @@ bool NWebHandlerDelegate::OnCertificateErrorExt(
     const CefString& request_url,
     CefRefPtr<CefSSLInfo> ssl_info,
     CefRefPtr<ArkWebCefSslCallback> callback) {
-  LOG(INFO) << "NWebHandlerDelegate::OnCertificateError happened";
   SslError error = SslErrorConvert(cert_error);
 
   CEF_REQUIRE_IO_THREAD();
+
+  std::string log_content = base::StringPrintf(
+      "OnSslErrorEventReceive netCode:%s certStatus:%d certIssuer:%s "
+      "certExpiresDate:%s url:%s",
+      net::ErrorToDebugString(cert_error).c_str(),
+      (ssl_info ? ssl_info->GetCertStatus() : -1),
+      ssl_info_util::GetIssuerDisplayName(ssl_info).c_str(),
+      ssl_info_util::GetValidExpiry(ssl_info).c_str(),
+      url::LogUtils::ConvertUrlWithMask(request_url.ToString()).c_str());
 
   std::shared_ptr<NWebJSSslErrorResult> js_result =
       std::make_shared<NWebJSSslErrorResultImpl>(callback);
 
   if (ssl_info == nullptr) {
     if (nweb_handler_ != nullptr) {
-      return nweb_handler_->OnSslErrorRequestByJS(js_result, error);
+      bool result = nweb_handler_->OnSslErrorRequestByJS(js_result, error);
+      LOG_FEEDBACK(INFO, kNavigation) << log_content << " result:" << result;
+      return result;
     }
     return false;
   }
@@ -2315,7 +2355,9 @@ bool NWebHandlerDelegate::OnCertificateErrorExt(
   CefX509Certificate::IssuerChainBinaryList der_chain_list;
   if (cert == nullptr) {
     if (nweb_handler_ != nullptr) {
-      return nweb_handler_->OnSslErrorRequestByJS(js_result, error);
+      bool result = nweb_handler_->OnSslErrorRequestByJS(js_result, error);
+      LOG_FEEDBACK(INFO, kNavigation) << log_content << " result:" << result;
+      return result;
     }
     return false;
   }
@@ -2340,12 +2382,14 @@ bool NWebHandlerDelegate::OnCertificateErrorExt(
   }
 
   if (nweb_handler_ != nullptr) {
-    
     bool flag =
         nweb_handler_->OnSslErrorRequestByJSV2(js_result, error, certChainData);
     if (ArkWebGetErrno() != ArkWebInterfaceResult::RESULT_OK) {
+      LOG_FEEDBACK(WARNING, kNavigation)
+          << "OnSslErrorEventReceive message:calledWithCertChainDataFailed";
       flag = nweb_handler_->OnSslErrorRequestByJS(js_result, error);
     }
+    LOG_FEEDBACK(INFO, kNavigation) << log_content << " result:" << flag;
     return flag;
   }
   return false;
@@ -2508,9 +2552,13 @@ bool NWebHandlerDelegate::ShouldOverrideUrlLoading(
   bool result = false;
   if (nweb_handler_ != nullptr) {
     result = nweb_handler_->OnHandleOverrideUrlLoading(nweb_request);
-    LOG(DEBUG) << "NWebHandlerDelegate::ShouldOverrideUrlLoading "
-                  "OnHandleOverrideUrlLoading result: "
-               << result;
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnOverrideUrlLoading result:" << result
+        << " method:" << method.ToString()
+        << " mainFrame:" << is_outermost_main_frame
+        << " userGesture:" << user_gesture
+        << " isServerRedirect:" << is_redirect
+        << " url:" << url::LogUtils::ConvertUrlWithMask(url.ToString());
     return result;
   }
   LOG(DEBUG) << "NWebHandlerDelegate::ShouldOverrideUrlLoading result: "
@@ -4836,7 +4884,7 @@ int NWebHandlerDelegate::ProcessNativeProxyResultThread(
   char** ptr = (char**)malloc(sizeof(char*) * args->GetSize());
   if(ptr == nullptr) {
     // malloc failed
-    return 1;    
+    return 1;
   }
   for (size_t i = 0; i < args->GetSize(); i++) {
     CefValueType type = args->GetType(i);
@@ -5392,7 +5440,7 @@ void NWebHandlerDelegate::GetJavaScriptObjectMethods(
                   "nweb_javascript_callback_ is null";
     return;
   }
-  
+
   std::shared_ptr<NWebHapValue> hap_result =
       std::make_shared<NWebCoreValue>(NWebHapValue::Type::NONE);
   nweb_javascript_callback_->GetJavaScriptObjectMethodsV2(object_id,
@@ -5509,18 +5557,29 @@ bool NWebHandlerDelegate::OnAllCertificateError(
     bool is_fatal_error,
     CefRefPtr<CefSSLInfo> ssl_info,
     CefRefPtr<ArkWebCefSslCallback> callback) {
-  LOG(INFO) << "NWebHandlerDelegate::OnAllCertificateError happened";
   SslError error = SslErrorConvert(cert_error);
 
   CEF_REQUIRE_IO_THREAD();
   std::shared_ptr<NWebJSAllSslErrorResult> js_result =
       std::make_shared<NWebJSAllSslErrorResultImpl>(callback);
+
+std::string log_content = base::StringPrintf(
+      "OnSslErrorEvent certError:%s certStatus:%d certIssuer:%s "
+      "certExpiresDate:%s mainFrame:%d isFatalError:%d requestUrl:%s",
+      net::ErrorToDebugString(cert_error).c_str(),
+      (ssl_info ? ssl_info->GetCertStatus() : -1),
+      ssl_info_util::GetIssuerDisplayName(ssl_info).c_str(),
+      ssl_info_util::GetValidExpiry(ssl_info).c_str(),
+      is_main_frame_request, is_fatal_error,
+      url::LogUtils::ConvertUrlWithMask(request_url.ToString()).c_str());
   
   if (ssl_info == nullptr || ssl_info->GetX509Certificate() == nullptr) {
   if (nweb_handler_ != nullptr) {
-    return nweb_handler_->OnAllSslErrorRequestByJS(
-        js_result, error, request_url, origin_url, referrer, is_fatal_error,
-        is_main_frame_request);
+    bool result = nweb_handler_->OnAllSslErrorRequestByJS(
+          js_result, error, request_url, origin_url, referrer, is_fatal_error,
+          is_main_frame_request);
+      LOG_FEEDBACK(INFO, kNavigation) << log_content << " result:" << result;
+      return result;
   }
   return false;
 }
@@ -5557,6 +5616,7 @@ bool NWebHandlerDelegate::OnAllCertificateError(
       flag = nweb_handler_->OnAllSslErrorRequestByJS(js_result, error, request_url,
         origin_url, referrer, is_fatal_error, is_main_frame_request);
     }
+    LOG_FEEDBACK(INFO, kNavigation) << log_content << " result:" << flag;
     return flag;
   }
 
@@ -5565,7 +5625,6 @@ bool NWebHandlerDelegate::OnAllCertificateError(
 
 void NWebHandlerDelegate::OnLoadStarted(CefRefPtr<CefFrame> frame,
                                         const CefString& url) {
-  LOG(INFO) << "NWebHandlerDelegate::OnLoadStarted";
   if (frame == nullptr || !frame->IsMain()) {
     return;
   }
@@ -5581,18 +5640,23 @@ void NWebHandlerDelegate::OnLoadStarted(CefRefPtr<CefFrame> frame,
 #endif
 
   if (nweb_handler_ != nullptr) {
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnLoadStarted url:"
+        << url::LogUtils::ConvertUrlWithMask(url.ToString());
     nweb_handler_->OnLoadStarted(url.ToString());
   }
 }
 
 void NWebHandlerDelegate::OnLoadFinished(CefRefPtr<CefFrame> frame,
                                          const CefString& url) {
-  LOG(INFO) << "NWebHandlerDelegate::OnLoadFinished";
   if (frame == nullptr || !frame->IsMain()) {
     return;
   }
 
   if (nweb_handler_ != nullptr) {
+    LOG_FEEDBACK(INFO, kNavigation)
+        << "OnLoadFinished url:"
+        << url::LogUtils::ConvertUrlWithMask(url.ToString());
     nweb_handler_->OnLoadFinished(url.ToString());
   }
 }
@@ -6211,7 +6275,7 @@ static std::atomic<int> nweb_resource_request_new_key = 0;
 static std::unordered_map<int, std::shared_ptr<NWebResourceRequest>>
     g_nweb_resource_request_map;
 static std::shared_mutex g_nweb_resource_request_map_shared_lock;
- 
+
 static std::atomic<int> nweb_resource_response_new_key = 0;
 static std::unordered_map<int, std::shared_ptr<NWebResourceResponse>>
     g_nweb_resource_response_map;
@@ -6452,10 +6516,11 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
 
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     content::GetUIThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(&NWebHandlerDelegate::OnReceiveResponse,
-                                  weak_factory_.GetWeakPtr(), request, is_request_gesture, transition_type, 
-                                  is_main_frame, is_redirect,
-                                  resource_type, response_info, is_from_network));
+        FROM_HERE,
+        base::BindOnce(&NWebHandlerDelegate::OnReceiveResponse,
+                       weak_factory_.GetWeakPtr(), request, is_request_gesture,
+                       transition_type, is_main_frame, is_redirect,
+                       resource_type, response_info, is_from_network));
     return;
   }
 
@@ -6468,11 +6533,14 @@ void NWebHandlerDelegate::OnReceiveResponse(CefRefPtr<CefRequest> request,
     std::map<std::string, std::string> request_headers;
     ConvertMapToHeaderMap(cef_request_headers, request_headers);
 
-    WebUrlResourceRequest resource_request = {
-        is_request_gesture, is_main_frame, is_redirect, 
-        resource_type, transition_type, 
-        request->GetURL().ToString(), 
-        request->GetMethod().ToString(), request_headers};
+    WebUrlResourceRequest resource_request = {is_request_gesture,
+                                              is_main_frame,
+                                              is_redirect,
+                                              resource_type,
+                                              transition_type,
+                                              request->GetURL().ToString(),
+                                              request->GetMethod().ToString(),
+                                              request_headers};
 
     CefResponse::HeaderMap cef_response_headers;
     response_info->GetHeaderMap(cef_response_headers);

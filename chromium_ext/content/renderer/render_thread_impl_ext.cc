@@ -235,8 +235,6 @@ void RenderThreadImpl::OnChannelConnected(int32_t peer_pid) {
     if (!logging::GetLogMessageHandler()) {
       logging::SetLogMessageHandler(RenderProcessLogMessageHandler);
     } else {
-      LOG(INFO) << "maybe you runs in single process mode, log message handler "
-                   "had been setted by other";
       LOG_FEEDBACK(INFO)
           << "maybe you runs in single process mode, log message handler "
              "had been setted by other";
