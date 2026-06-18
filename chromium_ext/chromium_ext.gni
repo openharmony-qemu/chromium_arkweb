@@ -243,6 +243,7 @@ arkweb_content_public_browser_sources = [
   "//arkweb/chromium_ext/content/public/browser/ohos_navigation_type.h",
   "//arkweb/chromium_ext/content/public/browser/render_frame_host_ohos.h",
   "//arkweb/chromium_ext/content/public/browser/render_process_host_ohos.h",
+  "//arkweb/chromium_ext/content/public/browser/https_upgrades_policy.h",
 ]
 
 arkweb_content_render_sources = []

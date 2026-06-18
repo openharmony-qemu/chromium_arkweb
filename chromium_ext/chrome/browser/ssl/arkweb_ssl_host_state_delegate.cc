@@ -12,21 +12,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #include "arkweb/chromium_ext/chrome/browser/ssl/arkweb_ssl_host_state_delegate.h"
- 
+
+#include "arkweb/chromium_ext/url/ohos/log_utils.h"
 #include "base/functional/callback.h"
+#include "components/url_formatter/url_fixer.h"
 #include "net/base/hash_value.h"
- 
+
 using content::SSLHostStateDelegate;
- 
+
 namespace chrome {
- 
+
 namespace internal {
- 
+
 CertPolicy::CertPolicy() {}
 CertPolicy::~CertPolicy() {}
- 
+
 // For an allowance, we consider a given |cert| to be a match to a saved
 // allowed cert if the |error| is an exact match to or subset of the errors
 // in the saved CertStatus.
@@ -39,24 +41,24 @@ bool CertPolicy::Check(const net::X509Certificate& cert, int error) const {
   }
   return false;
 }
- 
+
 void CertPolicy::Allow(const net::X509Certificate& cert, int error) {
   // If this same cert had already been saved with a different error status,
   // this will replace it with the new error status.
   net::SHA256HashValue fingerprint = cert.CalculateChainFingerprint256();
   allowed_[fingerprint] = error;
 }
- 
+
 }  // namespace internal
- 
+
 ArkWebSSLHostStateDelegate::ArkWebSSLHostStateDelegate(
     content::BrowserContext* browser_context,
     HostContentSettingsMap* host_content_settings_map)
     : StatefulSSLHostStateDelegate(browser_context,
                                    host_content_settings_map) {}
- 
+
 ArkWebSSLHostStateDelegate::~ArkWebSSLHostStateDelegate() {}
- 
+
 void ArkWebSSLHostStateDelegate::AllowCert(
     const std::string& host,
     const net::X509Certificate& cert,
@@ -64,7 +66,7 @@ void ArkWebSSLHostStateDelegate::AllowCert(
     content::StoragePartition* storage_partition) {
   cert_policy_for_host_[host].Allow(cert, error);
 }
- 
+
 void ArkWebSSLHostStateDelegate::Clear(
     base::RepeatingCallback<bool(const std::string&)> host_filter) {
   StatefulSSLHostStateDelegate::Clear(host_filter);
@@ -72,19 +74,19 @@ void ArkWebSSLHostStateDelegate::Clear(
     cert_policy_for_host_.clear();
     return;
   }
- 
+
   for (auto it = cert_policy_for_host_.begin();
        it != cert_policy_for_host_.end();) {
     auto next_it = std::next(it);
- 
+
     if (host_filter.Run(it->first)) {
       cert_policy_for_host_.erase(it);
     }
- 
+
     it = next_it;
   }
 }
- 
+
 SSLHostStateDelegate::CertJudgment ArkWebSSLHostStateDelegate::QueryPolicy(
     const std::string& host,
     const net::X509Certificate& cert,
@@ -96,20 +98,27 @@ SSLHostStateDelegate::CertJudgment ArkWebSSLHostStateDelegate::QueryPolicy(
   }
   return SSLHostStateDelegate::DENIED;
 }
- 
+
 void ArkWebSSLHostStateDelegate::RevokeUserAllowExceptions(
     const std::string& host) {
+  LOG_FEEDBACK(INFO, kHttpsUpgrades)
+      << __func__ << " host:"
+      << url::LogUtils::ConvertUrlWithMask(
+             url_formatter::FixupURL(host, "").spec());
+  StatefulSSLHostStateDelegate::RevokeUserAllowExceptions(host);
   cert_policy_for_host_.erase(host);
 }
- 
+
 bool ArkWebSSLHostStateDelegate::HasAllowException(
     const std::string& host,
     content::StoragePartition* storage_partition) {
   auto policy_iterator = cert_policy_for_host_.find(host);
-  return policy_iterator != cert_policy_for_host_.end() &&
-         policy_iterator->second.HasAllowException();
+  return (policy_iterator != cert_policy_for_host_.end() &&
+          policy_iterator->second.HasAllowException()) ||
+         StatefulSSLHostStateDelegate::HasAllowException(host,
+                                                         storage_partition);
 }
- 
+
 bool ArkWebSSLHostStateDelegate::HasAllowExceptionForAnyHost(
     content::StoragePartition* storage_partition) {
   for (auto const& it : cert_policy_for_host_) {
@@ -117,7 +126,8 @@ bool ArkWebSSLHostStateDelegate::HasAllowExceptionForAnyHost(
       return true;
     }
   }
-  return false;
+  return StatefulSSLHostStateDelegate::HasAllowExceptionForAnyHost(
+      storage_partition);
 }
- 
+
 }  // namespace chrome
