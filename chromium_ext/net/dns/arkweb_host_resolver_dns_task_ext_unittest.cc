@@ -96,6 +96,9 @@ class ArkWebHostResolverDnsTest : public HostResolverManagerTest {
         &*job->key().resolve_context, false, job->key().secure_dns_mode, job,
         job->net_log_, job->tick_clock_,
         !job->tasks_.empty() /* fallback_available */,
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+        false /* secure_fallback */,
+#endif
         job->https_svcb_options_);
     dns_task_ = job->dns_task_.get();
     dns_task_ext_ = std::make_unique<ArkWebHostResolverDnsTaskExt>(dns_task_);
@@ -201,7 +204,7 @@ TEST_F(ArkWebHostResolverDnsTest,
   AddTransactionInfo(
       DnsQueryType::HTTPS,
       HostResolverDnsTask::TransactionErrorBehavior::kFatalOrEmpty);
-  
+
   testing::internal::CaptureStderr();
   EXPECT_NO_FATAL_FAILURE(dns_task->ArkWebFailedTransaction(
       net_error, std::make_optional<DnsQueryType>(DnsQueryType::AAAA)));
@@ -221,7 +224,7 @@ TEST_F(ArkWebHostResolverDnsTest, ArkWebFailedTransaction_SavedResults) {
       HostResolverDnsTask::TransactionErrorBehavior::kFatalOrEmpty);
   testing::internal::CaptureStderr();
   EXPECT_NO_FATAL_FAILURE(dns_task->ArkWebFailedTransaction(
-      net_error, std::make_optional<DnsQueryType>(DnsQueryType::AAAA)));  
+      net_error, std::make_optional<DnsQueryType>(DnsQueryType::AAAA)));
   std::string log_output = testing::internal::GetCapturedStderr();
   EXPECT_NE(log_output.find("The completed transaction [2] is failed"),
             std::string::npos);
