@@ -201,22 +201,24 @@ LanguageDetectorOHOS::ParseDetectionResults(const String& response) {
   Vector<LanguageDetectionModel::LanguagePrediction> predictions;
   float cumulative_confidence = 0;
 
-  if (result.has_value()) {
-    for (const auto& value : result.value()) {
-      if (value.is_dict()) {
-        const std::string* language = value.GetDict().FindString("language");
-        const std::optional<double> score = value.GetDict().FindDouble("score");
+  if (!result.has_value()) {
+    predictions.push_back(LanguageDetectionModel::LanguagePrediction("und", 1));
+    return predictions;
+  }
 
-        if (language && score.has_value()) {
-          LanguageDetectionModel::LanguagePrediction prediction(
-              *language, score.value());
-          predictions.push_back(prediction);
-          cumulative_confidence += score.value();
-        }
+  for (const auto& value : result.value()) {
+    if (value.is_dict()) {
+      const std::string* language = value.GetDict().FindString("language");
+      const std::optional<double> score = value.GetDict().FindDouble("score");
+
+      if (language && score.has_value()) {
+        LanguageDetectionModel::LanguagePrediction prediction(
+            *language, score.value());
+        predictions.push_back(prediction);
+        cumulative_confidence += score.value();
       }
     }
   }
-
   if (predictions.empty()) {
     predictions.push_back(LanguageDetectionModel::LanguagePrediction("und", 1));
   } else {
