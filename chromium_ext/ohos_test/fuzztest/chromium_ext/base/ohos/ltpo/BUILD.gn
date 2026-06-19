@@ -5,6 +5,23 @@
 import("//build/config/features.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 
+fuzzer_test("sliding_observer_fuzzer") {
+  sources = [ "./sliding_observer_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//arkweb/chromium_ext/base/ohos/ltpo/include",
+  ]
+  deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//base",
+  ]
+}
+
 fuzzer_test("dynamic_frame_rate_decision_fuzzer") {
   sources = [ "./dynamic_frame_rate_decision_fuzzer.cc" ]
   include_dirs = [
@@ -25,6 +42,7 @@ fuzzer_test("dynamic_frame_rate_decision_fuzzer") {
 group("ltpo_fuzzers") {
   testonly = true
   deps = [
+    ":sliding_observer_fuzzer",
     ":dynamic_frame_rate_decision_fuzzer",
   ]
 }

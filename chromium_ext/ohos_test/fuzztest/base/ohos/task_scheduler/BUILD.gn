@@ -1,0 +1,26 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+import("//build/config/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+fuzzer_test("task_runner_ohos_fuzzer") {
+  sources = [
+    "./task_runner_ohos_fuzzer.cc",
+    "//base/ohos/task_scheduler/task_runner_ohos.cc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//base/ohos/task_scheduler",
+  ]
+  deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//base",
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+  ]
+}

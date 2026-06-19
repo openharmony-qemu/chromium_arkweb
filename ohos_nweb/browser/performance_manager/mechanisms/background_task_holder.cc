@@ -22,6 +22,11 @@
 namespace performance_manager::mechanism {
 using namespace OHOS::NWeb;
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+FuzzAudioControl* g_fuzz_audio_control = nullptr;
+std::unique_ptr<OHOS::NWeb::BackgroundTaskAdapter> g_fuzz_background_task_adapter;
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+
 void BackgroundStateChangeCallback::RegisterBackgroundTaskPolicyCallback(
     const std::weak_ptr<ApplicationStateChangeCallback> &applicationStateChangeCallback)
 {
@@ -56,7 +61,15 @@ void BackgroundStateChangeCallback::NotifyApplicationBackground()
 
 BackgroundTaskHolder::BackgroundTaskHolder()
 {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    if (g_fuzz_background_task_adapter) {
+        backgroundTaskAdapter_ = std::move(g_fuzz_background_task_adapter);
+    } else {
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     backgroundTaskAdapter_ = OhosAdapterHelper::GetInstance().CreateBackgroundTaskAdapter();
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    }
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     if (!backgroundTaskAdapter_) {
       LOG(ERROR) << "BackgroundTaskHolder::backgroundTaskAdapter_ is nullptr.";
       return;
@@ -74,5 +87,47 @@ bool BackgroundTaskHolder::MaybeRequestBackgroundRunning(
     bool running,
     BackgroundModeAdapter bgMode) {
   return BackgroundTaskAdapter::RequestBackgroundRunning(running, bgMode);
+}
+
+void OHOSAudioCapturerSourceCallbackImpl::NotifyApplicationForeground() {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  if (!g_fuzz_audio_control || !g_fuzz_audio_control->has_main_loop) {
+    LOG(DEBUG) << "main_loop is null.";
+    return;
+  }
+  if (!g_fuzz_audio_control->has_audio_manager) {
+    LOG(DEBUG) << "audio_manager is null.";
+    return;
+  }
+  if (g_fuzz_audio_control->input_streams_empty) {
+    LOG(INFO) << "no audio input streams to resume.";
+    return;
+  }
+  LOG(INFO) << "audio output streams have webrtc = " << g_fuzz_audio_control->is_webrtc;
+  if (!g_fuzz_audio_control->is_webrtc) {
+    LOG(INFO) << "resume foreground audio recording only.";
+  }
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+}
+
+void OHOSAudioCapturerSourceCallbackImpl::NotifyApplicationBackground() {
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  if (!g_fuzz_audio_control || !g_fuzz_audio_control->has_main_loop) {
+    LOG(DEBUG) << "main_loop is null.";
+    return;
+  }
+  if (!g_fuzz_audio_control->has_audio_manager) {
+    LOG(DEBUG) << "audio_manager is null.";
+    return;
+  }
+  if (g_fuzz_audio_control->input_streams_empty) {
+    LOG(INFO) << "no audio input streams to pause.";
+    return;
+  }
+  LOG(INFO) << "audio output streams have webrtc = " << g_fuzz_audio_control->is_webrtc;
+  if (!g_fuzz_audio_control->is_webrtc) {
+    LOG(INFO) << "pause background audio recording only.";
+  }
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 }
 }  // namespace performance_manager::mechanism

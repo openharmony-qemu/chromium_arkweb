@@ -60,6 +60,26 @@ private:
   std::unique_ptr<OHOS::NWeb::BackgroundTaskAdapter> backgroundTaskAdapter_;
 
 };
+
+class OHOSAudioCapturerSourceCallbackImpl : public ApplicationStateChangeCallback {
+ public:
+  OHOSAudioCapturerSourceCallbackImpl() = default;
+  ~OHOSAudioCapturerSourceCallbackImpl() = default;
+
+  void NotifyApplicationForeground() override;
+  void NotifyApplicationBackground() override;
+};
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+struct FuzzAudioControl {
+    bool has_main_loop = true;
+    bool has_audio_manager = true;
+    bool input_streams_empty = false;
+    bool is_webrtc = false;
+};
+extern FuzzAudioControl* g_fuzz_audio_control;
+extern std::unique_ptr<OHOS::NWeb::BackgroundTaskAdapter> g_fuzz_background_task_adapter;
+#endif  // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+
 }  // namespace performance_manager::mechanism
 
 #endif  // BACKGROUND_TASK_HOLDER_H_

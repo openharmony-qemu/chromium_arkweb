@@ -1,0 +1,25 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+import("//build/config/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+fuzzer_test("background_task_holder_fuzzer") {
+  sources = [ "./background_task_holder_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//ohos_nweb/browser/performance_manager/mechanisms",
+    "//ohos_nweb/browser/performance_manager/policies",
+    "//arkweb/ohos_nweb/browser/performance_manager/mechanisms",
+  ]
+  deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+  ]
+}
