@@ -55,7 +55,7 @@ class EchoAIManagerOHOS : public blink::mojom::AIManager,
  private:
   friend class WebContentsUserData<EchoAIManagerOHOS>;
 
-  EchoAIManagerOHOS(WebContents* web_contents);
+  explicit EchoAIManagerOHOS(WebContents* web_contents);
 
   // `blink::mojom::AIManager` implementation.
   void CanCreateLanguageModel(
