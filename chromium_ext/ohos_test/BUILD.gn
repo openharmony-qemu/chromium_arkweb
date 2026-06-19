@@ -89,6 +89,11 @@ group("ohos_fuzz") {
       "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb/src/nweb_performance_manager_fuzzer:nweb_performance_manager_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/base/ohos/ltpo:sliding_observer_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/components/content_settings/renderer:arkweb_content_settings_agent_impl_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/service/network/prp_preload:disk_cache_info_parser_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/service/network/prp_preload:disk_cache_backend_factory_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/service/network/prp_preload:disk_cache_file_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/service/network/prp_preload:page_res_parallel_preload_mgr_impl_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/service/network/prp_preload:preconnect_runner_fuzzer",
     ]
 }
 
