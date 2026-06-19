@@ -4461,6 +4461,7 @@ std::shared_ptr<HitTestResult> NWebImpl::GetLastHitTestResultForBrowser() {
 // static
 void NWebImpl::StaticOpenDevtools(const std::string& source_id,
                                   const std::string& target_id,
+                                  const std::string& type,
                                   std::unique_ptr<OpenDevToolsParam> param,
                                   OpenDevToolsExtOpt& ext_opt) {
   LOG(INFO) << " func:" << __func__;
@@ -4472,6 +4473,7 @@ void NWebImpl::StaticOpenDevtools(const std::string& source_id,
   }
   NWebDelegate::StaticOpenDevtoolsWith(nweb->nweb_delegate_,
                                        source_id, target_id,
+                                       type,
                                        std::move(param),
                                        ext_opt);
 }
