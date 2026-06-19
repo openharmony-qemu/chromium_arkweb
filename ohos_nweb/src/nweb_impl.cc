@@ -1219,6 +1219,10 @@ void InitialWebEngineArgs(
   } else {
     LOG(INFO) << "oemmode is not rd or ohos-command-line does not exist.";
   }
+  web_engine_args.emplace_back("--force-enable-metrics-reporting");
+  web_engine_args.emplace_back("--force-msbb-setting-on-for-ukm");
+  web_engine_args.emplace_back("--uma-server-url=://uma");
+  web_engine_args.emplace_back("--ukm-server-url=://ukm");
   // when Advanced Security Mode is enabled, the function call must be scheduled as the last step.
   HandleAdvancedSecurityMode(web_engine_args);
 }

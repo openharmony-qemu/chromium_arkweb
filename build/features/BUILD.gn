@@ -628,6 +628,7 @@ buildflag_header("features") {
     "ARKWEB_NOT_LOAD_IFRAME=$arkweb_not_load_iframe",
     "ARKWEB_FONT_SETTINGS=$arkweb_font_settings",
     "ARKWEB_WEB_APP=$arkweb_web_app",
+    "ARKWEB_HISTOGRAM_DFX=$arkweb_histogram_dfx",
   ]
 
 
