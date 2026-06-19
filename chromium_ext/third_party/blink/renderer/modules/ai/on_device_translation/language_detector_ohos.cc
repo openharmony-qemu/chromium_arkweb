@@ -192,6 +192,67 @@ void LanguageDetectorOHOS::CreateTask(
                                                        options);
 }
 
+Vector<LanguageDetectionModel::LanguagePrediction> 
+LanguageDetectorOHOS::ParseDetectionResults(const String& response) {
+  std::optional<base::ListValue> result = base::JSONReader::ReadList(
+      response.Utf8(),
+      base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
+
+  Vector<LanguageDetectionModel::LanguagePrediction> predictions;
+  float cumulative_confidence = 0;
+
+  if (result.has_value()) {
+    for (const auto& value : result.value()) {
+      if (value.is_dict()) {
+        const std::string* language = value.GetDict().FindString("language");
+        const std::optional<double> score = value.GetDict().FindDouble("score");
+
+        if (language && score.has_value()) {
+          LanguageDetectionModel::LanguagePrediction prediction(
+              *language, score.value());
+          predictions.push_back(prediction);
+          cumulative_confidence += score.value();
+        }
+      }
+    }
+  }
+
+  if (predictions.empty()) {
+    predictions.push_back(LanguageDetectionModel::LanguagePrediction("und", 1));
+  } else {
+    predictions.push_back(
+        LanguageDetectionModel::LanguagePrediction("unknown", 1 - cumulative_confidence));
+  }
+
+  return predictions;
+}
+
+void LanguageDetectorOHOS::HandleDetectionSuccess(
+    ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+    const String& response,
+    mojom::blink::ModelExecutionContextInfoPtr context_info) {
+  LOG(INFO) << "LanguageDetectorOHOS::Detect result: " << response;
+
+  Vector<LanguageDetectionModel::LanguagePrediction> predictions = 
+      ParseDetectionResults(response);
+  LanguageDetector::OnDetectComplete(resolver, predictions);
+}
+
+void LanguageDetectorOHOS::HandleDetectionError(
+    ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+    DOMException* exception) {
+  resolver->Reject(exception);
+}
+
+void LanguageDetectorOHOS::HandleDetectionAbortSignal(
+    ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver,
+    AbortSignal* signal, 
+    ScriptState* script_state) {
+  if (signal) {
+    resolver->Reject(signal->reason(script_state));
+  }
+}
+
 void LanguageDetectorOHOS::Detect(
     ScriptState* script_state,
     const String& input,
@@ -199,64 +260,23 @@ void LanguageDetectorOHOS::Detect(
     scoped_refptr<base::SequencedTaskRunner>& task_runner,
     ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>* resolver) {
   auto pending_remote = CreateModelExecutionResponder(
-      script_state, composite_signal, task_runner,
+      script_state, 
+      composite_signal, 
+      task_runner,
       AIMetrics::AISessionType::kLanguageDetector,
-      BindOnce(
-          [](ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>*
-                 resolver,
-             const String& response,
-             mojom::blink::ModelExecutionContextInfoPtr context_info) {
-            LOG(INFO) << "LanguageDetectorOHOS::Detect result: " << response;
-            std::optional<base::ListValue> result = base::JSONReader::ReadList(
-                response.Utf8(),
-                base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
-            Vector<LanguageDetectionModel::LanguagePrediction> predictions;
-            float cumulative_confidence = 0;
-            if (result.has_value()) {
-              for (const auto& value : result.value()) {
-                if (value.is_dict()) {
-                  const std::string* language =
-                      value.GetDict().FindString("language");
-                  const std::optional<double> score =
-                      value.GetDict().FindDouble("score");
-                  if (language && score.has_value()) {
-                    LanguageDetectionModel::LanguagePrediction prediction(
-                        *language, score.value());
-                    predictions.push_back(prediction);
-                    cumulative_confidence += score.value();
-                  }
-                }
-              }
-            }
-            if (predictions.empty()) {
-              LanguageDetectionModel::LanguagePrediction prediction("und", 1);
-              predictions.push_back(prediction);
-            } else {
-              LanguageDetectionModel::LanguagePrediction prediction(
-                  "unknown", 1 - cumulative_confidence);
-              predictions.push_back(prediction);
-            }
-            LanguageDetector::OnDetectComplete(resolver, predictions);
-          },
+      BindOnce(&LanguageDetectorOHOS::HandleDetectionSuccess, 
+          WrapPersistent(this), 
           WrapPersistent(resolver)),
       base::DoNothingWithBoundArgs(WrapPersistent(this)),
-      BindOnce(
-          [](ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>*
-                 resolver,
-             DOMException* exception) {
-            resolver->Reject(exception);
-          },
+      BindOnce(&LanguageDetectorOHOS::HandleDetectionError, 
+          WrapPersistent(this), 
           WrapPersistent(resolver)),
-      BindOnce(
-          [](ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>*
-                 resolver,
-             AbortSignal* signal, ScriptState* script_state) {
-            if (signal) {
-              resolver->Reject(signal->reason(script_state));
-            }
-          },
-          WrapPersistent(resolver), WrapPersistent(composite_signal),
+      BindOnce(&LanguageDetectorOHOS::HandleDetectionAbortSignal, 
+          WrapPersistent(this), 
+          WrapPersistent(resolver), 
+          WrapPersistent(composite_signal),
           WrapPersistent(script_state)));
+
   remote_->Detect(input, std::move(pending_remote));
 }
 
