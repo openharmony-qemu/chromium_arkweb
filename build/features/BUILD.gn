@@ -367,6 +367,7 @@ if (!enable_arkweb) {
   arkweb_not_load_iframe = false
   arkweb_ext_extensions_header_client = false
   arkweb_v8_oom_monitor = false
+  arkweb_web_app = false
 }
 
 buildflag_header("features") {
@@ -626,6 +627,7 @@ buildflag_header("features") {
     "ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE=$arkweb_clean_buffers_when_invisible",
     "ARKWEB_NOT_LOAD_IFRAME=$arkweb_not_load_iframe",
     "ARKWEB_FONT_SETTINGS=$arkweb_font_settings",
+    "ARKWEB_WEB_APP=$arkweb_web_app",
   ]
 
 
@@ -658,6 +660,7 @@ buildflag_header("features") {
       "ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION=false",
       "ARKWEB_EXT_RECEIVE_RESPONSE=false",
       "ARKWEB_EXT_EXTENSIONS_HEADER_CLIENT=false",
+      "ARKWEB_WEB_APP=false",
     ]
   }
 
