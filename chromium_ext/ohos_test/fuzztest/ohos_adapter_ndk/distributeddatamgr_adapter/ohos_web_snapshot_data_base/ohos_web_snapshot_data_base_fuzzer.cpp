@@ -32,6 +32,7 @@ constexpr int32_t MIN_CAPACITY = 0;
 constexpr int32_t MAX_CAPACITY = 200;
 constexpr int32_t MAX_FILE_SIZE = 30 * 1024 * 1024;
 constexpr int64_t MICRO_SECONDS_PER_DAY = 1000LL * 1000 * 3600 * 24;
+constexpr size_t kMaxIterations = 10;
 
 class OhosWebSnapshotDataBaseCallbackFuzz : public OhosWebSnapshotDataBaseCallback {
 public:
@@ -119,6 +120,49 @@ void OhosWebSnapshotDataBaseFuzzTest(const uint8_t* data, size_t size)
     dataBase.DeleteInner(dataBase.GetOldestKey());
     dataBase.ClearInner();
 }
+
+void OhosWebSnapshotDataBaseFuzzTestExtra(const uint8_t* data, size_t size)
+{
+    FuzzedDataProvider dataProvider(data, size);
+    HookDataBase();
+    OhosWebSnapshotDataBase& dataBase = OhosWebSnapshotDataBase::GetInstance();
+    std::shared_ptr<OhosWebSnapshotDataBaseCallback> callback = std::make_shared<OhosWebSnapshotDataBaseCallbackFuzz>();
+    dataBase.RegisterDataBaseCallback(callback);
+    dataBase.RegisterDataBaseCallback(nullptr);
+    dataBase.SetBlanklessLoadingCacheCapacity(-1);
+    dataBase.SetBlanklessLoadingCacheCapacity(300);
+    SnapshotDataItem zeroSizeItem = {"/data/a.png", "/data/b.png", 0.5, 100, 0, 0, 0};
+    dataBase.InsertSnapshotDataItem(1, zeroSizeItem);
+    SnapshotDataItem overSizeItem = {"/data/c.png", "/data/d.png", 0.8, 200, MAX_FILE_SIZE * 2, 0, 0};
+    dataBase.InsertSnapshotDataItem(2, overSizeItem);
+    dataBase.SetBlanklessLoadingCacheCapacity(50);
+    SnapshotDataItem validItem = {"/data/e.png", "/data/f.png", 0.6, 150, 100, 0, 0};
+    int64_t key1 = 10;
+    dataBase.InsertSnapshotDataItem(key1, validItem);
+    dataBase.InsertSnapshotDataItem(key1, validItem);
+    dataBase.GetSnapshotDataItem(key1);
+    dataBase.GetSnapshotDataItem(9999);
+    dataBase.InsertSnapshotDataItem(20, validItem, dataBase.GetCurrentTime() - 1000);
+    dataBase.GetSnapshotDataItem(20);
+    dataBase.SetBlanklessLoadingCacheCapacity(0);
+    dataBase.RegisterDataBaseCallback(callback);
+    dataBase.SetBlanklessLoadingCacheCapacity(50);
+    dataBase.InsertSnapshotDataItem(key1, validItem);
+    SnapshotDataItem pathItem = {"/path/whole.png", "/path/static.png", 0.7, 300, 50, 0, 0};
+    int64_t keyPath = 30;
+    dataBase.InsertSnapshotDataItem(keyPath, pathItem);
+    dataBase.SetBlanklessLoadingCacheCapacity(1);
+    std::vector<int64_t> delKeys = {keyPath};
+    dataBase.ClearSnapshotDataItem(delKeys);
+    dataBase.ClearSnapshotDataItem({});
+    dataBase.SetBlanklessLoadingCacheCapacity(50);
+    dataBase.InsertSnapshotDataItem(key1, validItem);
+    dataBase.InsertSnapshotDataItem(keyPath, pathItem);
+    dataBase.GetDatabaseInfo();
+    dataBase.InsertInner(40, {validItem, dataBase.GetCurrentTime() + MICRO_SECONDS_PER_DAY});
+    dataBase.DeleteInner(dataBase.GetOldestKey());
+    dataBase.ClearInner();
+}
 } // namespace
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
@@ -126,6 +170,21 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if ((data == nullptr) || (size == 0)) {
         return 0;
     }
-    OhosWebSnapshotDataBaseFuzzTest(data, size);
+    FuzzedDataProvider fdp(data, size);
+    size_t iterations = std::min(fdp.ConsumeIntegralInRange<size_t>(1, ::kMaxIterations), size);
+    
+    for (size_t i = 0; i < iterations; ++i) {
+        int scenario = fdp.ConsumeIntegralInRange<int>(0, 2);
+        switch (scenario) {
+            case 0:
+                OhosWebSnapshotDataBaseFuzzTest(data, size);
+                break;
+            case 1:
+                OhosWebSnapshotDataBaseFuzzTestExtra(data, size);
+                break;
+            default:
+                break;
+        }
+    }
     return 0;
 }
