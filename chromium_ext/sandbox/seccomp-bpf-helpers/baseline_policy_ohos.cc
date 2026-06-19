@@ -305,11 +305,12 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
             .Cases({ASHMEM_SET_NAME, ASHMEM_GET_NAME, ASHMEM_SET_SIZE,
                     ASHMEM_GET_SIZE, ASHMEM_SET_PROT_MASK, ASHMEM_GET_PROT_MASK,
                     ASHMEM_PIN, ASHMEM_UNPIN, ASHMEM_GET_PIN_STATUS,
-                    kBinderWriteRead64, ACCESS_TOKENID_GET_TOKENID},
+                    kBinderWriteRead64},
                     Allow())
             .Cases({kBinderWriteRead32, BINDER_SET_MAX_THREADS,
                     BINDER_THREAD_EXIT, BINDER_VERSION, BINDER_ENABLE_ONEWAY_SPAM_DETECTION,
-                    BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ},
+                    BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ,
+                    ACCESS_TOKENID_GET_TOKENID},
                     Error(EPERM))
             .Default(RestrictIoctl());
 #else
