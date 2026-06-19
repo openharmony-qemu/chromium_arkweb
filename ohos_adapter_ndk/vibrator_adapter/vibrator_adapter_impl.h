@@ -16,7 +16,7 @@
 #ifndef VIBRATOR_ADAPTER_IMPL_H
 #define VIBRATOR_ADAPTER_IMPL_H
 
-#include <stdint.h>
+#include <cstdint>
 
 namespace OHOS::NWeb {
 
