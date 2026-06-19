@@ -14,6 +14,8 @@ device_unittests_ext = {
     "//arkweb/chromium_ext/device/fido/ohos/type_conversions_unittests.cc",
     "//arkweb/chromium_ext/service/device/battery/battery_status_manager_ohos.cc",
     "//arkweb/chromium_ext/service/device/battery/battery_status_manager_ohos_unittest.cc",
+    "//arkweb/chromium_ext/service/device/time_zone_monitor/time_zone_monitor_ohos.cc",
+    "//arkweb/chromium_ext/service/device/time_zone_monitor/time_zone_monitor_ohos_unittest.cc",
     "//arkweb/chromium_ext/services/device/business_risk_intelligent_detection/business_risk_intelligent_detection_host_impl.cc",
     "//arkweb/chromium_ext/services/device/business_risk_intelligent_detection/business_risk_intelligent_detection_host_impl.h",
     "//arkweb/chromium_ext/services/device/business_risk_intelligent_detection/business_risk_intelligent_detection_host_impl_unittest.cc",
