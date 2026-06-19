@@ -45,5 +45,6 @@
 
 #if BUILDFLAG(ARKWEB_FLING)
   bool OnNestedScroll(float& delta_x, float& delta_y);
+  bool OnNestedFling(float& velocity_x, float& velocity_y);
 #endif
 #endif

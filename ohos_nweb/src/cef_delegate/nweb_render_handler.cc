@@ -1497,6 +1497,22 @@ bool NWebRenderHandler::OnNestedScroll(CefRefPtr<CefBrowser> browser,
   return false;
 }
 
+bool NWebRenderHandler::OnNestedFling(CefRefPtr<CefBrowser> browser,
+                                       float& velocity_x,
+                                       float& velocity_y)
+{
+  if (auto handler = handler_.lock()) {
+    // Value multiplied by virtual pixel ratio.
+    velocity_x = velocity_x * screen_info_.display_ratio;
+    velocity_y = velocity_y * screen_info_.display_ratio;
+    bool consumed = handler->OnNestedFling(velocity_x, velocity_y);
+    velocity_x = velocity_x / screen_info_.display_ratio;
+    velocity_y = velocity_y / screen_info_.display_ratio;
+    return consumed;
+  }
+  return false;
+}
+
 void NWebRenderHandler::OnNativeEmbedGestureEvent(
     CefRefPtr<CefBrowser> browser,
     const CefEmbedTouchEvent& touchEvent,
