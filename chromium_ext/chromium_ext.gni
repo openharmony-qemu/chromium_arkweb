@@ -1472,6 +1472,7 @@ arkweb_ohos_adapter_ndk_unittests_sources = [
   "//arkweb/ohos_adapter_ndk/ohos_adapter_helper_decouple_unittest.cpp",
   "//arkweb/ohos_adapter_ndk/security_adapter/arkts_security_adapter_impl_unittest.cc",
   "//arkweb/ohos_adapter_ndk/mock_ndk_api/src/mock_napi_api.cpp",
+  "//arkweb/ohos_adapter_ndk/arkts_adapter/arkts_tts_adapter_unittest.cpp",
 ]
 
 arkweb_components_viz_common_frame_sinks_copy_output_result_sources = [
@@ -1549,7 +1550,8 @@ arkweb_content_browser_unittests_sources =[
   "//arkweb/chromium_ext/content/browser/ohos/overscroll_controller_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/message_port_provider_for_include_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ohos/software_compositor_host_ohos_unittest.cc",
-  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager_unittest.cc"
+  "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/speech/tts_ohos_unittest.cc",
 ]
 
 arkweb_components_captive_portal_content_sources = [

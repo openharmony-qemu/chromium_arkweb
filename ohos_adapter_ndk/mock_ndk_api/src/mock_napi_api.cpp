@@ -137,6 +137,187 @@ extern "C" {
         }
         return napi_generic_failure;
     }
+
+    napi_status napi_destroy_ark_runtime(napi_env* env) {
+        printf("Mock napi_destroy_ark_runtime called\n");
+        if (env == nullptr) {
+            return napi_invalid_arg;
+        }
+        if (g_MockNapiFunctions != nullptr) {
+            return g_MockNapiFunctions->napi_destroy_ark_runtime(env);
+        }
+        return napi_generic_failure;
+    }
+
+    napi_status napi_create_double(napi_env env, double value, napi_value* result) {
+        if (result == nullptr) {
+            return napi_invalid_arg;
+        }
+        if (g_MockNapiFunctions != nullptr) {
+            return g_MockNapiFunctions->napi_create_double(env, value, result);
+        }
+        return napi_generic_failure;
+    }
+    napi_status napi_define_properties(napi_env env,
+                                       napi_value object,
+                                       size_t length,
+                                       const napi_property_descriptor* desc) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_define_properties(env, object, length,
+                                                           desc);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_typeof(napi_env env,
+                            napi_value value,
+                            napi_valuetype* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_typeof(env, value, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_cb_info(napi_env env,
+                                 napi_callback_info cbinfo,
+                                 size_t* argc,
+                                 napi_value* argv,
+                                 napi_value* this_arg,
+                                 void** data) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_cb_info(env, cbinfo, argc, argv,
+                                                     this_arg, data);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_create_function(napi_env env,
+                                     const char* utf8name,
+                                     size_t length,
+                                     napi_callback cb,
+                                     void* data,
+                                     napi_value* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_create_function(env, utf8name, length,
+                                                         cb, data, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_create_reference(napi_env env,
+                                      napi_value value,
+                                      uint32_t initial_refcount,
+                                      napi_ref* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_create_reference(
+            env, value, initial_refcount, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_reference_value(napi_env env,
+                                         napi_ref ref,
+                                         napi_value* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_reference_value(env, ref, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_wrap(napi_env env,
+                          napi_value js_object,
+                          void* native_object,
+                          napi_finalize finalize_cb,
+                          void* finalize_hint,
+                          napi_ref* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_wrap(
+            env, js_object, native_object, finalize_cb, finalize_hint, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_is_array(napi_env env, napi_value value, bool* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_is_array(env, value, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_array_length(napi_env env,
+                                      napi_value value,
+                                      uint32_t* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_array_length(env, value, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_element(napi_env env,
+                                 napi_value object,
+                                 uint32_t index,
+                                 napi_value* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_element(env, object, index,
+                                                     result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_value_int32(napi_env env,
+                                     napi_value value,
+                                     int32_t* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_value_int32(env, value, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_get_value_string_utf8(napi_env env,
+                                           napi_value value,
+                                           char* buf,
+                                           size_t bufsize,
+                                           size_t* result) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_get_value_string_utf8(env, value, buf,
+                                                               bufsize, result);
+      }
+      return napi_generic_failure;
+    }
+    napi_status napi_run_event_loop(napi_env env, napi_event_mode mode) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_run_event_loop(env, mode);
+      }
+      return napi_generic_failure;
+    }
 }
 }   // namespace NWeb
 }   // namespace OHOS
