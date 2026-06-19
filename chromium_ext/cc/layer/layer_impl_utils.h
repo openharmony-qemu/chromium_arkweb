@@ -33,6 +33,8 @@ class LayerImplUtils {
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   void set_may_contain_native(bool yes) { may_contain_native_ = yes; }
   bool may_contain_native() const { return may_contain_native_; }
+  void set_may_contain_video(bool yes) { may_contain_video_ = yes; }
+  bool may_contain_video() const { return may_contain_video_; }
   void set_native_embed_id(int embedId) { native_embed_id_ = embedId; }
   int native_embed_id() const { return native_embed_id_; }
   void SetNativeRect(const gfx::RectF& rect);
@@ -52,6 +54,7 @@ class LayerImplUtils {
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   bool may_contain_native_;
+  bool may_contain_video_;
   gfx::RectF native_rect_;
   int native_embed_id_;
   float init_scale_ = -1.0f;

@@ -214,6 +214,7 @@ void WebMediaPlayerImplUtils::OnMetadataExt() {
       impl->bridge_->GetCcLayer()->layer_utils()->SetNativeEmbedId(impl->native_texture_id_);
       impl->bridge_->GetCcLayer()->layer_utils()->SetMayContainNative(
           impl->should_create_custom_renderer_);
+      impl->bridge_->GetCcLayer()->layer_utils()->SetMayContainVideo(true);
       cc::SurfaceLayer::RectChangeCallback video_rect_callback;
       if (impl->should_create_custom_renderer_) {
         video_rect_callback =
