@@ -147,13 +147,6 @@ gfx::Rect PaintLayerScrollableAreaExt::RectForHorizontalScrollbar() const {
     marginBottom = ScaleFromDIP() * kScrollbarMargin;
   }
 
-  float controlsOffset = 0;
-  if (GetLayoutBox()->GetFrame() && GetLayoutBox()->GetFrame()->GetPage()) {
-    const BrowserControls& controls =
-        GetLayoutBox()->GetFrame()->GetPage()->GetBrowserControls();
-    controlsOffset = (controls.TopShownRatio() > 0 ? 0 : controls.TopHeight());
-  }
-
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_AREA)
   int rectX = HorizontalScrollbarStart();
   int rectWidth =
@@ -173,8 +166,7 @@ gfx::Rect PaintLayerScrollableAreaExt::RectForHorizontalScrollbar() const {
     return gfx::Rect(
         rectX + borderRadiusBottomLeft,
         border_box_size.height() - GetLayoutBox()->BorderBottom().ToInt() -
-            HorizontalScrollbar()->ScrollbarThickness() - marginBottom +
-            controlsOffset,
+            HorizontalScrollbar()->ScrollbarThickness() - marginBottom,
         rectWidth - borderRadiusBottomRight - borderRadiusBottomLeft,
         HorizontalScrollbar()->ScrollbarThickness());
   }
@@ -205,16 +197,14 @@ gfx::Rect PaintLayerScrollableAreaExt::RectForHorizontalScrollbar() const {
   return gfx::Rect(
       rectXModified + borderRadiusBottomLeft,
       border_box_size.height() - GetLayoutBox()->BorderBottom().ToInt() -
-          HorizontalScrollbar()->ScrollbarThickness() - marginBottom +
-          controlsOffset,
+          HorizontalScrollbar()->ScrollbarThickness() - marginBottom,
       rectWidthModified - borderRadiusBottomRight - borderRadiusBottomLeft,
       HorizontalScrollbar()->ScrollbarThickness());
 #else
   return gfx::Rect(
       HorizontalScrollbarStart(),
       border_box_size.height() - GetLayoutBox()->BorderBottom().ToInt() -
-          HorizontalScrollbar()->ScrollbarThickness() - marginBottom +
-          controlsOffset,
+          HorizontalScrollbar()->ScrollbarThickness() - marginBottom,
       border_box_size.width() -
           (GetLayoutBox()->BorderLeft() + GetLayoutBox()->BorderRight())
               .ToInt() -
