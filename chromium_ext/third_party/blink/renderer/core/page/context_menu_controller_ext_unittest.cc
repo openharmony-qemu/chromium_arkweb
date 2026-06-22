@@ -2416,4 +2416,230 @@ TEST_F(ContextMenuControllerTest, GetImgUrlTest_StyleImageNull) {
   EXPECT_TRUE(data_.src_url.is_empty());
 }
 
+TEST_F(ContextMenuControllerTest, GetImgChildTest_FirstImageBoundsCheck) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <img id='img' src='http://test.png' style='position: absolute; left: 100px; top: 100px; width: 50px; height: 50px;'>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement element = WebElement(GetDocument()->getElementById(AtomicString("img")));
+  gfx::Point pointInside(125, 125);
+  gfx::Point pointOutside(50, 50);
+
+  auto resultInside = ext->GetImgChild(element, pointInside);
+  auto resultOutside = ext->GetImgChild(element, pointOutside);
+  EXPECT_FALSE(resultInside.IsNull());
+  EXPECT_TRUE(resultOutside.IsNull());
+}
+
+TEST_F(ContextMenuControllerTest, GetImgChildTest_EmptyCollection) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <p id='text'>Just text, no images</p>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement element = WebElement(GetDocument()->getElementById(AtomicString("text")));
+  gfx::Point point(10, 10);
+
+  auto result = ext->GetImgChild(element, point);
+  EXPECT_TRUE(result.IsNull());
+}
+
+TEST_F(ContextMenuControllerTest, GetAbsoluteSrcUrlTest_NullElement) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement nullElement;
+  auto result = ext->GetAbsoluteSrcUrl(nullElement);
+  EXPECT_TRUE(result.is_empty());
+}
+
+TEST_F(ContextMenuControllerTest, GetAbsoluteUrlTest_NullNode) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebNode nullNode;
+  auto result = ext->GetAbsoluteUrl(nullNode, u"http://test.png");
+  EXPECT_TRUE(result.is_empty());
+}
+
+TEST_F(ContextMenuControllerTest, GetAbsoluteUrlTest_EmptyUrlFragment) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <img id='img' src='http://test.png'>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement element = WebElement(GetDocument()->getElementById(AtomicString("img")));
+  auto result = ext->GetAbsoluteUrl(element, u"");
+  EXPECT_TRUE(result.is_empty());
+}
+
+TEST_F(ContextMenuControllerTest, GetChildImageUrlFromElementTest_NullElement) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement nullElement;
+  gfx::Point point(10, 10);
+  auto result = ext->GetChildImageUrlFromElement(nullElement, point);
+  EXPECT_TRUE(result.is_empty());
+}
+
+TEST_F(ContextMenuControllerTest, GetChildImageUrlFromElementTest_NoChildImg) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <div id='container'>No image here</div>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  WebElement element = WebElement(GetDocument()->getElementById(AtomicString("container")));
+  gfx::Point point(10, 10);
+  auto result = ext->GetChildImageUrlFromElement(element, point);
+  EXPECT_TRUE(result.is_empty());
+}
+
+TEST_F(ContextMenuControllerTest, IsAILinkTest_WithAiLinkAttribute) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <a id='link' href='https://example.com' ohos-arkweb-data-detectors-type='ai'>AI Link</a>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  ContextMenuData data_;
+  data_.link_url = GURL("https://example.com");
+
+  HitTestResult hit_test_result_;
+  hit_test_result_.SetInnerNode(GetDocument()->getElementById(AtomicString("link")));
+
+  ext->IsAILink(data_, hit_test_result_);
+  EXPECT_TRUE(data_.is_ai_link);
+}
+
+TEST_F(ContextMenuControllerTest, IsAILinkTest_WithoutAiLinkAttribute) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <a id='link' href='https://example.com'>Normal Link</a>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  ContextMenuData data_;
+  data_.link_url = GURL("https://example.com");
+
+  HitTestResult hit_test_result_;
+  hit_test_result_.SetInnerNode(GetDocument()->getElementById(AtomicString("link")));
+
+  ext->IsAILink(data_, hit_test_result_);
+  EXPECT_FALSE(data_.is_ai_link);
+}
+
+TEST_F(ContextMenuControllerTest, IsAILinkTest_EmptyLinkUrl) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <a id='link' href='https://example.com'>Link</a>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  ContextMenuData data_;
+  data_.link_url = GURL();
+
+  HitTestResult hit_test_result_;
+  hit_test_result_.SetInnerNode(GetDocument()->getElementById(AtomicString("link")));
+
+  ext->IsAILink(data_, hit_test_result_);
+  EXPECT_FALSE(data_.is_ai_link);
+}
+
+TEST_F(ContextMenuControllerTest, SetArkWebMenuDataTest) {
+  ContextMenuAllowedScope context_menu_allowed_scope;
+
+  GetDocument()->documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
+    <body>
+      <img id='img' src='http://test.png'>
+    </body>
+  )HTML");
+  GetDocument()->UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+
+  auto& helper =
+      web_view_helper_.GetWebView()->GetPage()->GetContextMenuController();
+  auto ext = helper.AsContextMenuControllerExt();
+  ASSERT_TRUE(ext != nullptr);
+
+  ContextMenuData data_;
+  HitTestResult hit_test_result_;
+  hit_test_result_.SetInnerNode(GetDocument()->getElementById(AtomicString("img")));
+
+  ext->SetArkWebMenuData(data_, hit_test_result_);
+  EXPECT_EQ(data_.media_type, mojom::blink::ContextMenuDataMediaType::kImage);
+}
+
 }  // namespace blink

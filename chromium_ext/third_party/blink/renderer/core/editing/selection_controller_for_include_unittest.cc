@@ -2211,3 +2211,183 @@ TEST_F(SelectionControllerForIncludeTest, HandleEmptyLineTest_6thIf) {
   auto pos_ = blink::SelectionControllerUtils::HandleEmptyLine(top, pos, 1);
   EXPECT_NE(pos, pos_);
 }
+
+TEST_F(SelectionControllerForIncludeTest, HandleEmptyLineTest_7thIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "<span id='next'>content</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 2);
+
+  auto pos_ = blink::SelectionControllerUtils::HandleEmptyLine(top, pos, 64);
+  EXPECT_EQ(pos, pos_);
+}
+
+TEST_F(SelectionControllerForIncludeTest, HandleEmptyLineTest_8thIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "<span id='next'>content</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 0);
+
+  auto pos_ = blink::SelectionControllerUtils::HandleEmptyLine(top, pos, 0);
+  EXPECT_EQ(pos, pos_);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpaceTest_1stIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 0);
+  auto result = blink::SelectionControllerUtils::UpdateAnchorIfWhiteSpace(top, pos);
+  EXPECT_EQ(result, top);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpaceTest_2ndIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>abc</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 1);
+  auto result = blink::SelectionControllerUtils::UpdateAnchorIfWhiteSpace(top, pos);
+  EXPECT_EQ(result, top);
+}
+
+TEST_F(SelectionControllerForIncludeTest, UpdateAnchorIfWhiteSpaceTest_3rdIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>   </span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  const blink::PositionInFlatTree pos(top, 1);
+  auto result = blink::SelectionControllerUtils::UpdateAnchorIfWhiteSpace(top, pos);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSiblingTest_1stIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = prev>text</span>"
+      "<span id = top>more</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditablePreviousSibling(top);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSiblingTest_2ndIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>text</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditablePreviousSibling(top);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSiblingTest_3rdIf) {
+  const char* body_content =
+      "<div id='sample'>"
+      "<span id = prev>text</span>"
+      "<span id = top>more</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditablePreviousSibling(top);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParentTest_1stIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>text</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditableParent(top);
+  EXPECT_NE(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParentTest_2ndIf) {
+  const char* body_content =
+      "<div id='sample'>"
+      "<span id = top>text</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditableParent(top);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditableParentTest_3rdIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = top>text</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditableParent(nullptr);
+  EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(SelectionControllerForIncludeTest, SameEditablePreviousSiblingTest_4thIf) {
+  const char* body_content =
+      "<div id='sample' contenteditable>"
+      "<span id = prev>text</span>"
+      "<span id = top contenteditable='false'>more</span>"
+      "</div>";
+  SetBodyContent(body_content);
+
+  Node* top = GetDocument().getElementById(AtomicString("top"))->firstChild();
+  ASSERT_TRUE(top != nullptr);
+
+  auto result = blink::SelectionControllerUtils::SameEditablePreviousSibling(top);
+  EXPECT_EQ(result, nullptr);
+}

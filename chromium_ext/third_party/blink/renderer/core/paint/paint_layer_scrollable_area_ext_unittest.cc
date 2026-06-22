@@ -555,6 +555,298 @@ TEST_P(PaintLayerTest, ScrollbarAvoidArea002) {
   EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaTopOrigin(), -5.0);
   EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaBottomOrigin(), -10.0);
 }
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_LayoutView) {
+  SetBodyInnerHTML(R"HTML(
+    <html>
+    <body style='width: 100px; height: 100px; margin: 0'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </body>
+    </html>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("body");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_OverflowScroll) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+  EXPECT_TRUE(needs_horizontal);
+  EXPECT_TRUE(needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_OverflowHidden) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: hidden;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+  EXPECT_FALSE(needs_horizontal);
+  EXPECT_FALSE(needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_MixedOverflow) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow-x: scroll; overflow-y: auto;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+  EXPECT_TRUE(needs_horizontal);
+  EXPECT_TRUE(needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ClampScrollOffsetLimit_ZeroOffset) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  EXPECT_EQ(scrollable_area_ext->ClampScrollOffsetLimit(0), 0);
+}
+
+TEST_P(PaintLayerTest, ClampScrollOffsetLimit_NonZeroOffset) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  EXPECT_EQ(scrollable_area_ext->ClampScrollOffsetLimit(100), 100);
+}
+
+TEST_P(PaintLayerTest, ScrollbarAvoidArea_GetValidValues) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  scrollable_area_ext->SetScrollbarAvoidAreaTop(10.0);
+  scrollable_area_ext->SetScrollbarAvoidAreaBottom(20.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaTop(), 10.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaBottom(), 20.0);
+}
+
+TEST_P(PaintLayerTest, ScrollbarAvoidArea_NegativeValues) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  scrollable_area_ext->SetScrollbarAvoidAreaTop(-5.0);
+  scrollable_area_ext->SetScrollbarAvoidAreaBottom(-10.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaTopOrigin(), -5.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaBottomOrigin(), -10.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaTop(), 0.0);
+  EXPECT_EQ(scrollable_area_ext->GetScrollbarAvoidAreaBottom(), 0.0);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_OverflowAuto) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: auto;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+  EXPECT_TRUE(needs_horizontal);
+  EXPECT_TRUE(needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_NoOverflow) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 200px; height: 200px; overflow: visible;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 100px; height: 100px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_OverflowIndependent) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(
+      needs_horizontal, needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_AlwaysOn) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow: scroll;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+  EXPECT_TRUE(needs_horizontal);
+  EXPECT_TRUE(needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_VerticalOnlyScroll) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow-y: scroll; overflow-x: visible;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 50px; height: 2000px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+}
+
+TEST_P(PaintLayerTest, ComputeScrollbarExistence_HorizontalOnlyScroll) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='scroll' style='width: 100px; height: 100px; overflow-x: scroll; overflow-y: visible;
+        will-change: transform'>
+      <div id='content' style='position: relative; background: blue;
+          width: 2000px; height: 50px'></div>
+    </div>
+  )HTML");
+
+  PaintLayer* scroll_layer = GetPaintLayerByElementId("scroll");
+  ASSERT_TRUE(scroll_layer);
+  PaintLayerScrollableArea* scrollable_area = scroll_layer->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  PaintLayerScrollableAreaExt* scrollable_area_ext = scrollable_area->AsPaintLayerScrollableAreaExt();
+  ASSERT_TRUE(scrollable_area_ext);
+  bool needs_horizontal = false;
+  bool needs_vertical = false;
+  scrollable_area_ext->ComputeScrollbarExistence(needs_horizontal, needs_vertical);
+}
 }
 
 #if BUILDFLAG(ARKWEB_TEST)
