@@ -773,6 +773,13 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool SetFocusByPosition(float x, float y) override { return false; }
   bool IsElementExist(CefString& xPath) override { return false; }
   void SetImeShow(bool visible) override {}
+  MOCK_METHOD(int32_t, ExecuteInputCommand,
+              (const std::string&, const std::string&, const std::string&),
+              (override));
+  MOCK_METHOD(int32_t, ExecuteSelectCommand,
+              (const std::string&, const std::vector<int32_t>&,
+               const std::vector<std::string>&),
+              (override));
 
   void SetPipNativeWindow(int delegate_id,
                           int child_id,

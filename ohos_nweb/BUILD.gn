@@ -227,6 +227,13 @@ static_library("cef_nweb") {
     ]
   }
 
+  if (arkweb_input_events) {
+    sources += [
+      "src/cef_delegate/nweb_command_action_manager_impl.cc",
+      "src/cef_delegate/nweb_command_action_manager_impl.h",
+    ]
+  }
+
   if (defined(arkweb_arkweb_extensions) && arkweb_arkweb_extensions) {
     sources += [
       "src/cef_delegate/nweb_extension_action_cef_delegate.cc",
@@ -737,6 +744,7 @@ source_set("unittests") {
 
   sources = [
     "src/cef_delegate/nweb_access_request_delegate_unittest.cc",
+    "src/cef_delegate/nweb_command_action_manager_impl_unittest.cc",
     "src/cef_delegate/nweb_delegate_unittest.cc",
     "src/cef_delegate/nweb_event_handler_unittest.cc",
     "src/cef_delegate/nweb_extension_permissions_handler_unittest.cc",

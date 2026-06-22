@@ -49,6 +49,10 @@
 
 #include "nweb_proxy_changed_callback.h"
 
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "cef_delegate/nweb_command_action_manager_impl.h"
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 #include "capi/nweb_statistic_callback.h"
 #endif  // ARKWEB_VIDEO_ASSISTANT
@@ -1319,6 +1323,7 @@ class NWebImpl : public NWeb {
   void SetWebAutoLayoutConfig(const std::string& config) override;
 #endif
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  std::shared_ptr<NWebCommandActionManager> GetCommandActionManager() override;
   bool SetFocusByPosition(float x, float y) override;
 #if BUILDFLAG(IS_ARKWEB_EXT)
   enum class IMFAdapterExtendAction : int32_t {

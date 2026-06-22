@@ -22,3 +22,7 @@
 #include "arkweb/chromium_ext/content/renderer/ark_web_render_frame_impl.h"
 #include "cef/ohos_cef_ext/libcef/renderer/javascript/oh_gin_javascript_bridge_dispatcher.h"
 #endif  // BUILDFLAG(ARKWEB_JAVASCRIPT_BRIDGE)
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "arkweb/ohos_nweb/include/nweb_errors.h"
+#endif

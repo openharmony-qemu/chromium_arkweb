@@ -523,6 +523,13 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SetImeShow(bool visible) override {}
   void OnSafeBrowsingDetectionResult(
         const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) override {}
+  MOCK_METHOD(int32_t, ExecuteInputCommand,
+              (const std::string&, const std::string&, const std::string&),
+              (override));
+  MOCK_METHOD(int32_t, ExecuteSelectCommand,
+              (const std::string&, const std::vector<int32_t>&,
+               const std::vector<std::string>&),
+              (override));
   int ExtensionGetTabId() override {}
   bool GetHasComposition() override {}
   void SetMediaResumeFromBFCachePage(bool resume) override {}

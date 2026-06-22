@@ -16,6 +16,7 @@
 #include "nweb_delegate.h"
 
 #include <thread>
+#include "nweb_errors.h"
 #if BUILDFLAG(ARKWEB_ACCESSIBILITY)
 #include "nweb_accessibility_utils.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
@@ -110,6 +111,10 @@
 #include "ohos_nweb/src/capi/nweb_context_menus_item.h"
 #include "ohos_nweb/src/cef_delegate/nweb_devtools_message_handler_impl.h"
 #include "ohos_cef_ext/libcef/browser/arkweb_browser_host_ext.h"
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+#include "cef/libcef/browser/frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
 #include "cef/libcef/browser/devtools/devtools_window_runner.h"
 #include "cef/include/cef_devtools_message_handler_delegate.h"
@@ -949,6 +954,9 @@ bool NWebDelegate::Init(bool is_enhance_surface,
   }
 #if BUILDFLAG(ARKWEB_AI)
   agent_manager_ = std::make_shared<NWebAgentManagerImpl>(weak_factory_.GetWeakPtr());
+#endif
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  command_action_manager_ = std::make_shared<NWebCommandActionManagerImpl>(weak_factory_.GetWeakPtr());
 #endif
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
   InitAppTempDir();
@@ -3898,6 +3906,34 @@ bool NWebDelegate::IsElementExist(std::string& xPath) {
   CefString cefXPath(xPath);
 
   return GetBrowser()->GetHost()->IsElementExist(cefXPath);
+}
+
+int32_t NWebDelegate::ExecuteInputCommand(const std::string& xpath,
+                                          const std::string& value,
+                                          const std::string& event_type) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+
+  return GetBrowser()->GetHost()->ExecuteInputCommand(xpath, value, event_type);
+}
+
+int32_t NWebDelegate::ExecuteSelectCommand(
+    const std::string& xpath,
+    const std::vector<int32_t>& indexes,
+    const std::vector<std::string>& values) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteSelectCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+
+  return GetBrowser()->GetHost()->ExecuteSelectCommand(xpath, indexes, values);
+}
+
+std::shared_ptr<NWebCommandActionManager>
+NWebDelegate::GetCommandActionManager() const {
+  return command_action_manager_;
 }
 
 void NWebDelegate::ScrollTo(float x, float y) {
