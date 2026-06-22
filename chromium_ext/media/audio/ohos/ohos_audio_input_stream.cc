@@ -27,7 +27,8 @@ constexpr int kInvalidNWebId = -1;
 class OHOSAudioInputStream::CaptureCallbackAdapter
     : public AudioCapturerSource::CaptureCallback {
  public:
-  CaptureCallbackAdapter(AudioInputCallback* callback) : callback_(callback) {}
+    CaptureCallbackAdapter(AudioInputCallback* callback, base::WeakPtr<OHOSAudioInputStream> audio_input_stream)
+        : callback_(callback), audio_input_stream_(audio_input_stream) {}
 
   void Capture(const AudioBus* audio_source,
                base::TimeTicks audio_capture_time,
@@ -45,9 +46,16 @@ class OHOSAudioInputStream::CaptureCallbackAdapter
 
   void OnCaptureMuted(bool is_muted) override {}
   void SetCapturePaused(bool paused) { paused_ = paused; }
+  void OnCapturePaused(bool is_paused) override {
+    LOG(INFO) << "CaptureCallbackAdapter::OnCapturePaused, is_paused: " << is_paused;
+    if (audio_input_stream_) {
+      audio_input_stream_->OnCapturerPaused(is_paused);
+    }
+  }
  private:
   bool paused_ = false;
   raw_ptr<AudioInputCallback> callback_ = nullptr;
+  base::WeakPtr<OHOSAudioInputStream> audio_input_stream_;
 };
 
 OHOSAudioInputStream::OHOSAudioInputStream(OHOSAudioManager* manager,
@@ -68,16 +76,18 @@ void OHOSAudioInputStream::Start(AudioInputCallback* callback) {
             << " , deviceid: "
             << device_id;
 
+  nweb_id_ = GetNWebId(parameters_);
+  manager_->AddInputStreamToNWebMap(nweb_id_, this);
   if (device_id == kScreenSystemAudioDeviceId) {
     base_capturer_source_ =
       base::MakeRefCounted<BaseAudioCapturerSource>(manager_->GetTaskRunner(), GetNWebId(parameters_));
-    base_callback_adapter_ = std::make_unique<CaptureCallbackAdapter>(callback);
+    base_callback_adapter_ = std::make_unique<CaptureCallbackAdapter>(callback, weak_factory_.GetWeakPtr());
     base_capturer_source_->Initialize(parameters_, base_callback_adapter_.get());
     base_capturer_source_->Start();
   } else {
     capturer_source_ =
       base::MakeRefCounted<OHOSAudioCapturerSource>(manager_->GetTaskRunner());
-    callback_adapter_ = std::make_unique<CaptureCallbackAdapter>(callback);
+    callback_adapter_ = std::make_unique<CaptureCallbackAdapter>(callback, weak_factory_.GetWeakPtr());
     capturer_source_->Initialize(parameters_, callback_adapter_.get());
     capturer_source_->Start();
     OnMicrophoneCaptureStateChanged(AudioCaptureState::ACTIVE);
@@ -100,10 +110,25 @@ void OHOSAudioInputStream::Stop() {
 void OHOSAudioInputStream::Close() {
   LOG(INFO) << "OHOSAudioInputStream::Close";
   Stop();
+  manager_->RemoveInputStreamFromNWebMap(nweb_id_, this);
   OnMicrophoneCaptureStateChanged(AudioCaptureState::NONE);
   manager_->ReleaseInputStream(this);
 }
 // LCOV_EXCL_STOP
+
+void OHOSAudioInputStream::Pause() {
+  LOG(INFO) << "OHOSAudioInputStream::Pause";
+  if (capturer_source_) {
+    capturer_source_->Pause();
+  }
+}
+
+void OHOSAudioInputStream::Resume() {
+  LOG(INFO) << "OHOSAudioInputStream::Resume";
+  if (capturer_source_) {
+    capturer_source_->Resume();
+  }
+}
 
 double OHOSAudioInputStream::GetMaxVolume() {
   return 1.0;
@@ -255,5 +280,17 @@ void OHOSAudioInputStream::OnMicrophoneCaptureStateChangedBind(AudioCaptureState
 void OHOSAudioInputStream::OnMicrophoneCaptureStateChanged(AudioCaptureState new_state) {
     OHOSAudioInputStream::OnMicrophoneCaptureStateChangedBind(audio_capture_state_, new_state, parameters_);
     audio_capture_state_ = new_state;
+}
+void OHOSAudioInputStream::SetPauseStateChangedCallback(
+    base::RepeatingCallback<void(bool)> callback) {
+  LOG(INFO) << "OHOSAudioInputStream::SetPauseStateChangedCallback";
+  pause_state_callback_ = std::move(callback);
+}
+
+void OHOSAudioInputStream::OnCapturerPaused(bool is_paused) {
+  if (pause_state_callback_) {
+    LOG(INFO) << "OHOSAudioInputStream::OnCapturerPaused, is_paused: " << is_paused;
+    pause_state_callback_.Run(is_paused);
+  }
 }
 }  // namespace media

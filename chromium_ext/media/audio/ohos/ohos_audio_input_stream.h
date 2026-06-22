@@ -10,6 +10,7 @@
 #ifndef MEDIA_AUDIO_OHOS_AUDIO_INPUT_STREAM_H_
 #define MEDIA_AUDIO_OHOS_AUDIO_INPUT_STREAM_H_
 
+#include "base/functional/callback.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/timer/timer.h"
@@ -42,6 +43,8 @@ class OHOSAudioInputStream : public AudioInputStream {
   void Start(AudioInputCallback* callback) override;
   void Stop() override;
   void Close() override;
+  void Pause() override;
+  void Resume() override;
   double GetMaxVolume() override;
   void SetVolume(double volume) override;
   double GetVolume() override;
@@ -58,11 +61,14 @@ class OHOSAudioInputStream : public AudioInputStream {
                                                   const AudioParameters& parameters);
   void ResumeMicrophone() override;
   void PauseMicrophone() override;
+  void SetPauseStateChangedCallback(base::RepeatingCallback<void(bool)> callback) override;
 
  private:
   class CaptureCallbackAdapter;
 
   ~OHOSAudioInputStream() override;
+
+  void OnCapturerPaused(bool is_paused);
 
   raw_ptr<OHOSAudioManager> const manager_;
   AudioParameters parameters_;
@@ -74,6 +80,9 @@ class OHOSAudioInputStream : public AudioInputStream {
 
   std::unique_ptr<CaptureCallbackAdapter> base_callback_adapter_;
   ::scoped_refptr<BaseAudioCapturerSource> base_capturer_source_;
+  int nweb_id_ = -1;
+  base::RepeatingCallback<void(bool)> pause_state_callback_;
+  base::WeakPtrFactory<OHOSAudioInputStream> weak_factory_{this};
 };
 
 }  // namespace media

@@ -15,6 +15,7 @@
                 "OH_AudioStream_Result OH_AudioRenderer_GetTimestamp(OH_AudioRenderer* renderer, clockid_t clockId, int64_t* framePosition, int64_t* timestamp)",
                 "OH_AudioStream_Result OH_AudioRenderer_Release(OH_AudioRenderer* renderer)",
                 "OH_AudioStream_Result OH_AudioRenderer_Start(OH_AudioRenderer* renderer)",
+                "OH_AudioStream_Result OH_AudioCapturer_Pause(OH_AudioCapturer* capturer)",
                 "OH_AudioStream_Result OH_AudioRenderer_Stop(OH_AudioRenderer* renderer)",
                 "OH_AudioStream_Result OH_AudioStreamBuilder_Create(OH_AudioStreamBuilder** builder, OH_AudioStream_Type type)",
                 "OH_AudioStream_Result OH_AudioStreamBuilder_Destroy(OH_AudioStreamBuilder* builder)",

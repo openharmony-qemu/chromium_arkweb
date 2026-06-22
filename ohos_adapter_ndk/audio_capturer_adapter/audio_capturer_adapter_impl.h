@@ -44,6 +44,8 @@ public:
 
     bool Stop() override;
 
+    bool Pause() override;
+
     bool Release() override;
 
     int32_t SetCapturerReadCallback(
