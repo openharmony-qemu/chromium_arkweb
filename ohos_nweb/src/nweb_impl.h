@@ -1147,6 +1147,12 @@ class NWebImpl : public NWeb {
       int request_key);
   static void GrantOffscreenDocumentPermission(int resources, int request_key);
   static void DenyOffscreenDocumentPermission(int resources, int request_key);
+  static void InstallLanguageRequest(const std::string& lang,
+                                     const std::string& client_id);
+  static void UninstallLanguageRequest(const std::string& lang,
+                                       const std::string& client_id);
+  static void LanguageStatusRequest(const std::string& lang,
+                                    const std::string& client_id);
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
 
 #if BUILDFLAG(ARKWEB_AI)
