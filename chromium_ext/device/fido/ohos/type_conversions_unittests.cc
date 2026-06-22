@@ -61,7 +61,9 @@ TEST_F(TypeConversionsTest, FIDO2_ClientCapabilityTest_001)
     EXPECT_EQ(ret, "signalUnknownCredential");
     ret = Convert<std::string>(FIDO2_EXTENSION_UVI);
     EXPECT_EQ(ret, "extension:uvi");
-    ret = Convert<std::string>(static_cast<FIDO2_ClientCapability>(10));
+    ret = Convert<std::string>(FIDO2_EXTENSION_LARGEBLOB);
+    EXPECT_EQ(ret, "extension:largeBlob");
+    ret = Convert<std::string>(static_cast<FIDO2_ClientCapability>(11));
     EXPECT_EQ(ret, "");
 }
 
