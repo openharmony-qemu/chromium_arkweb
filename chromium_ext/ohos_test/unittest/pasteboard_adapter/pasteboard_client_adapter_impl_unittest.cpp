@@ -1066,4 +1066,182 @@ TEST_F(PasteboardClientAdapterImplTest, MEDIUM_GetRecordCount_NullData) {
     EXPECT_EQ(result, 0);
 }
 
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_MultipleBlockTags) {
+    std::string html = "<p>first</p><div>second</div><ul>third</ul>";
+    std::string expected = "first\r\nsecond\r\nthird";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_NestedBlockTags) {
+    std::string html = "<div><p>nested</p><div>content</div></div>";
+    std::string expected = "nested\r\ncontent";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_H1ToH6Tags) {
+    std::string html = "<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>";
+    std::string expected = "a\r\nb\r\nc\r\nd\r\ne\r\nf";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_LiTags) {
+    std::string html = "<ul><li>item1</li><li>item2</li></ul>";
+    std::string expected = "item1\r\nitem2";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_OlTags) {
+    std::string html = "<ol><li>first</li><li>second</li></ol>";
+    std::string expected = "first\r\nsecond";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_MixedTags) {
+    std::string html = "<p>para</p><span>inline</span><div>block</div>";
+    std::string expected = "para\r\ninlineblock";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_SpaceInTag) {
+    std::string html = "<p class=\"test\">content</p>";
+    std::string expected = "content";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_OnlyOpeningTag) {
+    std::string html = "<p>only opening";
+    std::string expected = "only opening";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_EmptyBetweenTags) {
+    std::string html = "<p></p><div></div><p>text</p>";
+    std::string expected = "text";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, SetAndGetHtmlText_NullRecord) {
+    std::shared_ptr<PasteDataRecordAdapter> record =
+        PasteDataRecordAdapter::NewRecord("text/html");
+    ASSERT_NE(record, nullptr);
+    std::shared_ptr<std::string> htmlText = std::make_shared<std::string>("<html>test</html>");
+    EXPECT_EQ(record->SetHtmlText(htmlText), true);
+    std::shared_ptr<std::string> result = record->GetHtmlText();
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, SetAndGetPlainText_NullRecord) {
+    std::shared_ptr<PasteDataRecordAdapter> record =
+        PasteDataRecordAdapter::NewRecord("text/plain");
+    ASSERT_NE(record, nullptr);
+    std::shared_ptr<std::string> plainText = std::make_shared<std::string>("plain text content");
+    EXPECT_EQ(record->SetPlainText(plainText), true);
+    std::shared_ptr<std::string> result = record->GetPlainText();
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, SetAndGetUri_NullRecord) {
+    std::shared_ptr<PasteDataRecordAdapter> record =
+        PasteDataRecordAdapter::NewRecord("text/uri");
+    ASSERT_NE(record, nullptr);
+    EXPECT_EQ(record->SetUri(g_test_uri), true);
+    std::shared_ptr<std::string> result = record->GetUri();
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, SetAndGetCustomData_NullRecord) {
+    std::shared_ptr<PasteDataRecordAdapter> record =
+        PasteDataRecordAdapter::NewRecord("custom/data");
+    ASSERT_NE(record, nullptr);
+    std::string format = "ohos/custom-data";
+    std::vector<uint8_t> data = { 0, 1, 2, 3, 4 };
+    PasteCustomData customData;
+    customData.insert(std::make_pair(format, data));
+    EXPECT_EQ(record->SetCustomData(customData), true);
+    std::shared_ptr<PasteCustomData> result = record->GetCustomData();
+    EXPECT_NE(result, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HasPasteDataTest) {
+    PasteBoardClientAdapterImpl::GetInstance().Clear();
+    bool hasData = PasteBoardClientAdapterImpl::GetInstance().HasPasteData();
+    EXPECT_EQ(hasData, false);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, IsLocalPasteTest) {
+    bool isLocal = PasteBoardClientAdapterImpl::GetInstance().IsLocalPaste();
+    EXPECT_EQ(isLocal, false);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, GetTokenIdTest) {
+    uint32_t tokenId = PasteBoardClientAdapterImpl::GetInstance().GetTokenId();
+    EXPECT_EQ(tokenId, 0);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, OpenRemoteUriTest) {
+    int32_t result = PasteBoardClientAdapterImpl::GetInstance().OpenRemoteUri("/data/test/path");
+    EXPECT_EQ(result, -1);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, Clear_EmptyData) {
+    PasteBoardClientAdapterImpl::GetInstance().Clear();
+}
+
+TEST_F(PasteboardClientAdapterImplTest, GetMimeTypes_ValidData) {
+    std::shared_ptr<PasteDataAdapter> adapter =
+        std::make_shared<PasteDataAdapterImpl>();
+    ASSERT_NE(adapter, nullptr);
+    adapter->AddTextRecord("test text");
+    std::vector<std::string> mimeTypes = adapter->GetMimeTypes();
+    EXPECT_EQ(mimeTypes.empty(), false);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, GetPrimaryMimeType_ValidRecord) {
+    std::shared_ptr<PasteDataAdapter> adapter =
+        std::make_shared<PasteDataAdapterImpl>();
+    ASSERT_NE(adapter, nullptr);
+    adapter->AddHtmlRecord("<html>test</html>");
+    std::shared_ptr<std::string> mimeType = adapter->GetPrimaryMimeType();
+    EXPECT_NE(mimeType, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, GetRecordAt_ValidIndex) {
+    std::shared_ptr<PasteDataAdapter> adapter =
+        std::make_shared<PasteDataAdapterImpl>();
+    ASSERT_NE(adapter, nullptr);
+    adapter->AddTextRecord("test text");
+    std::shared_ptr<PasteDataRecordAdapter> record = adapter->GetRecordAt(0);
+    EXPECT_NE(record, nullptr);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, AllRecords_WithData) {
+    std::shared_ptr<PasteDataAdapter> adapter =
+        std::make_shared<PasteDataAdapterImpl>();
+    ASSERT_NE(adapter, nullptr);
+    adapter->AddTextRecord("test text");
+    PasteRecordVector records = adapter->AllRecords();
+    EXPECT_EQ(records.empty(), false);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, GetRecordCount_WithData) {
+    std::shared_ptr<PasteDataAdapter> adapter =
+        std::make_shared<PasteDataAdapterImpl>();
+    ASSERT_NE(adapter, nullptr);
+    adapter->AddTextRecord("test text");
+    std::size_t count = adapter->GetRecordCount();
+    EXPECT_EQ(count, 1);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_ConsecutiveBlockTags) {
+    std::string html = "<h1>header</h1><div>content</div><p>paragraph</p>";
+    std::string expected = "header\r\ncontent\r\nparagraph";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
+TEST_F(PasteboardClientAdapterImplTest, HtmlToPlainText_NonBlockTagsOnly) {
+    std::string html = "<span>hello</span><b>world</b><i>test</i>";
+    std::string expected = "helloworldtest";
+    EXPECT_EQ(g_datarecord->HtmlToPlainText(html), expected);
+}
+
 }  // namespace OHOS::NWeb
