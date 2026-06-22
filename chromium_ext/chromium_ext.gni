@@ -1572,6 +1572,10 @@ arkweb_components_performance_manager_graph_test_sources = [
   "//arkweb/chromium_ext/components/performance_manager/graph/page_node_impl_for_include_unittest.cc"
 ]
 
+arkweb_components_performance_manager_test_sources = [
+  "//arkweb/chromium_ext/components/performance_manager/performance_manager_tab_helper_utils_unittest.cc"
+]
+
 arkweb_content_browser_unittests_sources =[
   "//arkweb/chromium_ext/content/browser/log_console_message_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ohos/date_time_chooser_ohos_unittest.cc",
