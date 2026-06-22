@@ -28,6 +28,7 @@
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #endif
 #include "base/memory/raw_ptr.h"
+#include "base/cancelable_callback.h"
 #include "capi/nweb_app_client_extension_callback.h"
 #include "capi/nweb_download_delegate_callback.h"
 #include "capi/nweb_extension_api_callback.h"
@@ -1586,6 +1587,11 @@ void SetVisibility(bool isVisible) override;
 #if BUILDFLAG(ARKWEB_COOKIE)
   static std::shared_ptr<NWebEngineInitArgs> save_initargs_;
   static std::atomic<bool> should_lazy_init_web_engine_;
+#endif
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void QueryClientHeight(uint32_t width, uint32_t height);
+  base::CancelableOnceClosure pending_client_height_query_;
 #endif
 
   base::WeakPtrFactory<NWebImpl> weak_factory_{this};
