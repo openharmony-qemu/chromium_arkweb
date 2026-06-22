@@ -21,6 +21,8 @@
 #include "base/process/process_handle.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
+#include "arkweb/chromium_ext/content/public/browser/render_process_host_ohos.h"
+
 namespace base::debug {
 ArkWebDumpInfo::ArkWebDumpInfo() {
   dump_enable_ = OHOS::NWeb::OhosAdapterHelper::GetInstance()
@@ -124,4 +126,59 @@ void ArkWebDumpInfo::FormatAndWriteNWebDumpInfo(const std::string& nwebInfo) {
                                             timeInfo.c_str(), processThreadInfo.c_str(), nwebInfo.c_str());
   WriteArkWebDumpInfo(formatStr, DumpInfoType::DUMP_NWEB_INFO);
 }
+
+namespace {
+  DumpSnapshotCallback g_dump_snapshot_callback = nullptr;
+}
+void SetDumpSnapshotCallback(DumpSnapshotCallback func) {
+  g_dump_snapshot_callback = func;
+}
+
+void ArkWebDumpInfo::DumpArkWebJSHeap(int32_t fd,
+                                      int32_t renderPid,
+                                      bool needSnapshot,
+                                      bool needGC,
+                                      bool needRaw) {
+  LOG(INFO) << "DumpArkWebJSHeap start "
+            << " fd:" << fd << " needGC:" << needGC
+            << " needSnapshot:" << needSnapshot << " renderPid:" << renderPid
+            << " needRaw:" << needRaw;
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+  if (fd < 0) {
+    if (needSnapshot) {
+      LOG(ERROR) << "fd is needed when it wants to take heap snapshot";
+      return;
+    }
+    if (needGC) {
+      LOG(INFO) << "not support trigger gc only from hidumper now";
+    }
+    return;
+  }
+
+  if (!needSnapshot || !g_dump_snapshot_callback) {
+    LOG(ERROR) << "fd is needed only if it wants to take heap snapshot and "
+                  "has g_dump_snapshot_callback";
+    close(fd);
+    return;
+  }
+  int socket_fd = content::RenderProcessHostOhos::DumpArkWebJSHeap(
+      renderPid, needSnapshot, needGC, needRaw);
+  LOG(INFO) << "DumpArkWebJSHeap socket_fd for crashpad:" << socket_fd;
+  if (socket_fd < 0) {
+    close(fd);
+    return;
+  }
+  // start crashpad process
+  g_dump_snapshot_callback(renderPid, fd, socket_fd);
+  // crashpad is fork + excv
+  close(fd);
+  close(socket_fd);
+#else
+  LOG(ERROR) << "DumpArkWebJSHeap not enabled";
+  if (fd >= 0) {
+    close(fd);
+  }
+#endif
+}
+
 } // namespace base::debug

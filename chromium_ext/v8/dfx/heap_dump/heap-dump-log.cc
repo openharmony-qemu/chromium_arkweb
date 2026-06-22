@@ -19,12 +19,12 @@
 #if defined(USING_OHOS_WEB) || defined(USING_OHOS)
 
 #ifdef USING_OHOS_WEB
-#include "ohlog.h"
+#include "arkweb/chromium_ext/v8/ohlog.h"
 void LogInfo(std::string message) { StreamHilog("[HeapDump]" + message); }
 
 #else
 // USING_OHOS
-#include "hilog.h"
+#include "arkweb/chromium_ext/v8/hilog.h"
 
 void LogInfo(std::string message) {
   HilogPrint(INFO, "[HeapDump]%{public}s", message.c_str());

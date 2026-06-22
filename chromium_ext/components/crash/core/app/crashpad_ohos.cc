@@ -47,6 +47,10 @@
 #include "third_party/crashpad/crashpad/util/misc/from_pointer_cast.h"
 #include "third_party/crashpad/crashpad/util/posix/signals.h"
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+#include "arkweb/chromium_ext/base/debug/arkweb_dump_info.h"
+#endif
+
 namespace crashpad {
 namespace {
 
@@ -552,6 +556,73 @@ void AllowMemoryRange(void* begin, size_t length) {
       static_cast<crashpad::VMSize>(length));
 }
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+bool StartHandlerForMemorySnapshot(pid_t render_pid,
+                                   int snapshot_fd,
+                                   int socket) {
+  LOG(INFO) << "[MemorySnapshot] render_pid=" << render_pid
+            << ", snapshot_fd=" << snapshot_fd << ", socket=" << socket;
+
+  if (snapshot_fd < 0) {
+    LOG(ERROR) << "[MemorySnapshot] Invalid fd";
+    if (socket >= 0) {
+      close(socket);
+    }
+    return false;
+  }
+  if (socket < 0) {
+    LOG(ERROR) << "[MemorySnapshot] Invalid socket";
+    if (snapshot_fd >= 0) {
+      close(snapshot_fd);
+    }
+    return false;
+  }
+  base::FilePath database_path;
+  base::FilePath metrics_path;
+  std::string url;
+  std::map<std::string, std::string> process_annotations;
+  std::vector<std::string> arguments;
+
+  BuildHandlerArgs(GetCrashReporterClient(), &database_path, &metrics_path,
+                   &url, &process_annotations, &arguments);
+
+  base::FilePath exe_dir;
+  base::FilePath handler_path;
+  if (!GetHandlerPath(&exe_dir, &handler_path)) {
+    close(socket);
+    close(snapshot_fd);
+    return false;
+  }
+
+  // special args for snapshot
+  arguments.push_back("--snapshot-fd=" + std::to_string(snapshot_fd));
+  arguments.push_back("--target-pid=" + std::to_string(render_pid));
+  arguments.push_back("--socket-fd=" + std::to_string(socket));
+  arguments.push_back("--snapshot-only");
+
+  if (!SetLdLibraryPath(exe_dir)) {
+    LOG(ERROR) << "crash HandlerStarter::StartHandlerForClient, set lib path "
+                  "failed, path = "
+               << exe_dir;
+    close(socket);
+    close(snapshot_fd);
+    return false;
+  }
+
+  // start handler
+  return GetCrashpadClient().StartHandlerForClient(
+      handler_path, database_path, metrics_path, url, process_annotations,
+      arguments, 0);
+}
+
+void DumpSnapshotWithoutCrash(int target_pid, int fd, int socket) {
+  LOG(INFO) << "DumpSnapshotWithoutCrash target_pid " << target_pid << ", fd"
+            << fd << ", socket" << socket;
+  StartHandlerForMemorySnapshot(target_pid, fd, socket);
+}
+
+#endif  // BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+
 namespace internal {
 
 bool StartHandlerForClient(int fd, bool write_minidump_to_database) {
@@ -578,6 +649,10 @@ bool PlatformCrashpadInitialization(
 
   bool dump_at_crash = true;
   //   base::android::SetJavaExceptionCallback(SetJavaExceptionInfo);
+
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+  base::debug::SetDumpSnapshotCallback(DumpSnapshotWithoutCrash);
+#endif
 
   unsigned int dump_percentage =
       GetCrashReporterClient()->GetCrashDumpPercentage();

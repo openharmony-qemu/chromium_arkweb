@@ -383,6 +383,15 @@ std::string NWebEngineImpl::DumpArkWebInfo(const std::string& param) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+void NWebEngineImpl::DumpArkWebJSHeap(int32_t fd, int32_t renderPid, bool needSnapshot, bool needGC, bool needRaw) {
+  LOG(INFO) << "NWebEngineImpl::DumpArkWebJSHeap";
+  base::debug::ArkWebDumpInfo& arkwebDumpInfo =
+      base::debug::ArkWebDumpInfo::GetInstance();
+  arkwebDumpInfo.DumpArkWebJSHeap(fd, renderPid, needSnapshot, needGC, needRaw);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_USERAGENT)
 void NWebEngineImpl::SetUserAgentClientHintsEnabled(bool enabled) {
   NWebImpl::SetUserAgentClientHintsEnabled(enabled);

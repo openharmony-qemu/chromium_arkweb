@@ -13,15 +13,13 @@
  * limitations under the License.
  */
 
-#if defined(OHOS_JS_ENGINE)
-
-#include "include/v8-profiler.h"
 #include "src/profiler/heap-profiler.h"
 
 #if defined(OH_ENABLE_HEAP_DUMP)
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/heap-dump.h"
 #endif
 
+#if defined(OHOS_JS_ENGINE)
 namespace v8 {
 
 void HeapProfiler::DumpRawHeapSnapshot(OutputStream* stream) {

@@ -40,6 +40,14 @@
 #endif
 #include "base/trace_event/trace_event.h"
 
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+#if BUILDFLAG(IS_POSIX)
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+#include <sys/socket.h>
+#endif
+
 // VLOG additional statements in Fuchsia release builds.
 #if BUILDFLAG(IS_FUCHSIA)
 #define MAYBEVLOG VLOG
@@ -415,6 +423,94 @@ void RenderProcessHost::OnLocaleChangedToRenderer(
     }
     iter.Advance();
   }
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+
+#if BUILDFLAG(IS_POSIX)
+static void RequestJSDump(int32_t renderPid,
+                          mojo::PlatformHandle socket,
+                          bool needGC,
+                          bool needSnapshot,
+                          bool needRaw) {
+  if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
+    LOG(ERROR) << "RequestJSDump must be called on UI thread";
+    return;
+  }
+  for (content::RenderProcessHost::iterator iter(
+           content::RenderProcessHost::AllHostsIterator());
+       !iter.IsAtEnd(); iter.Advance()) {
+    content::RenderProcessHost* host = iter.GetCurrentValue();
+    if (!host) {
+      continue;
+    }
+
+    if (host->GetProcess().Pid() != renderPid) {
+      continue;
+    }
+
+    auto* host_impl = static_cast<RenderProcessHostImpl*>(host);
+    if (!host_impl || !host_impl->IsInitializedAndNotDead()) {
+      LOG(ERROR) << "RequestJSDump host is not initialized or dead, pid:"
+                 << renderPid;
+      return;
+    }
+
+    LOG(INFO) << "RequestJSDump find pid:" << renderPid;
+
+    host_impl->GetRendererInterface()->RequestJSDump(std::move(socket), needGC,
+                                                     needSnapshot, needRaw);
+    return;
+  }
+
+  LOG(ERROR) << "RequestJSDump doesn't find render pid:" << renderPid;
+}
+#endif
+
+// static
+int RenderProcessHostOhos::DumpArkWebJSHeap(int32_t renderPid,
+                                            bool needSnapshot,
+                                            bool needGC,
+                                            bool needRaw) {
+#if BUILDFLAG(IS_POSIX)
+  base::ScopedFD read_socket;
+  base::ScopedFD render_socket;
+  int socks[2] = {-1, -1};
+  if (needSnapshot) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, socks) != 0) {
+      LOG(ERROR) << "RequestJSDump socketpair() failed";
+      return -1;
+    }
+    read_socket.reset(socks[0]);
+    render_socket.reset(socks[1]);
+
+    int flags = fcntl(render_socket.get(), F_GETFD);
+    if (flags < 0) {
+      LOG(ERROR) << "fcntl(F_GETFD) failed, fd=" << render_socket.get();
+      return -1;
+    }
+    if (fcntl(render_socket.get(), F_SETFD, flags | FD_CLOEXEC) < 0) {
+      LOG(ERROR) << "fcntl(F_SETFD, FD_CLOEXEC) failed, fd="
+                 << render_socket.get();
+      return -1;
+    }
+  }
+
+  mojo::PlatformHandle handle(std::move(render_socket));
+
+  bool posted = content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce(&RequestJSDump, renderPid, std::move(handle),
+                                needGC, needSnapshot, needRaw));
+  if (!posted) {
+    LOG(ERROR) << "DumpArkWebJSHeap PostTask failed";
+    return -1;
+  }
+  return read_socket.release();
+#else
+  LOG(ERROR) << "DumpArkWebJSHeap not supported on this platform";
+  return -1;
+#endif
 }
 #endif
 
