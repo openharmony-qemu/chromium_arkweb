@@ -699,6 +699,12 @@ class NWebDelegateInterface
   virtual std::shared_ptr<NWebAccessibilityNodeInfo>
   GetAccessibilityNodeInfoByFocusMove(int64_t accessibilityId,
                                       int32_t direction) = 0;
+  virtual std::shared_ptr<NWebAccessibilityNodeInfo>
+  GetAccessibilityNodeInfoByParams(
+      int64_t accessibilityId,
+      int32_t direction,
+      int32_t elementType,
+      const std::map<std::string, std::string>& params) = 0;
   virtual void RefreshAccessibilityManagerClickEvent() = 0;
   virtual void SendAccessibilityHoverEvent(int x, int y, bool isHoverEnter) = 0;
 #endif

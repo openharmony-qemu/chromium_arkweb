@@ -385,6 +385,12 @@ class NWebImpl : public NWeb {
   std::shared_ptr<NWebAccessibilityNodeInfo>
   GetAccessibilityNodeInfoByFocusMove(int64_t accessibilityId,
                                       int32_t direction) override;
+  std::shared_ptr<NWebAccessibilityNodeInfo>
+  GetAccessibilityNodeInfoByParams(
+      int64_t accessibilityId,
+      int32_t direction,
+      int32_t elementType,
+      const std::map<std::string, std::string>& params) override;
   void SetAccessibilityState(bool state) override;
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
   void SetBorderRadiusFromWeb(double borderRadiusTopLeft,
