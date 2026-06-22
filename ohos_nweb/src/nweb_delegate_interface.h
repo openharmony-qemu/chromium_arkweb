@@ -549,6 +549,10 @@ class NWebDelegateInterface
   virtual std::string GetCurrentLanguage() = 0;
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  virtual void SetNightMode(int32_t mode) = 0;
+#endif
+
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   virtual void SetNativeInnerWeb(bool isInnerWeb) = 0;
   virtual bool GetNativeEmbedMode() = 0;

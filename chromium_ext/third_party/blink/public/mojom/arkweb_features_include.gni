@@ -72,6 +72,10 @@ if (arkweb_input_events) {
   mojom_platform_enabled_features += [ "arkweb_input_events" ]
 }
 
+if (arkweb_night_mode) {
+  mojom_platform_enabled_features += [ "arkweb_night_mode" ]
+}
+
 if (arkweb_scrollbar) {
   mojom_platform_enabled_features += [ "arkweb_scrollbar" ]
 }

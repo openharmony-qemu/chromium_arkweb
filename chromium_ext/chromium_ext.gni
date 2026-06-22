@@ -839,6 +839,11 @@ if (is_arkweb_ext) {
   ]
 }
 
+arkweb_third_party_blink_renderer_core_paint_night_mode_sources = [
+  "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/night_mode_inverter.cc",
+  "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/night_mode_inverter.h",
+]
+
 arkweb_base_unittest_sources = [
   "//arkweb/chromium_ext/base/message_loop/message_pump_ohos_unittest.cc",
   "//arkweb/chromium_ext/base/memory/platform_shared_memory_mapper_ohos_unittests.cc",
@@ -996,6 +1001,7 @@ arkweb_third_party_blink_renderer_core_unittest_sources = [
   "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/timing/first_screen_calculator_unittest.cc",
   "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/timing/paint_timing_detector_utils_unittest.cc",
   "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/native_painter_unittest.cc",
+  "//arkweb/chromium_ext/third_party/blink/renderer/core/paint/night_mode_inverter_unittest.cc",
   "//arkweb/chromium_ext/third_party/blink/renderer/core/exported/web_element_utils_unittest.cc",
   "//arkweb/chromium_ext/third_party/blink/renderer/core/page/page_utils_unittest.cc",
   "//arkweb/chromium_ext/third_party/blink/renderer/core/layout/layout_theme_ohos_unittest.cc",

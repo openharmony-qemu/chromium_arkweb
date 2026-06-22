@@ -125,6 +125,12 @@ static void WebPreferenceMojomExt(blink::mojom::WebPreferencesDataView data,
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
   out->clipboard_site_permission_enabled = data.clipboard_site_permission_enabled();
 #endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  out->night_mode_enabled = data.night_mode_enabled();
+  out->turn_image_gray = data.turn_image_gray();
+  out->turn_all_gray = data.turn_all_gray();
+  out->not_process_images = data.not_process_images();
+#endif
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
   out->is_autofill_enabled = data.is_autofill_enabled();
 #endif  // BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)

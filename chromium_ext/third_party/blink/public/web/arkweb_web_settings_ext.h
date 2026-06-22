@@ -103,6 +103,10 @@ public:
   virtual bool GetMediaResumeFromBFCachePage() { return true; }
 #endif  // BUILDFLAG(ARKWEB_BFCACHE)
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  virtual void SetNightModeEnabled(bool enabled) {}
+#endif
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   virtual void SetUsageScenario(int32_t usage_scenario) = 0;
 #endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE

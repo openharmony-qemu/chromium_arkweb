@@ -17,6 +17,12 @@
 
 namespace {
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+static const unsigned night_mode_bg_color = 0xFF141415;
+static const unsigned night_mode_border_color = 0xFF3A4045;
+static const float night_mode_image_brightness_scale = 0.46;
+#endif
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 void ApplyOhosMediaPlayerEnabled(const web_pref::WebPreferences& prefs,
                                  WebView* web_view,
@@ -201,6 +207,10 @@ void WebView::ApplyWebPreferencesForInclude(
   settings->SetForceZeroLayoutHeight(prefs.force_zero_layout_height);
   LOG(DEBUG) << "WebViewImpl::UpdateMainFrameLayoutSize,forceZeroLayoutHeight:"
              << prefs.force_zero_layout_height;
+#endif
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  settings->SetNightModeEnabled(prefs.night_mode_enabled);
+  web_view_impl->UpdateNightModePrefs(prefs);
 #endif
 
 #if BUILDFLAG(IS_ARKWEB)
@@ -415,6 +425,39 @@ void WebViewImpl::UpdateFlingVelocityLimit(const gfx::Vector2dF& velocity) {
     if (local_main_frame_host_remote_) {
       local_main_frame_host_remote_->UpdateFlingVelocityLimit(velocity);
     }
+  }
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+void WebViewImpl::UpdateNightModePrefs(const web_pref::WebPreferences& prefs) {
+  if (prefs.night_mode_enabled) {
+    blink::NightModeInverter::GetInverter().SetBackgroundColor(
+        Color::FromRGBA32(night_mode_bg_color));
+    blink::NightModeInverter::GetInverter().SetBorderColor(
+        Color::FromRGBA32(night_mode_border_color));
+    blink::NightModeInverter::GetInverter().SetImageBrightnessScale(
+        night_mode_image_brightness_scale);
+  }
+
+  if ((blink::NightModeInverter::GetInverter().HasTurnImageGray() !=
+       prefs.turn_image_gray) ||
+      (blink::NightModeInverter::GetInverter().HasTurnAllGray() !=
+       prefs.turn_all_gray) ||
+      (blink::NightModeInverter::GetInverter().ShouldSkipProcessImages() !=
+       prefs.not_process_images)) {
+    blink::NightModeInverter::GetInverter().SetTurnImageGray(
+        prefs.turn_image_gray);
+    blink::NightModeInverter::GetInverter().SetTurnAllGray(
+        prefs.turn_all_gray);
+    blink::NightModeInverter::GetInverter().SetSkipProcessImages(
+        prefs.not_process_images);
+  }
+
+  if (night_mode_enabled_ != prefs.night_mode_enabled) {
+    night_mode_enabled_ = prefs.night_mode_enabled;
+    TRACE_EVENT1("input", "WebViewImpl::UpdateNightModePrefs",
+                 "nightmode:", night_mode_enabled_);
   }
 }
 #endif

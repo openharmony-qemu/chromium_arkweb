@@ -4333,6 +4333,14 @@ void NWebDelegate::SetDrawMode(int32_t mode) {
   }
 }
 
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+void NWebDelegate::SetNightMode(int32_t mode) {
+  if (preference_delegate_) {
+    preference_delegate_->SetNightMode(mode);
+  }
+}
+#endif
+
 bool NWebDelegate::GetPendingSizeStatus() {
   if (GetBrowser().get()) {
     return GetBrowser()->GetHost()->GetPendingSizeStatus();

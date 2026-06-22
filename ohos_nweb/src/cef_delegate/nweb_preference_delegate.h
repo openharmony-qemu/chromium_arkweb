@@ -124,6 +124,10 @@ class NWebPreferenceDelegate : public NWebPreference {
   void PutZoomControlAccess(bool zoomControlAccess) override;
 #endif
   int ForceDarkModeEnabled() override;
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  void SetNightMode(int32_t mode);
+  bool NightSchemeEnabled();
+#endif
   void PutDarkSchemeEnabled(int darkScheme) override;
   int DarkSchemeEnabled() override;
   void PutForceDarkModeEnabled(int forceDark) override;
@@ -381,6 +385,9 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_DARKMODE)
   bool force_dark_mode_enabled_{false};
   bool dark_prefer_color_scheme_enabled_{false};
+#endif
+#if BUILDFLAG(ARKWEB_NIGHT_MODE)
+  bool night_prefer_color_scheme_enabled_{false};
 #endif
   bool is_need_gesture_access_{true};
   bool pinch_smooth_mode_{false};
