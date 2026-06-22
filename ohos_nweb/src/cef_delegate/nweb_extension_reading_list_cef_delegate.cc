@@ -25,7 +25,7 @@
 #include "nweb_extension_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_reading_list_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_reading_list_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
@@ -57,7 +57,8 @@ bool NWebExtensionReadingListCefDelegate::AddEntry(
   int id = g_request_id++;
   g_add_entry_result_funcs[id] = std::move(callback);
 
-  if (NWebExtensionReadingListDispatcher::GetInstance().AddEntry(id, options)) {
+  if (nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().AddEntry(
+          id, options)) {
     LOG(INFO) << "succeed to call add entry,id is " << id;
     return true;
   }
@@ -75,8 +76,8 @@ bool NWebExtensionReadingListCefDelegate::QueryEntry(
   int id = g_request_id++;
   g_query_entry_result_funcs[id] = std::move(callback);
 
-  if (NWebExtensionReadingListDispatcher::GetInstance().QueryEntry(id,
-                                                                   options)) {
+  if (nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().QueryEntry(
+          id, options)) {
     LOG(INFO) << "succeed to call query entry,id is " << id;
     return true;
   }
@@ -94,7 +95,8 @@ bool NWebExtensionReadingListCefDelegate::RemoveEntry(
   int id = g_request_id++;
   g_remove_entry_result_funcs[id] = std::move(callback);
 
-  if (NWebExtensionReadingListDispatcher::GetInstance().RemoveEntry(id, url)) {
+  if (nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().RemoveEntry(
+          id, url)) {
     LOG(INFO) << "succeed to call remove entry,id is " << id;
     return true;
   }
@@ -112,8 +114,8 @@ bool NWebExtensionReadingListCefDelegate::UpdateEntry(
   int id = g_request_id++;
   g_update_entry_result_funcs[id] = std::move(callback);
 
-  if (NWebExtensionReadingListDispatcher::GetInstance().UpdateEntry(id,
-                                                                    options)) {
+  if (nweb_ex::NWebExtensionReadingListDelegateImpl::GetInstance().UpdateEntry(
+          id, options)) {
     LOG(INFO) << "succeed to call update entry,id is " << id;
     return true;
   }

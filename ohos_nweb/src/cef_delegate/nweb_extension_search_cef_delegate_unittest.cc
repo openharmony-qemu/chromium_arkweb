@@ -22,7 +22,7 @@
 #include "base/memory/weak_ptr.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX) 
-#include "ohos_nweb_ex/core/extension/nweb_extension_search_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_search_delegate_impl.h"
 #endif
 
 #define private public
@@ -35,24 +35,12 @@ namespace OHOS::NWeb {
 class NWebExtensionSearchCefDelegateTest : public ::testing::Test {
  protected:
   void SetUp() override {
-#if BUILDFLAG(ARKWEB_NWEB_EX) 
-    g_search_callback_ = std::make_shared<ArkWebExtensionSearchCallback>(nullptr);
-#endif
-
     g_search_callback_map_.clear();
   }
 
   void TearDown() override {
-#if BUILDFLAG(ARKWEB_NWEB_EX) 
-    g_search_callback_ = nullptr;
-#endif
-
     g_search_callback_map_.clear();
   }
-
-#if BUILDFLAG(ARKWEB_NWEB_EX) 
-  std::shared_ptr<ArkWebExtensionSearchCallback> g_search_callback_ = nullptr;
-#endif
 };
 
 TEST_F(NWebExtensionSearchCefDelegateTest, Query001) {
@@ -78,12 +66,13 @@ TEST_F(NWebExtensionSearchCefDelegateTest, Query002) {
   query_info.includeIncognitoInfo = false;
   auto test_lambda = [](const std::optional<std::string>& error){(void)error;};
 
+  auto delegate = nweb_ex::NWebExtensionSearchDelegateImpl::GetInstance();
   base::RepeatingCallback<void(const std::optional<std::string>&)> test_callback = base::BindRepeating(test_lambda);
-  NWebExtensionSearchDispatcher::RegistArkWebExtensionSearchCallback(g_search_callback_);
+  auto callback = static_cast<ArkWebExtensionSearchCallback*>(delegate.CreateCallback());
   auto query_func = [](int32_t request_id, const ArkWebPbBuffer* pb_buffer) {};
-  g_search_callback_->on_query = query_func;  
+  callback->on_query = query_func;
   EXPECT_TRUE(NWebExtensionSearchCefDelegate::Query(test_callback, query_info));
-  NWebExtensionSearchDispatcher::UnRegistArkWebExtensionSearchCallback();
+  delegate.ReleaseCallback();
 #endif
 }
 

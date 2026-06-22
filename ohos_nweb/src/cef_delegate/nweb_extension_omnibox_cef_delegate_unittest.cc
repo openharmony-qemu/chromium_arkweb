@@ -23,7 +23,7 @@
 #include "nweb_extension_utils.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_omnibox_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_omnibox_delegate_impl.h"
 #endif
 
 using namespace std;

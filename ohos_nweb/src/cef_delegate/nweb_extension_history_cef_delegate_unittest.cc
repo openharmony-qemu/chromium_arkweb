@@ -28,7 +28,7 @@
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
-#include "ohos_nweb_ex/core/extension/nweb_extension_history_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_history_delegate_impl.h"
 #endif
 
 using namespace std;
@@ -61,7 +61,7 @@ protected:
         delegate = NWebExtensionHistoryCefDelegate::GetInstance();
         {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-            callback_ = NWebExtensionHistoryDispatcher::GetInstance().CreateCallback();
+            callback_ = nweb_ex::NWebExtensionHistoryDelegateImpl::GetInstance().CreateCallback();
 #endif
         }
     }
@@ -97,7 +97,7 @@ TEST_F(NWebExtensionHistoryCefDelegateTest, TestGetVisits_VisitsCallback) {
     bool result = delegate->GetVisits(url, callback);
     EXPECT_EQ(result, false);
 
-    ((NWebExtensionHistoryApiCallback*)callback_)->get_visits_ = &NotifyGetVisits;
+    ((NWebExtensionHistoryApiCallback*)callback_)->get_visits = &NotifyGetVisits;
     result = delegate->GetVisits(url, callback);
     EXPECT_EQ(result, true);
 
@@ -127,7 +127,7 @@ TEST_F(NWebExtensionHistoryCefDelegateTest, TestDeleteRange_DeleteRangeCallback)
     bool result = delegate->DeleteRange(start_time, end_time, callback);
     EXPECT_EQ(result, false);
 
-    ((NWebExtensionHistoryApiCallback*)callback_)->delete_range_ = &NotifyDeleteRange;
+    ((NWebExtensionHistoryApiCallback*)callback_)->delete_range = &NotifyDeleteRange;
     result = delegate->DeleteRange(start_time, end_time, callback);
     EXPECT_EQ(result, true);
 
