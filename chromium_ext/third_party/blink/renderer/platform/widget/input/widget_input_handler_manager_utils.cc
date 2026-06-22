@@ -192,10 +192,12 @@ void WidgetInputHandlerManagerUtils::DidNativeEmbedEvent(
     int32_t id,
     float x,
     float y) {
-  manager_->main_thread_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&WidgetBaseUtils::DidNativeEmbedEvent,
-                                manager_->widget_->utils()->GetWeakPtr(), type,
-                                embedId, id, x, y));
+      if (manager_ && manager_->widget_ && manager_->widget_->utils()) {
+        manager_->main_thread_task_runner_->PostTask(
+          FROM_HERE, base::BindOnce(&WidgetBaseUtils::DidNativeEmbedEvent,
+                                    manager_->widget_->utils()->GetWeakPtr(), type,
+                                    embedId, id, x, y));
+      }
 }
 
 void WidgetInputHandlerManagerUtils::SetGestureEventResult(bool result,
