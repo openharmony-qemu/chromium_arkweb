@@ -398,6 +398,30 @@ TEST_F(NWebImplTest, SetNwebDelegateForTest002) {
   EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
 }
 
+#if BUILDFLAG(ARKWEB_ACCESSIBILITY)
+TEST_F(NWebImplTest, GetAccessibilityNodeInfoByParamsNullDelegate) {
+  std::map<std::string, std::string> params;
+  nweb_impl_->nweb_delegate_ = nullptr;
+
+  EXPECT_EQ(nweb_impl_->GetAccessibilityNodeInfoByParams(1, 0x00000010, 2,
+                                                         params),
+            nullptr);
+}
+
+TEST_F(NWebImplTest, GetAccessibilityNodeInfoByParamsForwardToDelegate) {
+  std::map<std::string, std::string> params;
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+
+  EXPECT_CALL(*mock_delegate_,
+              GetAccessibilityNodeInfoByParams(1, 0x00000010, 3, testing::_))
+      .WillOnce(testing::Return(nullptr));
+
+  EXPECT_EQ(nweb_impl_->GetAccessibilityNodeInfoByParams(1, 0x00000010, 3,
+                                                         params),
+            nullptr);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)
 TEST_F(NWebImplTest, DisableBoost001) {
   nweb_impl_->DisableBoost(0);

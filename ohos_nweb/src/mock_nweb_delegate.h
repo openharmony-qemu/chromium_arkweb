@@ -834,6 +834,13 @@ class MockNWebDelegate : public NWebDelegateInterface {
               GetAccessibilityNodeInfoByFocusMove,
               (int64_t accessibilityId, int32_t direction),
               (override));
+  MOCK_METHOD(std::shared_ptr<NWebAccessibilityNodeInfo>,
+              GetAccessibilityNodeInfoByParams,
+              (int64_t accessibilityId,
+               int32_t direction,
+               int32_t elementType,
+               (const std::map<std::string, std::string>& params)),
+              (override));
   MOCK_METHOD(void, RefreshAccessibilityManagerClickEvent, (), (override));
   MOCK_METHOD(void,
               SendAccessibilityHoverEvent,

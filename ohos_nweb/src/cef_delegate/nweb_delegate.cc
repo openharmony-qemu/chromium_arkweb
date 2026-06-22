@@ -5371,6 +5371,35 @@ NWebDelegate::GetAccessibilityNodeInfoByFocusMove(int64_t accessibilityId,
 }
 
 std::shared_ptr<NWebAccessibilityNodeInfo>
+NWebDelegate::GetAccessibilityNodeInfoByParams(
+    int64_t accessibilityId,
+    int32_t direction,
+    int32_t elementType,
+    const std::map<std::string, std::string>& params) {
+  LOG(INFO) << "NWebDelegate::GetAccessibilityNodeInfoByParams "
+            << "accessibilityId: " << accessibilityId
+            << ", direction: " << direction
+            << ", elementType: " << elementType
+            << ", params size: " << params.size();
+  BrowserAccessibilityOHOS* node =
+      BrowserAccessibilityOHOS::GetFromAccessibilityId(
+          GetRealAccessibilityId(accessibilityId));
+  if (node == nullptr) {
+    LOG(ERROR) << "NWebDelegate::GetAccessibilityNodeInfoByParams failed, "
+               << "node is nullptr";
+    return nullptr;
+  }
+  auto* result_node =
+      node->GetAccessibilityNodeByParams(direction, elementType, params);
+  if (result_node == nullptr) {
+    LOG(ERROR) << "NWebDelegate::GetAccessibilityNodeInfoByParams failed, "
+               << "result node is nullptr";
+    return nullptr;
+  }
+  return PopulateAccessibilityNodeInfo(result_node);
+}
+
+std::shared_ptr<NWebAccessibilityNodeInfo>
 NWebDelegate::PopulateAccessibilityNodeInfo(BrowserAccessibilityOHOS* node) {
   auto* accessibilityManager = GetAccessibilityManager();
   if (accessibilityManager == nullptr) {
