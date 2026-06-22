@@ -36,6 +36,7 @@ fuzzer_test("arkweb_render_process_host_fuzzer") {
     "//third_party/googletest:gmock",
     "//content/browser:browser",
     "//content/test:test_support",
+    "//arkweb/ohos_adapter_ndk/mock_ndk_api:mock_base_ohos",
   ]
 }
 

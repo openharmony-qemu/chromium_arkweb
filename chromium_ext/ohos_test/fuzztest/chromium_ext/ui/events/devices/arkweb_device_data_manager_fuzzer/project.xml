@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2025 Huawei Device Co., Ltd. Apache 2.0 -->
+<fuzz_config>
+  <fuzztest>
+    <max_len>1000</max_len>
+    <max_total_time>300</max_total_time>
+    <rss_limit_mb>4096</rss_limit_mb>
+  </fuzztest>
+</fuzz_config>
+EOF && echo "FUZZER" > /Users/pretest/workspace/arkweb_144/src/arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/ui/events/devices/arkweb_device_data_manager_fuzzer/corpus/init

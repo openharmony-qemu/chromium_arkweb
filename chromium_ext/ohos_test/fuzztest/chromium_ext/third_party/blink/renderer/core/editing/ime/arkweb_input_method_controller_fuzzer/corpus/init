@@ -1,0 +1,12 @@
+# Fuzzer test seed corpus for ArkwebInputMethodControllerUtils
+# Tests various IME controller operations
+ 
+# Basic test cases
+TestCompositionRange
+TestHasComposition
+TestClear
+TestGetAttributes
+ 
+# Boundary conditions
+TestMultipleClear
+TestEmptyAttributes

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <name>native_embed_info_fuzzer</name>
+    <description>Fuzzer for NativeEmbedInfo data structure</description>
+    <target>
+        <type>fuzz</type>
+        <file>native_embed_info_fuzzer.cpp</file>
+        <language>C++</language>
+    </target>
+    <dependencies>
+        <dep>base</dep>
+        <dep>content_public_browser</dep>
+        <dep>ui_gfx</dep>
+    </dependencies>
+    <corpus>
+        <path>corpus</path>
+    </corpus>
+</project>
