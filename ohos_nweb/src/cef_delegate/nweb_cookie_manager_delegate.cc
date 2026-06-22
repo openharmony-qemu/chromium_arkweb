@@ -279,7 +279,7 @@ NWebCookieManagerDelegate::GetGlobalIncognitoCookieManager() {
       if (!uninitialized_incognito_cookie_manager_) {
         uninitialized_incognito_cookie_manager_ =
             GetUninitializedCookieManagerExt(true);
-        LOG_FEEDBACK(INFO, kNetwork) << "Create=UninitializedIncognitoCookieManager";
+        LOG_FEEDBACK(INFO, kNetwork) << "CreateUninitializedIncognitoCookieManager";
       }
       return uninitialized_incognito_cookie_manager_;
     }
