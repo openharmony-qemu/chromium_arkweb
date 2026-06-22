@@ -214,7 +214,7 @@ void AdBlockConfig::UpdateDisallowDataOnIOThread(
 void AdBlockConfig::AddAdsBlockDisallowList(
     const std::vector<std::string>& domain_suffixes) {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::AddAdsBlockDisallowListInternal,
                      base::Unretained(this), domain_suffixes),
       base::BindOnce(&AdBlockConfig::AddAdsBlockDisallowListDone,
