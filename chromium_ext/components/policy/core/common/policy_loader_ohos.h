@@ -5,12 +5,11 @@
 #ifndef COMPONENTS_POLICY_CORE_COMMON_POLICY_LOADER_OHOS_H_
 #define COMPONENTS_POLICY_CORE_COMMON_POLICY_LOADER_OHOS_H_
 
+#include "base/memory/raw_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "cef/ohos_cef_ext/libcef/browser/policy/browser_policy_handler.h"
 #include "components/policy/core/common/async_policy_loader.h"
 #include "components/policy/policy_export.h"
-#include "third_party/ohos_ndk/includes/ohos_adapter/enterprise_device_management_adapter.h"
-#include "base/memory/raw_ptr.h"
 
 namespace base {
 class Value;
@@ -33,35 +32,24 @@ class POLICY_EXPORT PolicyLoaderOhos : public AsyncPolicyLoader {
   void InitOnBackgroundThread() override;
   PolicyBundle Load() override;
 
-  void TryChoosePolicySource();
   static bool ParsePolicy(const std::string& json, PolicyBundle* bundle);
   static void ParseExtensionsPolicy(const base::Value* policies,
                                     PolicyBundle* bundle);
 
  private:
-  friend class PolicyLoaderOhosTest;
-  std::string ReadTestPolices();
-
   std::shared_ptr<PolicyChangedEventCallback> event_callback_;
-  bool use_browser_policy_ = false;
-  bool policy_source_choosed_ = false;
 };
 
 class PolicyChangedEventCallback
-    : public policy::BrowserPolicyHandler::Observer,
-      public OHOS::NWeb::EdmPolicyChangedEventCallbackAdapter {
+    : public policy::BrowserPolicyHandler::Observer {
  public:
   PolicyChangedEventCallback(PolicyLoaderOhos* loader);
 
   // policy::BrowserPolicyHandler::Observer overrides
   void OnPolicyChanged() override;
 
-  // OHOS::NWeb::EdmPolicyChangedEventCallbackAdapter overrides
-  void Changed() override;
-
  private:
   friend class PolicyChangedEventCallbackTest;
-  void OnPolicyChangedImpl();
   raw_ptr<PolicyLoaderOhos> loader_;
 };
 
