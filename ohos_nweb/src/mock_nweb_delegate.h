@@ -171,6 +171,10 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(void, GetImageInfosByXPaths, (const std::vector<std::string> &imageXPaths,
                                           std::shared_ptr<NWebImageInfoCallback> callback), (override));
 #endif
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+  MOCK_METHOD(void, ViewSource, (), (override));
+  MOCK_METHOD(bool, IsViewSourceEnabled, (), (override));
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   MOCK_METHOD(void, ShowFreeCopyMenu, (), (override));
   MOCK_METHOD(bool, ShouldShowFreeCopyMenu, (), (override));

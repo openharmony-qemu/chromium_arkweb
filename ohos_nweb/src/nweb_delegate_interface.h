@@ -203,6 +203,10 @@ class NWebDelegateInterface
   virtual void GetImageInfosByXPaths(const std::vector<std::string> &imageXPaths,
                                    std::shared_ptr<NWebImageInfoCallback> callback) = 0;
 #endif
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+  virtual void ViewSource() = 0;
+  virtual bool IsViewSourceEnabled() = 0;
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   virtual void ShowFreeCopyMenu() = 0;
   virtual bool ShouldShowFreeCopyMenu() = 0;

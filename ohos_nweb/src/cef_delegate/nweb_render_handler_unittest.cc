@@ -632,6 +632,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 
   void ReloadFocusedFrame() override {}
 
+  void ViewSource() override {}
+
+  bool IsViewSourceEnabled() override { return false; }
+
   void StopScreenCapture(int32_t nweb_id, const CefString &session_id) override {}
 
   void SetScreenCapturePickerShow() override {}

@@ -6103,6 +6103,38 @@ TEST_F(NWebImplTest, CloseCamera002) {
 }
 #endif // BUILDFLAG(ARKWEB_WEBRTC)
 
+TEST_F(NWebImplTest, ViewSource001) {
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, ViewSource()).Times(0);
+  nweb_impl_->ViewSource();
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+}
+
+TEST_F(NWebImplTest, ViewSource002) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, ViewSource()).Times(1);
+  nweb_impl_->ViewSource();
+  EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
+}
+
+TEST_F(NWebImplTest, IsViewSourceEnabled001) {
+  bool temp = false;
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, IsViewSourceEnabled()).Times(0);
+  auto result = nweb_impl_->IsViewSourceEnabled();
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_EQ(result, temp);
+}
+
+TEST_F(NWebImplTest, IsViewSourceEnabled002) {
+  bool temp = true;
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, IsViewSourceEnabled()).WillOnce(::testing::Return(temp));
+  auto result = nweb_impl_->IsViewSourceEnabled();
+  EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_EQ(result, temp);
+}
+
 TEST_F(NWebImplTest, GetSecurityLevel001) {
   nweb_impl_->nweb_delegate_ = nullptr;
   int temp = 0;

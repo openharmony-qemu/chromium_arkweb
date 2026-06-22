@@ -86,6 +86,7 @@ class NWebAgentManagerImpl;
 #if BUILDFLAG(ARKWEB_PDF)
 class CefPdfValueCallbackImpl;
 #endif  // BUILDFLAG(ARKWEB_PDF)
+
 class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
  public:
   NWebDelegate(int argc, const char* argv[]);
@@ -476,7 +477,10 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void GetImageInfosByXPaths(const std::vector<std::string> &imageXPaths,
                            std::shared_ptr<NWebImageInfoCallback> callback) override;
 #endif
-
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+  void ViewSource() override;
+  bool IsViewSourceEnabled() override;
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
 #if BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)
   void SetAudioMuted(bool muted) override;
 #endif  // BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)
