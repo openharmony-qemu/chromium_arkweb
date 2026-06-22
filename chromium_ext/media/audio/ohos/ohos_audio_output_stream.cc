@@ -365,7 +365,9 @@ void OHOSAudioOutputStream::Start(AudioSourceCallback* callback) {
     LOG(ERROR) << "OHOSAudioOutputStream::StartRender failed";
     return;
   }
-  SuspendOtherMediaSession();
+  if (!isSilentMode_) {
+    SuspendOtherMediaSession();
+  }
   running_ = true;
 }
 
@@ -712,6 +714,11 @@ void OHOSAudioOutputStream::SetUpAudioSilentState() {
     OH_AudioRenderer_SetSilentModeAndMixWithOthers(audio_renderer_, false);
     LOG(INFO) << "OHOSAudioOutputStream SetAudioSilentMode false!";
     isSilentMode_ = false;
+    if (audio_task_runner_) {
+      audio_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&OHOSAudioOutputStream::SuspendOtherMediaSession,
+                                weak_factory_.GetWeakPtr()));
+    }
     write_data_counts_ = 0;
   } else {
     ++write_data_counts_;
