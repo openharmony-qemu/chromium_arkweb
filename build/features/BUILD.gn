@@ -189,6 +189,7 @@ if (!enable_arkweb) {
   arkweb_network_conninfo = false
   arkweb_network_load = true
   arkweb_network_proxy = false
+  arkweb_network_proxy_auth_retry = false
   arkweb_network_base = false
   arkweb_network_service = false
   arkweb_network_dfx = false
@@ -476,6 +477,7 @@ buildflag_header("features") {
     "ARKWEB_NETWORK_CONNINFO=$arkweb_network_conninfo",
     "ARKWEB_NETWORK_LOAD=$arkweb_network_load",
     "ARKWEB_NETWORK_PROXY=$arkweb_network_proxy",
+    "ARKWEB_NETWORK_PROXY_AUTH_RETRY=$arkweb_network_proxy_auth_retry",
     "ARKWEB_NETWORK_BASE=$arkweb_network_base",
     "ARKWEB_NETWORK_SERVICE=$arkweb_network_service",
     "ARKWEB_NETWORK_DFX=$arkweb_network_dfx",
