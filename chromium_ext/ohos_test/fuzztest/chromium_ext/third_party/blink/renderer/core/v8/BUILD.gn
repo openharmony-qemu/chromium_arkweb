@@ -1,0 +1,64 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+# Group for all v8 module fuzzers
+group("v8_fuzzers") {
+  testonly = true
+  deps = [
+    ":v8_code_cache_utils_fuzzer",
+  ]
+}
+
+config("v8_code_cache_utils_fuzzer_config") {
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+  if (is_clang) {
+    cflags = [
+      "-Wno-implicit-float-conversion",
+      "-Wno-implicit-int-conversion",
+    ]
+  }
+}
+
+fuzzer_test("v8_code_cache_utils_fuzzer") {
+  sources = [
+    "v8_code_cache_utils_fuzzer.cc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//arkweb/chromium_ext",
+    "//arkweb/build/features",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//third_party/googletest:gtest",
+    "//content/test:test_support",
+    "//base",
+  ]
+  additional_configs = [ ":v8_code_cache_utils_fuzzer_config" ]
+}

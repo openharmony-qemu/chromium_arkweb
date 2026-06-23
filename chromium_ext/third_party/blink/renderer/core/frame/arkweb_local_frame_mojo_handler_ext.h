@@ -44,6 +44,7 @@ class ArkWebLocalFrameMojoHandlerExt : public LocalFrameMojoHandler {
 
  private:
   friend class ArkWebLocalFrameMojoHandlerExtTest;
+  friend class ArkWebLocalFrameMojoHandlerExtFuzzerHelper;
 #if BUILDFLAG(IS_ARKWEB)
   void JavaScriptExecuteRequestExt(
       mojo::ScopedHandle handle_fd,
