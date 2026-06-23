@@ -146,6 +146,8 @@ public:
 #if BUILDFLAG(ARKWEB_MENU)
   virtual void SetTouchHandleExistState(bool) = 0;
   virtual bool IsTouchHandleExist() = 0;
+  virtual void SetClickExtEnabled(bool) = 0;
+  virtual bool IsClickExtEnabled() = 0;
   virtual void SetViewportScaleState(bool) = 0;
   virtual bool IsViewportScale() = 0;
   virtual void SetSmartEdgeState(bool) = 0;

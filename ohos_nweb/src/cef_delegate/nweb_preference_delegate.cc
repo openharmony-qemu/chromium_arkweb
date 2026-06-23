@@ -255,6 +255,7 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
 #endif  // BUILDFLAG(ARKWEB_DRAG_DROP)
 #if BUILDFLAG(ARKWEB_MENU)
   browser_settings.touch_handle_exist = touch_handle_exist_;
+  browser_settings.click_ext_enabled = click_ext_enabled_;
   browser_settings.viewport_scale = viewport_scale_;
   browser_settings.smart_edge_state = smart_edge_state_;
 #endif  // BUILDFLAG(ARKWEB_MENU)
@@ -544,6 +545,11 @@ void NWebPreferenceDelegate::PutTouchEventFeatureDetectionEnabled(bool enabled) 
 #if BUILDFLAG(ARKWEB_MENU)
 void NWebPreferenceDelegate::SetTouchHandleExistState(bool touchHandleExist) {
   touch_handle_exist_ = touchHandleExist;
+  WebPreferencesChanged();
+}
+
+void NWebPreferenceDelegate::SetClickExtEnabled(bool enable) {
+  click_ext_enabled_ = enable;
   WebPreferencesChanged();
 }
 

@@ -214,6 +214,12 @@
   bool IsTouchHandleExist() {
     return touch_handle_exist_;
   }
+  void SetClickExtEnabled(bool enable) {
+    click_ext_enabled_ = enable;
+  }
+  bool IsClickExtEnabled() {
+    return click_ext_enabled_;
+  }
   void SetViewportScaleState(bool viewportScale) {
     viewport_scale_ = viewportScale;
   }

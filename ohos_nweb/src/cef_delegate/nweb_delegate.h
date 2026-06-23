@@ -703,6 +703,7 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
 #endif  // ARKWEB_SCROLLBAR_AVOID_CORNER
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist) override;
+  void SetClickExtEnabled(bool enable) override;
   void SetViewportScaleState(bool viewportScale) override;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 #if BUILDFLAG(ARKWEB_ACCESSIBILITY)
