@@ -371,7 +371,7 @@ class OHOSAudioDecoder : public AudioDecoder,
   // ohos cdm object
   raw_ptr<OHOSMediaCryptoContext> ohos_crypto_context_ = nullptr;
 
-  void* mediaKeySession_ = nullptr;
+  raw_ptr<void> mediaKeySession_ = nullptr;
 
   bool waiting_for_key_ = true;
 

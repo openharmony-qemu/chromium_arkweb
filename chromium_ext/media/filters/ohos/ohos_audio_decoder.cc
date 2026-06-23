@@ -440,7 +440,7 @@ bool OHOSAudioDecoder::InitAudioDecoder(std::string mime_type) {
   audio_decoder_->SetCallbackDec(decoder_callback_);
   // Set the decryption key. Audio currently only supports soft decryption mode.
   if (config_.is_encrypted() && mediaKeySession_) {
-    audio_decoder_->SetDecryptionConfig(mediaKeySession_, false);
+    audio_decoder_->SetDecryptionConfig(mediaKeySession_.get(), false);
   }
   audio_decoder_->ConfigureDecoder(audioDecoderFormat);
   audio_decoder_->PrepareDecoder();

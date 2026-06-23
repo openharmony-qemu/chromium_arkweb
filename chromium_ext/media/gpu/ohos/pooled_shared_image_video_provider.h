@@ -93,7 +93,7 @@ class MEDIA_GPU_EXPORT PooledSharedImageVideoProvider
   };
 
   // Record of on image from |provider|.
-  class PooledImage : public base::RefCounted<PooledImage> {
+  class PooledImage : public base::RefCountedThreadSafe<PooledImage> {
    public:
     REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
 
@@ -104,7 +104,7 @@ class MEDIA_GPU_EXPORT PooledSharedImageVideoProvider
     ImageRecord record;
 
    private:
-    friend class base::RefCounted<PooledImage>;
+    friend class base::RefCountedThreadSafe<PooledImage>;
     virtual ~PooledImage();
   };
 
