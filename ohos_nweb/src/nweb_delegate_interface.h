@@ -1025,6 +1025,7 @@ class NWebDelegateInterface
 #if BUILDFLAG(ARKWEB_MENU)
   virtual void UpdateSingleHandleVisible(bool isVisible) = 0;
   virtual void SetTouchHandleExistState(bool touchHandleExist) = 0;
+  virtual void SetClickExtEnabled(bool enable) = 0;
   virtual void SetViewportScaleState(bool viewportScale) = 0;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 

@@ -166,6 +166,7 @@ class NWebPreferenceDelegate : public NWebPreference {
 
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist);
+  void SetClickExtEnabled(bool enable);
   void SetViewportScaleState(bool viewportScale);
 #if BUILDFLAG(IS_ARKWEB_EXT)
   void SetSmartEdgeState(bool state) override;
@@ -446,6 +447,7 @@ class NWebPreferenceDelegate : public NWebPreference {
 #endif  // BUILDFLAG(ARKWEB_DRAG_DROP)
 #if BUILDFLAG(ARKWEB_MENU)
   bool touch_handle_exist_{false};
+  bool click_ext_enabled_{false};
   bool viewport_scale_{false};
   bool smart_edge_state_{false};
 #endif  // BUILDFLAG(ARKWEB_MENU)

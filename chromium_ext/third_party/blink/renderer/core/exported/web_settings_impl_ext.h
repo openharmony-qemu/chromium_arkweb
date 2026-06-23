@@ -149,6 +149,8 @@ class CORE_EXPORT WebSettingsImplExt final : public WebSettingsImpl {
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist) override;
   bool IsTouchHandleExist() override;
+  void SetClickExtEnabled(bool enable) override;
+  bool IsClickExtEnabled() override;
   void SetViewportScaleState(bool viewportScale) override;
   bool IsViewportScale() override;
   void SetSmartEdgeState(bool state) override;
