@@ -16,22 +16,31 @@
 #include <cstdlib>
 
 static CollectAsyncStackFunc g_collectAsyncStackFunc = nullptr;
-static SetStackIdFunc g_setStackIdFunc = nullptr;
+static CallWithStackIdFunc g_setStackIdFunc = nullptr;
+static CallWithStackIdFunc g_releaseStackIdFunc = nullptr;
 static uint64_t g_asyncType = 0;
 
 __attribute__((visibility("default"))) void ArkWebSetAsyncStackFunc(
     CollectAsyncStackFunc collectAsyncStackFunc,
-    SetStackIdFunc setStackIdFunc) {
+    CallWithStackIdFunc setStackIdFunc) {
   g_collectAsyncStackFunc = collectAsyncStackFunc;
   g_setStackIdFunc = setStackIdFunc;
   g_asyncType = v8::dfx::kArkWebAsyncType;
 }
 __attribute__((visibility("default"))) void JsvmSetAsyncStackFunc(
     CollectAsyncStackFunc collectAsyncStackFunc,
-    SetStackIdFunc setStackIdFunc) {
+    CallWithStackIdFunc setStackIdFunc) {
   g_collectAsyncStackFunc = collectAsyncStackFunc;
   g_setStackIdFunc = setStackIdFunc;
   g_asyncType = v8::dfx::kJsvmAsyncType;
+}
+__attribute__((visibility("default"))) void ArkWebSetAsyncStackReleaseFunc(
+    CallWithStackIdFunc releaseStackIdFunc) {
+    g_releaseStackIdFunc = releaseStackIdFunc;
+}
+__attribute__((visibility("default"))) void JsvmSetAsyncStackReleaseFunc(
+    CallWithStackIdFunc releaseStackIdFunc) {
+    g_releaseStackIdFunc = releaseStackIdFunc;
 }
 
 namespace v8 {
@@ -47,6 +56,13 @@ uint64_t CollectAsyncStack(void) {
 
 void SetStackId(uint64_t stackId) {
   auto func = g_setStackIdFunc;
+  if (func != nullptr) {
+    return func(stackId);
+  }
+}
+
+void ReleaseStack(uint64_t stackId) {
+  auto func = g_releaseStackIdFunc;
   if (func != nullptr) {
     return func(stackId);
   }
