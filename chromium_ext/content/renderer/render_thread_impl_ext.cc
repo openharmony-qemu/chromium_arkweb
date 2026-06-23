@@ -246,7 +246,7 @@ void RenderThreadImpl::RequestJSDump(mojo::PlatformHandle socket,
     }
     if (OHOS::NWeb::OhosAdapterHelper::GetInstance()
             .GetSystemPropertiesInstance()
-            .GetBoolParameter("web.debug.js.asyncdump", false)) {
+            .GetBoolParameter("web.debug.js.asyncdump", true)) {
       LOG(INFO) << "async dump heap snapshot";
       pid_t pid = fork();
       if (pid < 0) {
