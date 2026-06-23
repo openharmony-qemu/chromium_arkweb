@@ -44,7 +44,7 @@ const char kDisableNonAdvancedSecurityMode[] =
 const char kDisableNextPreviousFlag[] = "ohos-disable-next-previous-flag";
 const char kUserCacheDir[] = "user-cache-dir"; 
 const char kArkwebAppDataDir[] = "arkweb-app-data-dir";
-const char kEnableUserDataDirSeparation[] = "enable-user-data-dir-separation";
+const char kEnableUserDataDirMigration[] = "enable-user-data-dir-migration";
 
 #endif
 
