@@ -120,6 +120,9 @@ group("ohos_fuzz") {
       "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/core/loader/resource:script_resource_utils_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/core/paint/timing:paint_timing_detector_utils_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/platform/exported:we_cache_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/platform/widget/input:software_compositor_proxy_ohos_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/core/css:element_rule_collector_for_include_fuzzer",
+      ":nweb_output_handler_fuzzer",
     ]
 }
 
@@ -863,6 +866,7 @@ fuzzer_test("nweb_output_handler_fuzzer") {
     "//cef:libcef_static",
     "//ohos_nweb:cef_nweb",
     "//ohos_nweb:nweb_sources",
+    "//third_party/googletest:gmock",
   ]
 }
 

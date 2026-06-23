@@ -50,7 +50,7 @@ class CC_MOJO_EMBEDDER_EXPORT SoftwareCompositorRendererOhos {
   SoftwareCompositorRendererOhos& operator=(
       const SoftwareCompositorRendererOhos&) = delete;
 
-#if BUILDFLAG(ARKWEB_TEST)
+#if BUILDFLAG(ARKWEB_TEST) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
   virtual ~SoftwareCompositorRendererOhos();
 #else
   ~SoftwareCompositorRendererOhos();
@@ -63,9 +63,13 @@ class CC_MOJO_EMBEDDER_EXPORT SoftwareCompositorRendererOhos {
 
   void DrawAndSwapOnRenderer(viz::CompositorFrame frame);
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  virtual bool DemandDrawSw(SkCanvas* canvas, gfx::SizeF size, gfx::PointF offset);
+#else
   bool DemandDrawSw(SkCanvas* canvas, gfx::SizeF size, gfx::PointF offset);
+#endif
 
-#if BUILDFLAG(ARKWEB_TEST)
+#if BUILDFLAG(ARKWEB_TEST) || defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
   virtual void DrawRect(const gfx::Rect& rect);
 #else
   void DrawRect(const gfx::Rect& rect);
