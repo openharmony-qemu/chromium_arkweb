@@ -162,7 +162,7 @@ struct CefOpenDevToolsExtOpt GetCefExtOpt(OpenDevToolsExtOpt& ext_opt) {
   struct CefOpenDevToolsExtOpt cef_ext_opt;
   cef_ext_opt.canDock = ext_opt.canDock;
   cef_ext_opt.showToolbox = ext_opt.showToolbox;
- 
+  cef_ext_opt.event = ext_opt.event;
   return cef_ext_opt;
 }
  
@@ -6467,6 +6467,12 @@ void NWebDelegate::StaticOpenDevtoolsWith(
 
   CefPoint inspect_element_at(param->point.x, param->point.y);
   CefOpenDevToolsExtOpt cef_ext_opt = GetCefExtOpt(ext_opt);
+
+  if (!devtools_delegate || !devtools_delegate->GetBrowser()) {
+    LOG(ERROR) << "devtools_delegate->GetBrowser() is nullptr";
+    return;
+  }
+
   CefDevToolsWindowRunner::StaticShowDevToolsWith(
       source_id, target_id, type, devtools_delegate->GetBrowser()->GetHost(),
       devtools_message_handler, inspect_element_at, cef_ext_opt);
