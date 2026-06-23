@@ -40,8 +40,11 @@ bool EvictionHandler::WillEvictSurface(const SurfaceId& surface_id) {
   // We should only evict when the display is not visible. If the display is
   // visible, then we likely received two evictions for the root surface at the
   // same time, which should not happen.
-  CHECK(!display_->visible())
-      << "Expected display to be not visible - in_progress_: " << in_progress_;
+  if (display_->visible()) {
+    LOG(WARNING) << "Expected display to be not visible - in_progress_: " << in_progress_;
+    MaybeFinishEvictionProcess();
+    return false;
+  }
   DCHECK(display_->has_scheduler());
 
   // This matches CompositorFrameSinkSupport's eviction logic, which will
@@ -110,7 +113,12 @@ void EvictionHandler::SubmitPlaceholderContentForEviction(SurfaceId to_evict) {
   auto* surface =
       support_->frame_sink_manager()->surface_manager()->GetSurfaceForId(
           current_surface_id);
-  CHECK(surface);
+  if (!surface) {
+    LOG(WARNING) << "Current surface is nullptr no need to evict frame.";
+    MaybeFinishEvictionProcess();
+    return;
+  }
+
   metadata.device_scale_factor = surface->device_scale_factor();
   frame.metadata.begin_frame_ack = BeginFrameAck::CreateManualAckWithDamage();
 
