@@ -56,6 +56,11 @@ void GpuHostImpl::SetLTPOStrategy(int32_t strategy) {
   gpu_service_remote_->SetLTPOStrategy(strategy);
 }
 #endif
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+void GpuHostImpl::SetWebComponentVisible(int32_t nweb_id, bool visible) {
+  gpu_service_remote_->SetWebComponentVisible(nweb_id, visible);
+}
+#endif
 
 #if BUILDFLAG(ARKWEB_D_VSYNC)
 void GpuHostImpl::SetIsFling(bool is_fling_enabled) {

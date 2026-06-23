@@ -127,6 +127,11 @@ void GpuServiceImpl::SetLTPOStrategy(int32_t strategy) {
   base::ohos::DynamicFrameRateDecision::GetInstance().SetLTPOStrategy(strategy);
 }
 #endif
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+void GpuServiceImpl::SetWebComponentVisible(int32_t nweb_id, bool visible) {
+  base::ohos::DynamicFrameRateDecision::GetInstance().SetWebComponentVisible(nweb_id, visible);
+}
+#endif
 //LCOV_EXCL_STOP
 
 #if BUILDFLAG(ARKWEB_DFX_DUMP)

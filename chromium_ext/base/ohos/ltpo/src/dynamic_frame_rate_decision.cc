@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -42,7 +42,13 @@ void UpdateTimeOutFramePreferredRate() {
 
 DynamicFrameRateDecision::DynamicFrameRateDecision() {}
 
-DynamicFrameRateDecision::~DynamicFrameRateDecision() {}
+DynamicFrameRateDecision::~DynamicFrameRateDecision() {
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  if (evaluate_timer_) {
+    evaluate_timer_->Stop();
+  }
+#endif
+}
 
 void DynamicFrameRateDecision::Init() {
   if (!curent_task_runner_) {
@@ -51,6 +57,14 @@ void DynamicFrameRateDecision::Init() {
     curent_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 #endif // FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
   }
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+  int invisible_throttle_strategy = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_strategy", 0);
+  LOG(INFO) << "invisible_throttle_strategy:" << invisible_throttle_strategy;
+  if (invisible_throttle_strategy) {
+    InitializeThrottleComponents();
+  }
+#endif
 }
 
 DynamicFrameRateDecision& DynamicFrameRateDecision::GetInstance() {
@@ -59,6 +73,7 @@ DynamicFrameRateDecision& DynamicFrameRateDecision::GetInstance() {
 }
 
 void DynamicFrameRateDecision::ReportSlidingFrameRate(int32_t frame_rate) {
+  TRACE_EVENT1("base", "DynamicFrameRateDecision::ReportSlidingFrameRate", "rate", frame_rate);
   if (!curent_task_runner_) {
     return;
   }
@@ -69,6 +84,7 @@ void DynamicFrameRateDecision::ReportSlidingFrameRate(int32_t frame_rate) {
 }
 
 void DynamicFrameRateDecision::ReportSlidingFrameRateImpl(int32_t frame_rate) {
+  TRACE_EVENT1("base", "DynamicFrameRateDecision::ReportSlidingFrameRateImpl", "rate", frame_rate);
   if (strategy_ != LTPOStrategy::HGM_FLING && strategy_ != LTPOStrategy::ALL) {
     return;
   }
@@ -247,5 +263,62 @@ int64_t DynamicFrameRateDecision::GetCurrentTimestampMS() {
              .count() /
          kMicrosecondsPerMillisecond;
 }
+
+#if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
+void DynamicFrameRateDecision::InitializeThrottleComponents() {
+  if (!curent_task_runner_) {
+    LOG(WARNING) << "Cannot initialize throttle components: no task runner";
+    return;
+  }
+
+  if (!invisible_throttler_) {
+    invisible_throttler_ = std::make_unique<InvisibleRenderingThrottler>();
+    invisible_throttler_->InitConfig();
+    LOG(INFO) << "InvisibleRenderingThrottler initialized";
+  }
+
+  if (!evaluate_timer_) {
+    evaluate_timer_ = std::make_unique<base::RepeatingTimer>();
+    evaluate_timer_->Start(
+        FROM_HERE, base::Seconds(1),
+        base::BindRepeating(&DynamicFrameRateDecision::EvaluateAllThrottleStates,
+                            base::Unretained(this)));
+    LOG(INFO) << "Throttle evaluation timer started (1s interval)";
+  }
+}
+
+void DynamicFrameRateDecision::SetWebComponentVisible(int nweb_id, bool visible) {
+  if (!curent_task_runner_ || !invisible_throttler_) {
+    return;
+  }
+  curent_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&DynamicFrameRateDecision::SetWebComponentVisibleImpl,
+                     base::Unretained(this), nweb_id, visible));
+}
+
+void DynamicFrameRateDecision::SetWebComponentVisibleImpl(int nweb_id,
+                                                          bool visible) {
+  TRACE_EVENT2("base", "DynamicFrameRateDecision::SetWebComponentVisibleImpl",
+               "nweb_id", nweb_id, "visible", visible);
+  LOG(DEBUG) << "SetWebComponentVisibleImpl nweb_id=" << nweb_id
+             << " visible=" << visible;
+  invisible_throttler_->SetWebComponentVisible(nweb_id, visible);
+}
+
+void DynamicFrameRateDecision::EvaluateAllThrottleStates() {
+  if (!invisible_throttler_ || strategy_ == LTPOStrategy::DISABLED) {
+    return;
+  }
+  invisible_throttler_->EvaluateAllThrottleStates();
+}
+
+int32_t DynamicFrameRateDecision::ThrottleRatio() {
+  if (!invisible_throttler_) {
+    return 1;
+  }
+  return invisible_throttler_->ThrottleRatio();
+}
+#endif  // BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
 }  // namespace ohos
 }  // namespace base

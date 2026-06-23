@@ -27,6 +27,7 @@ declare_args() {
   }
 
   arkweb_accessibility = true
+  arkweb_invisible_render_throttle = true
   arkweb_ai = true
   arkweb_ai_write = true
   arkweb_api_init_web_engine = true

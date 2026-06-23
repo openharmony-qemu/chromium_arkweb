@@ -84,6 +84,9 @@ arkweb_base_ohos_ltpo_sources = [
   "//arkweb/chromium_ext/base/ohos/ltpo/include/ltpo_strategy.h",
   "//arkweb/chromium_ext/base/ohos/ltpo/src/touch_observer.cc",
   "//arkweb/chromium_ext/base/ohos/ltpo/include/touch_observer.h",
+  "//arkweb/chromium_ext/base/ohos/ltpo/include/invisible_render_throttle_state.h",
+  "//arkweb/chromium_ext/base/ohos/ltpo/src/invisible_rendering_throttler.cc",
+  "//arkweb/chromium_ext/base/ohos/ltpo/include/invisible_rendering_throttler.h",
 ]
 
 #TODO
