@@ -254,7 +254,7 @@ void AdBlockConfig::RemoveAdsBlockDisallowedListDone(
 void AdBlockConfig::RemoveAdsBlockDisallowedList(
     const std::vector<std::string>& domain_suffixes) {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::RemoveAdsBlockDisallowedListInternal,
                      base::Unretained(this), domain_suffixes),
       base::BindOnce(&AdBlockConfig::RemoveAdsBlockDisallowedListDone,
@@ -282,7 +282,7 @@ void AdBlockConfig::ClearAdsBlockDisallowedListDone(
 
 void AdBlockConfig::ClearAdsBlockDisallowedList() {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::ClearAdsBlockDisallowedListInternal,
                      base::Unretained(this)),
       base::BindOnce(&AdBlockConfig::ClearAdsBlockDisallowedListDone,
@@ -368,7 +368,7 @@ void AdBlockConfig::UpdateAllowDataOnIOThread(
 void AdBlockConfig::AddAdsBlockAllowList(
     const std::vector<std::string>& domain_suffixes) {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::AddAdsBlockAllowListInternal,
                      base::Unretained(this), domain_suffixes),
       base::BindOnce(&AdBlockConfig::AddAdsBlockAllowListDone,
@@ -407,7 +407,7 @@ void AdBlockConfig::RemoveAdsBlockAllowedListDone(
 void AdBlockConfig::RemoveAdsBlockAllowedList(
     const std::vector<std::string>& domain_suffixes) {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::RemoveAdsBlockAllowedListInternal,
                      base::Unretained(this), domain_suffixes),
       base::BindOnce(&AdBlockConfig::RemoveAdsBlockAllowedListDone,
@@ -434,7 +434,7 @@ void AdBlockConfig::ClearAdsBlockAllowedListDone(
 
 void AdBlockConfig::ClearAdsBlockAllowedList() {
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&AdBlockConfig::ClearAdsBlockAllowedListInternal,
                      base::Unretained(this)),
       base::BindOnce(&AdBlockConfig::ClearAdsBlockAllowedListDone,
