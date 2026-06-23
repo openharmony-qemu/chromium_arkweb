@@ -113,4 +113,161 @@ TEST(NativeScrollerOhosTest, ConvertNativeScrollerDeviceSource) {
                 blink::WebGestureDevice::kScrollbar),
             NativeScrollerOhos::GestureDevice::kScrollbar);
 }
+
+TEST(NativeScrollerOhosTest, FlingTouchpadDevice) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchpad);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+  EXPECT_GT(current_velocity.y(), 0);
+}
+
+TEST(NativeScrollerOhosTest, FlingTouchscreenDevice) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+  EXPECT_GT(current_velocity.y(), 0);
+}
+
+TEST(NativeScrollerOhosTest, FlingLowVelocity) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 100);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, FlingNegativeVelocity) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, -5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, FlingZeroVelocity) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 0);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_FALSE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, FlingScrollbarDevice) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kScrollbar);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, FlingUninitializedDevice) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kUninitialized);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, FlingSyntheticAutoscrollDevice) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kSyntheticAutoscroll);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  EXPECT_TRUE(curve->Advance(0.25, current_velocity, current_scroll_delta));
+}
+
+TEST(NativeScrollerOhosTest, ComputeScrollOffsetFinishedState) {
+  auto scroller = std::make_unique<NativeScrollerOhos>();
+  gfx::Vector2dF velocity(0, 5000);
+  scroller->Fling(0, 0, velocity.x(), velocity.y(), INT_MIN,
+                  static_cast<float>(INT_MAX), INT_MIN,
+                  static_cast<float>(INT_MAX), base::TimeTicks(),
+                  NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  auto curve = WebGestureCurveImpl::CreateFromUICurveForTesting(
+      std::move(scroller), offset);
+
+  gfx::Vector2dF current_velocity;
+  gfx::Vector2dF current_scroll_delta;
+  curve->Advance(1.5, current_velocity, current_scroll_delta);
+
+  EXPECT_FALSE(curve->Advance(2.0, current_velocity, current_scroll_delta));
+}
 }  // namespace ui

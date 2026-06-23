@@ -159,6 +159,13 @@ class GestureManagerUtilsTest : public SimTestExt {
     return targeted_event.GetHitTestResult();
   }
 
+  GestureEventWithHitTestResults GetGestureEventWithHitTestResultsForTest(gfx::PointF position) {
+    DragLongPressEventBuilder drag_event(position);
+    GestureEventWithHitTestResults targeted_event =
+        GetEventHandler().TargetGestureEvent(drag_event);
+    return targeted_event;
+  }
+
 };
 
 TEST_F(GestureManagerUtilsTest, HandleGestureDragLongPress_DragLink) {
@@ -320,6 +327,64 @@ TEST_F(GestureManagerUtilsTest, UpdateContextMenuForFreeCopy010) {
   SetShowContextMenuOnMouseUp(true);
   gesture_manager_utils.UpdateContextMenuForFreeCopy(result, location);
   EXPECT_NE(result.InnerNode()->GetLayoutObject(), nullptr);
+}
+
+TEST_F(GestureManagerUtilsTest, UpdateContextMenuForFreeCopy011) {
+  SetUpHtmlDefault();
+  auto result = GetHitTestResultForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  auto inner_node_red = result.InnerNodeOrImageMapImage();
+  LayoutObject* layout_object = inner_node_red->GetLayoutObject();
+  inner_node_red->SetLayoutObject(layout_object);
+  result.SetInnerNode(inner_node_red);
+  SetContextMenuCustomizationEnabled(true);
+  GestureManagerUtils gesture_manager_utils(&GetGestureManager());
+  HitTestLocation location(gfx::PointF(POINT_VAL_A, POINT_VAL_B));
+  SetGestureFocusMode(true);
+  SetShowContextMenuOnMouseUp(true);
+  gesture_manager_utils.UpdateContextMenuForFreeCopy(result, location);
+}
+
+TEST_F(GestureManagerUtilsTest, UpdateContextMenuForFreeCopy012) {
+  SetUpHtmlDefault();
+  auto result = GetHitTestResultForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  auto inner_node_red = result.InnerNodeOrImageMapImage();
+  LayoutObject* layout_object = inner_node_red->GetLayoutObject();
+  inner_node_red->SetLayoutObject(layout_object);
+  result.SetInnerNode(inner_node_red);
+  SetContextMenuCustomizationEnabled(true);
+  GestureManagerUtils gesture_manager_utils(&GetGestureManager());
+  HitTestLocation location(gfx::PointF(POINT_VAL_A, POINT_VAL_B));
+  SetGestureFocusMode(false);
+  gesture_manager_utils.UpdateContextMenuForFreeCopy(result, location);
+}
+
+TEST_F(GestureManagerUtilsTest, HandleGestureDragLongPress_LongPressSelectText) {
+  SetUpHtmlLink();
+  SimTestExt::LogCatch();
+  GestureManagerUtils gesture_manager_utils(&GetGestureManager());
+  gesture_manager_utils.long_press_select_text_progress_ = true;
+  EXPECT_EQ(gesture_manager_utils.HandleGestureDragLongPress(
+      GetGestureEventWithHitTestResultsForTest(gfx::PointF(100, 20))),
+            WebInputEventResult::kNotHandled);
+  gesture_manager_utils.long_press_select_text_progress_ = false;
+}
+
+TEST_F(GestureManagerUtilsTest, HandleGestureDragLongPress_ImageAndLink) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  GestureManagerUtils gesture_manager_utils(&GetGestureManager());
+  auto event_result = gesture_manager_utils.HandleGestureDragLongPress(
+      GetGestureEventWithHitTestResultsForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A)));
+  EXPECT_EQ(event_result, WebInputEventResult::kNotHandled);
+}
+
+TEST_F(GestureManagerUtilsTest, HandleGestureDragLongPress_ImageDrag) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  GestureManagerUtils gesture_manager_utils(&GetGestureManager());
+  gesture_manager_utils.long_press_select_text_progress_ = false;
+  auto event_result = gesture_manager_utils.HandleGestureDragLongPress(
+      GetGestureEventWithHitTestResultsForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A)));
 }
 #endif
 
