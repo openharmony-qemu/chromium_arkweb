@@ -31,7 +31,7 @@
 namespace OHOS::NWeb {
 class NetConnectAdapterImpl : public NetConnectAdapter {
 public:
-    NetConnectAdapterImpl() = default;
+    NetConnectAdapterImpl();
 
     ~NetConnectAdapterImpl() override;
 
@@ -55,6 +55,8 @@ public:
 
     std::vector<std::string> GetNetAddrListForVpn() override;
 
+    bool NotifyNetworkServiceAuthRequired(std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback) override;
+
     static void OnReceiveEvent(const CommonEvent_RcvData *data);
 
 private:
@@ -66,6 +68,8 @@ private:
     static std::shared_ptr<NetConnCallback> pendingNetConnCb_;
     static std::mutex mutex_;
     static std::mutex cbMutex_;
+    static std::unordered_map<int32_t, std::shared_ptr<NetGlobalHttpProxyRefreshCallback>> httpProxyRefreshCallbackMap_;
+    static std::mutex httpProxyRefreshCallbackMutex_;
 
     std::vector<std::string> GetDnsServersInternal(NetConn_NetHandle &netHandle);
 
@@ -85,6 +89,8 @@ private:
                                                     NetConn_ConnectionProperties *connConnetionProperties);
 
     static void InitNetConnCallback(NetConn_NetConnCallback *netConnCallback);
+
+    static void OnRunnableHttpProxyRefreshCallback(int32_t result, const NetConn_HttpProxy *proxy, void *userContext);
 };
 }  // namespace OHOS::NWeb
 
