@@ -37,6 +37,7 @@
 
 #if BUILDFLAG(ARKWEB_ENCRYPT)
 #include "arkweb/chromium_ext/components/os_crypt/sync/ohos_crypto.h"
+#include "components/os_crypt/sync/os_crypt.h"
 #endif
 
 namespace {
@@ -69,5 +70,7 @@ bool DecryptWithIvForInclude(const std::string& raw_ciphertext,
                             std::string& iv,
                             bool& result);
 #endif
+
+std::unique_ptr<crypto::SymmetricKey> GenerateEncryptionKey();
 
 #endif  // COMPONENTS_OS_CRYPT_SYNC_OS_CRYPT_FOR_INCLUDE_H_
