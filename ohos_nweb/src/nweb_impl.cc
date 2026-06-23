@@ -320,6 +320,9 @@ extern bool g_siteIsolationMode;
 #if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
 #include "base/ohos/ltpo/include/dynamic_frame_rate_decision.h"
 #endif
+#if BUILDFLAG(ARKWEB_SLIDE_LTPO)
+#include "base/ohos/ltpo/include/sliding_observer.h"
+#endif
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
@@ -9295,3 +9298,9 @@ void NWebImpl::ReloadIgnoreCache() {
   }
   nweb_delegate_->ReloadIgnoreCache();
 }
+
+#if BUILDFLAG(ARKWEB_SLIDE_LTPO)
+void NWebImpl::UpdateWebLtpoInfo() {
+  base::ohos::SlidingObserver::GetInstance().OnDisplayInfoChange();
+}
+#endif

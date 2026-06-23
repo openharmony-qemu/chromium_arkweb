@@ -1435,6 +1435,9 @@ void SetVisibility(bool isVisible) override;
   static bool ShouldLazyInitWebEngine();
   static std::shared_ptr<NWebEngineInitArgs> GetSaveInitargs();
 #endif
+#if BUILDFLAG(ARKWEB_SLIDE_LTPO)
+  void UpdateWebLtpoInfo() override;
+#endif
 
 #if BUILDFLAG(ARKWEB_WEBRTC)
   void ResumeMicrophone() override;
