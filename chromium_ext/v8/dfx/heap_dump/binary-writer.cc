@@ -121,7 +121,6 @@ void BinaryWriter::CloseFile() {
   Flush();
   ::close(fd_);
   fd_ = -1;
-  LogInfo("fd closed");
 }
 
 void BinaryWriter::Flush() {

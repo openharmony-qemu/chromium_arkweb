@@ -13,12 +13,14 @@
  * limitations under the License.
  */
 
-#if defined(OH_ENABLE_HEAP_DUMP) || defined(OH_ENABLE_HEAP_TRANSLATE)
+#if defined(OH_ENABLE_HEAP_DUMP) || defined(OH_ENABLE_HEAP_TRANSLATE) || \
+    defined(OH_ENABLE_HEAP_DUMP_TEST)
 #include "dump-format.h"
+
+#include <sstream>
 
 #include "dfx-visitor-list.h"
 #include "heap-dump-log.h"
-#include "include/v8-version.h"
 #include "src/base/logging.h"
 #include "src/objects/map-inl.h"
 #include "src/objects/map.h"
@@ -37,6 +39,7 @@ constexpr uint32_t kFlagMapPackingShift = 6;
 constexpr uint32_t kFlagTaggedSizeLog2Shift = 7;
 constexpr uint32_t kFlagHeapObjectTagShift = 9;
 constexpr uint32_t kFlagApiSystemPointerSizeLog2Shift = 10;
+constexpr uint32_t kFlagI18nSupportShift = 12;
 constexpr uint32_t kOneBitMask = 0x1u;
 constexpr uint32_t kTwoBitMask = 0x3u;
 
@@ -53,6 +56,13 @@ uint32_t Log2OfPowerOfTwo(uint32_t value) {
     ++result;
   }
   return result;
+}
+
+bool FailWithError(std::string* error, const std::string& message) {
+  if (error != nullptr) {
+    *error = message;
+  }
+  return false;
 }
 
 uint32_t BuildCurrentRawHeapFlags() {
@@ -100,6 +110,12 @@ uint32_t BuildCurrentRawHeapFlags() {
 #else
       0;
 #endif
+  constexpr uint32_t kI18nSupportEnabled =
+#if defined(V8_INTL_SUPPORT)
+      1;
+#else
+      0;
+#endif
 
   flags |= EncodeField(kCompressionPointerEnabled, kFlagCompressionPointerShift,
                        kOneBitMask);
@@ -111,6 +127,8 @@ uint32_t BuildCurrentRawHeapFlags() {
       EncodeField(kSmi31BitEnabled, kFlagSmi31BitOn64BitArchShift, kOneBitMask);
   flags |= EncodeField(kStaticRootsEnabled, kFlagStaticRootsShift, kOneBitMask);
   flags |= EncodeField(kMapPackingEnabled, kFlagMapPackingShift, kOneBitMask);
+  flags |= EncodeField(kI18nSupportEnabled, kFlagI18nSupportShift,
+                       kOneBitMask);
 
   flags |= EncodeField(static_cast<uint32_t>(i::kTaggedSizeLog2),
                        kFlagTaggedSizeLog2Shift, kTwoBitMask);
@@ -138,6 +156,7 @@ std::string GetRawHeapFlagsString(uint32_t flags) {
      << ((flags >> kFlagSmi31BitOn64BitArchShift) & kOneBitMask);
   ss << ", static_roots:" << ((flags >> kFlagStaticRootsShift) & kOneBitMask);
   ss << ", map_packing:" << ((flags >> kFlagMapPackingShift) & kOneBitMask);
+  ss << ", i18n_support:" << ((flags >> kFlagI18nSupportShift) & kOneBitMask);
   ss << ", tagged_size_log2:"
      << ((flags >> kFlagTaggedSizeLog2Shift) & kTwoBitMask);
   ss << ", heap_object_tag:"
@@ -166,50 +185,115 @@ void PrintHead(const RawHeapHeader& head) {
      << ", root_type_count_: " << head.root_type_count_
      << ", object_table_offset_: " << head.object_table_offset_
      << ", object_table_size_: " << head.object_table_size_
-     << ", object_count_: " << head.object_count_ << "\n";
+     << ", object_count_: " << head.object_count_
+     << ", offheap_table_offset_: " << head.offheap_table_offset_
+     << ", offheap_table_size_: " << head.offheap_table_size_
+     << ", offheap_table_count_: " << head.offheap_table_count_
+     << ", metadata_offset_: " << head.metadata_offset_
+     << ", metadata_size_: " << head.metadata_size_ << "\n";
 
   LogInfo(ss.str());
 }
 
-uint32_t GetCurrentRawHeapFlags() {
-  return BuildCurrentRawHeapFlags();
+uint32_t GetCurrentRawHeapFlags() { return BuildCurrentRawHeapFlags(); }
+
+bool RawHeapFlagCompressedPointers(uint32_t flags) {
+  return ((flags >> kFlagCompressionPointerShift) & kOneBitMask) != 0;
 }
 
-bool CheckRawHeapFlags(uint32_t flags) {
-  return flags == BuildCurrentRawHeapFlags();
+bool RawHeapFlagSharedCage(uint32_t flags) {
+  return ((flags >> kFlagSharedCageShift) & kOneBitMask) != 0;
 }
 
-bool IsVersionCompatible(const RawHeapHeader& header) {
-  if (header.magic_ != kRawHeapMagic) {
-    return false;
+bool RawHeapFlagExternalCodeSpace(uint32_t flags) {
+  return ((flags >> kFlagExternalCodeSpaceShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagSandbox(uint32_t flags) {
+  return ((flags >> kFlagSandboxShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagSmi31BitOn64BitArch(uint32_t flags) {
+  return ((flags >> kFlagSmi31BitOn64BitArchShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagStaticRoots(uint32_t flags) {
+  return ((flags >> kFlagStaticRootsShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagMapPacking(uint32_t flags) {
+  return ((flags >> kFlagMapPackingShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagI18nSupport(uint32_t flags) {
+  return ((flags >> kFlagI18nSupportShift) & kOneBitMask) != 0;
+}
+
+uint32_t RawHeapFlagTaggedSize(uint32_t flags) {
+  return 1u << ((flags >> kFlagTaggedSizeLog2Shift) & kTwoBitMask);
+}
+
+uint32_t RawHeapFlagHeapObjectTag(uint32_t flags) {
+  return (flags >> kFlagHeapObjectTagShift) & kOneBitMask;
+}
+
+uint32_t RawHeapFlagApiSystemPointerSize(uint32_t flags) {
+  return 1u << ((flags >> kFlagApiSystemPointerSizeLog2Shift) & kTwoBitMask);
+}
+
+bool HasRawHeapOffheapTableSection(const RawHeapHeader& header) {
+  return header.offheap_table_size_ != 0 || header.offheap_table_count_ != 0;
+}
+
+bool ValidateRawHeapOffheapTableSection(const RawHeapHeader& header,
+                                        uint32_t binary_size,
+                                        std::string* error) {
+  if (!HasRawHeapOffheapTableSection(header)) {
+    return true;
   }
 
-  if (header.dump_format_version_ != kDumpFormatVersion) {
-    return false;
+  if (header.object_table_offset_ > binary_size ||
+      header.object_table_size_ > binary_size - header.object_table_offset_) {
+    return FailWithError(error, "object table extends beyond rawheap file");
   }
 
-  if (!CheckRawHeapFlags(header.flags_)) {
-    return false;
+  const uint32_t object_table_end =
+      header.object_table_offset_ + header.object_table_size_;
+
+  if (header.offheap_table_offset_ == 0) {
+    return FailWithError(
+        error, "offheap table offset is zero while size or count is nonzero");
   }
 
-  if (header.timestamp_ == 0) {
-    return false;
+  if (header.offheap_table_size_ == 0 || header.offheap_table_count_ == 0) {
+    return FailWithError(
+        error,
+        "offheap table size and count must both be nonzero when present");
   }
 
-  if (header.v8_major_version_ != V8_MAJOR_VERSION) {
-    return false;
+  const uint64_t minimum_directory_size =
+      static_cast<uint64_t>(header.offheap_table_count_) *
+      sizeof(RawHeapOffheapTableHeader);
+  if (header.offheap_table_size_ < minimum_directory_size) {
+    return FailWithError(
+        error, "offheap table cannot contain the declared table headers");
   }
 
-  if (header.v8_minor_version_ != V8_MINOR_VERSION) {
-    return false;
+  if (header.offheap_table_offset_ > binary_size ||
+      header.offheap_table_size_ > binary_size - header.offheap_table_offset_) {
+    return FailWithError(error, "offheap table extends beyond rawheap file");
   }
 
-  if (header.v8_build_number_ != V8_BUILD_NUMBER) {
-    return false;
+  if (object_table_end > header.offheap_table_offset_) {
+    return FailWithError(error, "offheap table overlaps the object table");
   }
 
-  if (header.v8_patch_level_ != V8_PATCH_LEVEL) {
-    return false;
+  const uint32_t offheap_table_end =
+      header.offheap_table_offset_ + header.offheap_table_size_;
+  if (header.metadata_offset_ != 0 &&
+      offheap_table_end > header.metadata_offset_) {
+    return FailWithError(
+        error, "offheap table must appear before metadata without overlap");
   }
 
   return true;

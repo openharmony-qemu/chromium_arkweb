@@ -143,15 +143,18 @@
   V(ThinString)      /* FixedBodyDescriptor in string.h */               \
   V(TransitionArray) /* transitions.h */                                 \
   V(WeakCell)                                                            \
-  /* DFX_IF_WASM(V, WasmArray) GcSafeElementTypeGcSafeElementType in     \
-   * translate-objects.cc */                                             \
+  /* WasmArray intentionally stays out of the generic visitor lists;     \
+   * translate-objects.cc special handling emits ref element edges and   \
+   * avoids scanning scalar payload as tagged slots. */                  \
   /* todo:IterateTrustedPointer */                                       \
   DFX_IF_WASM(V, WasmFuncRef)                                            \
   DFX_IF_WASM(V, WasmMemoryMapDescriptor)                                \
   /* DFX_IF_WASM(V, WasmNull)  DataOnly */                               \
   /* todo:IterateTrustedPointer */                                       \
   DFX_IF_WASM(V, WasmResumeData)                                         \
-  /* not support yet */                                                  \
+  /* WasmStruct intentionally stays out of the generic visitor lists;    \
+   * translate-objects.cc uses the dumped offheap canonical type table   \
+   * instead of generic body-descriptor traversal. */                    \
   /* DFX_IF_WASM(V, WasmStruct) */                                       \
   DFX_IF_WASM(V, WasmContinuationObject) /* wasm-objects.h */            \
   DFX_IF_WASM(V, WasmTypeInfo)                                           \
@@ -243,7 +246,7 @@
   APPLY(V, RegExpData, REG_EXP_DATA)                                           \
   DFX_IF_WASM(APPLY, V, WasmImportData, WASM_IMPORT_DATA) /* wasm-objects.h */ \
   DFX_IF_WASM(APPLY, V, WasmCapiFunctionData, WASM_CAPI_FUNCTION_DATA)         \
-  /* todo:InAnySharedSpace in body desc */                                     \
+  /* deal specially:InAnySharedSpace in body desc */                           \
   /*DFX_IF_WASM(APPLY, V, WasmDispatchTable, WASM_DISPATCH_TABLE)*/            \
   DFX_IF_WASM(APPLY, V, WasmDispatchTableForImports,                           \
               WASM_DISPATCH_TABLE_FOR_IMPORTS)                                 \

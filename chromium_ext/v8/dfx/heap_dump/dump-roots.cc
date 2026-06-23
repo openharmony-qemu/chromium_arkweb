@@ -21,8 +21,16 @@
 namespace v8 {
 namespace dfx {
 
-// NIY: see GlobalObjectsEnumerator in heap-snapshot-generator.cc for Global
-// Objects
+// Root table records are grouped by i::Root:
+//
+//   uint32_t root_type
+//   uint32_t count
+//   Address[count] heap_object_addresses
+//
+// This is the rawheap counterpart of heap-snapshot-generator.cc root
+// extraction. The live dumper has access to root slots and weak-root iteration;
+// the offline translator later turns these grouped addresses into synthetic
+// root / GC-root / subroot edges.
 
 ////////// RootVisitor
 // reference to RootsReferencesExtractor
@@ -104,6 +112,9 @@ RootDumper::RootDumper(i::Heap* heap, BinaryWriterBase* writer)
 
 void RootDumper::AddRoot(i::Root root, i::Address addr, bool is_weak) {
   if (is_weak) {
+    // Root/custom InstructionStream payloads store untagged object identities,
+    // so weak state is carried by this rawheap-only compatibility bit. Object
+    // body MaybeObject slots keep native V8 weak tagging instead.
     addr |= kRawHeapWeakObjectTag;
   }
   if (!roots_info_[root].count(addr)) {

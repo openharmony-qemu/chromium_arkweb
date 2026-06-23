@@ -41,7 +41,12 @@
 #endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
 
 #if BUILDFLAG(ARKWEB_ENABLE_JSDUMP)
+#include <thread>
+#include <ctime>
+#include <sys/wait.h>
+#include <unistd.h>
 #include "arkweb/chromium_ext/v8/dfx/heap_profiler/heap-profile.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #endif
 
 namespace {
@@ -239,7 +244,51 @@ void RenderThreadImpl::RequestJSDump(mojo::PlatformHandle socket,
       LOG(ERROR) << "Invalid socket_fd for heap snapshot";
       return;
     }
-    v8::dfx::DumpHeapsnapshot(socket_fd, false /* own_fd */, needRaw);
+    if (OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetBoolParameter("web.debug.js.asyncdump", false)) {
+      LOG(INFO) << "async dump heap snapshot";
+      pid_t pid = fork();
+      if (pid < 0) {
+        LOG(ERROR) << "[RequestJSDump]fork failed";
+        return;
+      }
+      LOG(INFO) << "RequestJSDump do fork";
+      if (pid == 0) {
+        LOG(INFO) << "RequestJSDump fork success";
+        v8::dfx::DumpHeapsnapshot(socket_fd, false /* own_fd */, needRaw);
+        LOG(INFO) << "RequestJSDump fork exit";
+        _exit(0);
+      } else {
+        std::thread([pid] {
+          time_t startTime = time(nullptr);
+          constexpr int DUMP_TIME_OUT = 300;
+          constexpr int DEFAULT_SLEEP_TIME = 100000;
+          while (true) {
+            int status = 0;
+            pid_t p = waitpid(pid, &status, WNOHANG);
+            if (p < 0) {
+              LOG(ERROR) << "DumpHeapSnapshot wait failed ";
+              return;
+            }
+            if (p == pid) {
+              LOG(INFO) << "DumpHeapSnapshot wait succeed ";
+              return;
+            }
+            if (p == 0 && time(nullptr) > startTime + DUMP_TIME_OUT) {
+              LOG(ERROR) << "DumpHeapSnapshot kill thread, wait "
+                            << DUMP_TIME_OUT << " s";
+              kill(pid, SIGKILL);
+              while (waitpid(pid, &status, 0) == -1 && errno == EINTR) { }
+              return;
+            }
+            usleep(DEFAULT_SLEEP_TIME);
+          }
+        }).detach();
+      }
+    } else {
+      v8::dfx::DumpHeapsnapshot(socket_fd, false /* own_fd */, needRaw);
+    }
   }
 
   LOG(INFO) << "End of RequestJSDump";

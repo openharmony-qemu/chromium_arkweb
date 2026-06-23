@@ -30,11 +30,6 @@
 #ifdef OH_ENABLE_HEAP_DUMP_TEST
 #include "src/heap/memory-chunk.h"
 #endif
-#include "src/codegen/reloc-info-inl.h"
-
-// dump-objects-inl.h must be the last one
-#include "dump-objects-inl.h"
-
 namespace v8 {
 namespace dfx {
 namespace {
@@ -130,7 +125,17 @@ void LogObject(i::Isolate* isolate, i::Tagged<i::HeapObject> object) {
 ObjectDumper::ObjectDumper(i::Heap* heap, BinaryWriterBase* writer)
     : heap_(heap), writer_(writer) {}
 
-/* When dump Object without content, the dump format is
+/* Object table records are:
+  Address        | real HeapObject::address(), used only as identity
+  uint32_t       | payload size
+  uint8_t[]      | payload bytes
+
+  For normal objects, payload is a raw copy of HeapObject bytes. For selected
+  data-only/no-content objects, the payload is the compact map-only form below.
+  This keeps graph identity and self size while avoiding large or irrelevant
+  scalar/external contents.
+
+  When dump Object without content, the dump format is
   type           |          description
   ------------------------------------------------
   Address        |          address of heapobject
@@ -154,52 +159,6 @@ void ObjectDumper::DumpObjectWithoutContent(i::Tagged<i::HeapObject> object) {
   uint32_t real_size = static_cast<uint32_t>(object->Size());
   writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&real_size),
                          sizeof(real_size));
-}
-
-void ObjectDumper::WriteInstructionStreamInfo(i::Tagged<i::HeapObject> object) {
-  DumpObjectVisitor visitor(
-      i::PtrComprCageBase(heap_->isolate()->cage_base()),
-      i::PtrComprCageBase(heap_->isolate()->code_cage_base()), this);
-  i::Tagged<i::TrustedObject> host = TrustedCast<i::TrustedObject>(object);
-  // same as PreVisitInstructionStream
-  visitor.VisitProtectedPointer(
-      host, host->RawProtectedPointerField(i::InstructionStream::kCodeOffset));
-  visitor.VisitProtectedPointer(
-      host, host->RawProtectedPointerField(
-                i::InstructionStream::kRelocationInfoOffset));
-  i::Address object_address = object->address();
-  auto it = instruction_stream_map_.find(object_address);
-  if (it != instruction_stream_map_.end()) {
-    const std::vector<InstructionStreamInfo>& vec = it->second;
-    for (const auto& info : vec) {
-      i::Address addr = info.object_addr_;
-      int8_t mode = info.mode_;
-      writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&addr), sizeof(addr));
-      writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&mode), sizeof(mode));
-    }
-  }
-}
-
-void ObjectDumper::IterateInstructionStream(i::Tagged<i::HeapObject> object) {
-  // address
-  i::Address object_address = object->address();
-  writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&object_address),
-                         sizeof(object_address));
-  // size
-  //  mapPointer + 2 * protectedPointer (objects-body-descriptors-inl.h: class
-  //  InstructionStream::BodyDescripter)
-  uint32_t prefix_size = sizeof(i::Tagged_t) + 2 * sizeof(i::Address);
-  uint32_t objcet_size =
-      static_cast<uint32_t>(instruction_stream_map_[object_address].size()) *
-      (sizeof(i::Address) + sizeof(int8_t));
-  objcet_size += prefix_size;
-  writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&objcet_size),
-                         sizeof(objcet_size));
-  // map pointer
-  writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(object_address),
-                         sizeof(i::Tagged_t));
-  // content
-  WriteInstructionStreamInfo(object);
 }
 
 #ifdef OH_ENABLE_HEAP_DUMP_TEST
@@ -243,10 +202,13 @@ void ObjectDumper::Dump() {
     switch (instance_type) {
       case i::InstanceType::FREE_SPACE_TYPE:
       case i::InstanceType::FILLER_TYPE:
-        // won't dump it
+        // Free/filler cells are allocator bookkeeping, not heap snapshot nodes.
         break;
       case i::InstanceType::INSTRUCTION_STREAM_TYPE: {
         CHECK_MAP(obj);
+        // InstructionStream is encoded as a special payload because copying
+        // executable memory and relocation state verbatim is neither necessary
+        // nor sufficient for offline edge reconstruction.
         IterateInstructionStream(obj);
         break;
       }
@@ -258,7 +220,9 @@ void ObjectDumper::Dump() {
           if (i::v8_flags.log_heapdump) {
             LogObject(heap_->isolate(), obj);
           }
-          ///// dump normal object
+          // Normal object: persist the raw object bytes. Translate will copy
+          // them into FakeHeapObject storage and use V8 field accessors/body
+          // descriptors against that fake address.
           // address
           i::Address object_address = obj->address();
           writer_->WriteBinBlock(reinterpret_cast<uint8_t*>(&object_address),
@@ -284,48 +248,11 @@ void ObjectDumper::Dump() {
   timer.Stop();
 }
 
-void ObjectDumper::AddInstructionStreamInfo(i::Address addr,
-                                            InstructionStreamInfo info) {
-  instruction_stream_map_[addr].push_back(info);
-}
-
-uint32_t ObjectDumper::PreVisitInstructionStream(
-    i::Tagged<i::HeapObject> object) {
-  // mapPointer + 2 * protectedPointer (objects-body-descriptors-inl.h: class
-  // InstructionStream::BodyDescripter)
-  uint32_t prefix_size = sizeof(i::Tagged_t) + 2 * sizeof(i::Address);
-  int kRelocModeMask =
-      i::RelocInfo::ModeMask(i::RelocInfo::CODE_TARGET) |
-      i::RelocInfo::ModeMask(i::RelocInfo::RELATIVE_CODE_TARGET) |
-      i::RelocInfo::ModeMask(i::RelocInfo::FULL_EMBEDDED_OBJECT) |
-      i::RelocInfo::ModeMask(i::RelocInfo::COMPRESSED_EMBEDDED_OBJECT) |
-      i::RelocInfo::ModeMask(i::RelocInfo::EXTERNAL_REFERENCE) |
-      i::RelocInfo::ModeMask(i::RelocInfo::INTERNAL_REFERENCE) |
-      i::RelocInfo::ModeMask(i::RelocInfo::INTERNAL_REFERENCE_ENCODED) |
-      i::RelocInfo::ModeMask(i::RelocInfo::OFF_HEAP_TARGET) |
-      i::RelocInfo::ModeMask(i::RelocInfo::WASM_STUB_CALL) |
-      i::RelocInfo::ModeMask(i::RelocInfo::JS_DISPATCH_HANDLE);
-  i::Tagged<i::InstructionStream> istream =
-      UncheckedCast<i::InstructionStream>(object);
-  if (!istream->IsFullyInitialized()) {
-    return prefix_size;
-  }
-  i::PtrComprCageBase cage_base(heap_->isolate());
-  DumpObjectVisitor visitor(
-      cage_base, i::PtrComprCageBase(heap_->isolate()->code_cage_base()), this,
-      true);
-  i::RelocIterator it(istream, kRelocModeMask);
-  uint32_t cnt = visitor.CountRelocInfo(istream, &it);
-  CHECK(instruction_stream_map_[object.address()].size() == cnt);
-  uint32_t total_object_size = cnt * (sizeof(i::Address) + sizeof(int8_t));
-  return prefix_size + total_object_size;
-}
-
-// AddNode
 void ObjectDumper::PreVisit() {
   i::CombinedHeapObjectIterator iterator(heap_);
   i::PtrComprCageBase cage_base(heap_->isolate());
-  // NIY(hh):static_assert(map is first pointer)
+  // This pass mirrors Dump() without writing. It produces object_count_ and the
+  // exact object_table_size_ recorded in RawHeapHeader.
 
   for (i::Tagged<i::HeapObject> obj = iterator.Next(); !obj.is_null();
        obj = iterator.Next()) {
@@ -361,8 +288,7 @@ void ObjectDumper::PreVisit() {
 
   if (i::v8_flags.log_heapdump) {
     std::stringstream ss;
-    ss << "ObjectDumper PreVisit: "
-       << " object_cnt: " << object_cnt_
+    ss << "ObjectDumper PreVisit: " << " object_cnt: " << object_cnt_
        << " total object size: " << ObjectDumpSize() << std::endl;
     LogInfo(ss.str());
   }
@@ -371,9 +297,7 @@ void ObjectDumper::PreVisit() {
 #endif
 }
 
-uint32_t ObjectDumper::ObjectCount() const {
-  return object_cnt_;
-}
+uint32_t ObjectDumper::ObjectCount() const { return object_cnt_; }
 
 uint32_t ObjectDumper::ObjectDumpSize() const {
   // every object has address and size field, size field should not be 0.

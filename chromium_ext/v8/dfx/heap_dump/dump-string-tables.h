@@ -18,7 +18,6 @@
 
 #if defined(OH_ENABLE_HEAP_DUMP)
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer-base.h"
-#include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-format.h"
 #include "src/heap/heap-visitor-inl.h"
 #include "src/heap/heap-visitor.h"
 #include "src/heap/heap.h"

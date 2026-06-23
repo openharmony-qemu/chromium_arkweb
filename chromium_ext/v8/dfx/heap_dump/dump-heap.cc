@@ -20,6 +20,7 @@
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/heap-dump-log.h"
 #include "include/v8-version.h"
 #include "src/common/ptr-compr.h"
+#include "src/flags/flags.h"
 #include "src/heap/heap-inl.h"
 #include "src/init/v8.h"
 
@@ -32,18 +33,22 @@ HeapDumper::HeapDumper(i::Heap* heap, BinaryWriterBase* writer)
       writer_(writer),
       root_dumper_(heap, writer),
       string_table_dumper_(heap, writer),
-      object_dumper_(heap, writer) {
+      object_dumper_(heap, writer),
+      offheap_table_dumper_(heap, writer) {
   heap_->MakeHeapIterable(i::CompleteSweepingReason::kHeapObjectIterator);
 }
 
 void HeapDumper::DumpHeap() {
   v8::base::ElapsedTimer timer;
   timer.Start();
-  // PreVisit to get header message
+  // PreVisit computes all section sizes before the header is written. Rawheap
+  // keeps fixed offsets in the header, so every variable-size section must be
+  // measured before any bytes are emitted.
   PreVisit();
   DumpHeader();
   root_dumper_.Dump();
   object_dumper_.Dump();
+  offheap_table_dumper_.Dump();
   writer_->Flush();
   double elapsed = timer.Elapsed().InMillisecondsF();
   LogInfo("[HeapDump]elapsed time: " + std::to_string(elapsed) + " ms\n");
@@ -79,8 +84,14 @@ void HeapDumper::DumpHeader() {
   header_.object_table_size_ = object_dumper_.ObjectDumpSize();
   header_.object_count_ = object_dumper_.ObjectCount();
 
-  header_.metadata_offset_ =
+  header_.offheap_table_offset_ =
       header_.object_table_offset_ + header_.object_table_size_;
+  header_.offheap_table_size_ = offheap_table_dumper_.OffheapTableDumpSize();
+  header_.offheap_table_count_ = offheap_table_dumper_.OffheapTableCount();
+
+  header_.metadata_offset_ =
+      header_.offheap_table_offset_ + header_.offheap_table_size_;
+  header_.metadata_size_ = 0;
 
   PrintHead(header_);
 
@@ -90,6 +101,7 @@ void HeapDumper::DumpHeader() {
 void HeapDumper::PreVisit() {
   root_dumper_.PreVisit();
   object_dumper_.PreVisit();
+  offheap_table_dumper_.PreVisit();
 }
 }  // namespace dfx
 }  // namespace v8

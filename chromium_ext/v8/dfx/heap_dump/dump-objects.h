@@ -40,6 +40,11 @@
 namespace v8 {
 namespace dfx {
 
+struct InstructionStreamInfo {
+  i::Address object_addr_;
+  int8_t mode_;
+};
+
 class ObjectDumper {
  public:
   explicit ObjectDumper(i::Heap* heap, BinaryWriterBase* writer);
