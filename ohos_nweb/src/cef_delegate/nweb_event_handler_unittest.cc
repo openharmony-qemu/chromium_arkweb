@@ -831,6 +831,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
  void GetLastJavaScriptProxyCallingFrameInfo(
     CefRefPtr<CefLastJavaScriptProxyCallingFrameInfoCallback> callback) override {}
 #endif
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetPageVisibility(bool visible) override {}
+#endif
 #if BUILDFLAG(IS_ARKWEB)
   void EnableAppLinking(bool enable) override {}
   bool IsAppLinkingEnabled() const override { return false; }

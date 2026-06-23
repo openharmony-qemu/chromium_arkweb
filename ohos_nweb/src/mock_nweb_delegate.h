@@ -1232,6 +1232,9 @@ class MockNWebDelegate : public NWebDelegateInterface {
               GetLastJavaScriptProxyCallingFrameInfo,
               (OnLastJavaScriptProxyCallingFrameInfoCallback callback),
               (override));
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  MOCK_METHOD(void, SetPageVisibility, (bool), (override));
+#endif
 #if BUILDFLAG(ARKWEB_VIEWPORT_AVOID)
   MOCK_METHOD(void,
               AvoidVisibleViewportBottom,

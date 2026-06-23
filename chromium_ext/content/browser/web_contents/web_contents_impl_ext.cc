@@ -1499,6 +1499,18 @@ void WebContentsImplExt::GetAllFrameInfos(
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+bool WebContentsImplExt::GetPageVisibility() {
+  LOG(DEBUG) << "WebContentsImplExt::GetPageVisibility, is_page_visible_:" << is_page_visible_.load();
+  return is_page_visible_.load();
+}
+
+void WebContentsImplExt::SetPageVisibility(bool visible) {
+  LOG(DEBUG) << "WebContentsImplExt::SetPageVisibility, is_page_visible_:" << visible;
+  is_page_visible_ = visible;
+}
+#endif // ARKWEB_AUTOLAYOUT
+
 #if BUILDFLAG(ARKWEB_SAVE_PAGE)
   bool WebContentsImplExt::SavePageEx(const base::FilePath& main_file,
                                       SavePageType save_type,

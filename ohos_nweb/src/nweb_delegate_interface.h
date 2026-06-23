@@ -998,6 +998,10 @@ class NWebDelegateInterface
       OnLastJavaScriptProxyCallingFrameInfoCallback callback) = 0;
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  virtual void SetPageVisibility(bool visible) = 0;
+#endif
+
 #if BUILDFLAG(ARKWEB_VIEWPORT_AVOID)
   virtual void AvoidVisibleViewportBottom(int32_t avoidHeight) = 0;
   virtual int32_t GetVisibleViewportAvoidHeight() = 0;

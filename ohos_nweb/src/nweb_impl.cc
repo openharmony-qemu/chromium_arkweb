@@ -8317,39 +8317,6 @@ bool NWebImpl::ProcessBlanklessForUrl(uint64_t blanklessKey, bool isAnime) {
   return true;
 }
 
-void NWebImpl::SetVisibility(bool isVisible) {
-  if (!base::ohos::BlanklessController::CheckGlobalProperty()) {
-    return;
-  }
-  is_visible_ = isVisible;
-  if (!isVisible || !nweb_handle_) {
-    return;
-  }
-  auto& instance = base::ohos::BlanklessController::GetInstance();
-  if (!IsUserEnableBlankless()){
-    uint64_t recorded_time = instance.GetSystemTime(nweb_id_, blankless_key_);
-    auto system_time = base::Time::Now().ToInternalValue() / base::Time::kMicrosecondsPerMillisecond;
-    int32_t corrected_time = static_cast<int32_t>(static_cast<uint64_t>(system_time) - recorded_time);
-    int32_t lcp_time = instance.FireFrameInsertCallback(nweb_id_, blankless_key_);
-    int32_t lifetime = lcp_time - (corrected_time);
-    if (corrected_time < 0  || lifetime < base::ohos::BlanklessController::MINIMUM_FRAME_LIFETIME) { // 40 ms
-      return;
-    }
-    nweb_handle_->OnRemoveBlanklessFrame(lifetime);
-    instance.RegisterFrameRemoveCallback(nweb_id_, blankless_key_, [handle = this->nweb_handle_](){
-      handle->OnRemoveBlanklessFrame(0);
-    });
-    return;
-  }
-  int32_t lcp_time = instance.FireFrameInsertCallback(nweb_id_, blankless_key_);
-  if (lcp_time > 0) {
-    nweb_handle_->OnRemoveBlanklessFrame(lcp_time);
-    instance.RegisterFrameRemoveCallback(nweb_id_, blankless_key_, [handle = this->nweb_handle_](){
-      handle->OnRemoveBlanklessFrame(0);
-    });
-  }
-}
-
 int32_t NWebImpl::SetBlanklessLoadingParams(const std::string& key, bool enable, int32_t duration,
   int64_t expirationTime, std::shared_ptr<NWebBlanklessCallback> callback) {
   MarkUserEnableBlankless();
@@ -8567,6 +8534,46 @@ int64_t NWebImpl::GetPreferenceHashByNwebId(int32_t nweb_id) {
 }
 #endif
 #endif
+
+void NWebImpl::SetVisibility(bool isVisible) {
+  is_visible_ = isVisible;
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  if (nweb_delegate_) {
+    nweb_delegate_->SetPageVisibility(isVisible);
+  }
+#endif
+#if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
+  if (!base::ohos::BlanklessController::CheckGlobalProperty()) {
+    return;
+  }
+  if (!isVisible || !nweb_handle_) {
+    return;
+  }
+  auto& instance = base::ohos::BlanklessController::GetInstance();
+  if (!IsUserEnableBlankless()) {
+    uint64_t recorded_time = instance.GetSystemTime(nweb_id_, blankless_key_);
+    auto system_time = base::Time::Now().ToInternalValue() / base::Time::kMicrosecondsPerMillisecond;
+    int32_t corrected_time = static_cast<int32_t>(static_cast<uint64_t>(system_time) - recorded_time);
+    int32_t lcp_time = instance.FireFrameInsertCallback(nweb_id_, blankless_key_);
+    int32_t lifetime = lcp_time - (corrected_time);
+    if (corrected_time < 0  || lifetime < base::ohos::BlanklessController::MINIMUM_FRAME_LIFETIME) { // 40 ms
+      return;
+    }
+    nweb_handle_->OnRemoveBlanklessFrame(lifetime);
+    instance.RegisterFrameRemoveCallback(nweb_id_, blankless_key_, [handle = this->nweb_handle_](){
+      handle->OnRemoveBlanklessFrame(0);
+    });
+    return;
+  }
+  int32_t lcp_time = instance.FireFrameInsertCallback(nweb_id_, blankless_key_);
+  if (lcp_time > 0) {
+    nweb_handle_->OnRemoveBlanklessFrame(lcp_time);
+    instance.RegisterFrameRemoveCallback(nweb_id_, blankless_key_, [handle = this->nweb_handle_](){
+      handle->OnRemoveBlanklessFrame(0);
+    });
+  }
+#endif
+}
 
 #if BUILDFLAG(ARKWEB_BGTASK)
 void NWebImpl::OnBrowserForeground() {

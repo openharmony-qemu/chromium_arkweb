@@ -1381,12 +1381,13 @@ class NWebImpl : public NWeb {
   int64_t GetPreferenceHash();
   static int64_t GetPreferenceHashByNwebId(int32_t nweb_id);
   bool TriggerBlanklessForUrl(const std::string& url) override;
-  void SetVisibility(bool isVisible) override;
   int32_t SetBlanklessLoadingParams(const std::string& key, bool enable, int32_t duration,
                                     int64_t expirationTime,
                                     std::shared_ptr<NWebBlanklessCallback> callback) override;
   void CallExecuteBlanklessCallback(int32_t state, const std::string& reason) override;
 #endif
+
+void SetVisibility(bool isVisible) override;
 
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   void SetErrorPageEnabled(bool enable) override;
@@ -1566,11 +1567,12 @@ class NWebImpl : public NWeb {
   // To avoid include blankless_controller.h in nweb_impl.h, we use UINT64_MAX instead of INVALID_BLANKLESS_KEY.
   std::atomic<uint64_t> blankless_key_ = UINT64_MAX;
   std::atomic<bool> is_private_ = false;
-  std::atomic<bool> is_visible_ = false;
   std::atomic<bool> is_user_enable_ = false;
   std::string string_key_;
   std::shared_ptr<NWebBlanklessCallback> blankless_callback_ = nullptr;
 #endif
+
+  std::atomic<bool> is_visible_ = false;
 
 #if BUILDFLAG(ARKWEB_COOKIE)
   static std::shared_ptr<NWebEngineInitArgs> save_initargs_;

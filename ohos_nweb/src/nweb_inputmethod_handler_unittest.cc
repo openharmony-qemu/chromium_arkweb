@@ -569,6 +569,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void GetLastJavaScriptProxyCallingFrameInfo(
     CefRefPtr<CefLastJavaScriptProxyCallingFrameInfoCallback> callback) override {}
 #endif
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+  void SetPageVisibility(bool visible) override {}
+#endif
 #if BUILDFLAG(ARKWEB_READER_MODE)
   void Distill(uint64_t request_id, const DistillOptions& distill_options,
     CefRefPtr<CefDistillCallback> callback) override {}

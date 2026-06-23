@@ -388,6 +388,18 @@ TEST_F(NWebDelegateTest, RegisterOnLoadStartedCbForHighlightContent_002) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_AUTOLAYOUT)
+TEST_F(NWebDelegateTest, SetPageVisibility_001) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  nweb_delegate_->SetPageVisibility(true);
+}
+
+TEST_F(NWebDelegateTest, SetPageVisibility_002) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  nweb_delegate_->SetPageVisibility(false);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
 TEST_F(NWebDelegateTest, SetFocusWebId) {
   ASSERT_NE(nweb_delegate_, nullptr);
