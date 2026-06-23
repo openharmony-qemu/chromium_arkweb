@@ -433,7 +433,7 @@ if [ ${build_fuzz} -eq 1 ]; then
 fi
 
 if [ ${build_v8} -eq 1 ]; then
-  GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = true v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false use_allocator_shim = false enable_backup_ref_ptr_support = false"
+  GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = true v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false use_allocator_shim = false enable_backup_ref_ptr_support = false v8_enable_jitfort = true"
 fi
 
 if [ ${use_thin_lto} -eq 1 ]; then
