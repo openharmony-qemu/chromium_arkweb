@@ -1283,10 +1283,16 @@ void NWebPreferenceDelegate::SetNativeVideoPlayerConfig(bool enable,
 
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
 void NWebPreferenceDelegate::PutOverlayScrollbarEnabled(bool enable) {
+  LOG(INFO) << "NWebPreferenceDelegate::PutOverlayScrollbarEnabled enable:"
+            << enable;
   bool overlay_scrollbar_enable = enable;
   if (IsFitContent()) {
     LOG(DEBUG) << "Fit content and set overlayscrollbar false";
     overlay_scrollbar_enable = false;
+  }
+  if (OHOS::NWeb::NWebImpl::IsScrollbarModeChanged()) {
+    LOG(INFO) << "Global scroll bar mode has been set ";
+    return;
   }
   base::FeatureListUtils::SetScrollbarEnable(overlay_scrollbar_enable);
   WebPreferencesChanged();

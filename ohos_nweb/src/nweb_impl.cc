@@ -435,7 +435,6 @@ const int32_t ALREADY_SET_ERR = 4;
 const int32_t SINGLE_RENDER_SET_STRICT_ERR = 3;
 const int32_t ADVANCED_SECURITY_SET_ERR = 2;
 const int32_t SITE_ISOLATION_SET_SUCCESS = 1;
-
 bool g_siteIsolationModeInit = false;
 SiteIsolationInitMode g_siteIsolationModeInitValue = SiteIsolationInitMode::INIT;
 #endif  // BUILDFLAG(ARKWEB_SITE_ISOLATION)
@@ -1106,11 +1105,18 @@ void InitialWebEngineArgs(
     web_engine_args.emplace_back("--disable-features=OverlayScrollbar");
   }
   if (OHOS::NWeb::NWebImpl::GetScrollbarMode() ==
-      OHOS::NWeb::ScrollbarMode::OVERLAY_LAYOUT_SCROLLBAR &&
+          OHOS::NWeb::ScrollbarMode::OVERLAY_LAYOUT_SCROLLBAR &&
       OHOS::NWeb::NWebImpl::IsScrollbarModeChanged()) {
-    web_engine_args.emplace_back("--enable-features=UseOzonePlatform,OverlayScrollbar");
+    web_engine_args.emplace_back(
+        "--enable-features=UseOzonePlatform,OverlayScrollbar");
+  } else if (OHOS::NWeb::NWebImpl::GetScrollbarMode() ==
+                 OHOS::NWeb::ScrollbarMode::OVERLAY_VISUAL_SCROLLBAR &&
+             OHOS::NWeb::NWebImpl::IsScrollbarModeChanged()) {
+    web_engine_args.emplace_back(
+        "--enable-features=UseOzonePlatform,OverlayScrollbar,"
+        "kOverlayVisualScrollbar");
   } else {
-  web_engine_args.emplace_back("--enable-features=UseOzonePlatform");
+    web_engine_args.emplace_back("--enable-features=UseOzonePlatform");
   }
   web_engine_args.emplace_back("-ozone-platform=headless");
   web_engine_args.emplace_back("--no-sandbox");
@@ -4158,7 +4164,8 @@ ScrollbarMode NWebImpl::GetScrollbarMode() {
 }
 
 void NWebImpl::SetScrollbarMode(ScrollbarMode mode) {
-  WVLOG_I("NWebImpl set web scrollbar mode %{public}d", static_cast<int32_t>(mode));
+  WVLOG_I("NWebImpl set web scrollbar mode %{public}d",
+          static_cast<int32_t>(mode));
   if (!base::FeatureList::GetInstance() && !scrollbarModeChanged_) {
     scrollbarModeChanged_ = true;
     scrollbarMode_ = mode;
@@ -4169,18 +4176,24 @@ void NWebImpl::SetScrollbarMode(ScrollbarMode mode) {
       *base::CommandLine::ForCurrentProcess();
   std::string enableFeatures;
   std::string disableFeatures;
-  base::FeatureList::GetInstance()->GetCommandLineFeatureOverrides(&enableFeatures, &disableFeatures);
+  base::FeatureList::GetInstance()->GetCommandLineFeatureOverrides(
+      &enableFeatures, &disableFeatures);
   LOG(INFO) << "enable:" << enableFeatures << " disable:" << disableFeatures;
   std::string allFeatures = enableFeatures + disableFeatures;
   if ((allFeatures.find("OverlayScrollbar") == std::string::npos)) {
     if (mode == ScrollbarMode::OVERLAY_LAYOUT_SCROLLBAR) {
       enableFeatures = "OverlayScrollbar";
+    } else if (mode == ScrollbarMode::OVERLAY_VISUAL_SCROLLBAR) {
+      enableFeatures += "OverlayScrollbar,kOverlayVisualScrollbar";
     } else {
       disableFeatures = "OverlayScrollbar";
     }
-    base::FeatureList::GetInstance()->InitFromCommandLine(enableFeatures, disableFeatures);
-    base::FeatureList::GetInstance()->GetCommandLineFeatureOverrides(&enableFeatures, &disableFeatures);
-    LOG(INFO) << "update enable:" << enableFeatures << " disable:" << disableFeatures;
+    base::FeatureList::GetInstance()->InitFromCommandLine(enableFeatures,
+                                                          disableFeatures);
+    base::FeatureList::GetInstance()->GetCommandLineFeatureOverrides(
+        &enableFeatures, &disableFeatures);
+    LOG(INFO) << "update enable:" << enableFeatures
+              << " disable:" << disableFeatures;
   }
 }
 

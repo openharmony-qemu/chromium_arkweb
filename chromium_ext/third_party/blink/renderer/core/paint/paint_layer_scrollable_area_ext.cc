@@ -363,6 +363,20 @@ double PaintLayerScrollableAreaExt::GetScrollbarAvoidAreaBottom() const
   return scrollbar_avoid_area_valid_bottom_;
 }
 // LCOV_EXCL_STOP
+
+// LCOV_EXCL_START
+double PaintLayerScrollableAreaExt::GetScrollbarAvoidAreaTopOrigin() const
+{
+  return scrollbar_avoid_area_top_;
+}
+// LCOV_EXCL_STOP
+
+// LCOV_EXCL_START
+double PaintLayerScrollableAreaExt::GetScrollbarAvoidAreaBottomOrigin() const
+{
+  return scrollbar_avoid_area_bottom_;
+}
+// LCOV_EXCL_STOP
 #endif  // ARKWEB_SCROLLBAR_AVOID_AREA
 
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)

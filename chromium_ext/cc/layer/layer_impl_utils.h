@@ -19,13 +19,15 @@
 #include <memory>
 #include <string>
 
-#include "cc/layers/layer_impl.h"
 #include "arkweb/build/features/features.h"
 #include "base/memory/raw_ptr.h"
+#include "cc/layers/layer_impl.h"
 #include "ui/gfx/geometry/rect_f.h"
-
+#include "ui/gfx/geometry/rrect_f.h"
+namespace viz {
+class SharedQuadState;
+}
 namespace cc {
-
 class LayerImplUtils {
  public:
   LayerImplUtils(LayerImpl* layer_impl);
@@ -49,6 +51,13 @@ class LayerImplUtils {
   void SetShouldInterceptTouchEvent(bool intercept);
   bool ShouldInterceptTouchEvent() const;
 #endif
+#if BUILDFLAG(ARKWEB_SCROLLBAR)
+  // Populate shared quad state for scrollbar layer with rounded corner
+  void PopulateSharedQuadStateForScrollLayer(
+      viz::SharedQuadState* state,
+      bool contents_opaque,
+      gfx::RRectF& rounded_corner_bounds) const;
+#endif  // BUILDFLAG(ARKWEB_SCROLLBAR)
  private:
   raw_ptr<LayerImpl> layer_impl_;
 
