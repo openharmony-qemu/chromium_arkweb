@@ -465,7 +465,7 @@ void VideoRangeURLLoaderClient::DidReceiveData(base::span<const char> data) {
 
   while (!data.empty()) {
     if (fifo_ptr_->empty() ||
-        fifo_ptr_->back()->size() == provider_->block_size()) {
+        fifo_ptr_->back()->size() == static_cast<size_t>(provider_->block_size())) {
       fifo_ptr_->push_back(new media::DataBuffer(provider_->block_size()));
       fifo_ptr_->back()->set_size(0);
     }

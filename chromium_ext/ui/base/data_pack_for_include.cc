@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "base/command_line.h"
+#include "base/no_destructor.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 #include "arkweb/chromium_ext/ui/base/data_pack_for_include.h"
@@ -50,15 +51,15 @@ enum LoadErrors {
   LOAD_ERRORS_COUNT,
 };
 
-std::unordered_map<ui::ResourceScaleFactor, std::string> kPakFileNameHapMap = {
+const base::NoDestructor<std::unordered_map<ui::ResourceScaleFactor, std::string>> kPakFileNameHapMap({
     {ui::ResourceScaleFactor::kScaleFactorNone,
      "resources/rawfile/resources.pak"},
     {ui::ResourceScaleFactor::k100Percent,
      "resources/rawfile/chrome_100_percent.pak"},
     {ui::ResourceScaleFactor::k200Percent,
-     "resources/rawfile/chrome_200_percent.pak"}};
+     "resources/rawfile/chrome_200_percent.pak"}});
 
-static std::unordered_set<std::string> supportLocaleList = {
+const base::NoDestructor<std::unordered_set<std::string>> supportLocaleList({
 #ifdef WEARABLE_SUPPORT_MULTI_LANGUAGE
   "ar.pak",
   "be.pak",
@@ -140,7 +141,7 @@ static std::unordered_set<std::string> supportLocaleList = {
   "zh-TW.pak",
   "zh-HK.pak",
 #endif
-};
+});
 
 std::string ExtractFileName(const std::string& str)
 {
@@ -154,13 +155,13 @@ bool GetPathFromHap(ui::ResourceScaleFactor factor,
   std::string pathStr = path.MaybeAsASCII();
   std::string pakFileName = ExtractFileName(pathStr);
   std::string localePath = "resources/rawfile/locales/";
-  if (supportLocaleList.count(pakFileName)) {
+  if (supportLocaleList->count(pakFileName)) {
     pathHap = localePath + pakFileName;
     return true;
   }
 
-  auto iter = kPakFileNameHapMap.find(factor);
-  if (iter == kPakFileNameHapMap.end()) {
+  auto iter = kPakFileNameHapMap->find(factor);
+  if (iter == kPakFileNameHapMap->end()) {
     LOG(ERROR) << "kPakFileNameHapMap not find path: " << path;
     return false;
   }
