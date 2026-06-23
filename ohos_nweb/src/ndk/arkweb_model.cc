@@ -86,6 +86,62 @@ CreateProxyCallback(ArkWeb_OnJavaScriptProxyCallbackWithResult callback,
   };
 }
 
+class NWebNDKFetchCookieCallbackImpl : public OHOS::NWeb::NWebStringValueCallback {
+public:
+    explicit NWebNDKFetchCookieCallbackImpl(OH_ArkWeb_OnCookieFetchCallback callback)
+        : callback_(callback) {}
+    ~NWebNDKFetchCookieCallbackImpl() = default;
+
+    void OnReceiveValue(const std::string &result) override
+    {
+        if (!callback_) {
+            return;
+        }
+
+        if (result == std::to_string(OHOS::NWeb::NWebErrNo::NWEB_INVALID_URL)) {
+            callback_(ArkWeb_ErrorCode::ARKWEB_INVALID_URL, nullptr);
+            return;
+        }
+
+        char *cookieValue = OHOS::NWeb::malloc_wrapper(result.length() + 1);
+        if (!cookieValue) {
+            WVLOG_E("Failed to allocate memory for cookieValue");
+            callback_(ArkWeb_ErrorCode::ARKWEB_ERROR_UNKNOWN, nullptr);
+            return;
+        }
+        int ret = strcpy_s(cookieValue, result.length() + 1, result.c_str());
+        if (ret != EOK) {
+            WVLOG_E("NWebNDKFetchCookieCallbackImpl error, call strcpy_s ret = %{public}d", ret);
+            free(cookieValue);
+            cookieValue = nullptr;
+            callback_(ArkWeb_ErrorCode::ARKWEB_ERROR_UNKNOWN, nullptr);
+            return;
+        }
+
+        callback_(ArkWeb_ErrorCode::ARKWEB_SUCCESS, cookieValue);
+    }
+private:
+    OH_ArkWeb_OnCookieFetchCallback callback_;
+};
+
+void OH_ArkWebCookieManager_FetchCookieAsyncImpl(const char* url, bool incognito, bool includeHttpOnly,
+    bool includePartitionedCookies, OH_ArkWeb_OnCookieFetchCallback callback)
+{
+    auto cookie_manager =
+        OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager();
+    if (!cookie_manager) {
+        LOG(ERROR) << "cookie manager is nullptr";
+        if (callback) {
+          callback(ArkWeb_ErrorCode::ARKWEB_ERROR_UNKNOWN, nullptr);
+        }
+        return;
+    }
+
+    auto callbackImpl = std::make_shared<NWebNDKFetchCookieCallbackImpl>(callback);
+    cookie_manager->ReturnCookieWithHttpOnly(
+        std::string(url ? url : ""), incognito, includeHttpOnly, includePartitionedCookies, callbackImpl);
+}
+
 extern "C" {
 #endif  // __cplusplus
 
@@ -1224,6 +1280,49 @@ OH_NativeArkWeb_SetBlanklessLoadingParams(const char* webTag,
     stringKey, param.enable, param.duration, param.expirationTime, callbackImpl);
   return static_cast<ArkWeb_BlanklessErrorCode>(errCode);
 }
+
+ARKWEB_NDK_EXPORT ArkWeb_ErrorCode OH_ArkWebCookieManager_FetchCookieSync(const char* url, bool incognito,
+    bool includeHttpOnly, bool includePartitionedCookies, char** cookieValue)
+{
+    auto cookie_manager =
+        OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager();
+    if (!cookie_manager) {
+        LOG(ERROR) << "cookie manager is nullptr";
+        return ARKWEB_ERROR_UNKNOWN;
+    }
+
+    bool is_valid = true;
+    std::string cookie_content = cookie_manager->ReturnCookieWithHttpOnly(
+        std::string(url ? url : ""), is_valid, incognito, includeHttpOnly, includePartitionedCookies);
+    if (cookie_content == "" && !is_valid) {
+        return ARKWEB_INVALID_URL;
+    }
+    if (cookieValue == nullptr) {
+        return ARKWEB_INVALID_PARAM;
+    }
+
+    *cookieValue = OHOS::NWeb::malloc_wrapper(cookie_content.length() + 1);
+    if (!*cookieValue) {
+        LOG(ERROR) << "Failed to allocate memory for cookieValue.";
+        return ARKWEB_ERROR_UNKNOWN;
+    }
+    int ret = strcpy_s(*cookieValue, cookie_content.length() + 1, cookie_content.c_str());
+    if (ret != EOK) {
+        LOG(ERROR) << "OH_CookieManager_FetchCookieSync error, call strcpy_s ret = " << ret;
+        free(*cookieValue);
+        *cookieValue = nullptr;
+        return ARKWEB_ERROR_UNKNOWN;
+    }
+
+    return ARKWEB_SUCCESS;
+}
+
+ARKWEB_NDK_EXPORT void OH_ArkWebCookieManager_FetchCookieAsync(const char* url, bool incognito, bool includeHttpOnly,
+    bool includePartitionedCookies, OH_ArkWeb_OnCookieFetchCallback callback)
+{
+    OH_ArkWebCookieManager_FetchCookieAsyncImpl(url, incognito, includeHttpOnly, includePartitionedCookies, callback);
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

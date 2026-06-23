@@ -170,6 +170,20 @@ typedef void (*ArkWeb_OnScrollCallback)(const char* webTag,
                                         double y);
 
 /**
+ * @brief Defines the callback function type invoked when the cookie fetching operation completes.
+ *
+ * @param errorCode The result code of the cookie fetching operation.
+ *        {@link ARKWEB_SUCCESS} fetch cookie success.
+ *        {@link ARKWEB_INVALID_URL} invalid url.
+ *        {@link ARKWEB_LIBRARY_OPEN_FAILURE} Failed to open the library.
+ *        {@link ARKWEB_LIBRARY_SYMBOL_NOT_FOUND} The required symbol was not found in the library.
+ * @param cookieValue Get the cookie value corresponding to the URL. This function will allocate memory for the
+ *                    cookieValue string and caller must release the string by {@link OH_ArkWeb_ReleaseString}.
+ * @since 26.0.0
+ */
+typedef void (*OH_ArkWeb_OnCookieFetchCallback)(ArkWeb_ErrorCode errorCode, char* cookieValue);
+
+/**
  * @brief Defines the ArkWeb_WebMessagePort that represent a HTML5 message port.
  *
  * @since 12
