@@ -72,8 +72,8 @@ void ScreenshotObserver::CaptureFullPage() {
   }
 }
 
-void ScreenshotObserver::CaptureElement(const std::string& selector) {
-  LOG(DEBUG) << "[Screenshot] CaptureElement started, selector=" << selector;
+void ScreenshotObserver::CaptureElement(const std::string& xpath) {
+  LOG(DEBUG) << "[Screenshot] CaptureElement started, xpath=" << xpath;
   if (!browser_ || !browser_->GetHost()) {
     LOG(ERROR) << "[Screenshot] browser or host is null";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL),
@@ -81,7 +81,7 @@ void ScreenshotObserver::CaptureElement(const std::string& selector) {
     return;
   }
 
-  selector_ = selector;
+  xpath_ = xpath;
 
   registration_ = browser_->GetHost()->AddDevToolsMessageObserver(this);
   if (!registration_) {
@@ -162,8 +162,10 @@ void ScreenshotObserver::OnDevToolsMethodResult(
     HandleEnableResult(success, result, result_size);
   } else if (message_id == get_document_msg_id_) {
     HandleGetDocumentResult(success, result, result_size);
-  } else if (message_id == query_selector_msg_id_) {
-    HandleQuerySelectorResult(success, result, result_size);
+  } else if (message_id == perform_search_msg_id_) {
+    HandlePerformSearchResult(success, result, result_size);
+  } else if (message_id == get_search_results_msg_id_) {
+    HandleGetSearchResultsResult(success, result, result_size);
   } else if (message_id == get_box_model_msg_id_) {
     HandleGetBoxModelResult(success, result, result_size);
   } else if (message_id == layout_metrics_msg_id_) {
@@ -176,8 +178,8 @@ void ScreenshotObserver::OnDevToolsMethodResult(
 }
 
 void ScreenshotObserver::HandleEnableResult(bool success,
-                                                    const void* result,
-                                                    size_t result_size) {
+                                            const void* result,
+                                            size_t result_size) {
   LOG(DEBUG) << "[Screenshot] HandleEnableResult success=" << success;
 
   if (!success) {
@@ -188,8 +190,8 @@ void ScreenshotObserver::HandleEnableResult(bool success,
     return;
   }
 
-  if (!selector_.empty()) {
-    // Selector path: need to resolve element first
+  if (!xpath_.empty()) {
+    // xpath: need to resolve element first
     LOG(DEBUG) << "[Screenshot] DOM.enable success, sending DOM.getDocument";
 
     // Get document to obtain root node ID
@@ -204,15 +206,15 @@ void ScreenshotObserver::HandleEnableResult(bool success,
       LOG(DEBUG) << "[Screenshot] DOM.getDocument sent, msg_id=" << get_document_msg_id_;
     }
   } else {
-    LOG(ERROR) << "[Screenshot] no selector provided";
+    LOG(ERROR) << "[Screenshot] no xpath provided";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING),
-                    "no selector provided");
+                    "no xpath provided");
   }
 }
 
 void ScreenshotObserver::HandleGetDocumentResult(bool success,
-                                                         const void* result,
-                                                         size_t result_size) {
+                                                 const void* result,
+                                                 size_t result_size) {
   std::string json(static_cast<const char*>(result), result_size);
   LOG(DEBUG) << "[Screenshot] HandleGetDocumentResult success=" << success
              << ", result=" << json;
@@ -248,58 +250,131 @@ void ScreenshotObserver::HandleGetDocumentResult(bool success,
     return;
   }
 
-  document_root_node_id_ = node_id.value();
+  LOG(DEBUG) << "[Screenshot] got document root nodeId=" << node_id.value()
+             << ", sending DOM.performSearch";
 
-  // Query selector to find element node_id
   CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
-  params->SetString("selector", selector_);
-  params->SetInt("nodeId", document_root_node_id_);
-  LOG(DEBUG) << "[Screenshot] sending DOM.querySelector with selector=" << selector_
-             << ", nodeId=" << document_root_node_id_;
-  query_selector_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
-      0, "DOM.querySelector", params);
-  if (query_selector_msg_id_ == 0) {
-    LOG(ERROR) << "[Screenshot] failed to send DOM.querySelector";
+  params->SetString("query", xpath_);
+
+  // Step 3: Perform search (supports xpath)
+  perform_search_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
+      0, "DOM.performSearch", params);
+
+  if (perform_search_msg_id_ == 0) {
+    LOG(ERROR) << "[Screenshot] failed to send DOM.performSearch";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED),
-                    "failed to send DOM.querySelector");
+                    "failed to send DOM.performSearch");
+  } else {
+    LOG(DEBUG) << "[Screenshot] DOM.performSearch sent, msg_id=" << perform_search_msg_id_;
   }
 }
 
-void ScreenshotObserver::HandleQuerySelectorResult(bool success,
-                                                           const void* result,
-                                                           size_t result_size) {
+void ScreenshotObserver::HandlePerformSearchResult(bool success,
+                                                   const void* result,
+                                                   size_t result_size) {
   std::string json(static_cast<const char*>(result), result_size);
-  LOG(DEBUG) << "[Screenshot] HandleQuerySelectorResult success=" << success
+  LOG(DEBUG) << "[Screenshot] HandlePerformSearchResult success=" << success
              << ", result=" << json;
+
   if (!success) {
-    LOG(ERROR) << "[Screenshot] DOM.querySelector failed: " << json;
+    LOG(ERROR) << "[Screenshot] DOM.performSearch failed: " << json;
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_COMMAND_FAILED),
-                    "DOM.querySelector failed");
+                    "DOM.performSearch failed");
     return;
   }
 
   auto val = base::JSONReader::Read(json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!val || !val->is_dict()) {
-    LOG(ERROR) << "[Screenshot] invalid DOM.querySelector response";
+    LOG(ERROR) << "[Screenshot] invalid DOM.performSearch response";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_RESPONSE_ERROR),
-                    "invalid DOM.querySelector response");
+                    "invalid DOM.performSearch response");
     return;
   }
 
   const auto& dict = val->GetDict();
-  auto node_id = dict.FindInt("nodeId");
-  if (!node_id.has_value() || node_id.value() == 0) {
-    LOG(ERROR) << "[Screenshot] element not found: " << selector_;
+  const std::string* search_id = dict.FindString("searchId");
+  auto result_count = dict.FindInt("resultCount");
+
+  if (!search_id || search_id->empty() || !result_count.has_value() ||
+      result_count.value() <= 0) {
+    LOG(ERROR) << "[Screenshot] element not found: " << xpath_;
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_COMMAND_FAILED),
                     "element not found");
     return;
   }
 
+  search_id_ = *search_id;
+  LOG(DEBUG) << "[Screenshot] performSearch found " << result_count.value()
+             << " searchId=" << search_id_;
+
+  CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+  params->SetString("searchId", search_id_);
+  params->SetInt("fromIndex", 0);
+  params->SetInt("toIndex", 1);
+
+  LOG(DEBUG) << "[Screenshot] sending DOM.getSearchResults";
+
+  get_search_results_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
+      0, "DOM.getSearchResults", params);
+
+  if (get_search_results_msg_id_ == 0) {
+    LOG(ERROR) << "[Screenshot] failed to send DOM.getSearchResults";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED),
+                    "failed to send DOM.getSearchResults");
+  } else {
+    LOG(DEBUG) << "[Screenshot] DOM.getSearchResults sent, msg_id="
+               << get_search_results_msg_id_;
+  }
+}
+
+void ScreenshotObserver::HandleGetSearchResultsResult(bool success,
+                                                      const void* result,
+                                                      size_t result_size) {
+  std::string json(static_cast<const char*>(result), result_size);
+  LOG(DEBUG) << "[Screenshot] HandleGetSearchResultsResult success=" << success
+             << ", result=" << json;
+
+  if (!success) {
+    LOG(ERROR) << "[Screenshot] DOM.getSearchResults failed: " << json;
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_COMMAND_FAILED),
+                    "DOM.getSearchResults failed");
+    return;
+  }
+
+  auto val = base::JSONReader::Read(json, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  if (!val || !val->is_dict()) {
+    LOG(ERROR) << "[Screenshot] invalid DOM.getSearchResults response";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_RESPONSE_ERROR),
+                    "invalid DOM.getSearchResults response");
+    return;
+  }
+
+  const auto& dict = val->GetDict();
+  const base::Value::List* node_ids = dict.FindList("nodeIds");
+  if (!node_ids || node_ids->empty()) {
+    LOG(ERROR) << "[Screenshot] element not found: " << xpath_;
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_COMMAND_FAILED),
+                    "element not found");
+    return;
+  }
+
+  auto node_id = (*node_ids)[0].GetIfInt();
+  if (!node_id.has_value() || node_id.value() <= 0) {
+    LOG(ERROR) << "[Screenshot] invalid nodeId from getSearchResults";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_RESPONSE_ERROR),
+                    "invalid nodeId from getSearchResults");
+    return;
+  }
+
   resolved_node_id_ = node_id.value();
+  LOG(DEBUG) << "[Screenshot] found element node_id=" << resolved_node_id_;
+
+  DiscardSearchResults();
 
   // Get box model to get element rect
   CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
   params->SetInt("nodeId", resolved_node_id_);
+ 
   LOG(DEBUG) << "[Screenshot] sending DOM.getBoxModel with nodeId=" << resolved_node_id_;
   get_box_model_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
       0, "DOM.getBoxModel", params);
@@ -307,12 +382,14 @@ void ScreenshotObserver::HandleQuerySelectorResult(bool success,
     LOG(ERROR) << "[Screenshot] failed to send DOM.getBoxModel";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED),
                     "failed to send DOM.getBoxModel");
+  } else {
+    LOG(DEBUG) << "[Screenshot] DOM.getBoxModel sent, msg_id=" << get_box_model_msg_id_;
   }
 }
 
 void ScreenshotObserver::HandleGetBoxModelResult(bool success,
-                                                         const void* result,
-                                                         size_t result_size) {
+                                                 const void* result,
+                                                 size_t result_size) {
   std::string json(static_cast<const char*>(result), result_size);
   LOG(DEBUG) << "[Screenshot] HandleGetBoxModelResult success=" << success
              << ", result=" << json;
@@ -386,8 +463,8 @@ void ScreenshotObserver::HandleGetBoxModelResult(bool success,
 }
 
 void ScreenshotObserver::HandleLayoutMetricsResult(bool success,
-                                                           const void* result,
-                                                           size_t result_size) {
+                                                   const void* result,
+                                                   size_t result_size) {
   std::string json(static_cast<const char*>(result), result_size);
   LOG(DEBUG) << "[Screenshot] HandleLayoutMetricsResult success=" << success
             << ", result=" << json;
@@ -457,8 +534,8 @@ void ScreenshotObserver::HandleLayoutMetricsResult(bool success,
 }
 
 void ScreenshotObserver::HandleScreenshotResult(bool success,
-                                                        const void* result,
-                                                        size_t result_size) {
+                                                const void* result,
+                                                size_t result_size) {
   if (!success || !result || result_size == 0) {
     LOG(ERROR) << "[Screenshot] Page.captureScreenshot failed";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_COMMAND_FAILED),
@@ -493,8 +570,26 @@ void ScreenshotObserver::HandleScreenshotResult(bool success,
   FinishWithSuccess();
 }
 
+void ScreenshotObserver::DiscardSearchResults() {
+  if (!search_id_.empty() && browser_ && browser_->GetHost()) {
+    LOG(DEBUG) << "[Screenshot] Sending DOM.discardSearchResults for searchId=" << search_id_;
+    CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
+    params->SetString("searchId", search_id_);
+    int discard_msg_id = browser_->GetHost()->ExecuteDevToolsMethod(
+        0, "DOM.discardSearchResults", params);
+    if (discard_msg_id == 0) {
+      LOG(WARNING) << "[Screenshot] failed to send DOM.discardSearchResults";
+    } else {
+      LOG(DEBUG) << "[Screenshot] DOM.discardSearchResults sent, msg_id=" << discard_msg_id;
+    }
+    search_id_.clear();
+  }
+}
+
 void ScreenshotObserver::CleanupDomDomain() {
-  if (!selector_.empty() && browser_ && browser_->GetHost()) {
+  DiscardSearchResults();
+
+  if (!xpath_.empty() && browser_ && browser_->GetHost()) {
     LOG(DEBUG) << "[Screenshot] Sending DOM.disable to clean up DOM domain";
     int disable_msg_id = browser_->GetHost()->ExecuteDevToolsMethod(
         0, "DOM.disable", CefDictionaryValue::Create());
