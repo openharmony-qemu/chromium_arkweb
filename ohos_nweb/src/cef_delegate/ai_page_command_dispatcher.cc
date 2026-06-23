@@ -142,13 +142,15 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  std::array<CommandEntry, 6> kCommandEntries = {{
+  std::array<CommandEntry, 8> kCommandEntries = {{
       {"getFullDom", &AIPageCommandDispatcher::HandleGetFullDomCommand},
       {"getLiteDom", &AIPageCommandDispatcher::HandleGetLiteDomCommand},
       {"scroll", &AIPageCommandDispatcher::HandleScrollCommand},
       {"select", &AIPageCommandDispatcher::HandleSelectCommand},
       {"uploadFile", &AIPageCommandDispatcher::HandleUploadFileCommand},
       {"screenCapture", &AIPageCommandDispatcher::HandleScreenCaptureCommand},
+      {"addPageAnnotation", &AIPageCommandDispatcher::HandleAddPageAnnotationCommand},
+      {"removePageAnnotation", &AIPageCommandDispatcher::HandleRemovePageAnnotationCommand},
   }};
 
   auto entry = std::find_if(
@@ -571,6 +573,37 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
     LOG(INFO) << "[AIPageCmd] screenCapture: full page capture";
     observer->CaptureFullPage();
   }
+}
+
+void AIPageCommandDispatcher::HandleAddPageAnnotationCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& command,
+    ResultCallback callback) {
+  if (browser == nullptr || browser->GetMainFrame() == nullptr ||
+      browser->GetMainFrame()->AsArkWebFrame() == nullptr) {
+    ResolveEmptyResult(callback);
+    return;
+  }
+
+  CefRefPtr<AIPageCommandCallbackImpl> cefCallback =
+      new AIPageCommandCallbackImpl(callback);
+  browser->GetMainFrame()->AsArkWebFrame()->AddPageAnnotation(
+      BuildParamsJson(command), cefCallback);
+}
+
+void AIPageCommandDispatcher::HandleRemovePageAnnotationCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict&,
+    ResultCallback callback) {
+  if (browser == nullptr || browser->GetMainFrame() == nullptr ||
+      browser->GetMainFrame()->AsArkWebFrame() == nullptr) {
+    ResolveEmptyResult(callback);
+    return;
+  }
+
+  CefRefPtr<AIPageCommandCallbackImpl> cefCallback =
+      new AIPageCommandCallbackImpl(callback);
+  browser->GetMainFrame()->AsArkWebFrame()->RemovePageAnnotation(cefCallback);
 }
 
 }  // namespace OHOS::NWeb
