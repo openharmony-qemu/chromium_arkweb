@@ -54,6 +54,7 @@ class EchoAIManagerOHOS : public blink::mojom::AIManager,
   void AddReceiver(mojo::PendingReceiver<blink::mojom::TranslationManager> receiver);
  private:
   friend class WebContentsUserData<EchoAIManagerOHOS>;
+  friend class EchoAIManagerOHOSTest;
 
   explicit EchoAIManagerOHOS(WebContents* web_contents);
 
