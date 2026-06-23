@@ -164,7 +164,7 @@ void ArkWebLocalFrameMojoHandlerExt::GenerateCodeCache(
 
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
 void ArkWebLocalFrameMojoHandlerExt::DetectBlankScreen(
-    const String& url,
+    const String& url, bool detectionEnable,
     const Vector<double>& detectionTiming,
     const Vector<int32_t>& detectionMethods,
     int32_t contentfulNodesCountThreshold) {
@@ -184,7 +184,8 @@ void ArkWebLocalFrameMojoHandlerExt::DetectBlankScreen(
   for (uint32_t i = 0; i < detectionMethods.size(); i++) {
     detectionMethodsVector.emplace_back(detectionMethods[i]);
   }
-  blank_screen_detector->DetectBlankScreen(url, detectionTimingVector,
+  blank_screen_detector->DetectBlankScreen(url, detectionEnable,
+                                           detectionTimingVector,
                                            detectionMethodsVector,
                                            contentfulNodesCountThreshold);
 }

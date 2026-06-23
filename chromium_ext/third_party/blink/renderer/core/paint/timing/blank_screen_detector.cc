@@ -20,12 +20,15 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 namespace blink {
 
 const int32_t SECOND_TO_MILLISECOND = 1000;
 const int32_t DIVIDED_BY_TWO = 2;
 const int32_t DIVIDED_BY_FIVE = 5;
+
+constexpr char BLANK_SCREEN_EVENT[] = "ARKWEB_BLANK_SCREEN_EVENT";
 
 void BlankScreenDetector::OnInputOrScroll() {
   StopTask();
@@ -56,7 +59,7 @@ void BlankScreenDetector::GenerateTaskDelays(
 }
 
 void BlankScreenDetector::DetectBlankScreen(
-    const String& url,
+    const String& url, bool detectionEnable,
     const std::vector<double>& detection_timing,
     const std::vector<int32_t>& detection_methods,
     int32_t contentful_nodes_count_threshold) {
@@ -64,6 +67,7 @@ void BlankScreenDetector::DetectBlankScreen(
   task_timestamp_ = base::TimeTicks::Now();
   StopTask();
   url_ = url;
+  detection_enable_ = detectionEnable;
   contentful_nodes_count_threshold_ = contentful_nodes_count_threshold;
   GenerateDetectionMethods(detection_methods);
   GenerateTaskDelays(detection_timing);
@@ -163,8 +167,12 @@ void BlankScreenDetector::RunDetectionTask() {
         LOG(INFO) << "BlankScreenDetector::RunDetectionTask blank screen "
                      "detected result_count "
                   << result_count;
-        local_frame_->OnDetectedBlankScreen(
+        OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(BLANK_SCREEN_EVENT,
+            OHOS::NWeb::HiSysEventAdapter::EventType::FAULT, std::make_tuple(static_cast<int32_t>(result_reason), result_count));
+        if (detection_enable_) {
+          local_frame_->OnDetectedBlankScreen(
             url_, static_cast<int32_t>(result_reason), result_count);
+        }
       }
     }
   }

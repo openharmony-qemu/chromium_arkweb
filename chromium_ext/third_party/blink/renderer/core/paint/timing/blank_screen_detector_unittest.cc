@@ -65,10 +65,16 @@ TEST_F(BlankScreenDetectorTest, GenerateTaskDelays) {
   EXPECT_EQ(detector_->task_delays_ms_.size(), 3);
 }
 
-TEST_F(BlankScreenDetectorTest, DetectBlankScreen) {
+TEST_F(BlankScreenDetectorTest, DetectBlankScreen1) {
   std::vector<double> task_delays = {-1.0, 2.0, 1.0};
   std::vector<int32_t> detection_methods = {0, 1, 2};
-  detector_->DetectBlankScreen("1", task_delays, detection_methods, 0);
+  detector_->DetectBlankScreen("1", true, task_delays, detection_methods, 0);
+}
+
+TEST_F(BlankScreenDetectorTest, DetectBlankScreen2) {
+  std::vector<double> task_delays = {-1.0, 2.0, 1.0};
+  std::vector<int32_t> detection_methods = {0, 1, 2};
+  detector_->DetectBlankScreen("1", false, task_delays, detection_methods, 0);
 }
 
 TEST_F(BlankScreenDetectorTest, GenerateDetectionMethods) {
