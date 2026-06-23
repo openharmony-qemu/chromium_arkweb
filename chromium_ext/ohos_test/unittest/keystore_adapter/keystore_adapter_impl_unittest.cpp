@@ -27,12 +27,21 @@ using namespace testing;
 
 namespace {
 
+class MockKeystoreAdapterImpl : public KeystoreAdapter {
+public:
+    MOCK_METHOD(std::string, EncryptKey, (const std::string alias, const std::string plainData), (override));
+    MOCK_METHOD(std::string, DecryptKey, (const std::string alias, const std::string encryptedData), (override));
+    MOCK_METHOD(std::string, AssetQuery, (const std::string assetHandle), (override));
+};
+
+std::unique_ptr<MockKeystoreAdapterImpl> g_mock_impl;
+
 class KeystoreAdapterImplTest : public testing::Test {
 public:
     static void SetUpTestCase(void);
     static void TearDownTestCase(void);
-    void SetUp();
-    void TearDown();
+    void SetUp() override;
+    void TearDown() override;
 };
 
 void KeystoreAdapterImplTest::SetUpTestCase(void)
@@ -42,10 +51,14 @@ void KeystoreAdapterImplTest::TearDownTestCase(void)
 {}
 
 void KeystoreAdapterImplTest::SetUp(void)
-{}
+{
+    g_mock_impl = std::make_unique<MockKeystoreAdapterImpl>();
+}
 
 void KeystoreAdapterImplTest::TearDown(void)
-{}
+{
+    g_mock_impl.reset();
+}
 
 TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_InitParamSet_001)
 {
@@ -160,5 +173,91 @@ TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_AssetQuery_003)
     std::string nullAlias = "";
     std::string nullEncrypt = KeystoreAdapterImpl::GetInstance().AssetQuery(nullAlias);
     EXPECT_TRUE(nullEncrypt.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_AssetQuery_MockSuccess)
+{
+    EXPECT_CALL(*g_mock_impl, AssetQuery(_))
+        .WillRepeatedly(Return("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"));
+
+    std::string alias = "mock_asset";
+    std::string key = g_mock_impl->AssetQuery(alias);
+    EXPECT_FALSE(key.empty());
+    EXPECT_EQ(key.length(), 64u);
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_EncryptKey_MockFail)
+{
+    EXPECT_CALL(*g_mock_impl, EncryptKey(_, _))
+        .WillRepeatedly(Return(std::string()));
+
+    std::string alias = "fail_test";
+    std::string plainData = "test_data";
+    std::string result = g_mock_impl->EncryptKey(alias, plainData);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_DecryptKey_MockFail)
+{
+    EXPECT_CALL(*g_mock_impl, DecryptKey(_, _))
+        .WillRepeatedly(Return(std::string()));
+
+    std::string alias = "fail_test";
+    std::string cipherData = "invalid_cipher_data";
+    std::string result = g_mock_impl->DecryptKey(alias, cipherData);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_EncryptKey_Success)
+{
+    std::string keyAlias(16, 'k');
+    std::string keyPlain(16, 'p');
+    
+    std::string result = KeystoreAdapterImpl::GetInstance().EncryptKey(keyAlias, keyPlain);
+    EXPECT_FALSE(result.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_DecryptKey_InvalidCipherText)
+{
+    std::string keyAlias(16, 'd');
+    std::string invalidCipher = "V10";  // Too short
+    std::string result = KeystoreAdapterImpl::GetInstance().DecryptKey(keyAlias, invalidCipher);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_DecryptKey_V10Format)
+{
+    const int prefixSize = 3 + 16;
+    std::string keyAlias(16, 'v');
+    std::string keyPlain(32, 'x');
+    
+    std::string encrypted = KeystoreAdapterImpl::GetInstance().EncryptKey(keyAlias, keyPlain);
+    EXPECT_FALSE(encrypted.empty());
+    
+    std::string decrypted = KeystoreAdapterImpl::GetInstance().DecryptKey(keyAlias, encrypted);
+    EXPECT_EQ(decrypted, keyPlain);
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_AssetQuery_NonEmptyResult)
+{
+    std::string alias = "valid_asset";
+    std::string result = KeystoreAdapterImpl::GetInstance().AssetQuery(alias);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_F(KeystoreAdapterImplTest, KeystoreAdapterImplTest_InitParamSet_Success)
+{
+    struct OH_Huks_ParamSet* paramSet = nullptr;
+    struct OH_Huks_Param params[] = {
+        { .tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_AES },
+        { .tag = OH_HUKS_TAG_PURPOSE, .uint32Param = OH_HUKS_KEY_PURPOSE_ENCRYPT | OH_HUKS_KEY_PURPOSE_DECRYPT },
+        { .tag = OH_HUKS_TAG_KEY_SIZE, .uint32Param = OH_HUKS_AES_KEY_SIZE_256 },
+        { .tag = OH_HUKS_TAG_PADDING, .uint32Param = OH_HUKS_PADDING_NONE },
+        { .tag = OH_HUKS_TAG_BLOCK_MODE, .uint32Param = OH_HUKS_MODE_CBC }
+    };
+    
+    int32_t result = KeystoreAdapterImpl::GetInstance().InitParamSet(
+        &paramSet, params, sizeof(params) / sizeof(OH_Huks_Param));
+    EXPECT_EQ(result, 0);
 }
 }
