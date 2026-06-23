@@ -47,6 +47,17 @@ constexpr uint32_t EncodeField(uint32_t value, uint32_t shift, uint32_t mask) {
   return (value & mask) << shift;
 }
 
+uint32_t DecodeField(uint32_t flags, uint32_t shift, uint32_t mask) {
+  return (flags >> shift) & mask;
+}
+
+uint32_t SetFlagField(uint32_t flags, uint32_t value, uint32_t shift,
+                      uint32_t mask) {
+  flags &= ~(mask << shift);
+  flags |= EncodeField(value, shift, mask);
+  return flags;
+}
+
 uint32_t Log2OfPowerOfTwo(uint32_t value) {
   CHECK_NE(value, 0u);
   CHECK_EQ(value & (value - 1), 0u);
@@ -167,19 +178,41 @@ std::string GetRawHeapFlagsString(uint32_t flags) {
   return ss.str();
 }
 
+uint32_t GetEffectiveRawHeapFlags(const RawHeapHeader& header) {
+  uint32_t flags = header.flags_;
+  if (header.dump_format_version_ == kDumpFormatVersionV1) {
+    // Rawheap v1 did not export a dedicated i18n bit. Historical v1 dumps use
+    // the sandbox bit as the effective i18n value, so normalize only for flag
+    // interpretation/comparison and keep the stored header flags untouched.
+    flags = SetFlagField(flags,
+                         DecodeField(flags, kFlagSandboxShift, kOneBitMask),
+                         kFlagI18nSupportShift, kOneBitMask);
+  }
+  return flags;
+}
+
+std::string GetRawHeapFlagsString(const RawHeapHeader& header) {
+  return GetRawHeapFlagsString(GetEffectiveRawHeapFlags(header));
+}
+
+bool RawHeapFlagsMatchCurrent(const RawHeapHeader& header) {
+  return GetEffectiveRawHeapFlags(header) == GetCurrentRawHeapFlags();
+}
+
 void PrintHead(const RawHeapHeader& head) {
   std::stringstream ss;
   ss << "print header_:  ";
   ss << "magic_: 0x" << std::hex << head.magic_ << std::dec;
   ss << ", dump_format_version_: " << head.dump_format_version_;
   ss << ", flags_: 0x" << std::hex << head.flags_ << std::dec << " "
-     << GetRawHeapFlagsString(head.flags_);
+     << GetRawHeapFlagsString(head);
   ss << ", timestamp_: " << head.timestamp_;
   ss << ", v8_version: " << head.v8_major_version_ << "."
      << head.v8_minor_version_ << "." << head.v8_build_number_ << "."
      << head.v8_patch_level_;
   ss << ", cage_base_: " << head.cage_base_
      << ", code_cage_base_: " << head.code_cage_base_
+     << ", trusted_cage_base_: " << head.trusted_cage_base_
      << ", root_table_offset_: " << head.root_table_offset_
      << ", root_table_size_: " << head.root_table_size_
      << ", root_type_count_: " << head.root_type_count_
@@ -227,6 +260,10 @@ bool RawHeapFlagMapPacking(uint32_t flags) {
 
 bool RawHeapFlagI18nSupport(uint32_t flags) {
   return ((flags >> kFlagI18nSupportShift) & kOneBitMask) != 0;
+}
+
+bool RawHeapFlagI18nSupport(const RawHeapHeader& header) {
+  return RawHeapFlagI18nSupport(GetEffectiveRawHeapFlags(header));
 }
 
 uint32_t RawHeapFlagTaggedSize(uint32_t flags) {
@@ -322,6 +359,28 @@ bool SkipContentDump(i::Tagged<i::Map> map) {
       return false;
   }
 #undef DFX_CASE
+}
+
+bool IsRawHeapSandboxEnabled(const std::string& file_path) {
+  FILE* file = fopen(file_path.c_str(), "rb");
+  if (!file) {
+    return false;
+  }
+
+  RawHeapHeader header;
+  size_t bytes_read = fread(&header, sizeof(header), 1, file);
+  fclose(file);
+
+  if (bytes_read != 1) {
+    return false;
+  }
+
+  if (header.magic_ != kRawHeapMagic) {
+    return false;
+  }
+
+  uint32_t sandbox_flag = (header.flags_ >> kFlagSandboxShift) & kOneBitMask;
+  return sandbox_flag == 1;
 }
 
 }  // namespace dfx

@@ -23,13 +23,14 @@
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/heap-dump-log.h"
 
-#if defined(V8_ENABLE_SANDBOX)
 #include "src/execution/isolate.h"
 #include "src/heap/heap-inl.h"
 #include "src/heap/read-only-heap.h"
 #include "src/init/isolate-group.h"
-#include "src/sandbox/code-pointer-table-inl.h"
 #include "src/sandbox/js-dispatch-table-inl.h"
+
+#if defined(V8_ENABLE_SANDBOX)
+#include "src/sandbox/code-pointer-table-inl.h"
 #include "src/sandbox/trusted-pointer-table-inl.h"
 #endif  // defined(V8_ENABLE_SANDBOX)
 
@@ -122,20 +123,20 @@ void OffheapTableDumper::Clear() {
   table_count_ = 0;
   wasm_struct_records_.clear();
   wasm_struct_fields_.clear();
+  js_dispatch_entries_.clear();
 #if defined(V8_ENABLE_SANDBOX)
   trusted_pointer_entries_.clear();
   code_pointer_entries_.clear();
-  js_dispatch_entries_.clear();
 #endif  // defined(V8_ENABLE_SANDBOX)
 }
 
 void OffheapTableDumper::PreVisit() {
   Clear();
   BuildWasmCanonicalStructTable();
+  BuildJSDispatchTable();
 #if defined(V8_ENABLE_SANDBOX)
   BuildSandboxTrustedPointerTable();
   BuildSandboxCodePointerTable();
-  BuildSandboxJSDispatchTable();
 #endif  // defined(V8_ENABLE_SANDBOX)
 }
 
@@ -427,31 +428,32 @@ bool OffheapTableDumper::DumpSandboxCodePointerTablePayload(
       payload_size);
   return true;
 }
+#endif  // defined(V8_ENABLE_SANDBOX)
 
-// Exports RawHeapOffheapTableKind::kSandboxJSDispatchTable.
+// Exports RawHeapOffheapTableKind::kJSDispatchTable.
 //
 // Directory entry:
-//   RawHeapOffheapTableHeader{kind=kSandboxJSDispatchTable,
+//   RawHeapOffheapTableHeader{kind=kJSDispatchTable,
 //                            offset=content_offset, size, count}
 //
 // Table payload format:
-//   RawHeapSandboxJSDispatchEntry[count]
+//   RawHeapJSDispatchEntry[count]
 //
-// The JS dispatch table gives the sandbox JSFunction code indirection path:
-// handle, active state, target Code object address, entrypoint, and parameter
-// count. Unlike CodePointerTable, JSDispatchTable exposes all fields currently
-// needed by the rawheap schema.
+// The JS dispatch table gives the JSFunction code indirection path in both
+// sandbox and no-sandbox builds: handle, active state, target Code object
+// address, entrypoint, and parameter count. Unlike CodePointerTable,
+// JSDispatchTable exposes all fields currently needed by the rawheap schema.
 //
 // V8 sources:
 //   src/sandbox/js-dispatch-table.{h,inl.h}
 //     JSDispatchTable::IterateActiveEntriesIn(), GetCode(), GetEntrypoint(),
 //     GetParameterCount().
-bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
+bool OffheapTableDumper::BuildJSDispatchTable() {
   js_dispatch_entries_.clear();
 
   if (heap_ == nullptr) {
     LogInfo(
-        "OffheapTableDumper: not writing kSandboxJSDispatchTable; heap "
+        "OffheapTableDumper: not writing kJSDispatchTable; heap "
         "is null");
     return false;
   }
@@ -459,7 +461,7 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
   i::Isolate* isolate = heap_->isolate();
   if (isolate == nullptr) {
     LogInfo(
-        "OffheapTableDumper: not writing kSandboxJSDispatchTable; "
+        "OffheapTableDumper: not writing kJSDispatchTable; "
         "isolate is null");
     return false;
   }
@@ -469,14 +471,14 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
   i::IsolateGroup* isolate_group = i::IsolateGroup::current();
   if (isolate_group == nullptr) {
     LogInfo(
-        "OffheapTableDumper: not writing kSandboxJSDispatchTable; "
+        "OffheapTableDumper: not writing kJSDispatchTable; "
         "IsolateGroup::current() is null");
     return false;
   }
   i::JSDispatchTable* jdt = isolate_group->js_dispatch_table();
   if (jdt == nullptr) {
     LogInfo(
-        "OffheapTableDumper: not writing kSandboxJSDispatchTable; "
+        "OffheapTableDumper: not writing kJSDispatchTable; "
         "js_dispatch_table is null");
     return false;
   }
@@ -484,9 +486,9 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
   i::JSDispatchTable::Space* heap_space = heap_->js_dispatch_table_space();
   if (heap_space != nullptr) {
     jdt->IterateActiveEntriesIn(heap_space, [&](i::JSDispatchHandle handle) {
-      RawHeapSandboxJSDispatchEntry entry{};
+      RawHeapJSDispatchEntry entry{};
       entry.handle_ = handle.value();
-      entry.state_ = kRawHeapSandboxJSDispatchEntryActive;
+      entry.state_ = kRawHeapJSDispatchEntryActive;
       // GetCode() returns Tagged<Code>; .address() strips kHeapObjectTag,
       // giving the untagged HeapObject address that FindObjectHead expects.
       entry.code_object_address_ =
@@ -504,9 +506,9 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
     i::JSDispatchTable::Space* ro_space = ro_heap->js_dispatch_table_space();
     if (ro_space != nullptr) {
       jdt->IterateActiveEntriesIn(ro_space, [&](i::JSDispatchHandle handle) {
-        RawHeapSandboxJSDispatchEntry entry{};
+        RawHeapJSDispatchEntry entry{};
         entry.handle_ = handle.value();
-        entry.state_ = kRawHeapSandboxJSDispatchEntryActive;
+        entry.state_ = kRawHeapJSDispatchEntryActive;
         entry.code_object_address_ =
             static_cast<uint64_t>(jdt->GetCode(handle)->address());
         entry.entrypoint_ = static_cast<uint64_t>(jdt->GetEntrypoint(handle));
@@ -524,7 +526,7 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
 
   const uint64_t payload_size64 =
       static_cast<uint64_t>(js_dispatch_entries_.size()) *
-      sizeof(RawHeapSandboxJSDispatchEntry);
+      sizeof(RawHeapJSDispatchEntry);
   const uint64_t table_dump_size64 =
       static_cast<uint64_t>(sizeof(RawHeapOffheapTableHeader)) + payload_size64;
 
@@ -553,7 +555,7 @@ bool OffheapTableDumper::BuildSandboxJSDispatchTable() {
   return true;
 }
 
-bool OffheapTableDumper::GetSandboxJSDispatchTablePayload(
+bool OffheapTableDumper::GetJSDispatchTablePayload(
     uint32_t* payload_size, uint32_t* entry_count) const {
   if (js_dispatch_entries_.empty()) {
     *payload_size = 0;
@@ -561,30 +563,29 @@ bool OffheapTableDumper::GetSandboxJSDispatchTablePayload(
     return true;
   }
   return CheckedUint32(static_cast<uint64_t>(js_dispatch_entries_.size()) *
-                           sizeof(RawHeapSandboxJSDispatchEntry),
+                           sizeof(RawHeapJSDispatchEntry),
                        "JS dispatch table payload size", payload_size) &&
          CheckedUint32(static_cast<uint64_t>(js_dispatch_entries_.size()),
                        "JS dispatch table entry count", entry_count);
 }
 
-bool OffheapTableDumper::WriteSandboxJSDispatchTableDirectory(
+bool OffheapTableDumper::WriteJSDispatchTableDirectory(
     uint32_t* payload_cursor) {
   uint32_t payload_size = 0;
   uint32_t entry_count = 0;
-  if (!GetSandboxJSDispatchTablePayload(&payload_size, &entry_count)) {
+  if (!GetJSDispatchTablePayload(&payload_size, &entry_count)) {
     return false;
   }
   if (entry_count == 0) {
     return true;
   }
-  WriteTableDirectoryEntry(writer_,
-                           RawHeapOffheapTableKind::kSandboxJSDispatchTable,
+  WriteTableDirectoryEntry(writer_, RawHeapOffheapTableKind::kJSDispatchTable,
                            *payload_cursor, payload_size, entry_count);
   *payload_cursor += payload_size;
   return true;
 }
 
-bool OffheapTableDumper::DumpSandboxJSDispatchTablePayload(
+bool OffheapTableDumper::DumpJSDispatchTablePayload(
     uint32_t payload_size) {
   if (js_dispatch_entries_.empty()) {
     return true;
@@ -594,7 +595,6 @@ bool OffheapTableDumper::DumpSandboxJSDispatchTablePayload(
       payload_size);
   return true;
 }
-#endif  // defined(V8_ENABLE_SANDBOX)
 
 // Exports RawHeapOffheapTableKind::kWasmCanonicalTypeTable.
 //
@@ -867,17 +867,18 @@ void OffheapTableDumper::Dump() {
       table_count_ * static_cast<uint32_t>(sizeof(RawHeapOffheapTableHeader));
   uint32_t payload_cursor = directory_size;
 
+  uint32_t jdt_payload_size = 0;
+  uint32_t unused_entry_count = 0;
+  if (!GetJSDispatchTablePayload(&jdt_payload_size, &unused_entry_count)) {
+    return;
+  }
 #if defined(V8_ENABLE_SANDBOX)
   uint32_t trusted_pointer_payload_size = 0;
   uint32_t code_pointer_payload_size = 0;
-  uint32_t jdt_payload_size = 0;
-  uint32_t unused_entry_count = 0;
   if (!GetSandboxTrustedPointerTablePayload(&trusted_pointer_payload_size,
                                             &unused_entry_count) ||
       !GetSandboxCodePointerTablePayload(&code_pointer_payload_size,
-                                         &unused_entry_count) ||
-      !GetSandboxJSDispatchTablePayload(&jdt_payload_size,
-                                        &unused_entry_count)) {
+                                         &unused_entry_count)) {
     return;
   }
 #endif  // defined(V8_ENABLE_SANDBOX)
@@ -886,10 +887,12 @@ void OffheapTableDumper::Dump() {
   if (!WriteWasmCanonicalStructTableDirectory(&payload_cursor)) {
     return;
   }
+  if (!WriteJSDispatchTableDirectory(&payload_cursor)) {
+    return;
+  }
 #if defined(V8_ENABLE_SANDBOX)
   if (!WriteSandboxTrustedPointerTableDirectory(&payload_cursor) ||
-      !WriteSandboxCodePointerTableDirectory(&payload_cursor) ||
-      !WriteSandboxJSDispatchTableDirectory(&payload_cursor)) {
+      !WriteSandboxCodePointerTableDirectory(&payload_cursor)) {
     return;
   }
 #endif  // defined(V8_ENABLE_SANDBOX)
@@ -898,10 +901,12 @@ void OffheapTableDumper::Dump() {
   if (!DumpWasmCanonicalStructTablePayload()) {
     return;
   }
+  if (!DumpJSDispatchTablePayload(jdt_payload_size)) {
+    return;
+  }
 #if defined(V8_ENABLE_SANDBOX)
   if (!DumpSandboxTrustedPointerTablePayload(trusted_pointer_payload_size) ||
-      !DumpSandboxCodePointerTablePayload(code_pointer_payload_size) ||
-      !DumpSandboxJSDispatchTablePayload(jdt_payload_size)) {
+      !DumpSandboxCodePointerTablePayload(code_pointer_payload_size)) {
     return;
   }
 #endif  // defined(V8_ENABLE_SANDBOX)

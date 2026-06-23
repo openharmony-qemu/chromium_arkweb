@@ -19,9 +19,6 @@
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/binary-writer.h"
 
-#include <fcntl.h>
-#include <unistd.h>
-
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -30,6 +27,13 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/heap-dump-log.h"
 
@@ -78,10 +82,19 @@ bool BinaryWriter::MaybeWriteChunk() {
 bool BinaryWriter::Write() {
   uint8_t* data = chunk_.data();
   while (cur_size_) {
+#if defined(_WIN32)
+    DWORD written = 0;
+    HANDLE hFile = reinterpret_cast<HANDLE>(static_cast<intptr_t>(fd_));
+    BOOL result = WriteFile(hFile, data, cur_size_, &written, nullptr);
+    CHECK(result && written > 0);
+    data += static_cast<size_t>(written);
+    cur_size_ -= static_cast<size_t>(written);
+#else
     ssize_t r = ::write(fd_, data, cur_size_);
     CHECK(r > 0);
     data += static_cast<size_t>(r);
     cur_size_ -= static_cast<size_t>(r);
+#endif
   }
   return true;
 }
@@ -101,6 +114,16 @@ void BinaryWriter::OpenFile(const std::string& path) {
     return;
   }
   path_ = path;
+#if defined(_WIN32)
+  fd_ = static_cast<int>(reinterpret_cast<intptr_t>(CreateFileA(path.c_str(), GENERIC_WRITE,
+                                                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                nullptr, CREATE_ALWAYS,
+                                                FILE_ATTRIBUTE_NORMAL, nullptr)));
+  if (fd_ < 0) {
+    LogInfo("HeapDump open file failed!");
+    CHECK(false);
+  }
+#else
   fd_ = ::open(path.c_str(),
                O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC,
                S_IRUSR | S_IWUSR);
@@ -108,6 +131,7 @@ void BinaryWriter::OpenFile(const std::string& path) {
     LogInfo("HeapDump open file failed!");
     CHECK(false);
   }
+#endif
 }
 
 const std::string& BinaryWriter::GetFilePath() {
@@ -119,7 +143,11 @@ void BinaryWriter::CloseFile() {
     return;
   }
   Flush();
+#if defined(_WIN32)
+  CloseHandle(reinterpret_cast<HANDLE>(static_cast<intptr_t>(fd_)));
+#else
   ::close(fd_);
+#endif
   fd_ = -1;
 }
 
