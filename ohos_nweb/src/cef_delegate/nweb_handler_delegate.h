@@ -1439,6 +1439,10 @@ void OnMediaCastEnter() override;
   base::RepeatingCallback<void(bool)> on_handle_visible_;
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  std::string fmp_url_ = "";
+#endif
+
 #if BUILDFLAG(ARKWEB_WEB_APP)
   base::CallbackListSubscription manifest_subscription_;
 #endif

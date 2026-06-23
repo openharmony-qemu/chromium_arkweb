@@ -18,6 +18,11 @@
 #include "base/task/thread_pool.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+#include "arkweb/chromium_ext/components/viz/host/safebrowsing_data_controller.h"
+#include "base/task/thread_pool.h"
+#endif
+
 namespace viz {
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
@@ -130,6 +135,43 @@ void GpuHostImpl::ClearBlanklessSnapshotInfo(uint64_t blankless_key) {
   LOG(DEBUG) << "blankless clear last snapshot info, blankless_key " << blankless_key;
   auto& databaseAdapter = base::ohos::BlanklessDataController::GetInstance();
   databaseAdapter.ClearSnapshot(blankless_key);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+void GpuHostImpl::SendAntiFraudSnapshotInfo(mojo::ScopedSharedBufferHandle buffer,
+                                            mojom::SbBitmapMetadataPtr metadata) {
+  base::ThreadPool::PostTask(
+    FROM_HERE,
+    {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN, base::TaskPriority::USER_BLOCKING},
+    base::BindOnce(&GpuHostImpl::DumpAntiFraudSnapshot,
+                   std::move(buffer), std::move(metadata))
+  );
+}
+ 
+void GpuHostImpl::DumpAntiFraudSnapshot(mojo::ScopedSharedBufferHandle buffer,
+                                        mojom::SbBitmapMetadataPtr metadata) {
+  // the next all the process is sync, here we restore the skbitmap from mojo
+  if (!buffer || !buffer.is_valid() || !metadata ||
+      metadata->width <= 0 || metadata->height <= 0 || metadata->size == 0 ||
+      metadata->color_type < static_cast<int32_t>(SkColorType::kUnknown_SkColorType) ||
+      metadata->color_type > static_cast<int32_t>(SkColorType::kLastEnum_SkColorType) ||
+      metadata->alpha_type < static_cast<int32_t>(SkAlphaType::kUnknown_SkAlphaType) ||
+      metadata->alpha_type > static_cast<int32_t>(SkAlphaType::kLastEnum_SkAlphaType)) {
+    LOG(WARNING) << "safebrowsing GpuHostImpl::DumpAntiFraudSnapshot invalid snapshot info";
+    return;
+  }
+ 
+  TRACE_EVENT0("io", "safebrowsing GpuHostImpl::DumpAntiFraudSnapshot");
+  auto& databaseAdapter = base::ohos::SafeBrowsingDataController::GetInstance();
+  databaseAdapter.DumpAntiFraudSnapshot(std::move(buffer), std::move(metadata));
+}
+ 
+void GpuHostImpl::RequestSnapshotOnce() {
+  if (!gpu_service_remote_) {
+    return;
+  }
+  gpu_service_remote_->RequestSnapshotOnce();
 }
 #endif
 

@@ -135,6 +135,7 @@ class GpuServiceMock : public mojom::GpuService {
    MOCK_METHOD1(DumpGpuInfo, void(DumpGpuInfoCallback callback));
    MOCK_METHOD1(SetIsFling, void(bool is_fling_enabled));
    MOCK_METHOD1(SetIsScroll, void(bool is_scroll_enabled));
+   MOCK_METHOD0(RequestSnapshotOnce, void());
 #if BUILDFLAG(USE_CLANG_COVERAGE)
 #if BUILDFLAG(CLANG_PROFILING_INSIDE_SANDBOX)
    MOCK_METHOD1(WriteClangProfilingProfile, void(WriteClangProfilingProfileCallback callback));
@@ -386,4 +387,39 @@ TEST_F(GpuHostImplTest, DumpBlanklessSnapshot) {
   TestDumpBlanklessSnapshot02();
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  mojom::SbBitmapMetadataPtr CreateSbMetaData(){
+    auto metadata = mojom::SbBitmapMetadata::New();
+    metadata->width = 100;
+    metadata->height = 100;
+    metadata->color_type = static_cast<int32_t>(SkColorType::kRGBA_8888_SkColorType);
+    metadata->alpha_type = static_cast<int32_t>(SkAlphaType::kPremul_SkAlphaType);
+    metadata->size = 100 * 100 * 4;
+    return metadata;
+  }
+
+
+  void TestSendAntiFraudSnapshotInfo() {
+      DelegateMock delegate;
+      mojo::PendingRemote<viz::mojom::VizMain> viz_main_pending_remote;
+      auto viz_main_receiver = viz_main_pending_remote.InitWithNewPipeAndPassReceiver();
+      VizMainMock viz_main_mock;
+      mojo::Receiver<viz::mojom::VizMain> viz_main_receiver_impl(&viz_main_mock, std::move(viz_main_receiver));
+      GpuHostImpl::InitParams params;
+      GpuHostImpl gpu_host(&delegate, std::move(viz_main_pending_remote), std::move(params));
+
+      auto metadata = CreateSbMetaData();
+      size_t buffer_size = metadata->size;
+      mojo::ScopedSharedBufferHandle buffer = mojo::SharedBufferHandle::Create(buffer_size);
+      ASSERT_NO_FATAL_FAILURE(
+        gpu_host.SendAntiFraudSnapshotInfo(
+          std::move(buffer), std::move(metadata)));
+  }
+
+TEST_F(GpuHostImplTest, SendAntiFraudSnapshotInfo) {
+  TestSendAntiFraudSnapshotInfo();
+}
+#endif
+
 } // namespace viz

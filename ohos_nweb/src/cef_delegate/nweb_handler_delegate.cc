@@ -1963,6 +1963,16 @@ void NWebHandlerDelegate::OnFirstMeaningfulPaint(
             details->GetNavigationStartTime(),
             details->GetFirstMeaningfulPaintTime());
     nweb_handler_->OnFirstMeaningfulPaint(web_details);
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+    ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().SetFMP(
+        fmp_url_, nweb_id_);
+    auto browser = GetBrowser();
+    if (ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().IsAllowRequestSnapshot() &&
+        browser != nullptr && browser->GetMainFrame() != nullptr &&
+        browser->GetMainFrame()->AsArkWebFrame() != nullptr) {
+      browser->GetMainFrame()->AsArkWebFrame()->RequestSnapshotOnce();
+    } 
+#endif
   }
 }
 
@@ -2037,6 +2047,9 @@ void NWebHandlerDelegate::OnNavigationEntryCommitted(
     if (main_browser_ && main_browser_->GetHost()) {
       main_browser_->GetHost()->OnTextSelected(false);
     }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+    fmp_url_ = details->GetCurrentURL().ToString();
+#endif 
   }
 #else
   return;

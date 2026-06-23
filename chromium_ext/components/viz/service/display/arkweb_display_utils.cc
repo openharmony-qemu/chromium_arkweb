@@ -451,16 +451,17 @@ void ArkwebDisplayUtils::HandleAntiFraudDetection(std::unique_ptr<CopyOutputResu
 }
  
 void ArkwebDisplayUtils::DumpSnapshotForSBS(AggregatedFrame& frame) {
-  if(!ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().IsAllowSnapshot()){
+  if(!gpu_service_impl_ || !gpu_service_impl_->TakeIsAllowSnapshot()){
     return;
   }
-  OHOS::NWeb::NWebAntiFraudDetectionHandler::GetInstance().SetFmpUrl(
-      ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().GetPendingFmpUrl());
-  safe_browsing_detection_result_ = ohos_safe_browsing::SafeBrowsingSnapshotManager::
-      GetInstance().GetAntiFraudDetectingResult();
-  ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().ResetFmp();
-  auto request = std::make_unique<AfdFrameSnapshotCopyOutputRequest>(
-      base::BindOnce(&ArkwebDisplayUtils::HandleAntiFraudDetection, weak_factory_.GetWeakPtr()));
+ 
+  auto request = std::make_unique<FrameSnapshotCopyOutputRequest>(
+      base::BindOnce(&GpuServiceImpl::OnAdfFrameSnapshotCopyOutputResult, gpu_service_impl_->GetWeakPtr()));
+  if (!request || !request->copy_output_request_utils()) {
+    LOG(ERROR) << "safebrowsing snapshot_request is null";
+    return;
+  }
+
   auto& root_render_pass = frame.render_pass_list.back();
   if (root_render_pass) {
     root_render_pass->copy_requests.push_back(std::move(request));
