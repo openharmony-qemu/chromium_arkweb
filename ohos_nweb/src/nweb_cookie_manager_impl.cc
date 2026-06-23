@@ -192,7 +192,7 @@ void NWebCookieManagerImpl::ReturnCookie(
     const std::string& url,
     std::shared_ptr<NWebStringValueCallback> callback) {
   if (delegate_ != nullptr) {
-    delegate_->ReturnCookie(url, false, callback);
+    delegate_->ReturnCookie(url, false, false, callback);
   }
 }
 
@@ -200,7 +200,7 @@ std::string NWebCookieManagerImpl::ReturnCookie(const std::string& url,
                                                 bool& is_valid,
                                                 bool incognito_mode) {
   if (delegate_ != nullptr) {
-    return delegate_->ReturnCookie(url, is_valid, incognito_mode);
+    return delegate_->ReturnCookie(url, is_valid, false, incognito_mode);
   }
   return "";
 }
@@ -213,7 +213,7 @@ std::string NWebCookieManagerImpl::ReturnCookieWithHttpOnly(
 #if BUILDFLAG(ARKWEB_COOKIE_NDK)
   if (delegate_ != nullptr) {
     return delegate_->ReturnCookieWithHttpOnly(url, is_valid, incognito_mode,
-                                               includeHttpOnly);
+                                               includeHttpOnly, false);
   }
 #endif
   return "";
@@ -267,7 +267,7 @@ void NWebCookieManagerImpl::GetCookieAsync(
     bool incognitoMode,
     std::shared_ptr<NWebStringValueCallback> callback) {
   if (delegate_ != nullptr) {
-    delegate_->ReturnCookie(url, incognitoMode, callback);
+    delegate_->ReturnCookie(url, incognitoMode, false, callback);
   }
 }
 
@@ -300,6 +300,43 @@ std::vector<std::shared_ptr<NWebCookie>> NWebCookieManagerImpl::GetAllCookies(
     delegate_->GetAllCookies(incognitoMode, cookies);
   }
   return cookies;
+}
+
+std::string NWebCookieManagerImpl::ReturnCookie(const std::string& url, bool& is_valid, bool incognito_mode,
+    bool include_partitioned_cookies) {
+  if (delegate_ != nullptr) {
+    return delegate_->ReturnCookie(url, is_valid, include_partitioned_cookies, incognito_mode);
+  }
+}
+
+void NWebCookieManagerImpl::GetCookieAsync(const std::string& url,
+    bool incognito_mode,
+    bool include_partitioned_cookies,
+    std::shared_ptr<NWebStringValueCallback> callback) {
+  if (delegate_ != nullptr) {
+    delegate_->ReturnCookie(url, incognito_mode, include_partitioned_cookies, callback);
+  }
+}
+
+std::string NWebCookieManagerImpl::ReturnCookieWithHttpOnly(const std::string& url, bool& is_valid, bool incognito_mode,
+  bool include_http_only, bool include_partitioned_cookies) {
+#if BUILDFLAG(ARKWEB_COOKIE_NDK)
+  if (delegate_ != nullptr) {
+    return delegate_->ReturnCookieWithHttpOnly(url, is_valid, incognito_mode,
+                                               include_http_only, include_partitioned_cookies);
+  }
+#endif
+  return "";
+}
+
+void NWebCookieManagerImpl::ReturnCookieWithHttpOnly(const std::string& url, bool incognito_mode,
+  bool include_http_only, bool include_partitioned_cookies, std::shared_ptr<NWebStringValueCallback> callback) {
+#if BUILDFLAG(ARKWEB_COOKIE_NDK)
+  if (delegate_ != nullptr) {
+    delegate_->ReturnCookieWithHttpOnly(url, incognito_mode,
+                                        include_http_only, include_partitioned_cookies, callback);
+  }
+#endif
 }
 
 }  // namespace OHOS::NWeb

@@ -36,15 +36,27 @@ class NWebCookieManagerDelegateInterface {
   virtual void ReturnCookie(
       const std::string& url,
       bool incognitoMode,
+#if BUILDFLAG(ARKWEB_COOKIE)
+      bool include_partitioned_cookies,
+#endif
       std::shared_ptr<NWebStringValueCallback> callback) = 0;
   virtual std::string ReturnCookie(const std::string& url,
                                    bool& is_valid,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                   bool include_partitioned_cookies,
+#endif
                                    bool incognito_mode) = 0;
 #if BUILDFLAG(ARKWEB_COOKIE_NDK)
   virtual std::string ReturnCookieWithHttpOnly(const std::string& url,
                                                bool& is_valid,
                                                bool incognito_mode,
-                                               bool includeHttpOnly) = 0;
+                                               bool include_http_only,
+                                               bool include_partitioned_cookies) = 0;
+  virtual void ReturnCookieWithHttpOnly(const std::string& url,
+                                        bool incognito_mode,
+                                        bool include_http_only,
+                                        bool include_partitioned_cookies,
+                                        std::shared_ptr<NWebStringValueCallback> callback) = 0;
 #endif
   virtual void SetCookie(const std::string& url,
                          const std::string& value,

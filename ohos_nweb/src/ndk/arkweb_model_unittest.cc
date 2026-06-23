@@ -1291,9 +1291,19 @@ class MockNWebCookieManagerDelegate
   std::string ReturnCookieWithHttpOnly(const std::string& url,
                                        bool& is_valid,
                                        bool incognito_mode,
-                                       bool includeHttpOnly) override {
+                                       bool includeHttpOnly,
+                                       bool include_partitioned_cookies) override {
     is_valid = false;
     return "";
+  }
+  void ReturnCookieWithHttpOnly(const std::string& url,
+                                bool incognito_mode,
+                                bool include_http_only,
+                                bool include_partitioned_cookies,
+                                std::shared_ptr<OHOS::NWeb::NWebStringValueCallback> callback) override {
+    if (callback != nullptr) {
+      callback->OnReceiveValue(std::to_string(OHOS::NWeb::NWEB_INVALID_URL));
+    }
   }
   int SetCookieWithHttpOnly(const std::string& url,
                             const std::string& value,
@@ -1329,6 +1339,65 @@ TEST_F(ArkWebModelTest, OH_CookieManager_FetchCookieSync_003) {
   EXPECT_EQ(OH_CookieManager_FetchCookieSync("http://example.com", false, false,
                                              &cookie_value),
             ARKWEB_INVALID_URL);
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_001) {
+  auto cookie_manager = nullptr;
+  char* cookie_value = nullptr;
+  EXPECT_EQ(
+      OH_ArkWebCookieManager_FetchCookieSync("test", false, false, false, &cookie_value),
+      ARKWEB_SUCCESS);
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_002) {
+  auto cookie_manager =
+      std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
+          OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
+  cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
+  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false, false,
+                                                    false, nullptr),
+            ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_003) {
+  auto cookie_manager =
+      std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
+          OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
+  cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
+  char* cookie_value = nullptr;
+  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false, false,
+                                                    false, &cookie_value),
+            ARKWEB_INVALID_URL);
+}
+
+static void MockCookieFetchCallback(ArkWeb_ErrorCode errorCode, char* cookieValue)
+{
+  if (cookieValue != nullptr) {
+    free(cookieValue);
+  }
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieAsync_001) {
+  auto cookie_manager = nullptr;
+  OH_ArkWebCookieManager_FetchCookieAsync("test", false, false, false, MockCookieFetchCallback);
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieAsync_002) {
+  auto cookie_manager =
+      std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
+          OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
+  cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
+  OH_ArkWebCookieManager_FetchCookieAsync("http://example.com", false, false,
+                                          false, MockCookieFetchCallback);
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieAsync_003) {
+  auto cookie_manager =
+      std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
+          OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
+  cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
+  OH_ArkWebCookieManager_FetchCookieAsync("http://example.com", false, false,
+                                          false, nullptr);
 }
 
 TEST_F(ArkWebModelTest, OH_CookieManager_ConfigCookieSync_001) {

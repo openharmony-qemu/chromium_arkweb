@@ -355,6 +355,9 @@ void NWebCookieManagerDelegate::PutAcceptFileURLSchemeCookiesEnabled(
 void NWebCookieManagerDelegate::ReturnCookie(
     const std::string& url,
     bool incognitoMode,
+#if BUILDFLAG(ARKWEB_COOKIE)
+    bool include_partitioned_cookies,
+#endif
     std::shared_ptr<NWebStringValueCallback> callback) {
   CefRefPtr<CefCookieManager> cookie_manager =
       incognitoMode ? GetGlobalIncognitoCookieManager()
@@ -369,6 +372,9 @@ void NWebCookieManagerDelegate::ReturnCookie(
   CefRefPtr<ReturnCookieVisitor> visitor =
       new ReturnCookieVisitor(nullptr, callback);
   if (!cookie_manager->VisitUrlCookies(CefString(url), false, visitor, false,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                       include_partitioned_cookies,
+#endif
                                        false)) {
     LOG(ERROR) << "VisitUrlCookies failed";
     visitor->ReturnCookieError();
@@ -378,6 +384,9 @@ void NWebCookieManagerDelegate::ReturnCookie(
 
 std::string NWebCookieManagerDelegate::ReturnCookie(const std::string& url,
                                                     bool& is_valid,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                                    bool include_partitioned_cookies,
+#endif
                                                     bool incognito_mode) {
   CefRefPtr<CefCookieManager> cookie_manager =
       incognito_mode ? GetGlobalIncognitoCookieManager()
@@ -390,6 +399,9 @@ std::string NWebCookieManagerDelegate::ReturnCookie(const std::string& url,
       new ReturnCookieVisitor(nullptr, nullptr);
   is_valid = true;
   if (!cookie_manager->VisitUrlCookies(CefString(url), false, visitor, true,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                       include_partitioned_cookies,
+#endif
                                        false)) {
     LOG(ERROR) << "VisitUrlCookies failed";
     is_valid = false;
@@ -403,7 +415,8 @@ std::string NWebCookieManagerDelegate::ReturnCookieWithHttpOnly(
     const std::string& url,
     bool& is_valid,
     bool incognito_mode,
-    bool includeHttpOnly) {
+    bool include_http_only,
+    bool include_partitioned_cookies) {
   CefRefPtr<CefCookieManager> cookie_manager =
       incognito_mode ? GetGlobalIncognitoCookieManager()
                      : GetGlobalCookieManager();
@@ -414,13 +427,46 @@ std::string NWebCookieManagerDelegate::ReturnCookieWithHttpOnly(
   CefRefPtr<ReturnCookieVisitor> visitor =
       new ReturnCookieVisitor(nullptr, nullptr);
   is_valid = true;
-  if (!cookie_manager->VisitUrlCookies(CefString(url), includeHttpOnly, visitor,
+  if (!cookie_manager->VisitUrlCookies(CefString(url), include_http_only, visitor,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                       true, include_partitioned_cookies, true)) {
+#else
                                        true, true)) {
+#endif
     LOG(ERROR) << "VisitUrlCookies failed";
     is_valid = false;
     return "";
   }
   return visitor->ReturnCookieLine();
+}
+
+void NWebCookieManagerDelegate::ReturnCookieWithHttpOnly(
+    const std::string& url,
+    bool incognito_mode,
+    bool include_http_only,
+    bool include_partitioned_cookies,
+    std::shared_ptr<NWebStringValueCallback> callback) {
+  CefRefPtr<CefCookieManager> cookie_manager =
+      incognito_mode ? GetGlobalIncognitoCookieManager()
+                    : GetGlobalCookieManager();
+  if (cookie_manager == nullptr) {
+    LOG(ERROR) << "GetGlobalCookieManager failed";
+    if (callback != nullptr) {
+      callback->OnReceiveValue(std::to_string(NWEB_INVALID_URL));
+    }
+    return;
+  }
+  CefRefPtr<ReturnCookieVisitor> visitor =
+      new ReturnCookieVisitor(nullptr, callback);
+  if (!cookie_manager->VisitUrlCookies(CefString(url), include_http_only, visitor, false,
+#if BUILDFLAG(ARKWEB_COOKIE)
+                                       include_partitioned_cookies,
+#endif
+                                       true)) {
+    LOG(ERROR) << "VisitUrlCookies failed";
+    visitor->ReturnCookieError();
+    return;
+  }
 }
 #endif
 

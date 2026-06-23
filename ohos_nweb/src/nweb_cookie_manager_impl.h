@@ -80,6 +80,28 @@ class NWebCookieManagerImpl : public NWebCookieManager {
   std::vector<std::shared_ptr<NWebCookie>>
     GetAllCookies(bool incognitoMode) override;
 
+  std::string ReturnCookie(const std::string& url,
+                           bool& is_valid,
+                           bool incognito_mode,
+                           bool include_partitioned_cookies) override;
+
+  void GetCookieAsync(const std::string& url,
+                      bool incognito_mode,
+                      bool include_partitioned_cookies,
+                      std::shared_ptr<NWebStringValueCallback> callback) override;
+
+  std::string ReturnCookieWithHttpOnly(const std::string& url,
+                                       bool& is_valid,
+                                       bool incognito_mode,
+                                       bool include_http_only,
+                                       bool include_partitioned_cookies) override;
+
+  void ReturnCookieWithHttpOnly(const std::string& url,
+                                bool incognito_mode,
+                                bool include_http_only,
+                                bool include_partitioned_cookies,
+                                std::shared_ptr<NWebStringValueCallback> callback) override;
+
  private:
   std::shared_ptr<NWebCookieManagerDelegateInterface> delegate_;
 };

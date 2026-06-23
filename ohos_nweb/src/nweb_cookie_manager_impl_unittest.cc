@@ -64,11 +64,15 @@ class MockNWebCookieManagerDelegate : public NWebCookieManagerDelegate {
               std::shared_ptr<NWebBoolValueCallback> callback), (override));
   MOCK_METHOD(int, SetCookie, (const std::string& url, const std::string& value, bool incognito_mode,
               bool includeHttpOnly), (override));
-  MOCK_METHOD(void, ReturnCookie, (const std::string& url, bool incognito_mode,
+  MOCK_METHOD(void, ReturnCookie, (const std::string& url, bool incognito_mode, bool include_partitioned_cookies,
               std::shared_ptr<NWebStringValueCallback> callback), (override));
-  MOCK_METHOD(std::string, ReturnCookie, (const std::string& url, bool& is_valid, bool incognito_mode), (override));
+  MOCK_METHOD(std::string, ReturnCookie, (const std::string& url, bool& is_valid, bool include_partitioned_cookies,
+              bool incognito_mode), (override));
   MOCK_METHOD(std::string, ReturnCookieWithHttpOnly, (const std::string& url, bool& is_valid,
-              bool incognito_mode, bool includeHttpOnly), (override));
+              bool incognito_mode, bool includeHttpOnly, bool include_partitioned_cookies), (override));
+  MOCK_METHOD(void, ReturnCookieWithHttpOnly, (const std::string& url, bool incognito_mode,
+              bool includeHttpOnly, bool include_partitioned_cookies,
+              std::shared_ptr<NWebStringValueCallback> callback), (override));
   MOCK_METHOD(void, ExistCookies, (std::shared_ptr<NWebBoolValueCallback> callback), (override));
   MOCK_METHOD(bool, ExistCookies, (bool incognito_mode), (override));
   MOCK_METHOD(void, Store, (std::shared_ptr<NWebBoolValueCallback> callback), (override));
@@ -243,7 +247,7 @@ TEST_F(NWebCookieManagerImplTest, ReturnCookie_WithCallback_DelegateIsNotNull) {
   auto mock_delegate = std::make_shared<NiceMock<MockNWebCookieManagerDelegate>>();
   NWebCookieManagerImplTestAccessor::SetDelegate(cookie_manager_, mock_delegate);
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  EXPECT_CALL(*mock_delegate, ReturnCookie(::testing::StrEq("http://example.com"), false,
+  EXPECT_CALL(*mock_delegate, ReturnCookie(::testing::StrEq("http://example.com"), false, false,
               ::testing::Eq(std::static_pointer_cast<NWebStringValueCallback>(callback)))).Times(1);
   EXPECT_NO_FATAL_FAILURE(cookie_manager_->ReturnCookie("http://example.com", callback));
   EXPECT_NE(NWebCookieManagerImplTestAccessor::GetDelegate(cookie_manager_), nullptr);
@@ -252,9 +256,9 @@ TEST_F(NWebCookieManagerImplTest, ReturnCookie_WithCallback_DelegateIsNotNull) {
 TEST_F(NWebCookieManagerImplTest, ReturnCookie_WithIncognitoMode_DelegateIsNull) {
   cookie_manager_->delegate_.reset();
   bool is_valid = true;
-  std::string result1 = cookie_manager_->ReturnCookie("http://example.com", is_valid, true);
+  std::string result1 = cookie_manager_->ReturnCookie("http://example.com", is_valid, true, false);
   EXPECT_EQ("", result1);
-  std::string result2 = cookie_manager_->ReturnCookie("http://example.com", is_valid, false);
+  std::string result2 = cookie_manager_->ReturnCookie("http://example.com", is_valid, false, false);
   EXPECT_EQ("", result2);
 }
 
@@ -263,18 +267,36 @@ TEST_F(NWebCookieManagerImplTest, ReturnCookie_WithIncognitoMode_DelegateIsNotNu
   NWebCookieManagerImplTestAccessor::SetDelegate(cookie_manager_, mock_delegate);
   bool is_valid = false;
   EXPECT_CALL(*mock_delegate, ReturnCookie(::testing::Matcher<const std::string&>(_), ::testing::Matcher<bool&>(_),
-              ::testing::Matcher<bool>(_))).WillOnce(DoAll(SetArgReferee<1>(true), Return("cookie1=value1")));
-  EXPECT_EQ("cookie1=value1", cookie_manager_->ReturnCookie("http://example.com", is_valid, true));
+              ::testing::Matcher<bool>(_), ::testing::Matcher<bool>(_))).WillOnce(DoAll(SetArgReferee<1>(true),
+              Return("cookie1=value1")));
+  EXPECT_EQ("cookie1=value1", cookie_manager_->ReturnCookie("http://example.com", is_valid, true, false));
   EXPECT_TRUE(is_valid);
 }
 
 TEST_F(NWebCookieManagerImplTest, ReturnCookieWithHttpOnly_DelegateIsNull) {
   cookie_manager_->delegate_.reset();
   bool is_valid = true;
-  std::string result1 = cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", is_valid, true, true);
+  std::string result1 = cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", is_valid, true, true, false);
   EXPECT_EQ("", result1);
-  std::string result2 = cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", is_valid, false, false);
+  std::string result2 = cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", is_valid, false, false, false);
   EXPECT_EQ("", result2);
+}
+
+TEST_F(NWebCookieManagerImplTest, ReturnCookieWithHttpOnly_WithCallback_DelegateIsNull) {
+  cookie_manager_->delegate_.reset();
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", true, true, false, callback);
+  EXPECT_EQ(NWebCookieManagerImplTestAccessor::GetDelegate(cookie_manager_), nullptr);
+}
+
+TEST_F(NWebCookieManagerImplTest, ReturnCookieWithHttpOnly_WithCallback_DelegateIsNotNull) {
+  auto mock_delegate = std::make_shared<NiceMock<MockNWebCookieManagerDelegate>>();
+  NWebCookieManagerImplTestAccessor::SetDelegate(cookie_manager_, mock_delegate);
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  EXPECT_CALL(*mock_delegate, ReturnCookieWithHttpOnly(::testing::StrEq("http://example.com"), true, true, false,
+              ::testing::Eq(std::static_pointer_cast<NWebStringValueCallback>(callback)))).Times(1);
+  EXPECT_NO_FATAL_FAILURE(cookie_manager_->ReturnCookieWithHttpOnly("http://example.com", true, true, false, callback));
+  EXPECT_NE(NWebCookieManagerImplTestAccessor::GetDelegate(cookie_manager_), nullptr);
 }
 
 TEST_F(NWebCookieManagerImplTest, ExistCookies_WithCallback_DelegateIsNull) {
@@ -381,7 +403,7 @@ TEST_F(NWebCookieManagerImplTest, GetCookieAsync_DelegateIsNotNull) {
   auto mock_delegate = std::make_shared<NiceMock<MockNWebCookieManagerDelegate>>();
   NWebCookieManagerImplTestAccessor::SetDelegate(cookie_manager_, mock_delegate);
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  EXPECT_CALL(*mock_delegate, ReturnCookie(::testing::StrEq("http://example.com"), true,
+  EXPECT_CALL(*mock_delegate, ReturnCookie(::testing::StrEq("http://example.com"), true, false,
               ::testing::Eq(std::static_pointer_cast<NWebStringValueCallback>(callback)))).Times(1);
   EXPECT_NO_FATAL_FAILURE(cookie_manager_->GetCookieAsync("http://example.com", true, callback));
   EXPECT_NE(NWebCookieManagerImplTestAccessor::GetDelegate(cookie_manager_), nullptr);
