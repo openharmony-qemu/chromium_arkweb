@@ -78,6 +78,7 @@ describe('Main Module - Complete Tests', () => {
       expect(typeof Main.stop).toBe('function');
       expect(typeof Main.restart).toBe('function');
       expect(typeof Main.alphabetStart).toBe('function');
+      expect(typeof Main.customConfigStart).toBe('function');
     });
 
     test('Main.initFlag should be initially false', () => {
@@ -216,6 +217,13 @@ describe('Main Module - Complete Tests', () => {
   describe('alphabetStart() method', () => {
     test('should judge input config and return void', () => {
       const startResult = Main.alphabetStart('invalid config');
+      expect(startResult).toBe(undefined);
+    });
+  });
+
+  describe('customConfigStart() method', () => {
+    test('should judge input config and return void', () => {
+      const startResult = Main.customConfigStart('invalid config');
       expect(startResult).toBe(undefined);
     });
   });

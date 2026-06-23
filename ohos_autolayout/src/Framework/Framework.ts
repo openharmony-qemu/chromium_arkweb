@@ -19,6 +19,7 @@ import { CCMConfig, CheckRuleStateResult } from './Common/CCMConfig';
 import { Main } from '../Main';
 import Constant from './Common/Constant';
 import Alphabet from '../Alphabet/Main';
+import CustomConfig from '../CustomConfig/Main';
 
 export default class Framework {
     static TAG = Tag.framework;
@@ -127,6 +128,15 @@ export default class Framework {
             const jsonString = JSON.stringify(configObj);
             Alphabet.start(jsonString);
             CCMConfig.getInstance().setAlphabetNavigatorFixExecuted(true);
+        }
+
+        if (CCMConfig.getInstance().isCustomConfigEnable(strategy)) {
+            Log.info('开始执行自定义配置修复...', Framework.TAG);
+            const configObj = {
+                configs: CCMConfig.getInstance().getCustomConfigs()
+            };
+            const jsonString = JSON.stringify(configObj);
+            CustomConfig.start(jsonString);
         }
     }
 

@@ -1,5 +1,6 @@
 import Log from '../../Debug/Log';
 import Tag from '../../Debug/Tag';
+import { CustomConfigItem } from '../../CustomConfig/CustomConfig';
 
 /**
  * 用于描述一个数值范围，包含最小值和最大值
@@ -24,11 +25,13 @@ export interface AppRuleInfo {
   'alphabetIdentificationMinSize' ?: number;
   'alphabetHeightWidthMinRatio' ?: number;
   'targetHeightRatio' ?: number;
+  'configs'?: CustomConfigItem[]
 }
 
 export enum AutoLayoutStrategyType {
   popupScale = 1,
-  alphabetNavigator = 1 << 1
+  alphabetNavigator = 1 << 1,
+  customConfig = 1 << 2
 }
 
 export enum CheckRuleStateResult {
@@ -197,6 +200,9 @@ export class CCMConfig {
   // 默认比值为70%，与之前算法保持一致
   private _targetHeightRatio: number = 70;
 
+  // 自定义配置规则
+  private _customConfigs: CustomConfigItem[] = [];
+
   /**
    * 构造函数，用于初始化 ProductConfig 实例
    * @param data - 符合 IProductConfigData 接口的数据对象
@@ -291,6 +297,10 @@ export class CCMConfig {
 
   public setAlphabetNavigatorFixExecuted(isExecuted: boolean): void {
     this.isAlphabetNavigatorFixExecuted = isExecuted;
+  }
+
+  public getCustomConfigs(): CustomConfigItem[] {
+    return this._customConfigs;
   }
 
   /**
@@ -429,6 +439,10 @@ export class CCMConfig {
     if (appRuleInfo.targetHeightRatio && appRuleInfo.targetHeightRatio > 0) {
       this._targetHeightRatio = appRuleInfo.targetHeightRatio;
     }
+    if (appRuleInfo.configs) {
+      this._customConfigs = appRuleInfo.configs;
+      Log.info('当前页面包含自定义配置策略', Tag.ccmConfig);
+    }
   }
 
   /**
@@ -446,5 +460,13 @@ export class CCMConfig {
   public isAlphabetNavigatorEnable(strategy: number): boolean {
     let strategyEnable: boolean = (strategy & AutoLayoutStrategyType.alphabetNavigator) > 0;
     return strategyEnable && !this.isAlphabetNavigatorFixExecuted;
+  }
+
+  /**
+   * 判断是否应用自定义配置修复策略
+   * @returns 是否应用自定义配置修复策略
+   */
+  public isCustomConfigEnable(strategy: number): boolean {
+    return (strategy & AutoLayoutStrategyType.customConfig) > 0;
   }
 }

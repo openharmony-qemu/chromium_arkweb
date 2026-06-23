@@ -8,6 +8,7 @@ import { CCMConfig } from './Framework/Common/CCMConfig';
 import Framework from './Framework/Framework';
 import WaitSystemReady from './Framework/Utils/WaitSystemReady';
 import Alphabet from './Alphabet/Main';
+import CustomConfig from './CustomConfig/Main';
 
 export class Main {
     static initFlag = false;
@@ -38,4 +39,9 @@ export class Main {
     static alphabetStart(config: string): void {
         Alphabet.start(config);
     }
+
+    static customConfigStart(config: string): void {
+        Log.d('Autolayout customConfigStart');
+        CustomConfig.start(config);
+    } 
 }

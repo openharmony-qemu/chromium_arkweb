@@ -195,6 +195,7 @@ std::string NwebAutolayout::CreateH5AutoLayoutParam(const UrlRuleInfoEntry& url_
   root_dict.Set(kAlphabetHeightWidthMinRatioKey, url_rule_info.alphabetHeightWidthMinRatio);
   root_dict.Set(kTargetHeightRatioKey, url_rule_info.targetHeightRatio);
   root_dict.Set(kNeedCheckIdAndPageKey, base::Value(false));
+  root_dict.Set(kCustomConfigsKey, url_rule_info.configs.Clone());
 
   base::Value::List opacity_list;
   opacity_list.Append(mCCMConfig_.opacity_filter.first);
@@ -456,6 +457,19 @@ std::optional<std::vector<UrlRuleInfoEntry>> NwebAutolayout::ParseUrlRuleInfo(
       url_rule_info_entry.targetHeightRatio = target_height_ratio.value();
     }
 
+    const base::Value::List* configs_list = url_rule_dict.FindList(kCustomConfigsKey);
+    url_rule_info_entry.configs = base::Value::List();
+    if (configs_list) {
+      for (const base::Value& config_item : *configs_list) {
+        if (config_item.is_dict()) {
+          const base::Value::Dict& config_item_dict = config_item.GetDict();
+          if (config_item_dict.FindString(kCustomConfigsStyleKey) || config_item_dict.FindList(kCustomConfigsInlineStyleKey)) {
+            url_rule_info_entry.configs.Append(config_item.Clone());
+          }
+        }
+      }
+    }
+
     url_rules.push_back(std::move(url_rule_info_entry));
   }
   return url_rules;
@@ -556,6 +570,13 @@ void NwebAutolayout::ApplyH5AutoLayoutStrategy(const UrlRuleInfoEntry& url_rule_
     std::stringstream script;
     script << kAlphabetAutoLayoutBegin << param_str << kAutoLayoutEnd;
     LOG(INFO) << "start H5 AlphabetNavigator autolayout JavaScript: "<< script.str();
+    frame->ExecuteJavaScript(script.str(), frame->GetURL(), 0);
+  }
+  if (static_cast<uint32_t>(url_rule_entry.strategy) &
+      static_cast<uint32_t>(AutoLayoutStrategyType::kCustomConfig)) {
+    std::stringstream script;
+    script << kCustomConfigAutoLayoutBegin << param_str << kAutoLayoutEnd;
+    LOG(INFO) << "start H5 CustomConfig autolayout JavaScript: "<< script.str();
     frame->ExecuteJavaScript(script.str(), frame->GetURL(), 0);
   }
 }

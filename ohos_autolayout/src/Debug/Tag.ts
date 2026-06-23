@@ -51,4 +51,7 @@ export default class Tag {
     static debug = 'Debug';
     static component = 'Component';
     static node = 'Node';
+
+    // CustomConfig ฯเนุ
+    static customConfig = 'CustomConfig';
 }

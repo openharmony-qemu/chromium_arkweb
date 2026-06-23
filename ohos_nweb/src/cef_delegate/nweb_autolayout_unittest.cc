@@ -3138,4 +3138,532 @@ TEST_F(NwebAutolayoutTest, SetWebAutoLayoutConfig_WithOptionalParams)
     EXPECT_EQ(mCCMConfig_.alphabet_height_width_min_ratio, 10);
     EXPECT_EQ(mCCMConfig_.target_height_ratio, 70);
 }
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_WithValidConfigs)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {"style": "body{color: red;}", "param": 100},
+                    {
+                        "inlineStyle": [
+                            {
+                                "selector": ".my-class",
+                                "value": {
+                                    "color": "red",
+                                    "background": "white"
+                                }
+                            },
+                            {
+                                "selector": "#my-id",
+                                "value": {
+                                    "font-size": "14px",
+                                    "margin": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+    ASSERT_TRUE(url_rule_infos->is_dict());
+
+    int globalAlphabetIdentificationMinSize = 20;
+    int globalAlphabetHeightWidthMinRatio = 20;
+    mCCMConfig_.alphabet_identification_min_size = globalAlphabetIdentificationMinSize;
+    mCCMConfig_.alphabet_height_width_min_ratio = globalAlphabetHeightWidthMinRatio;
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto& configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 2);
+
+    const base::Value::Dict* config0 = configs[0].GetIfDict();
+    ASSERT_TRUE(config0);
+    EXPECT_EQ(*config0->FindString("style"), "body{color: red;}");
+    EXPECT_EQ(config0->FindInt("param").value_or(0), 100);
+
+    const base::Value::Dict* config1 = configs[1].GetIfDict();
+    ASSERT_TRUE(config1);
+    const base::Value::List* inline_styles = config1->FindList("inlineStyle");
+    ASSERT_TRUE(inline_styles);
+    EXPECT_EQ(inline_styles->size(), 2);
+
+    const base::Value::Dict* inline_item0 = (*inline_styles)[0].GetIfDict();
+    ASSERT_TRUE(inline_item0);
+    EXPECT_EQ(*inline_item0->FindString("selector"), ".my-class");
+    const base::Value::Dict* value_dict0 = inline_item0->FindDict("value");
+    ASSERT_TRUE(value_dict0);
+    EXPECT_EQ(*value_dict0->FindString("color"), "red");
+    EXPECT_EQ(*value_dict0->FindString("background"), "white");
+
+    const base::Value::Dict* inline_item1 = (*inline_styles)[1].GetIfDict();
+    ASSERT_TRUE(inline_item1);
+    EXPECT_EQ(*inline_item1->FindString("selector"), "#my-id");
+    const base::Value::Dict* value_dict1 = inline_item1->FindDict("value");
+    ASSERT_TRUE(value_dict1);
+    EXPECT_EQ(*value_dict1->FindString("font-size"), "14px");
+    EXPECT_EQ(*value_dict1->FindString("margin"), "10px");
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_ConfigsWithMissingStyleAndInlineStyle)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {"style": "body{color: red;}"},
+                    {"param": 123},
+                    {
+                        "inlineStyle": [
+                            {"selector": ".test", "value": {"margin": "10px"}}
+                        ]
+                    },
+                    {"anotherField": "value"},
+                    {"style": "div{color: blue;}"}
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto& configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 3);
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_ConfigsWithNoneDictElements)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {"style": "body{color: red;}"},
+                    "invalid_string",
+                    123,
+                    {"style": "div{color: blue;}"}
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto& configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 2);
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_EmptyConfigs)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": []
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+    EXPECT_TRUE(urlRuleInfo.value()[0].configs.empty());
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_MissingConfigsField)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+    EXPECT_TRUE(urlRuleInfo.value()[0].configs.empty());
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_InvalidConfigsType)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": "invalid_string"
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+    EXPECT_TRUE(urlRuleInfo.value()[0].configs.empty());
+}
+
+TEST_F(NwebAutolayoutTest, CreateH5AutoLayoutParam_WithConfigs)
+{
+    const std::string valid_config_with_configs = R"({
+        "minScaleFactor": 30,
+        "minMaskAreaRatioThreshold": 60,
+        "opacityFilter": [10, 90],
+        "minContentAreaRatioThreshold": 20,
+        "scaleAnimationDuration": 100,
+        "alphabetIdentificationMinSize": 12,
+        "alphabetHeightWidthMinRatio": 10,
+        "targetHeightRatio": 70,
+        "whitelist": {
+            "com.example.app": {
+                "pattern": "some_pattern",
+                "GetID": "get_id_func",
+                "GetPage": "get_page_func",
+                "appRuleInfos": [
+                    { "id": "*", "pg": "*" }
+                ],
+                "urlRuleInfos": [
+                    {
+                        "urlPrefix": "https://example.com",
+                        "strategy": 4,
+                        "configs": [
+                            {
+                                "style": ".class{}",
+                                "param": 123
+                            },
+                            {
+                                "inlineStyle": [
+                                    {
+                                        "selector": ".container",
+                                        "value": {
+                                            "display": "flex",
+                                            "align-items": "center"
+                                        }
+                                    },
+                                    {
+                                        "selector": ".item",
+                                        "value": {
+                                            "padding": "10px",
+                                            "border": "1px solid"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    })";
+
+    std::optional<base::Value> root = base::JSONReader::Read(valid_config_with_configs, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(root.has_value());
+    ASSERT_TRUE(root->is_dict());
+    mAppBundleName_ = "com.example.app";
+    ASSERT_TRUE(Parse(*root));
+    ASSERT_TRUE(mCCMConfig_.whitelist.urlRuleInfos.has_value());
+    ASSERT_FALSE(mCCMConfig_.whitelist.urlRuleInfos.value().empty());
+    std::string output = CreateH5AutoLayoutParam(mCCMConfig_.whitelist.urlRuleInfos.value()[0]);
+
+    std::optional<base::Value> autoLayout_param = base::JSONReader::Read(output, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(autoLayout_param.has_value());
+    ASSERT_TRUE(autoLayout_param->is_dict());
+    const base::Value::Dict& param_dict = autoLayout_param.value().GetDict();
+
+    const base::Value::List* result_configs = param_dict.FindList(ConfigConstants::kCustomConfigsKey);
+    ASSERT_TRUE(result_configs);
+    ASSERT_EQ(result_configs->size(), 2);
+
+    const base::Value::Dict* config0 = (*result_configs)[0].GetIfDict();
+    ASSERT_TRUE(config0);
+    EXPECT_EQ(*config0->FindString("style"), ".class{}");
+    EXPECT_EQ(config0->FindInt("param").value_or(0), 123);
+
+    const base::Value::Dict* config1_dict = (*result_configs)[1].GetIfDict();
+    ASSERT_TRUE(config1_dict);
+    const base::Value::List* inline_styles_result = config1_dict->FindList("inlineStyle");
+    ASSERT_TRUE(inline_styles_result);
+    EXPECT_EQ(inline_styles_result->size(), 2);
+
+    const base::Value::Dict* inline_item0 = (*inline_styles_result)[0].GetIfDict();
+    ASSERT_TRUE(inline_item0);
+    EXPECT_EQ(*inline_item0->FindString("selector"), ".container");
+    const base::Value::Dict* value0 = inline_item0->FindDict("value");
+    ASSERT_TRUE(value0);
+    EXPECT_EQ(*value0->FindString("display"), "flex");
+    EXPECT_EQ(*value0->FindString("align-items"), "center");
+
+    const base::Value::Dict* inline_item1 = (*inline_styles_result)[1].GetIfDict();
+    ASSERT_TRUE(inline_item1);
+    EXPECT_EQ(*inline_item1->FindString("selector"), ".item");
+    const base::Value::Dict* value1 = inline_item1->FindDict("value");
+    ASSERT_TRUE(value1);
+    EXPECT_EQ(*value1->FindString("padding"), "10px");
+    EXPECT_EQ(*value1->FindString("border"), "1px solid");
+}
+
+TEST_F(NwebAutolayoutTest, CreateH5AutoLayoutParam_EmptyConfigs)
+{
+    const std::string valid_config_with_empty_configs = R"({
+        "minScaleFactor": 30,
+        "minMaskAreaRatioThreshold": 60,
+        "opacityFilter": [10, 90],
+        "minContentAreaRatioThreshold": 20,
+        "scaleAnimationDuration": 100,
+        "alphabetIdentificationMinSize": 12,
+        "alphabetHeightWidthMinRatio": 10,
+        "targetHeightRatio": 70,
+        "whitelist": {
+            "com.example.app": {
+                "pattern": "some_pattern",
+                "GetID": "get_id_func",
+                "GetPage": "get_page_func",
+                "appRuleInfos": [
+                    { "id": "*", "pg": "*" }
+                ],
+                "urlRuleInfos": [
+                    {
+                        "urlPrefix": "https://example.com",
+                        "strategy": 4,
+                        "configs": []
+                    }
+                ]
+            }
+        }
+    })";
+
+    std::optional<base::Value> root = base::JSONReader::Read(valid_config_with_empty_configs, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(root.has_value());
+    ASSERT_TRUE(root->is_dict());
+    mAppBundleName_ = "com.example.app";
+    ASSERT_TRUE(Parse(*root));
+    ASSERT_TRUE(mCCMConfig_.whitelist.urlRuleInfos.has_value());
+    ASSERT_FALSE(mCCMConfig_.whitelist.urlRuleInfos.value().empty());
+    std::string output = CreateH5AutoLayoutParam(mCCMConfig_.whitelist.urlRuleInfos.value()[0]);
+
+    std::optional<base::Value> autoLayout_param = base::JSONReader::Read(output, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(autoLayout_param.has_value());
+    ASSERT_TRUE(autoLayout_param->is_dict());
+    const base::Value::Dict& param_dict = autoLayout_param.value().GetDict();
+
+    const base::Value::List* result_configs = param_dict.FindList(ConfigConstants::kCustomConfigsKey);
+    ASSERT_TRUE(result_configs);
+    EXPECT_TRUE(result_configs->empty());
+}
+
+TEST_F(NwebAutolayoutTest, StrategyCombinationWithCustomConfig)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 5,
+                "configs": [{"style": "test"}]
+            },
+            {
+                "urlPrefix": "https://www.example.com/other",
+                "strategy": 7,
+                "configs": [{"style": "combined"}]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 2);
+
+    ASSERT_EQ(urlRuleInfo.value()[0].strategy, 5);
+    ASSERT_EQ(urlRuleInfo.value()[0].configs.size(), 1);
+
+    ASSERT_EQ(urlRuleInfo.value()[1].strategy, 7);
+    ASSERT_EQ(urlRuleInfo.value()[1].configs.size(), 1);
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_OnlyInlineStyle)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {
+                        "inlineStyle": [
+                            {
+                                "selector": ".header",
+                                "value": {
+                                    "background": "white",
+                                    "height": "50px"
+                                }
+                            },
+                            {
+                                "selector": ".footer",
+                                "value": {
+                                    "margin": "20px",
+                                    "padding": "10px"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    mCCMConfig_.alphabet_identification_min_size = 20;
+    mCCMConfig_.alphabet_height_width_min_ratio = 20;
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto&configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 1);
+
+    const base::Value::Dict* config = configs[0].GetIfDict();
+    ASSERT_TRUE(config);
+    const base::Value::List* inline_styles = config->FindList("inlineStyle");
+    ASSERT_TRUE(inline_styles);
+    EXPECT_EQ(inline_styles->size(), 2);
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_BothStyleAndInlineStyle)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {
+                        "style": ".mixed{}",
+                        "inlineStyle": [
+                            {
+                                "selector": ".btn",
+                                "value": {
+                                    "color": "blue",
+                                    "border-radius": "5px"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    mCCMConfig_.alphabet_identification_min_size = 20;
+    mCCMConfig_.alphabet_height_width_min_ratio = 20;
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto&configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 1);
+
+    const base::Value::Dict* config = configs[0].GetIfDict();
+    ASSERT_TRUE(config);
+    EXPECT_EQ(*config->FindString("style"), ".mixed{}");
+    const base::Value::List* inline_styles = config->FindList("inlineStyle");
+    ASSERT_TRUE(inline_styles);
+    EXPECT_EQ(inline_styles->size(), 1);
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_InvalidInlineStyle)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {"inlineStyle": "invalid_string"},
+                    {"inlineStyle": 123},
+                    {"inlineStyle": {"selector": ".test"}},
+                    {"style": ".class{}"}
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    mCCMConfig_.alphabet_identification_min_size = 20;
+    mCCMConfig_.alphabet_height_width_min_ratio = 20;
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto&configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 1);
+
+    const base::Value::Dict* config = configs[0].GetIfDict();
+    ASSERT_TRUE(config);
+    EXPECT_EQ(*config->FindString("style"), ".class{}");
+}
+
+TEST_F(NwebAutolayoutTest, ParseUrlRuleInfo_EmptyInlineStyleList)
+{
+    const std::string url_rule_info_str = R"({
+        "urlRuleInfos": [
+            {
+                "urlPrefix": "https://www.example.com/path",
+                "strategy": 4,
+                "configs": [
+                    {"inlineStyle": []},
+                    {"style": ".class{}"}
+                ]
+            }
+        ]})";
+    std::optional<base::Value> url_rule_infos = base::JSONReader::Read(url_rule_info_str, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    ASSERT_TRUE(url_rule_infos.has_value());
+
+    mCCMConfig_.alphabet_identification_min_size = 20;
+    mCCMConfig_.alphabet_height_width_min_ratio = 20;
+
+    std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfo = ParseUrlRuleInfo(url_rule_infos->GetDict());
+    EXPECT_TRUE(urlRuleInfo.has_value());
+    ASSERT_EQ(urlRuleInfo.value().size(), 1);
+
+    const auto&configs = urlRuleInfo.value()[0].configs;
+    EXPECT_EQ(configs.size(), 2);
+
+    const base::Value::Dict* config0 = configs[0].GetIfDict();
+    ASSERT_TRUE(config0);
+    const base::Value::List* inline_styles = config0->FindList("inlineStyle");
+    ASSERT_TRUE(inline_styles);
+    EXPECT_TRUE(inline_styles->empty());
+
+    const base::Value::Dict* config1 = configs[1].GetIfDict();
+    ASSERT_TRUE(config1);
+    EXPECT_EQ(*config1->FindString("style"), ".class{}");
+}
+
 }
