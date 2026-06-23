@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #ifndef NWEB_EXTENSION_SIDE_PANEL_CEF_DELEGATE_H
 #define NWEB_EXTENSION_SIDE_PANEL_CEF_DELEGATE_H
- 
-#include <string>
-#include <mutex>
+
 #include <memory>
- 
+#include <mutex>
+#include <string>
+
 #include "arkweb/build/features/features.h"
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
@@ -34,26 +34,34 @@
 
 namespace OHOS::NWeb {
 
-using SidePanelOnOpenCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
+using SidePanelOnOpenCallback =
+    base::RepeatingCallback<void(const std::optional<std::string>&)>;
+using SidePanelOnCloseCallback =
+    base::RepeatingCallback<void(const std::optional<std::string>&)>;
 
 class NWebExtensionSidePanelCefDelegate {
-  public:
-    static NWebExtensionSidePanelCefDelegate* GetInstance();
+ public:
+  static NWebExtensionSidePanelCefDelegate* GetInstance();
 
-    bool OnOpenByPb(ExtensionSidePanelOpenOptions& options,
-                    SidePanelOnOpenCallback callback);
-    bool OnSetOptionsByPb(ExtensionSidePanelSetOptions& options);
+  bool OnOpenByPb(ExtensionSidePanelOpenOptions& options,
+                  SidePanelOnOpenCallback callback);
+  bool OnClose(ExtensionSidePanelCloseOptions& options,
+               SidePanelOnCloseCallback callback);
+  bool OnSetOptionsByPb(ExtensionSidePanelSetOptions& options);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-    void OnOpenCallback(int request_id, const std::optional<std::string>& error);
-    void OnSetOptionsCallback(int request_id, const std::optional<std::string>& error);
+  void OnOpenCallback(int request_id, const std::optional<std::string>& error);
+  void OnCloseCallback(int request_id, const std::optional<std::string>& error);
+  void OnSetOptionsCallback(int request_id,
+                            const std::optional<std::string>& error);
 #endif
 
-  private:
-    NWebExtensionSidePanelCefDelegate();
-    NWebExtensionSidePanelCefDelegate(const NWebExtensionSidePanelCefDelegate&) = delete;
-    NWebExtensionSidePanelCefDelegate& operator=(
-        const NWebExtensionSidePanelCefDelegate&) = delete;
+ private:
+  NWebExtensionSidePanelCefDelegate();
+  NWebExtensionSidePanelCefDelegate(const NWebExtensionSidePanelCefDelegate&) =
+      delete;
+  NWebExtensionSidePanelCefDelegate& operator=(
+      const NWebExtensionSidePanelCefDelegate&) = delete;
 };
-} // namespace OHOS::NWeb
- 
+}  // namespace OHOS::NWeb
+
 #endif  // NWEB_EXTENSION_SIDE_PANEL_CEF_DELEGATE_H

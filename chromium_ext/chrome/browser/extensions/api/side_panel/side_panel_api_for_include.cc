@@ -114,4 +114,61 @@ ExtensionFunction::ResponseAction SidePanelOpenFunction::RunOpenFunctionForInclu
   return RespondNow(NoArguments());
 }
 
+void SidePanelCloseFunction::OnClose(
+    const base::WeakPtr<SidePanelCloseFunction>& function,
+    const std::optional<std::string>& error) {
+  DCHECK(function);
+  if (!function) {
+    LOG(ERROR) << "OnClose is empty!!!!";
+    return;
+  }
+  if (error) {
+    function->Respond(function->Error(*error));
+  } else {
+    function->Respond(function->NoArguments());
+  }
+
+  if (!function->call_on_close_) {
+    LOG(INFO) << "SidePanelCloseFunction Release";
+    function->Release();
+  }
+}
+
+ExtensionFunction::ResponseAction
+SidePanelCloseFunction::RunCloseFunctionForInclude(
+    std::optional<api::side_panel::Close::Params>& params) {
+  LOG(INFO) << "SidePanelCloseFunction::RunFunction";
+  ExtensionSidePanelCloseOptions options;
+  options.extensionId = extension()->id();
+  if (params->options.tab_id.has_value()) {
+    options.tabId = params->options.tab_id.value();
+  }
+  if (params->options.window_id.has_value()) {
+    options.windowId = params->options.window_id.value();
+  }
+  std::string context_type = GetExtensionContextType(browser_context());
+  if (!context_type.empty()) {
+    options.contextType = context_type;
+  }
+  options.includeIncognitoInfo = include_incognito_information();
+
+  call_on_close_ = true;
+  bool success = NWebExtensionSidePanelCefDelegate::GetInstance()->OnClose(
+      options, base::BindRepeating(&SidePanelCloseFunction::OnClose,
+                                   weak_ptr_factory_.GetWeakPtr()));
+  call_on_close_ = false;
+  if (did_respond()) {
+    LOG(INFO) << "SidePanelCloseFunction did_respond";
+    return AlreadyResponded();
+  }
+
+  if (success) {
+    AddRef();
+    LOG(INFO) << "SidePanelCloseFunction AddRef";
+    return RespondLater();
+  }
+
+  return RespondNow(NoArguments());
+}
+
 }  // namespace extensions
