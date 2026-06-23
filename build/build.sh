@@ -23,20 +23,20 @@ BUILD_HMP_TOOL_DIR="${ROOT_DIR}/ohos_build/hmp_build"
 BUILD_TARGET_WEBVIEW="ohos_nweb_hap"
 BUILD_TARGET_V8="v8:v8_shared"
 BUILD_TARGET_BROWSERSHELL="ohos_browser_shell"
-BUILD_TARGET_COMPONENT="libarkweb_engine"
-BUILD_TARGET_NATIVE="adapter_ndk_stub libarkweb_engine libarkweb_render arkweb_crashpad_handler libffmpeg"
+BUILD_TARGET_COMPONENT="ohos_nweb_hap"
+BUILD_TARGET_NATIVE="adapter_ndk_stub libarkweb_engine libarkweb_render arkweb_crashpad_handler libffmpeg libwebjs_dfx"
 BUILD_TARGET_BROWSER_SERVICE="ohos_nweb_ex/browser_service"
 BUILD_TARGET_BROWSER_SERVICE_HAR="browser_service_har"
 BUILD_TARGET_BROWSER_ENGINE_CORE_UNITTESTS="arkweb/build/unittests:oh_core_unittests"
 BUILD_TARGET_BROWSER_ENGINE_BASE_UNITTESTS="arkweb/build/unittests:oh_base_unittests"
 BUILD_TARGET_BROWSER_ENGINE_SMOKE_UNITTESTS="arkweb/build/unittests:oh_smoke_unittests"
+BUILD_TARGET_ARKWEB_TEST_TOOLS="arkweb/build/tools:arkweb_test_tools"
 TEXT_BOLD="\033[1m"
 TEXT_NORMAL="\033[0m"
 
 #Add build args begin
 buildargs="
   target_os=\"ohos\"
-  is_debug=false
   is_component_build=false
   is_chrome_branded=false
   use_official_google_api_keys=false
@@ -52,7 +52,7 @@ buildargs="
   enable_resource_allowlist_generation=false
   clang_use_chrome_plugins=false
   enable_message_center=true
-  use_sysroot=false
+  use_sysroot=true
   gpu_switch=\"on\"
   proprietary_codecs=true
   enable_remoting=true
@@ -255,6 +255,10 @@ while [ "$1" != "" ]; do
       shift
       additional_gn_args="$1"
       ;;
+    "-m")
+      shift
+      build_modules="$1"
+      ;;
     "-h")
       usage
       exit 0
@@ -284,6 +288,7 @@ exec > >(tee "$log_file") 2>&1
 case "${build_target}" in
   "w"|"${BUILD_TARGET_WEBVIEW}")
     build_target="${BUILD_TARGET_WEBVIEW}"
+    build_hap=1
     ;;
   "p")
     build_target="${BUILD_TARGET_WEBVIEW}"
@@ -317,23 +322,35 @@ case "${build_target}" in
     build_target="${BUILD_TARGET_BROWSER_ENGINE_CORE_UNITTESTS}"
     ;;
   "allut"|"${BUILD_TARGET_BROWSER_ENGINE_BASE_UNITTESTS}")
-#    is_official_build=0
     buildargs="${buildargs}
     arkweb_test=true"
     build_target="${BUILD_TARGET_BROWSER_ENGINE_BASE_UNITTESTS}"
     ;;
   "smokeut"|"${BUILD_TARGET_BROWSER_ENGINE_SMOKE_UNITTESTS}")
-#    is_official_build=0
     buildargs="${buildargs}
     arkweb_test=true"
     build_target="${BUILD_TARGET_BROWSER_ENGINE_SMOKE_UNITTESTS}"
     ;;
+  "preciseut")
+    precise_build_ut=1
+    buildargs="${buildargs}
+    arkweb_test=true
+    arkweb_precise_build_ut=true
+    precise_build_config=\"arkweb/ut_tools/precise_build_config.json\"
+    coverage_instrumentation_input_file=\"//out/musl_64/coverage_instrumentation_input.txt\""
+    ;;
   "component")
     build_component=1
     build_target="${BUILD_TARGET_COMPONENT}"
+    if [ "-${build_modules}" != "-" ]; then
+      build_target="${build_modules}"
+    fi
+    ;;
+  "testtools")
+    build_target="${BUILD_TARGET_ARKWEB_TEST_TOOLS}"
     ;;
   *)
-    echo "Build_target: ${build_target}"
+    echo "build target: ${build_target}"
     ;;
 esac
 
@@ -347,6 +364,12 @@ if [[ -z "$ONLINE_USERNAME" ]] || [[ -z "$ONLINE_PASSWD" ]] ; then
       exit 2
     fi
   fi
+fi
+
+if [ $build_debug_version = 1 ]; then
+  buildsymbol=1
+  is_official_build=0
+  debug_args="is_debug=true use_debug_fission=true"
 fi
 
 SYMBOL_LEVEL=1
@@ -385,12 +408,18 @@ if [ ${build_legacy} -eq 1 ]; then
 else
   GN_ARGS="${GN_ARGS} is_nolegacy=true"
   export OH_LEGACY=0
-fi 
+fi
 
 if [ ${build_hwasan} -eq 1 ]; then
   GN_ARGS="${GN_ARGS} is_hwasan=true use_thin_lto=false v8_enable_pointer_compression=false v8_use_external_startup_data=false"
 else
   GN_ARGS="${GN_ARGS} is_hwasan=false"
+fi
+
+if [[ "${build_target}" = "${BUILD_TARGET_BROWSERSHELL}" ]] || [[ "${build_target}" = "${BUILD_TARGET_BROWSER_SERVICE_HAR}" ]]; then
+  GN_ARGS="${GN_ARGS} is_browser_service=true"
+else
+  GN_ARGS="${GN_ARGS} is_browser_service=false"
 fi
 
 if [ ${build_release} -eq 1 ]; then
@@ -404,7 +433,7 @@ if [ ${build_fuzz} -eq 1 ]; then
 fi
 
 if [ ${build_v8} -eq 1 ]; then
-  GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = false v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false"
+  GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = true v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false use_allocator_shim = false enable_backup_ref_ptr_support = false"
 fi
 
 if [ ${use_thin_lto} -eq 1 ]; then
@@ -438,6 +467,10 @@ if [ -f "${ROOT_DIR}/third_party/ohos_nweb_hap/BUILD.gn" ]; then
   enable_ohos_nweb_hap=true"
 fi
 
+if [[ "${build_type}" == "rk3568" ]] || [[ "${build_type}" == "rk3568_64" ]]; then
+  with_nweb_ex=0
+fi
+
 # if [ ${with_nweb_ex} -eq 1 -a ${artifact_mode} -eq 1 ]; then
 if [ ${with_nweb_ex} -eq 1 ]; then
   if ! [ -d "${ROOT_DIR}"/"${build_dir}" ]; then
@@ -465,6 +498,8 @@ if [ ${with_nweb_ex} -eq 1 ]; then
     echo -e "Failed to execute build/config_to_gn.py, see errors above."
     exit 1
   fi
+  rm -rf ./src/third_party/ohos_nweb_hap/hvigor ./src/third_party/ohos_nweb_hap/signature
+  cp -r ./src/third_party/ohos_nweb_hap/dependencies/musl/* ./src/third_party/ohos_nweb_hap/
   buildargs="${buildargs}
     ohos_nweb_ex_config_name=\"//${build_dir}${BUILD_CONFIG_NAME}\"
     arkweb_ext_dir=\"//arkweb/ohos_nweb_ex\"
@@ -498,6 +533,12 @@ else
     echo -e "Failed to execute build/config_to_gn.py, see errors above."
     exit 1
   fi
+  rm -rf ./src/third_party/ohos_nweb_hap/hvigor ./src/third_party/ohos_nweb_hap/signature
+  cp -r ./src/third_party/ohos_nweb_hap/dependencies/rk/* ./src/third_party/ohos_nweb_hap/
+  buildargs="${buildargs}
+    ohos_nweb_ex_config_name=\"\"
+    arkweb_ext_dir=\"\"
+    "
 fi
 
 echo "Copying NDK stub files..."
@@ -522,20 +563,24 @@ cd -
 time_start_for_build=$(date +%s)
 time_start_for_gn=$time_start_for_build
 
-
 if [ $buildgn = 1 ]; then
   echo "generating args list:"
-  echo "$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS symbol_level=$SYMBOL_LEVEL $additional_gn_args"
+  echo "$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS $debug_args symbol_level=$SYMBOL_LEVEL $additional_gn_args"
 
   third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS symbol_level=$SYMBOL_LEVEL $additional_gn_args"
   if [ "${build_target}" = "ohos_nweb_hap" ]; then
     echo "extract build_metadata file and generate arkweb_prebuild.gni"
-    python3 ${ROOT_DIR}/arkweb/build/collect_prebuild_targets.py --search-root out/ --output ${ROOT_DIR}/${build_dir}arkweb_prebuild.gni --threads 10
+    python3 ${ROOT_DIR}/arkweb/build/collect_prebuild_targets.py --search-root ${ROOT_DIR}/${build_dir} --output ${ROOT_DIR}/${build_dir}arkweb_prebuild.gni --threads 10
     buildargs="${buildargs}
       arkweb_enable_prebuild=true"
     echo "generating args list:"
     echo "$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS symbol_level=$SYMBOL_LEVEL $additional_gn_args"
-    third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS symbol_level=$SYMBOL_LEVEL $additional_gn_args"
+    third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS $debug_args symbol_level=$SYMBOL_LEVEL $additional_gn_args"
+    # 删除build.ninja中的generator规则，避免ninja无限循环重新生成
+    # 原因：GN每次gen都会重写args.gn，ninja检测到变化就会触发generator规则重新运行GN
+    # 解决方案：删除build.ninja中的generator标记和gn规则，彻底禁用自动重新生成
+    sed -i '/^rule gn$/,/^build build.ninja: phony build.ninja.stamp$/d' ${ROOT_DIR}/${build_dir}build.ninja
+    sed -i '/generator = 1/d' ${ROOT_DIR}/${build_dir}build.ninja
   fi
 fi
 time_end_for_gn=$(date +%s)
@@ -553,24 +598,51 @@ if [ ${build_fuzz} -eq 1 ]; then
 fi
 export OHOS_BASE_SDK_HOME="${ROOT_DIR}/ohos_sdk"
 
-if [ "${build_target}" = "ohos_nweb_hap" ]; then
+if [ ${precise_build_ut} -eq 1 ]; then
+  # precise_ut_result files
+  file="$build_dir/ut_precise/precise_ut_result.txt"
+  precise_build_result=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    precise_build_result+="$line "
+  done < "$file"
+
+  if [ -z "${precise_build_result// }" ]; then
+    buildargs="${buildargs}
+    arkweb_test=true
+    use_clang_coverage=false
+    arkweb_precise_build_ut=false"
+    third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS $debug_args symbol_level=$SYMBOL_LEVEL $additional_gn_args"
+    build_target="${BUILD_TARGET_BROWSER_ENGINE_CORE_UNITTESTS}"
+  else
+    build_target="${precise_build_result}"
+  fi
+elif [ "${build_target}" = "ohos_nweb_hap" ]; then
   echo "third_party/depot_tools/ninja -C $build_dir -j$buildcount arkweb_prebuild"
   ninja_prebuild_start=$(date +%s)
   third_party/depot_tools/ninja -C $build_dir -j$buildcount arkweb_prebuild_buildflags
   third_party/depot_tools/ninja -C $build_dir -j$buildcount arkweb_prebuild_mojom
   ninja_prebuild_end=$(date +%s)
+  mojo_pre_time_cost=$(($ninja_mojo_pre_end - $ninja_mojo_pre_start))
   echo "##############################################"
+  echo "ninja mojo_pre exit code: $ninja_mojo_pre_exit_code"
   echo "ninja arkweb_prebuild time cost: $(($ninja_prebuild_end - $ninja_prebuild_start))"
   echo "##############################################"
+
+  if [ $ninja_mojo_pre_exit_code -ne 0 ]; then
+    echo "WARNING: ninja mojo_pre failed with exit code $ninja_mojo_pre_exit_code, but continuing script execution..."
+  fi
 fi
 
 echo "third_party/depot_tools/ninja -C $build_dir -j$buildcount ${build_target}"
-ninja_start=$(date +%s)
 third_party/depot_tools/ninja -C $build_dir -j$buildcount ${build_target}
-ninja_end=$(date +%s)
-echo "##############################################"
-echo "ninja time cost: $(($ninja_end - $ninja_start))"
-echo "##############################################"
+ninja_exit_code=$?
+
+echo "ninja exit code: $ninja_exit_code"
+
+# 如果ninja有错误，输出提示信息
+if [ $ninja_exit_code -ne 0 ]; then
+  echo "WARNING: ninja build failed with exit code $ninja_exit_code, but continuing script execution..."
+fi
 
 if [[ $build_hmp =~ 1 ]] ; then
   export HW_HARMONY_ENGINE_ROOT="${CUR_DIR}"
@@ -585,6 +657,21 @@ if [[ $build_hmp =~ 1 ]] ; then
   export ohos_mr_build_type="$build_type"
 
   bash -c "${BUILD_HMP_TOOL_DIR}/build_hmp.sh"
+elif [[ $build_hap =~ 1 ]] && [[ ${with_nweb_ex} -eq 0 ]] ; then
+    export HW_HARMONY_ENGINE_ROOT="${CUR_DIR}"
+    bash -c "bash ${ROOT_DIR}/arkweb/build/sign.sh ${build_type}"
+elif [[ $build_hap =~ 1 ]] && [[ ${build_hwasan} -eq 1 ]] ; then
+    export HW_HARMONY_ENGINE_ROOT="${CUR_DIR}"
+    export HW_HARMONY_ENGINE_OUT_RELEASE="${ROOT_DIR}/${build_dir}/"
+    if [[ -n "$ONLINE_USERNAME" ]] && [[ -n "$ONLINE_PASSWD" ]] ; then
+      export SIGN_NEW_USERNAME="${ONLINE_USERNAME}"
+      export SIGN_NEW_PASSWORD="${ONLINE_PASSWD}"
+    else
+      export SIGN_NEW_USERNAME="${usernameForSignHmp}"
+      export SIGN_NEW_PASSWORD="${passwordForSignHmp}"
+    fi
+    export ohos_mr_build_type="$build_type"
+    bash -c "bash ${ROOT_DIR}/ohos_nweb_ex/signature_nweb/sign_asan.sh"
 fi
 
 time_end_for_build=$(date +%s)
@@ -615,5 +702,4 @@ while IFS= read -r dir; do
 done < <(jq -c '. | to_entries[]' "$json_file")
 
 python3 $ROOT_DIR/arkweb/build/ninja2trace.py --ninja-log $ROOT_DIR/$build_dir/.ninja_log --trace-file $ROOT_DIR/$build_dir/build.trace --ninja-start-time "0" --duration-file $ROOT_DIR/$build_dir/sorted_action_duration.txt
-
 echo "Build completed. For more build information, see: $log_file"
