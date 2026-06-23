@@ -26,6 +26,7 @@
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
+#include "chrome/common/chrome_paths.h"
 #include "content/public/browser/browser_thread.h"
 #endif
 
@@ -44,6 +45,19 @@ constexpr char kNewbAssetHandleAlias[] = "asset_data_key";
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
+base::FilePath GetMigrateBasePath() {
+  base::FilePath path;
+  if (base::PathService::Get(chrome::DIR_USER_DATA, &path)) {
+    base::FilePath migratePath = path.Append(FILE_PATH_LITERAL("migrate"));
+    if (base::PathExists(migratePath)) {
+      return path;
+    }
+  }
+ 
+  base::PathService::Get(base::DIR_CACHE, &path);
+  return path;
+}
+
 void SetMigratePasswordsFlagToFile() {
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     content::GetUIThreadTaskRunner({})->PostTask(
@@ -97,8 +111,7 @@ static std::string AssetQuery(base::FilePath key_file) {
 }
 
 static std::string GetKeyFromAsset() {
-  base::FilePath cache_path;
-  base::PathService::Get(base::DIR_CACHE, &cache_path);
+  base::FilePath cache_path = GetMigrateBasePath();
   if (cache_path.empty()) {
     return std::string();
   }
@@ -108,7 +121,8 @@ static std::string GetKeyFromAsset() {
   if (!base::PathExists(key_dir)) {
     LOG(ERROR) << "[Autofill] Assethandle dir not exist.";
     std::string err_msg = "Assethandle dir not exist, error_code:" +
-                          std::to_string(DIRECTORY_OR_FILE_NOT_EXIST);
+                          std::to_string(DIRECTORY_OR_FILE_NOT_EXIST) + ", data_dir:" +
+                          cache_path.value();
     base::ohos::ReportEngineEvent(base::ohos::kModuleContentBrowser, base::ohos::kDefaultUrl,
                                   base::ohos::kPasswordManagerError, err_msg);
     SetMigratePasswordsFlagToFile();
@@ -120,7 +134,8 @@ static std::string GetKeyFromAsset() {
   if (!base::PathExists(key_file)) {
     LOG(ERROR) << "[Autofill] Assethandle file not exist.";
     std::string err_msg = "Assethandle file not exist, error_code:" +
-                          std::to_string(DIRECTORY_OR_FILE_NOT_EXIST);
+                          std::to_string(DIRECTORY_OR_FILE_NOT_EXIST) + ", data_dir:" +
+                          cache_path.value();
     base::ohos::ReportEngineEvent(base::ohos::kModuleContentBrowser, base::ohos::kDefaultUrl,
                                   base::ohos::kPasswordManagerError, err_msg);
     SetMigratePasswordsFlagToFile();
