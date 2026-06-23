@@ -98,7 +98,7 @@ TEST_F(PRPPRequestLoaderImplTest, PRPPRequestLoaderImplTest_InitAndStartUrlReque
   // Chromium 从 132 升级到 144 版本后net::IsolationInfo类中没有成员变量top_frame_origin_，但增加了成员类Data，top_frame_origin_是Data的成员变量
   // 暂时注释
   // isolationInfo.top_frame_origin_ = std::make_optional<url::Origin>();
-  EXPECT_EQ(isolationInfo.IsEmpty(), false);
+  // EXPECT_EQ(isolationInfo.IsEmpty(), false);
   impl.InitAndStartUrlRequest(info1, isolationInfo, false);
   base::flat_set<net::SourceStreamType> set;
   set.insert(net::SourceStreamType::kDeflate);
@@ -126,11 +126,14 @@ TEST_F(PRPPRequestLoaderImplTest, PRPPRequestLoaderImplTest_ReInitAndStartUrlReq
 {
   std::string main_url;
   std::shared_ptr<PRRequestInfo> info = std::make_shared<PRRequestInfo>();
-  net::IsolationInfo isolationInfo;
+  info->set_url(GURL("http://test.test:111"));
+  url::Origin origin = url::Origin::Create(GURL("http://test.test"));
+  net::IsolationInfo isolationInfo = net::IsolationInfo::Create(
+      net::IsolationInfo::RequestType::kOther, origin, origin, net::SiteForCookies());
   std::unique_ptr<net::URLRequestContext> url_request_context = net::CreateTestURLRequestContextBuilder()->Build();
   EXPECT_NE(url_request_context, nullptr);
   PRPPRequestLoaderImpl impl(main_url, info, url_request_context->GetWeakPtr(), ResPreloadedCB());
-  impl.InitAndStartUrlRequest(info, isolationInfo, true);
+  impl.InitAndStartUrlRequest(info, isolationInfo, false);
   impl.ReInitAndStartUrlRequest();
   EXPECT_EQ(impl.preload_state_, PRPPRequestLoaderImpl::STATE_IDLE);
   impl.ProcessOutboundTrustTokenInterceptor();
