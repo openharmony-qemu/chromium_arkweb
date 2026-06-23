@@ -3309,7 +3309,9 @@ void NWebImpl::OnFocus(const FocusReason& focusReason) {
     LOG(INFO) << "WebCustomKeyboard NWebImpl::OnFocus";
     nweb_delegate_->GetCustomKeyboardHandler()->AttachFromWebStateChange(
         WebCustomKeyboardState::FROME_ONFOCUS);
-    return;
+    if (nweb_delegate_->OnFocus(focusReason)) {
+        return;
+    }
   }
 
   if (inputmethod_handler_ == nullptr) {
