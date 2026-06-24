@@ -51,9 +51,11 @@ test("arkweb_sandbox_unittests") {
 
   public_deps = [
     "//testing/gmock",
+    "//testing/gtest",
   ]
 
   deps = [
+    ":arkweb_sandbox",
     "//base",
     "//base/test:test_support",
     "//cef:libcef_static",
@@ -61,7 +63,6 @@ test("arkweb_sandbox_unittests") {
     "//content/public/common",
     "//ohos_glue:ohos_adapter_glue_source",
     "//ohos_glue:ohos_nweb_glue_source",
-    "//testing/gtest:gtest_main",
     "//third_party/boringssl",
   ]
 
