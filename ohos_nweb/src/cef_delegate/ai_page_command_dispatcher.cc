@@ -21,6 +21,7 @@
 #include <array>
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include "arkweb/build/features/features.h"
 #include "base/datashare_uri_utils.h"
@@ -39,6 +40,7 @@
 #include "nweb.h"
 #include "nweb_errors.h"
 #include "screenshot_observer.h"
+#include "url/gurl.h"
 
 namespace OHOS::NWeb {
 namespace {
@@ -123,6 +125,89 @@ std::string BuildResultJson(int32_t code, const std::string &message) {
   base::JSONWriter::Write(result, &json);
   return json;
 }
+
+std::string WriteJson(base::Value::Dict value) {
+  std::string json;
+  base::JSONWriter::Write(value, &json);
+  return json;
+}
+
+std::string WriteJsonString(const std::string& value) {
+  std::string json;
+  base::JSONWriter::Write(base::Value(value), &json);
+  return json;
+}
+
+void ResolveNavigationOk(AIPageCommandDispatcher::ResultCallback callback) {
+  if (!callback) {
+    return;
+  }
+  callback->OnReceiveValue("{\"ok\":true}");
+}
+
+void ResolveNavigationOk(AIPageCommandDispatcher::ResultCallback callback,
+                         base::Value::Dict payload) {
+  if (!callback) {
+    return;
+  }
+  callback->OnReceiveValue("{\"ok\":true,\"result\":" +
+                           WriteJson(std::move(payload)) + "}");
+}
+
+void ResolveNavigationError(AIPageCommandDispatcher::ResultCallback callback,
+                            const std::string& error) {
+  if (!callback) {
+    return;
+  }
+  callback->OnReceiveValue("{\"ok\":false,\"error\":" +
+                           WriteJsonString(error) + "}");
+}
+
+bool IsAllowedNavigationUrl(const std::string& url) {
+  GURL gurl(url);
+  return gurl.is_valid() &&
+         (gurl.SchemeIsHTTPOrHTTPS() || gurl.SchemeIsFile() ||
+          gurl.SchemeIs("about"));
+}
+
+class AIPageNavigationEntryVisitor : public CefNavigationEntryVisitor {
+ public:
+  bool Visit(CefRefPtr<CefNavigationEntry> entry,
+             bool current,
+             int index,
+             int /*total*/) override {
+    if (current) {
+      current_index_ = index;
+    }
+
+    base::Value::Dict item;
+    item.Set("index", index);
+    if (entry && entry->IsValid()) {
+      item.Set("url", entry->GetURL().ToString());
+      item.Set("title", entry->GetTitle().ToString());
+    } else {
+      item.Set("url", std::string());
+      item.Set("title", std::string());
+    }
+    entries_.Append(std::move(item));
+    return true;
+  }
+
+  base::Value::Dict TakeResult(CefRefPtr<ArkWebBrowserExt> browser) {
+    base::Value::Dict result;
+    result.Set("currentIndex", current_index_);
+    result.Set("canGoBack", browser && browser->CanGoBack());
+    result.Set("canGoForward", browser && browser->CanGoForward());
+    result.Set("entries", std::move(entries_));
+    return result;
+  }
+
+ private:
+  int current_index_ = -1;
+  base::Value::List entries_;
+
+  IMPLEMENT_REFCOUNTING(AIPageNavigationEntryVisitor);
+};
 }  // namespace
 
 void AIPageCommandDispatcher::Dispatch(const std::string& command,
@@ -142,7 +227,7 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  std::array<CommandEntry, 8> kCommandEntries = {{
+  std::array<CommandEntry, 12> kCommandEntries = {{
       {"getFullDom", &AIPageCommandDispatcher::HandleGetFullDomCommand},
       {"getLiteDom", &AIPageCommandDispatcher::HandleGetLiteDomCommand},
       {"scroll", &AIPageCommandDispatcher::HandleScrollCommand},
@@ -151,6 +236,10 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
       {"screenCapture", &AIPageCommandDispatcher::HandleScreenCaptureCommand},
       {"addPageAnnotation", &AIPageCommandDispatcher::HandleAddPageAnnotationCommand},
       {"removePageAnnotation", &AIPageCommandDispatcher::HandleRemovePageAnnotationCommand},
+      {"getUrlHistory", &AIPageCommandDispatcher::HandleGetUrlHistoryCommand},
+      {"goBack", &AIPageCommandDispatcher::HandleGoBackCommand},
+      {"goForward", &AIPageCommandDispatcher::HandleGoForwardCommand},
+      {"navigate", &AIPageCommandDispatcher::HandleNavigateCommand},
   }};
 
   auto entry = std::find_if(
@@ -604,6 +693,79 @@ void AIPageCommandDispatcher::HandleRemovePageAnnotationCommand(
   CefRefPtr<AIPageCommandCallbackImpl> cefCallback =
       new AIPageCommandCallbackImpl(callback);
   browser->GetMainFrame()->AsArkWebFrame()->RemovePageAnnotation(cefCallback);
+}
+
+void AIPageCommandDispatcher::HandleGetUrlHistoryCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict&,
+    ResultCallback callback) {
+  if (browser == nullptr || browser->GetHost() == nullptr) {
+    ResolveNavigationError(callback, "browser host is not available");
+    return;
+  }
+
+  CefRefPtr<AIPageNavigationEntryVisitor> visitor =
+      new AIPageNavigationEntryVisitor();
+  browser->GetHost()->GetNavigationEntries(visitor, false);
+  ResolveNavigationOk(callback, visitor->TakeResult(browser));
+}
+
+void AIPageCommandDispatcher::HandleGoBackCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict&,
+    ResultCallback callback) {
+  if (browser == nullptr) {
+    ResolveNavigationError(callback, "browser is not available");
+    return;
+  }
+  if (!browser->CanGoBack()) {
+    ResolveNavigationError(callback, "Cannot go back");
+    return;
+  }
+
+  browser->GoBack();
+  ResolveNavigationOk(callback);
+}
+
+void AIPageCommandDispatcher::HandleGoForwardCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict&,
+    ResultCallback callback) {
+  if (browser == nullptr) {
+    ResolveNavigationError(callback, "browser is not available");
+    return;
+  }
+  if (!browser->CanGoForward()) {
+    ResolveNavigationError(callback, "Cannot go forward");
+    return;
+  }
+
+  browser->GoForward();
+  ResolveNavigationOk(callback);
+}
+
+void AIPageCommandDispatcher::HandleNavigateCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& command,
+    ResultCallback callback) {
+  const base::Value::Dict* params = command.FindDict("params");
+  const std::string* url = params ? params->FindString("url") : nullptr;
+  if (!url || url->empty()) {
+    ResolveNavigationError(callback, "params.url is required");
+    return;
+  }
+  if (!IsAllowedNavigationUrl(*url)) {
+    ResolveNavigationError(callback, "params.url is invalid");
+    return;
+  }
+
+  if (browser == nullptr || browser->GetMainFrame() == nullptr) {
+    ResolveNavigationError(callback, "main frame is not available");
+    return;
+  }
+
+  browser->GetMainFrame()->LoadURL(CefString(*url));
+  ResolveNavigationOk(callback);
 }
 
 }  // namespace OHOS::NWeb

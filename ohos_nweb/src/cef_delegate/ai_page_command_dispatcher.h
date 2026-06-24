@@ -68,6 +68,18 @@ class AIPageCommandDispatcher {
   static void HandleRemovePageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                                 const base::Value::Dict& command,
                                                 ResultCallback callback);
+  static void HandleGetUrlHistoryCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                         const base::Value::Dict& command,
+                                         ResultCallback callback);
+  static void HandleGoBackCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                  const base::Value::Dict& command,
+                                  ResultCallback callback);
+  static void HandleGoForwardCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                     const base::Value::Dict& command,
+                                     ResultCallback callback);
+  static void HandleNavigateCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                    const base::Value::Dict& command,
+                                    ResultCallback callback);
 
   // --- Helpers ---
   static void ReplyError(ResultCallback callback,
