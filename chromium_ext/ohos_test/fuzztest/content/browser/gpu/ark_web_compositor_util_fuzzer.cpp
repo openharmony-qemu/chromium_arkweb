@@ -15,8 +15,8 @@
 
 #include <fuzzer/FuzzedDataProvider.h>
 
-#include "chromium_ext/content/browser/gpu/ark_web_compositor_util.h"
-#include "chromium_ext/content/public/common/content_switches_ext.h"
+#include "arkweb/chromium_ext/content/browser/gpu/ark_web_compositor_util.h"
+#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "base/command_line.h"
 #include "cc/base/switches.h"
 #include "testing/gtest/include/gtest/gtest.h"

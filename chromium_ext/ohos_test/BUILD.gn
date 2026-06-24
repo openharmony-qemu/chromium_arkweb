@@ -133,6 +133,13 @@ group("ohos_fuzz") {
       "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/third_party/blink/renderer/core/exported:exported_fuzzers",
       "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/platform/widget/input:software_compositor_proxy_ohos_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/core/css:element_rule_collector_for_include_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/skia/ext/:skia_memory_tracer_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/gpu/ipc/common/:nweb_native_window_tracker_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/gpu/ipc/common/:gpu_surface_id_tracker_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/gpu/vulkan/ohos/:vulkan_implementation_ohos_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/components/viz/service/frame_sinks/:external_begin_frame_source_ohos_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/gpu/command_buffer/service/shared_image/:ohos_native_buffer_image_backing_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/content/browser/gpu/:ark_web_compositor_util_fuzzer",
       ":nweb_output_handler_fuzzer",
     ]
 }
