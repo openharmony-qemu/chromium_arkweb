@@ -14,10 +14,7 @@
  */
 
 #if BUILDFLAG(ARKWEB_FILE_UPLOAD) || BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
-bool FilePath::IsDataShareUri(std::string bundleName) const {
-  if (!bundleName.empty()) {
-    SetBundleName(bundleName);
-  }
+bool FilePath::IsDataShareUri() const {
   return StartsWith(path_, "datashare://",
                     base::CompareCase::INSENSITIVE_ASCII) ||
          StartsWith(path_, "dataability://",
@@ -25,8 +22,6 @@ bool FilePath::IsDataShareUri(std::string bundleName) const {
          StartsWith(path_, "file://media/",
                     base::CompareCase::INSENSITIVE_ASCII) ||
          StartsWith(path_, "file://docs/",
-                    base::CompareCase::INSENSITIVE_ASCII) ||
-         StartsWith(path_, "file://" + bundleName_ + "/",
                     base::CompareCase::INSENSITIVE_ASCII);
 }
 
