@@ -85,6 +85,9 @@ Node* SnapshotGenerator::CreateNode(Node::Type type, std::string name,
 
 Node* SnapshotGenerator::AddNode(internal::Address obj_addr, Node::Type type,
                                  std::string name, uint32_t self_size) {
+  // Rawheap real addresses are graph identities only. They key the translated
+  // node map like V8HeapExplorer's HeapObjectsMap, but are never dereferenced
+  // by the offline translator.
   if (Node* n = GetNode(obj_addr); n != nullptr) {
     if (n->type_ == static_cast<uint32_t>(Node::Type::kNotInit)) {
       n->type_ = static_cast<uint32_t>(type);
@@ -99,6 +102,46 @@ Node* SnapshotGenerator::AddNode(internal::Address obj_addr, Node::Type type,
   Node* n = CreateNode(type, name, self_size);
   node_by_addr_[obj_addr] = n->id_;
   return n;
+}
+
+SnapshotGenerator::RetagNodeStatus SnapshotGenerator::RetagNodeIfExisting(
+    internal::Address obj_addr, const std::string& name, Node::Type type,
+    bool update_type, bool overwrite_system_name) {
+  RetagNodeStatus status;
+  Node* node = GetNode(obj_addr);
+  if (node == nullptr ||
+      node->type_ == static_cast<uint32_t>(Node::Type::kNotInit)) {
+    return status;
+  }
+  status.node_found = true;
+
+  // Native TagObject's default path only overwrites empty names. Some ArkWeb
+  // system names are fallback names for native-empty nodes, so callers must
+  // opt in before those placeholders can be replaced.
+  bool should_update_name = false;
+  auto empty_name = strings_.find("");
+  if (empty_name != strings_.end() && node->name_ == empty_name->second) {
+    should_update_name = true;
+  } else if (overwrite_system_name) {
+    for (const auto& entry : strings_) {
+      if (entry.second == node->name_ &&
+          entry.first.rfind("system / ", 0) == 0) {
+        should_update_name = true;
+        break;
+      }
+    }
+  }
+  if (should_update_name) {
+    node->name_ = GetStringId(name);
+    status.name_updated = true;
+  } else if (!name.empty()) {
+    status.name_suppressed = true;
+  }
+  if (update_type && node->type_ != static_cast<uint32_t>(type)) {
+    node->type_ = static_cast<uint32_t>(type);
+    status.type_updated = true;
+  }
+  return status;
 }
 
 void SnapshotGenerator::AddSyntheticRootNodes() {
@@ -138,96 +181,115 @@ uint32_t SnapshotGenerator::GetStringId(std::string str) {
   return id;
 }
 
-void SnapshotGenerator::SetReference(Edge::Type type, internal::Address parent,
+bool SnapshotGenerator::SetReference(Edge::Type type, internal::Address parent,
                                      uint32_t name_or_index,
                                      internal::Address child) {
   Node* parent_node = GetNode(parent);
   if (!parent_node) {
     LogInfo("parent_node addr " + std::to_string(parent));
-    CHECK(parent_node);
+    return false;
   }
   Node* child_node = GetNode(child);
   if (!child_node) {
     LogInfo("child_node addr " + std::to_string(child));
-    CHECK(child_node);
+    return false;
   }
   parent_node->SetReference(type, child_node, name_or_index, this);
+  return true;
 }
 
-void SnapshotGenerator::SetShortcutReference(i::Address parent,
+bool SnapshotGenerator::SetShortcutReference(i::Address parent,
                                              std::string reference_name,
                                              i::Address child) {
-  SetReference(Edge::Type::kShortcut, parent, GetStringId(reference_name),
-               child);
+  return SetReference(Edge::Type::kShortcut, parent, GetStringId(reference_name),
+                      child);
 }
 
-void SnapshotGenerator::SetContextReference(i::Address parent,
+bool SnapshotGenerator::SetContextReference(i::Address parent,
                                             std::string reference_name,
                                             i::Address child,
                                             int field_offset) {
-  SetReference(Edge::Type::kContextVariable, parent,
-               GetStringId(reference_name), child);
+  if (!SetReference(Edge::Type::kContextVariable, parent,
+                    GetStringId(reference_name), child)) {
+    return false;
+  }
   MarkVisitedField(field_offset);
+  return true;
 }
 
-void SnapshotGenerator::SetElementReference(i::Address parent, uint32_t index,
+bool SnapshotGenerator::SetElementReference(i::Address parent, uint32_t index,
                                             i::Address child) {
-  SetReference(Edge::Type::kElement, parent, index, child);
+  return SetReference(Edge::Type::kElement, parent, index, child);
 }
 
-void SnapshotGenerator::SetInternalReference(i::Address parent,
+bool SnapshotGenerator::SetInternalReference(i::Address parent,
                                              std::string reference_name,
                                              i::Address child,
                                              int field_offset) {
-  SetReference(Edge::Type::kInternal, parent, GetStringId(reference_name),
-               child);
+  if (!SetReference(Edge::Type::kInternal, parent, GetStringId(reference_name),
+                    child)) {
+    return false;
+  }
   MarkVisitedField(field_offset);
+  return true;
 }
 
 // SetHiddenReference in heap-snapshot-generator.cc
-void SnapshotGenerator::SetHiddenReference(internal::Address parent,
+bool SnapshotGenerator::SetHiddenReference(internal::Address parent,
                                            uint32_t index,
                                            internal::Address child) {
   // Note: Check IsEssentialObject and IsEssentialHiddenReference
-  SetReference(Edge::Type::kHidden, parent, index, child);
+  return SetReference(Edge::Type::kHidden, parent, index, child);
 }
 
-void SnapshotGenerator::SetWeakReference(i::Address parent, uint32_t index,
+bool SnapshotGenerator::SetWeakReference(i::Address parent, uint32_t index,
                                          i::Address child,
                                          std::optional<int> field_offset) {
   // NIY:IsEssentialObject
-  SetReference(Edge::Type::kWeak, parent, GetStringId(std::to_string(index)),
-               child);
+  if (!SetReference(Edge::Type::kWeak, parent, GetStringId(std::to_string(index)),
+                    child)) {
+    return false;
+  }
   if (field_offset.has_value()) {
     MarkVisitedField(*field_offset);
   }
+  return true;
 }
 
-void SnapshotGenerator::SetWeakReference(i::Address parent,
+bool SnapshotGenerator::SetWeakReference(i::Address parent,
                                          std::string reference_name,
                                          i::Address child,
                                          std::optional<int> field_offset) {
   // NIY:IsEssentialObject
-  SetReference(Edge::Type::kWeak, parent, GetStringId(reference_name), child);
+  if (!SetReference(Edge::Type::kWeak, parent, GetStringId(reference_name),
+                    child)) {
+    return false;
+  }
   if (field_offset.has_value()) {
     MarkVisitedField(*field_offset);
   }
+  return true;
 }
 
-void SnapshotGenerator::SetPropertyReference(i::Address parent,
+bool SnapshotGenerator::SetPropertyReference(i::Address parent,
                                              std::string reference_name,
-                                             i::Address child,
-                                             int field_offset) {
-  // see SetPropertyReference in heap-snapshot-generator.cc
-  // In V8, edge type is kProperty if name is a symbol or has length > 0,
-  // otherwise kInternal
-  Edge::Type type =
-      reference_name.empty() ? Edge::Type::kInternal : Edge::Type::kProperty;
-  SetReference(type, parent, GetStringId(reference_name), child);
+                                             i::Address child, int field_offset,
+                                             bool unresolved_name) {
+  // See SetPropertyReference in heap-snapshot-generator.cc.
+  // For resolved names, classify as kProperty; for synthetic fallback names
+  // generated from descriptor/dictionary indexes, classify as kInternal via
+  // unresolved_name.
+  Edge::Type type = (unresolved_name || reference_name.empty())
+                        ? Edge::Type::kInternal
+                        : Edge::Type::kProperty;
+  if (!SetReference(type, parent, GetStringId(reference_name), child)) {
+    return false;
+  }
   MarkVisitedField(field_offset);
+  return true;
 }
 
-void SnapshotGenerator::SetDataOrAccessorPropertyReference(
+bool SnapshotGenerator::SetDataOrAccessorPropertyReference(
     i::Address parent, std::string reference_name, i::Address child,
     int field_offset) {
   // see SetDataOrAccessorPropertyReference in heap-snapshot-generator.cc
@@ -235,7 +297,7 @@ void SnapshotGenerator::SetDataOrAccessorPropertyReference(
   // For accessor properties, it would call ExtractAccessorPairProperty.
   // Here we simplify by always treating as data property.
   // NIY: Handle accessor properties if needed
-  SetPropertyReference(parent, reference_name, child, field_offset);
+  return SetPropertyReference(parent, reference_name, child, field_offset);
 }
 
 void SnapshotGenerator::SetUserGlobalReference(i::Address child) {

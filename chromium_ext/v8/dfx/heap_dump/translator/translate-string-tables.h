@@ -26,6 +26,11 @@
 #include "arkweb/chromium_ext/v8/dfx/heap_dump/dump-format.h"
 namespace v8 {
 namespace dfx {
+struct StringTableElementInfo {
+  i::Address string_address_;
+  int len_;
+};
+
 class StringTableTranslator {
  public:
   StringTableTranslator(BinaryReaderBase* reader,

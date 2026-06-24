@@ -50,11 +50,8 @@ class HeapDumper {
   DISALLOW_GARBAGE_COLLECTION(no_heap_allocation_)
 #endif
 
-      void PreVisit();
+  void PreVisit();
   void DumpHeader();
-#if defined(OH_ENABLE_HEAP_DUMP_JSON_METADATA)
-  void DumpMetadata();
-#endif
 
   // v8 related
   i::Heap* heap_{nullptr};

@@ -54,20 +54,32 @@ heap_dump_ut_include = [
 heap_dump_translator_include = [
   "//arkweb/chromium_ext/v8/dfx/heap_dump/binary-reader-base.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/binary-reader.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-header.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-objects.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-diagnostics.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-indirect-pointer-loader.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-offheap-tables.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-string-tables.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/snapshot-generator.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/snapshot-serializer.h",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-fake-heap-object.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-roots.h",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-heap.h",
 ]
 
 heap_dump_translator_source = [
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/binary-reader.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-header.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-instruction-stream.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-objects.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-diagnostics.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-indirect-pointer-loader.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-offheap-tables.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-string-tables.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-wasm-objects.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/snapshot-generator.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/snapshot-serializer.cc",
+  "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-fake-heap-object.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-roots.cc",
   "//arkweb/chromium_ext/v8/dfx/heap_dump/translator/translate-heap.cc",
 ]
