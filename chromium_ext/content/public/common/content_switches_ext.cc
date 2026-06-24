@@ -42,8 +42,7 @@ const char kDisableMobileStyleSheet[] = "ohos-disable-mobile-style-sheet";
 const char kDisableNonAdvancedSecurityMode[] =
     "disable-non-advanced-security-mode";
 const char kDisableNextPreviousFlag[] = "ohos-disable-next-previous-flag";
-const char kUserCacheDir[] = "user-cache-dir"; 
-const char kArkwebAppDataDir[] = "arkweb-app-data-dir";
+const char kEnableCacheDataDirSeparation[] = "enable-cache-data-dir-separation";
 const char kEnableUserDataDirMigration[] = "enable-user-data-dir-migration";
 
 #endif
