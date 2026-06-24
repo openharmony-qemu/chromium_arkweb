@@ -67,6 +67,10 @@
     is_system_rtl_enabled_ = enable;
   }
   bool GetIsSystemRtlEnabled() { return is_system_rtl_enabled_; }
+  void SetIsCompatibleConvertingEnabled(bool enable) {
+    is_compatible_converting_enabled_ = enable;
+  }
+  bool GetIsCompatibleConvertingEnabled() { return is_compatible_converting_enabled_; }
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)

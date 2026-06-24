@@ -78,6 +78,14 @@ void WebSettingsImplExt::SetIsSystemRtlEnable(bool enable) {
 bool WebSettingsImplExt::GetIsSystemRtlEnabled() {
   return settings_->GetIsSystemRtlEnabled();
 }
+
+void WebSettingsImplExt::SetIsCompatibleConvertingEnabled(bool enable) {
+  settings_->SetIsCompatibleConvertingEnabled(enable);
+}
+
+bool WebSettingsImplExt::GetIsCompatibleConvertingEnabled() {
+  return settings_->GetIsCompatibleConvertingEnabled();
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_NIGHT_MODE)

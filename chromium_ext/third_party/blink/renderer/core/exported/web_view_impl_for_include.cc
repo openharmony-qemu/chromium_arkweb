@@ -117,6 +117,7 @@ void ApplyOhosWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetScrollbarLayoutPolicy(
       static_cast<int>(prefs.scrollbar_layout_policy));
   settings->SetIsSystemRtlEnable(prefs.is_system_rtl_enabled);
+  settings->SetIsCompatibleConvertingEnabled(prefs.is_compatible_converting_enabled);
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_COPY_OPTION)
@@ -230,6 +231,11 @@ void WebView::ApplyWebPreferencesForInclude(
       OHOS::NWeb::OhosAdapterHelper::GetInstance()
           .GetSystemPropertiesInstance()
           .GetBoolParameter("web.eyedropper.enabled", false));
+  LOG(DEBUG) << "WebViewImpl::GetIsCompatibleConvertingEnabled " << settings->GetIsCompatibleConvertingEnabled();
+  if (settings->GetIsCompatibleConvertingEnabled()) {
+    LOG(INFO) << "compatible converting is enabled";
+    RuntimeEnabledFeatures::SetTouchEventFeatureDetectionEnabled(true);
+  }
   if (!base::ohos::IsPcDevice()) {
     settings->SetAllowCustomScrollbarInMainFrame(false);
     settings->SetAccessibilityFontScaleFactor(prefs.font_scale_factor);

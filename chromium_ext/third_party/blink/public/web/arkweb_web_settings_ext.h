@@ -49,6 +49,8 @@ public:
   virtual int GetScrollbarLayoutPolicy() = 0;
   virtual void SetIsSystemRtlEnable(bool) = 0;
   virtual bool GetIsSystemRtlEnabled() = 0;
+  virtual void SetIsCompatibleConvertingEnabled(bool) = 0;
+  virtual bool GetIsCompatibleConvertingEnabled() = 0;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   virtual void SetContextMenuCustomization(bool) = 0;
