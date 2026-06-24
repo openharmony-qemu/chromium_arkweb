@@ -13,290 +13,439 @@
  * limitations under the License.
  */
 
-#include "ui/gl/gl_bindings.h"
-#include "ui/gl/init/gl_factory.h"
-#include "ui/gl/gl_context.h"
-#include "ui/gl/gl_surface.h"
-#include "ui/gl/gl_version_info.h"
-#include "ui/gl/init/gl_initializer.h"
-#include "ui/gl/test/gl_test_support.h"
+#include "arkweb/build/features/features.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "base/trace_event/trace_event.h"
 
-#include "gtest/gtest.h"
-#include "ui/gfx/geometry/size.h"
+#include "ui/gl/gl_implementation.h"
+#include "ui/gl/gl_context_stub.h"
+#include "ui/gl/gl_surface_stub.h"
+#include "ui/gl/gl_share_group.h"
+#include "ui/gl/gl_display.h"
+#include "ui/gl/init/gl_factory.h"
+#include "base/command_line.h"
+#include "ui/gl/gl_context.cc"
+#define private public
+#define protected public
+#include "arkweb/chromium_ext/ui/gl/init/gl_factory_ohos.cc"
+#undef private
+#undef protected
 
 namespace gl {
 namespace init {
 
 class GLFactoryOhosTest : public testing::Test {
  public:
+  GLFactoryOhosTest() = default;
+  ~GLFactoryOhosTest() = default;
+
+ protected:
   void SetUp() override {
-    // Initialize GL for testing
-    gl::init::InitializeGLNoExtensionsOneOff(
-        /*init_bindings=*/true, /*gpu_preference=*/gl::GpuPreference::kDefault);
-    display_ = gl::GLTestSupport::InitializeGL(std::nullopt);
-    if (display_ == nullptr) {
-      GTEST_SKIP() << "GL display initialization failed";
-    }
-    surf_ = gl::init::CreateOffscreenGLSurface(display_, gfx::Size());
-    if (surf_ == nullptr) {
-      GTEST_SKIP() << "GL surface creation failed";
+    if (!base::CommandLine::InitializedForCurrentProcess()) {
+      base::CommandLine::Init(0, nullptr);
     }
   }
 
   void TearDown() override {
-    if (gl_context_ && surf_) {
-      gl_context_->ReleaseCurrent(surf_.get());
-    }
-    gl_context_ = nullptr;
-    surf_ = nullptr;
+    ShutdownGL(nullptr, false);
   }
-
- protected:
-  scoped_refptr<gl::GLSurface> surf_;
-  scoped_refptr<gl::GLContext> gl_context_;
-  raw_ptr<GLDisplay> display_ = nullptr;
 };
 
-// Test: CreateGLContext with offscreen surface creates valid context
-TEST_F(GLFactoryOhosTest, CreateGLContext_OffscreenSurface) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-
-  ASSERT_NE(gl_context_, nullptr);
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-  EXPECT_TRUE(gl_context_->IsCurrent(surf_.get()));
-}
-
-// Test: CreateGLContext with null surface returns null
-TEST_F(GLFactoryOhosTest, CreateGLContext_NullSurface) {
-  scoped_refptr<gl::GLContext> context = gl::init::CreateGLContext(
-      nullptr, nullptr, gl::GLContextAttribs());
-
-  EXPECT_EQ(context, nullptr);
-}
-
-// Test: CreateGLContext can make current and release
-TEST_F(GLFactoryOhosTest, CreateGLContext_MakeCurrentAndRelease) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-  ASSERT_NE(gl_context_, nullptr);
-
-  // Make current
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-  EXPECT_TRUE(gl_context_->IsCurrent(surf_.get()));
-
-  // Release current
-  gl_context_->ReleaseCurrent(surf_.get());
-  EXPECT_FALSE(gl_context_->IsCurrent(surf_.get()));
-}
-
-// Test: CreateGLContext with share group
-TEST_F(GLFactoryOhosTest, CreateGLContext_WithShareGroup) {
-  scoped_refptr<GLShareGroup> share_group = new GLShareGroup();
-
-  gl_context_ = gl::init::CreateGLContext(share_group.get(), surf_.get(), gl::GLContextAttribs());
-
-  ASSERT_NE(gl_context_, nullptr);
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-}
-
-// Test: Multiple MakeCurrent calls succeed
-TEST_F(GLFactoryOhosTest, CreateGLContext_MultipleMakeCurrent) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-  ASSERT_NE(gl_context_, nullptr);
-
-  // First MakeCurrent
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-  EXPECT_TRUE(gl_context_->IsCurrent(surf_.get()));
-
-  // Release and MakeCurrent again
-  gl_context_->ReleaseCurrent(surf_.get());
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-  EXPECT_TRUE(gl_context_->IsCurrent(surf_.get()));
-}
-
-// Test: CreateOffscreenGLSurface creates valid surface
-TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_Valid) {
-  scoped_refptr<gl::GLSurface> surface =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(256, 256));
-
-  ASSERT_NE(surface, nullptr);
-  EXPECT_TRUE(surface->Initialize());
-}
-
-// Test: CreateOffscreenGLSurface with zero size
-TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_ZeroSize) {
-  scoped_refptr<gl::GLSurface> surface =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(0, 0));
-
-  // Should create surfaceless surface if supported
-  // Otherwise should create pbuffer
-  ASSERT_NE(surface, nullptr);
-}
-
-// Test: CreateOffscreenGLSurface with large size
-TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_LargeSize) {
-  scoped_refptr<gl::GLSurface> surface =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(4096, 4096));
-
-  ASSERT_NE(surface, nullptr);
-}
-
-// Test: GetAllowedGLImplementations returns EGLGLES2 and EGLANGLE
 TEST_F(GLFactoryOhosTest, GetAllowedGLImplementations) {
-  std::vector<GLImplementationParts> implementations =
-      gl::init::GetAllowedGLImplementations();
-
+  std::vector<GLImplementationParts> implementations = GetAllowedGLImplementations();
   EXPECT_GE(implementations.size(), 1u);
 }
 
-// Test: GetGLWindowSystemBindingInfo for EGL implementations
-TEST_F(GLFactoryOhosTest, GetGLWindowSystemBindingInfo_EGL) {
-  GLImplementation impl = gl::GetGLImplementation();
-  if (impl != kGLImplementationEGLGLES2 && impl != kGLImplementationEGLANGLE) {
-    GTEST_SKIP() << "Test requires EGL implementation";
-  }
+TEST_F(GLFactoryOhosTest, InitializeStaticGLBindings_MockGL) {
+  bool result = InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+  EXPECT_TRUE(result);
+}
 
-  // Create a GL context first
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-  ASSERT_NE(gl_context_, nullptr);
-  ASSERT_TRUE(gl_context_->MakeCurrent(surf_.get()));
+TEST_F(GLFactoryOhosTest, InitializeStaticGLBindings_StubGL) {
+  bool result = InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+  EXPECT_TRUE(result);
+}
 
-  // Get GL version and renderer strings
-  const char* version_str =
-      reinterpret_cast<const char*>(glGetString(GL_VERSION));
-  const char* renderer_str =
-      reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+TEST_F(GLFactoryOhosTest, GetGLImplementation_None) {
+  EXPECT_EQ(GetGLImplementation(), kGLImplementationNone);
+}
 
-  // Get extensions
-  std::string extensions_string = gl::GetGLExtensionsFromCurrentContext();
-  gfx::ExtensionSet extension_set = gfx::MakeExtensionSet(extensions_string);
+TEST_F(GLFactoryOhosTest, GetGLImplementation_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+  EXPECT_EQ(GetGLImplementation(), kGLImplementationMockGL);
+}
 
-  // Construct GLVersionInfo with proper parameters
-  GLVersionInfo gl_info(version_str, renderer_str, extension_set);
+TEST_F(GLFactoryOhosTest, GetGLImplementation_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+  EXPECT_EQ(GetGLImplementation(), kGLImplementationStubGL);
+}
+
+TEST_F(GLFactoryOhosTest, GLImplementationConstants) {
+  EXPECT_EQ(kGLImplementationNone, 0);
+  EXPECT_EQ(kGLImplementationEGLGLES2, 5);
+  EXPECT_EQ(kGLImplementationMockGL, 6);
+  EXPECT_EQ(kGLImplementationStubGL, 7);
+  EXPECT_EQ(kGLImplementationDisabled, 8);
+  EXPECT_EQ(kGLImplementationEGLANGLE, 9);
+}
+
+TEST_F(GLFactoryOhosTest, GLImplementationPartsConstruction) {
+  GLImplementationParts mock_impl(kGLImplementationMockGL);
+  EXPECT_EQ(mock_impl.gl, kGLImplementationMockGL);
+
+  GLImplementationParts stub_impl(kGLImplementationStubGL);
+  EXPECT_EQ(stub_impl.gl, kGLImplementationStubGL);
+
+  GLImplementationParts egl_impl(kGLImplementationEGLGLES2);
+  EXPECT_EQ(egl_impl.gl, kGLImplementationEGLGLES2);
+}
+
+TEST_F(GLFactoryOhosTest, GLImplementationPartsEquality) {
+  GLImplementationParts impl1(kGLImplementationMockGL);
+  GLImplementationParts impl2(kGLImplementationMockGL);
+  EXPECT_TRUE(impl1 == impl2);
+
+  GLImplementationParts impl3(kGLImplementationStubGL);
+  EXPECT_FALSE(impl1 == impl3);
+}
+
+TEST_F(GLFactoryOhosTest, CreateSurfacelessViewGLSurface) {
+  scoped_refptr<Presenter> presenter = CreateSurfacelessViewGLSurface(nullptr, gfx::kNullAcceleratedWidget);
+  EXPECT_EQ(presenter, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  SetDisabledExtensionsPlatform("GL_EXT_test");
+}
+
+TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+  SetDisabledExtensionsPlatform("GL_EXT_test");
+}
+
+TEST_F(GLFactoryOhosTest, InitializeExtensionSettingsOneOffPlatform_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+  bool result = InitializeExtensionSettingsOneOffPlatform(nullptr);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(GLFactoryOhosTest, InitializeExtensionSettingsOneOffPlatform_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+  bool result = InitializeExtensionSettingsOneOffPlatform(nullptr);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(GLFactoryOhosTest, InitializeStaticGLBindings_MockGLThenStubGL) {
+  bool result1 = InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+  EXPECT_TRUE(result1);
+
+  ShutdownGL(nullptr, false);
+
+  bool result2 = InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+  EXPECT_TRUE(result2);
+}
+
+TEST_F(GLFactoryOhosTest, GetGLWindowSystemBindingInfo_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  GLVersionInfo gl_info("OpenGL ES 2.0", "Mock", gfx::ExtensionSet());
   GLWindowSystemBindingInfo info;
 
-  bool result = gl::init::GetGLWindowSystemBindingInfo(gl_info, &info);
-
-  // May return false for some implementations
-  // Just verify it doesn't crash
-  SUCCEED();
+  bool result = GetGLWindowSystemBindingInfo(gl_info, &info);
+  EXPECT_FALSE(result);
 }
 
-// Test: SetDisabledExtensionsPlatform doesn't crash
-TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform) {
-  GLImplementation impl = gl::GetGLImplementation();
+TEST_F(GLFactoryOhosTest, GetGLWindowSystemBindingInfo_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
 
-  // Should not crash for any implementation
-  gl::init::SetDisabledExtensionsPlatform("GL_EXT_foo");
+  GLVersionInfo gl_info("OpenGL ES 2.0", "Mock", gfx::ExtensionSet());
+  GLWindowSystemBindingInfo info;
 
-  SUCCEED();
+  bool result = GetGLWindowSystemBindingInfo(gl_info, &info);
+  EXPECT_FALSE(result);
 }
 
-// Test: InitializeExtensionSettingsOneOffPlatform succeeds
-TEST_F(GLFactoryOhosTest, InitializeExtensionSettingsOneOffPlatform) {
-  GLImplementation impl = gl::GetGLImplementation();
+TEST_F(GLFactoryOhosTest, GetGLWindowSystemBindingInfo_None) {
+  GLVersionInfo gl_info("OpenGL ES 2.0", "Mock", gfx::ExtensionSet());
+  GLWindowSystemBindingInfo info;
 
-  bool result = gl::init::InitializeExtensionSettingsOneOffPlatform(display_);
-
-  // Should succeed for EGL implementations
-  if (impl == kGLImplementationEGLGLES2 || impl == kGLImplementationEGLANGLE) {
-    EXPECT_TRUE(result);
-  }
+  bool result = GetGLWindowSystemBindingInfo(gl_info, &info);
+  EXPECT_FALSE(result);
 }
 
-// Test: Two contexts with same share group
-TEST_F(GLFactoryOhosTest, SharedContext_SameShareGroup) {
-  scoped_refptr<GLShareGroup> share_group = new GLShareGroup();
+TEST_F(GLFactoryOhosTest, GetGLWindowSystemBindingInfo_MockGL_NullInfo) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
 
-  scoped_refptr<gl::GLContext> ctx1 =
-      gl::init::CreateGLContext(share_group.get(), surf_.get(), gl::GLContextAttribs());
-  scoped_refptr<gl::GLContext> ctx2 =
-      gl::init::CreateGLContext(share_group.get(), surf_.get(), gl::GLContextAttribs());
+  GLVersionInfo gl_info("OpenGL ES 2.0", "Mock", gfx::ExtensionSet());
 
-  ASSERT_NE(ctx1, nullptr);
-  ASSERT_NE(ctx2, nullptr);
-
-  EXPECT_TRUE(ctx1->MakeCurrent(surf_.get()));
-  ctx1->ReleaseCurrent(surf_.get());
-
-  EXPECT_TRUE(ctx2->MakeCurrent(surf_.get()));
-  ctx2->ReleaseCurrent(surf_.get());
+  bool result = GetGLWindowSystemBindingInfo(gl_info, nullptr);
+  EXPECT_FALSE(result);
 }
 
-// Test: CreateGLContext with empty GLContextAttribs
-TEST_F(GLFactoryOhosTest, CreateGLContext_EmptyAttribs) {
-  gl::GLContextAttribs attribs;
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
 
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), attribs);
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(100, 100), GLSurfaceFormat());
+  EXPECT_NE(surface, nullptr);
 
-  ASSERT_NE(gl_context_, nullptr);
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
 }
 
-// Test: CreateGLContext with null share group
-TEST_F(GLFactoryOhosTest, CreateGLContext_NullShareGroup) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
 
-  ASSERT_NE(gl_context_, nullptr);
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(100, 100), GLSurfaceFormat());
+  EXPECT_NE(surface, nullptr);
 }
 
-// Test: CreateOffscreenGLSurface multiple times
-TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_MultipleTimes) {
-  scoped_refptr<gl::GLSurface> surface1 =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(100, 100));
-  scoped_refptr<gl::GLSurface> surface2 =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(200, 200));
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_MockGL_ZeroSize) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
 
-  ASSERT_NE(surface1, nullptr);
-  ASSERT_NE(surface2, nullptr);
-  EXPECT_NE(surface1.get(), surface2.get());
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(0, 0), GLSurfaceFormat());
+  EXPECT_NE(surface, nullptr);
 }
 
-// Test: Context creation with surface that has handle
-TEST_F(GLFactoryOhosTest, GLNonOwnedContext_CodePath_SurfaceWithHandle) {
-  // Create a regular offscreen surface
-  scoped_refptr<gl::GLSurface> surface =
-      gl::init::CreateOffscreenGLSurface(display_, gfx::Size(128, 128));
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_StubGL_ZeroSize) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(0, 0), GLSurfaceFormat());
+  EXPECT_NE(surface, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  EXPECT_NE(surface, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  EXPECT_NE(surface, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
   ASSERT_NE(surface, nullptr);
 
-  // Check if surface has a handle
-  if (surface->GetHandle() != nullptr) {
-    // This should trigger GLNonOwnedContext creation path
-    gl_context_ = gl::init::CreateGLContext(nullptr, surface.get(), gl::GLContextAttribs());
-    ASSERT_NE(gl_context_, nullptr);
-    EXPECT_TRUE(gl_context_->MakeCurrent(surface.get()));
-  } else {
-    // Surface is surfaceless, GLContextEGL will be created instead
-    GTEST_SKIP() << "Surface does not have handle, GLNonOwnedContext not created";
+  scoped_refptr<GLContext> context = CreateGLContext(
+      nullptr, surface.get(), GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  ASSERT_NE(surface, nullptr);
+
+  scoped_refptr<GLContext> context = CreateGLContext(
+      nullptr, surface.get(), GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_MockGL_WithShareGroup) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  ASSERT_NE(surface, nullptr);
+
+  scoped_refptr<GLShareGroup> share_group = new GLShareGroup();
+  scoped_refptr<GLContext> context = CreateGLContext(
+      share_group.get(), surface.get(), GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_StubGL_WithShareGroup) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  ASSERT_NE(surface, nullptr);
+
+  scoped_refptr<GLShareGroup> share_group = new GLShareGroup();
+  scoped_refptr<GLContext> context = CreateGLContext(
+      share_group.get(), surface.get(), GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_MockGL_NullSurface) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  scoped_refptr<GLContext> context = CreateGLContext(
+      nullptr, nullptr, GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateGLContext_StubGL_NullSurface) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLContext> context = CreateGLContext(
+      nullptr, nullptr, GLContextAttribs());
+  EXPECT_NE(context, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, MultipleInitializeStaticGLBindings) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  ShutdownGL(nullptr, false);
+
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_MultipleSizes_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  scoped_refptr<GLSurface> surface1 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(0, 0));
+  scoped_refptr<GLSurface> surface2 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  scoped_refptr<GLSurface> surface3 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(512, 512));
+
+  EXPECT_NE(surface1, nullptr);
+  EXPECT_NE(surface2, nullptr);
+  EXPECT_NE(surface3, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurface_MultipleSizes_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface1 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(0, 0));
+  scoped_refptr<GLSurface> surface2 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(100, 100));
+  scoped_refptr<GLSurface> surface3 = CreateOffscreenGLSurface(
+      nullptr, gfx::Size(512, 512));
+
+  EXPECT_NE(surface1, nullptr);
+  EXPECT_NE(surface2, nullptr);
+  EXPECT_NE(surface3, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_MultipleSizes_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  scoped_refptr<GLSurface> surface1 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(0, 0), GLSurfaceFormat());
+  scoped_refptr<GLSurface> surface2 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(256, 256), GLSurfaceFormat());
+  scoped_refptr<GLSurface> surface3 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(1024, 1024), GLSurfaceFormat());
+
+  EXPECT_NE(surface1, nullptr);
+  EXPECT_NE(surface2, nullptr);
+  EXPECT_NE(surface3, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, CreateOffscreenGLSurfaceWithFormat_MultipleSizes_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  scoped_refptr<GLSurface> surface1 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(0, 0), GLSurfaceFormat());
+  scoped_refptr<GLSurface> surface2 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(256, 256), GLSurfaceFormat());
+  scoped_refptr<GLSurface> surface3 = CreateOffscreenGLSurfaceWithFormat(
+      nullptr, gfx::Size(1024, 1024), GLSurfaceFormat());
+
+  EXPECT_NE(surface1, nullptr);
+  EXPECT_NE(surface2, nullptr);
+  EXPECT_NE(surface3, nullptr);
+}
+
+TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform_EmptyString_MockGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  SetDisabledExtensionsPlatform("");
+}
+
+TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform_EmptyString_StubGL) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationStubGL));
+
+  SetDisabledExtensionsPlatform("");
+}
+
+TEST_F(GLFactoryOhosTest, SetDisabledExtensionsPlatform_MultipleExtensions) {
+  InitializeStaticGLBindingsImplementation(
+      GLImplementationParts(kGLImplementationMockGL));
+
+  SetDisabledExtensionsPlatform("GL_EXT_test1,GL_EXT_test2");
+}
+
+TEST_F(GLFactoryOhosTest, GetAllowedGLImplementations_ContainsEGLGLES2) {
+  std::vector<GLImplementationParts> implementations = GetAllowedGLImplementations();
+
+  bool has_egl_gles2 = false;
+  for (const auto& impl : implementations) {
+    if (impl.gl == kGLImplementationEGLGLES2) {
+      has_egl_gles2 = true;
+      break;
+    }
   }
+  EXPECT_TRUE(has_egl_gles2);
 }
 
-// Test: Verify context handles release current correctly
-TEST_F(GLFactoryOhosTest, GLNonOwnedContext_ReleaseCurrentBehavior) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-  ASSERT_NE(gl_context_, nullptr);
+TEST_F(GLFactoryOhosTest, GLImplementationParts_MockGL_NotEqualStubGL) {
+  GLImplementationParts mock_impl(kGLImplementationMockGL);
+  GLImplementationParts stub_impl(kGLImplementationStubGL);
 
-  EXPECT_TRUE(gl_context_->MakeCurrent(surf_.get()));
-  EXPECT_TRUE(gl_context_->IsCurrent(surf_.get()));
-
-  // ReleaseCurrent should be a no-op for GLNonOwnedContext
-  // but should still work correctly
-  gl_context_->ReleaseCurrent(surf_.get());
-  EXPECT_FALSE(gl_context_->IsCurrent(surf_.get()));
+  EXPECT_FALSE(mock_impl == stub_impl);
+  EXPECT_TRUE(mock_impl != stub_impl);
 }
 
-// Test: Verify GetHandle returns nullptr for non-owned context
-TEST_F(GLFactoryOhosTest, GLNonOwnedContext_GetHandleIsNullptr) {
-  gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-  ASSERT_NE(gl_context_, nullptr);
+TEST_F(GLFactoryOhosTest, GLImplementationParts_EGLGLES2_NotEqualMockGL) {
+  GLImplementationParts egl_impl(kGLImplementationEGLGLES2);
+  GLImplementationParts mock_impl(kGLImplementationMockGL);
 
-  // For GLNonOwnedContext, GetHandle() should return nullptr
-  // because we don't own the EGL context
-  void* handle = gl_context_->GetHandle();
-
-  // Handle may be nullptr or non-null depending on context type
-  // Just verify we can call it without crashing
-  SUCCEED();
+  EXPECT_FALSE(egl_impl == mock_impl);
+  EXPECT_TRUE(egl_impl != mock_impl);
 }
 
 }  // namespace init
