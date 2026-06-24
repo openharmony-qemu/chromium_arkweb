@@ -163,7 +163,9 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist);
   void SetViewportScaleState(bool viewportScale);
+#if BUILDFLAG(IS_ARKWEB_EXT)
   void SetSmartEdgeState(bool state) override;
+#endif
 #endif  // BUILDFLAG(ARKWEB_MENU)
 
 #if BUILDFLAG(ARKWEB_CSS_FONT)
