@@ -29,6 +29,10 @@
 #include "libcef/browser/alloy/alloy_browser_ua_config.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+#include "arkweb/ohos_nweb/src/capi/nweb_safe_browsing_detection_result_item.h"
+#endif
+
 namespace content {
 
 class WebContentsImpl;
@@ -227,10 +231,15 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   bool is_safe_browsing_config_ = false;
   bool is_safe_browsing_enabled_ = false;
+  GURL safe_browsing_check_url_;
+  int safe_browsing_check_code_ = 0;
+  int safe_browsing_check_threat_type_ = 0;
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override;
   bool IsSafeBrowsingDetectionConfig() override;
   bool IsSafeBrowsingDetectionStrict() override;
   bool IsSafeBrowsingDetectionDisabled() override;
+  void SetSafeBrowsingCheckDetail(int code, int threat_type, const GURL& url);
+  void GetSafeBrowsingCheckDetail(int& code, int& threat_type, GURL& url) const;
 #endif
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
@@ -369,16 +378,15 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
       const std::string& referrer,
       int transition_type,
       bool is_key_request) override;
-  
-  std::string NotifyNavigationRewriteUrl(
-      const std::string& original_url,
-      const std::string& referrer, 
-      int transition_type,
-      bool is_key_request) override;
+
+  std::string NotifyNavigationRewriteUrl(const std::string& original_url,
+                                         const std::string& referrer,
+                                         int transition_type,
+                                         bool is_key_request) override;
 #endif
 
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
-  void OnMediaCastEnter(); 
+  void OnMediaCastEnter();
   void NotifyRemoteExitFullScreen() override;
 #endif // BUILDFLAG(ARKWEB_MEDIA_CAST)
 
@@ -438,9 +446,7 @@ private:
   bool IsActiveFileChooser() override {
     return active_file_chooser_ != nullptr;
   }
-  void SetFileChooserInActive() override {
-    active_file_chooser_ = nullptr; 
-  }
+  void SetFileChooserInActive() override { active_file_chooser_ = nullptr; }
 #endif  // BUILDFLAG(ARKWEB_FILE_UPLOAD)
 #if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
   void OnOverScrollOffsetChanged(float offset_x, float offset_y);

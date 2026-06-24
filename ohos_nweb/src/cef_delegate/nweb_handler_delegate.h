@@ -444,6 +444,11 @@ class NWebHandlerDelegate : public ArkWebClientExt,
                              CefRefPtr<CefSSLInfo> ssl_info,
                              CefRefPtr<ArkWebCefSslCallback> callback) override;
 
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+  void OnReportNewNavigationInfo(
+      CefRefPtr<CefWebNavigationInfo> navigation_info) override;
+#endif
+
   bool OnSelectClientCertificate(
       CefRefPtr<CefBrowser> browser,
       bool isProxy,

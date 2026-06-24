@@ -185,6 +185,7 @@
 #include "arkweb/chromium_ext/base/ohos/logger.h"
 #include "cef/ohos_cef_ext/libcef/common/net/ssl_info_util_ex.h"
 #endif
+#include "ohos_nweb/src/cef_delegate/web_navigation_info_converter.h"
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
 #include "nweb_autolayout.h"
 #endif
@@ -4382,9 +4383,10 @@ void NWebHandlerDelegate::DestroyTaskByXPath(int32_t taskid) {
   imagedata_vector_by_xpath_.erase(taskid);
 }
 
-void NWebHandlerDelegate::IncrementAndCheckByXPath(int32_t taskid, 
-                                                   std::shared_ptr<NWebImageInfo> imageInfo, 
-                                                   int32_t image_id) {
+void NWebHandlerDelegate::IncrementAndCheckByXPath(
+    int32_t taskid,
+    std::shared_ptr<NWebImageInfo> imageInfo,
+    int32_t image_id) {
   std::lock_guard<std::mutex> lock(image_decode_mutex_by_xpath_);
   LOG(INFO) << "ohmedia: IncrementAndCheckByXPath current_count_:" << current_count_by_xpath_[taskid];
  
@@ -6918,5 +6920,46 @@ void NWebHandlerDelegate::OnManifestDebugInfoReceived(
   dispatcher_.OnManifestSeen(url.spec(), debug_info->raw_manifest);
 }
 #endif  // BUILDFLAG(ARKWEB_WEB_APP)
+
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+void NWebHandlerDelegate::OnReportNewNavigationInfo(
+    CefRefPtr<CefWebNavigationInfo> navigation_info) {
+  if (!navigation_info) {
+    return;
+  }
+
+  NWebNavigationInfo nweb_info = ConvertToNWebNavigationInfo(navigation_info);
+
+  LOG_FEEDBACK(INFO, kNetwork)
+      << "OnReportNewNavigationInfo requestTraceId:"
+      << nweb_info.request_trace_id
+      << " pageTraceId:" << nweb_info.page_trace_id
+      << " timeStamp:" << nweb_info.time_stamp
+      << " originalErrorCode:" << nweb_info.original_error_code
+      << " errorCode:" << nweb_info.error_code
+      << " isAutoReload:" << nweb_info.is_auto_reload
+      << " autoReloadReason:" << nweb_info.auto_reload_reason
+      << " hwCode:" << nweb_info.hw_code
+      << " websitePolicy:" << nweb_info.website_policy
+      << " connectionType:" << nweb_info.connection_type
+      << " isHttpsDnsEnabled:" << nweb_info.is_https_dns_enabled
+      << " didUseHttpsDns:" << nweb_info.did_use_https_dns
+      << " isFallbackProxyEnabled:" << nweb_info.is_fallback_proxy_enabled
+      << " didUseFallbackProxy:" << nweb_info.did_use_fallback_proxy
+      << " isCaptivePortal:" << nweb_info.is_captive_portal
+      << " hasIgnoreCertificateError:" << nweb_info.has_ignore_certificate_error
+      << " requestAttemptSize:" << nweb_info.request_attempts.size()
+      << " originalUrl:"
+      << url::LogUtils::ConvertUrlWithMask(nweb_info.original_url)
+      << " url:" << url::LogUtils::ConvertUrlWithMask(nweb_info.url);
+
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (IsNativeApiEnable()) {
+    dispatcher_.OnReportNewNavigationInfo(nweb_info);
+    return;
+  }
+#endif
+}
+#endif
 
 }  // namespace OHOS::NWeb

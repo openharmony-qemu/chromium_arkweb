@@ -71,6 +71,14 @@ class ArkWebHostResolverManagerJobExt : public HostResolverManager::Job {
   void InitReportInfoForDohFallback() override;
   void InSecureCacheLookupWithoutRunTask(
       std::optional<HostCache::Entry>& resolved);
+#if defined(ARKWEB_EXT_NAVIGATION_TODO)
+  void MaybeModifyProcResolveResults(
+      const std::string& host,
+      bool secure_dns_fallback_available,
+      int& net_error,
+      AddressList& out_addr_list,
+      std::vector<IPEndPoint>& truncation_results);
+#endif
 
   int resolved_result_for_ipv4_{0};
   int resolved_result_for_ipv6_{0};

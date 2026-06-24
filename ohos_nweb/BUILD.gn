@@ -402,6 +402,14 @@ static_library("cef_nweb") {
   }
 #endif // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+
+  if (defined(arkweb_ext_navigation) && arkweb_ext_navigation) {
+    sources += [
+      "src/cef_delegate/web_navigation_info_converter.cc",
+      "src/cef_delegate/web_navigation_info_converter.h"
+    ]
+  }
+
   deps += [
     "//base:base",
     "//chrome:strings",
@@ -600,6 +608,10 @@ static_library("nweb_sources") {
       "src/nweb_window_new_event_info_impl.cc",
       "src/nweb_window_new_event_info_impl.h",
     ]
+  }
+
+  if (defined(arkweb_ext_navigation) && arkweb_ext_navigation) {
+    sources += [ "src/capi/nweb_navigation_info.h" ]
   }
 
   deps = [
