@@ -100,10 +100,18 @@ bool VideoFrameFactoryImpl::GetVideoFrameCopyStatus() {
     IsPipEnable() ||
 #endif
     video_frame_copy_required_;
-  int getValue = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-                .GetSystemPropertiesInstance()
-                .GetIntParameter("web.gpu.videocopy",
-                                  static_cast<int>(VideoFrameCopyStatus::kDefault));
+
+  if (!features::IsUsingVulkan()) {
+    return copy_required;
+  }
+
+  auto& system_properties_adapter = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                    .GetSystemPropertiesInstance();
+  int getValue = system_properties_adapter.
+                 GetIntParameter("web.gpu.videocopy",
+                                 static_cast<int>(VideoFrameCopyStatus::kDefault));
+  bool delegatedValue = system_properties_adapter.
+                        GetBoolParameter("web.delegatedCompositing.enable", false);
 
   switch (getValue) {
     case static_cast<int>(VideoFrameCopyStatus::kZeroCopy):
@@ -114,7 +122,7 @@ bool VideoFrameFactoryImpl::GetVideoFrameCopyStatus() {
       break;
     case static_cast<int>(VideoFrameCopyStatus::kDefault):
       if (base::FeatureList::IsEnabled(features::kVulkanVideoZeroCopy)) {
-        copy_required = copy_required || features::IsUsingVulkan();
+        copy_required = copy_required || !delegatedValue;
       } else {
         copy_required = true;
       }
