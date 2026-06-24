@@ -112,7 +112,6 @@ class RenderWidgetHostImplExtTest : public testing::Test  {
     site_instance_group_ =
         base::WrapRefCounted(SiteInstanceGroup::CreateForTesting(
             browser_context_.get(), process_.get()));
-    sink_ = &process_->sink();
 
     host_ = std::make_unique<RenderWidgetHostImplExt>(
         nullptr, // frame_tree
@@ -123,8 +122,7 @@ class RenderWidgetHostImplExtTest : public testing::Test  {
         site_instance_group_->GetSafeRef(), // site_instance_group
         process_->GetNextRoutingID(), // routing_id
         false, // hidden
-        false, // renderer_initiated_creation
-        std::make_unique<FrameTokenMessageQueue>() // frame_token_message_queue
+        false // renderer_initiated_creation
     );
 
     mock_view_ = std::make_unique<MockRenderWidgetHostView>(host_.get());
@@ -138,7 +136,6 @@ class RenderWidgetHostImplExtTest : public testing::Test  {
   }
 
   void TearDown() override {
-    sink_ = nullptr;
     host_->SetView(nullptr);
     host_.reset();
     process_->Cleanup();
@@ -156,7 +153,6 @@ class RenderWidgetHostImplExtTest : public testing::Test  {
   std::unique_ptr<TestBrowserContext> browser_context_;
   std::unique_ptr<RenderWidgetHostProcess> process_;
   scoped_refptr<SiteInstanceGroup> site_instance_group_;
-  raw_ptr<IPC::TestSink> sink_;
 };
 
 TEST_F(RenderWidgetHostImplExtTest, GetWordSelection_WithView) {
