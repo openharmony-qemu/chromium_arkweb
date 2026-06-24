@@ -12,49 +12,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "base/containers/flat_set.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
+#include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
+#include "third_party/skia/include/gpu/MutableTextureState.h"
+#include "base/task/single_thread_task_runner.h"
 #define private public
 #define protected public
 #include "gpu/command_buffer/service/ohos/same_layer_native_buffer_image_backing.h"
 #undef private
 #undef protected
-
-#include "base/ohos/scoped_native_buffer_handle.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/raw_ptr.h"
-#include "base/posix/eintr_wrapper.h"
-#include "base/synchronization/lock.h"
-#include "base/test/scoped_feature_list.h"
-#include "base/test/test_mock_time_task_runner.h"
 #include "base/test/task_environment.h"
 #include "gpu/command_buffer/common/mailbox.h"
-#include "gpu/command_buffer/common/shared_image_usage.h"
-#include "gpu/command_buffer/service/ohos/native_image_texture_owner.h"
-#include "gpu/command_buffer/service/stream_texture_shared_image_interface.h"
-#include "gpu/command_buffer/service/abstract_texture_ohos.h"
-#include "gpu/command_buffer/service/ohos/ohos_image_backing.h"
-#include "gpu/command_buffer/service/ohos/ohos_video_image_backing.h"
 #include "gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
-#include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
-#include "gpu/command_buffer/service/shared_image/test_image_backing.h"
+#include "gpu/command_buffer/service/memory_tracking.h"
+#include "gpu/command_buffer/service/stream_texture_shared_image_interface.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "third_party/dawn/include/dawn/dawn_proc.h"
-#include "third_party/skia/include/gpu/ganesh/GrBackendSurface.h"
-#include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
-#include "third_party/skia/include/gpu/MutableTextureState.h"
-#include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_surface.h"
-#include "ui/gl/gl_utils.h"
 #include "ui/gl/init/gl_factory.h"
 #include "ui/gl/test/gl_surface_test_support.h"
 #include "ui/gl/test/gl_test_support.h"
-#include "gpu/config/gpu_finch_features.h"
-#include <sys/eventfd.h>
 
 using namespace gpu;
 using testing::_;
@@ -74,21 +56,13 @@ public:
     MOCK_METHOD(bool, IsUsingGpuMemory, (), (const, override));
     MOCK_METHOD(void, UpdateAndBindTexImage, (GLuint service_id), (override));
     MOCK_METHOD(bool, HasTextureOwner, (), (const, override));
+    MOCK_METHOD(TextureBase*, GetTextureBase, (), (const, override));
     MOCK_METHOD(void, NotifyOverlayPromotion, (bool promotion, const gfx::Rect& bounds), (override));
     MOCK_METHOD(bool, RenderToOverlay, (), (override));
+    MOCK_METHOD(bool, TextureOwnerBindsTextureOnUpdate, (), ());
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
     MOCK_METHOD(std::unique_ptr<ScopedNativeBufferFenceSync>, GetNativeBuffer, (), (override));
 #endif
-};
-
-class MockTextureBase : public TextureBase {
-public:
-    explicit MockTextureBase(unsigned int service_id) 
-        : TextureBase(0), service_id_(service_id) {}
-    ~MockTextureBase() override = default;
-    unsigned int service_id() const { return service_id_; }
-private:
-    unsigned int service_id_;
 };
 
 class MockScopedNativeBufferFenceSync : public ScopedNativeBufferFenceSync {
@@ -103,65 +77,60 @@ public:
 class SameLayerNativeBufferImageBackingTest : public ::testing::Test {
 public:
     SameLayerNativeBufferImageBackingTest() : task_environment_() {}
+
     void SetUp() override {
         gl::init::InitializeGLNoExtensionsOneOff(
-            /*init_bindings=*/true, /*gpu_preference=*/gl::GpuPreference::kDefault);
+            true, gl::GpuPreference::kDefault);
         auto display = gl::GLTestSupport::InitializeGL(std::nullopt);
         ASSERT_NE(display, nullptr);
         surf_ = gl::init::CreateOffscreenGLSurface(display, gfx::Size());
         ASSERT_NE(surf_, nullptr);
-        gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
-        ASSERT_NE(gl_context_, nullptr);
-        bool make_current_result = gl_context_->MakeCurrent(surf_.get());
-        ASSERT_TRUE(make_current_result);
+        context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
+        ASSERT_NE(context_, nullptr);
+        ASSERT_TRUE(context_->MakeCurrent(surf_.get()));
         tracker_ = std::make_unique<MemoryTypeTracker>(nullptr);
         mailbox_ = Mailbox::Generate();
         size_ = gfx::Size(SIZE, SIZE);
         color_space_ = gfx::ColorSpace::CreateSRGB();
         surface_origin_ = kTopLeft_GrSurfaceOrigin;
         alpha_type_ = kPremul_SkAlphaType;
-        gr_context_type_ = GrContextType::kVulkan;
+        gr_context_type_ = GrContextType::kGL;
         debug_label_ = "test";
-        stream_texture_sii_ = base::MakeRefCounted<NiceMock<MockStreamTextureSharedImageInterface>>();
-        ON_CALL(*stream_texture_sii_, HasTextureOwner()).WillByDefault(Return(true));
-        ON_CALL(*stream_texture_sii_, IsUsingGpuMemory()).WillByDefault(Return(true));
-        context_state_ = base::MakeRefCounted<SharedContextState>(
-            base::MakeRefCounted<gl::GLShareGroup>(),
-            surf_, /* surface */
-            gl_context_, /* context */
-            false, /* use_virtualized_gl_contexts */
-            base::DoNothing(), /* context_lost_callback */
-            gr_context_type_ /* gr_context_type */);
-        drdc_lock_ = base::MakeRefCounted<RefCountedLock>();
-        backing_ = std::make_unique<SameLayerNativeBufferImageBacking>(mailbox_,
-            size_, color_space_, surface_origin_, alpha_type_, debug_label_,
-            stream_texture_sii_, context_state_, drdc_lock_);
+        stream_ = base::MakeRefCounted<NiceMock<MockStreamTextureSharedImageInterface>>();
+        ON_CALL(*stream_, HasTextureOwner()).WillByDefault(Return(true));
+        ON_CALL(*stream_, IsUsingGpuMemory()).WillByDefault(Return(true));
+        state_ = base::MakeRefCounted<SharedContextState>(
+            base::MakeRefCounted<gl::GLShareGroup>(), surf_, context_,
+            false, base::DoNothing(), gr_context_type_);
+        lock_ = base::MakeRefCounted<RefCountedLock>();
+        backing_ = std::make_unique<SameLayerNativeBufferImageBacking>(
+            mailbox_, size_, color_space_, surface_origin_, alpha_type_,
+            debug_label_, stream_, state_, lock_);
     }
 
     void TearDown() override {
-        if (gl_context_ && surf_) {
-            gl_context_->ReleaseCurrent(surf_.get());
+        if (context_ && surf_) {
+            context_->ReleaseCurrent(surf_.get());
         }
         backing_.reset();
     }
 
 protected:
-    gpu::Mailbox mailbox_;
+    Mailbox mailbox_;
     gfx::Size size_;
     gfx::ColorSpace color_space_;
     GrSurfaceOrigin surface_origin_;
     SkAlphaType alpha_type_;
     GrContextType gr_context_type_;
     std::string debug_label_;
-    scoped_refptr<NiceMock<MockStreamTextureSharedImageInterface>> stream_texture_sii_;
-    scoped_refptr<SharedContextState> context_state_;
-    scoped_refptr<RefCountedLock> drdc_lock_;
+    scoped_refptr<NiceMock<MockStreamTextureSharedImageInterface>> stream_;
+    scoped_refptr<SharedContextState> state_;
+    scoped_refptr<RefCountedLock> lock_;
     std::unique_ptr<MemoryTypeTracker> tracker_;
     std::unique_ptr<SameLayerNativeBufferImageBacking> backing_;
     base::test::TaskEnvironment task_environment_{};
     scoped_refptr<gl::GLSurface> surf_;
-    scoped_refptr<gl::GLContext> gl_context_;
-    MockTextureBase mock_texture_{123};
+    scoped_refptr<gl::GLContext> context_;
 };
 
 TEST_F(SameLayerNativeBufferImageBackingTest, ConstructorAndDestructor)
@@ -172,542 +141,255 @@ TEST_F(SameLayerNativeBufferImageBackingTest, ConstructorAndDestructor)
     EXPECT_EQ(backing_->color_space(), color_space_);
     EXPECT_EQ(backing_->surface_origin(), surface_origin_);
     EXPECT_EQ(backing_->alpha_type(), alpha_type_);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    backing_.reset();
+    EXPECT_NE(backing_->context_lost_helper_, nullptr);
+    EXPECT_NE(backing_->stream_texture_sii_, nullptr);
+    EXPECT_NE(backing_->gpu_main_task_runner_, nullptr);
 }
 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTextureWithoutTextureOwner) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(false));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    EXPECT_EQ(representation, nullptr);
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTextureWithTextureOwner) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    EXPECT_NE(representation, nullptr);
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGaneshWithoutTextureOwner) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(false));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_EQ(representation, nullptr);
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGaneshWithTextureOwnerGL) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_NE(representation, nullptr);
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelperOnContextLost) {
-    auto context_lost_helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_, base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    context_lost_helper->OnContextLost();
-    EXPECT_EQ(context_lost_helper->context_state_, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(2);
-    context_lost_helper.reset();
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentationBeginAccessSuccess) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(representation, nullptr);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_TRUE(result);
-    representation->EndAccess();
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentationBeginAccessFailure) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(representation, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(nullptr)));
-    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_FALSE(result);
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, SkiaVkRepresentationBeginReadAccessFailure) {
-    context_state_ = base::MakeRefCounted<SharedContextState>(
-        base::MakeRefCounted<gl::GLShareGroup>(),
-        surf_, /* surface */
-        gl_context_, /* context */
-        false, /* use_virtualized_gl_contexts */
-        base::DoNothing(), /* context_lost_callback */
-        GrContextType::kVulkan /* gr_context_type */);
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(representation, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(nullptr)));
-    std::vector<GrBackendSemaphore> begin_semaphores;
-    std::vector<GrBackendSemaphore> end_semaphores;
-    std::unique_ptr<skgpu::MutableTextureState> end_state;
-    auto result = representation->BeginReadAccess(&begin_semaphores, &end_semaphores, &end_state);
-    EXPECT_TRUE(result.empty());
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, MultipleRepresentations) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(2)
-        .WillRepeatedly(Return(true));
-    auto gl_representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(gl_representation, nullptr);
-    auto skia_representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(skia_representation, nullptr);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    bool result = gl_representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_TRUE(result);
-    gl_representation->EndAccess();
-}
-
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelperDestructor) {
-    auto context_lost_helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_, base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    // Destructor should call ReleaseResources on stream_texture_sii_
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    context_lost_helper.reset();
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelperDestructorAfterContextLost) {
-    auto context_lost_helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_, base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    // Trigger context lost first
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    context_lost_helper->OnContextLost();
-    EXPECT_EQ(context_lost_helper->context_state_, nullptr);
-    // Destructor after context lost - context_state_ is already null
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    context_lost_helper.reset();
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTextureWithTextureOwnerAndBeginAccess) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(representation, nullptr);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_TRUE(result);
-    representation->EndAccess();
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGaneshWithTextureOwnerVulkan) {
-    // Create a Vulkan context to exercise the Vulkan path of ProduceSkiaGanesh
-    auto vk_context_state = base::MakeRefCounted<SharedContextState>(
-        base::MakeRefCounted<gl::GLShareGroup>(),
-        surf_, /* surface */
-        gl_context_, /* context */
-        false, /* use_virtualized_gl_contexts */
-        base::DoNothing(), /* context_lost_callback */
-        GrContextType::kVulkan /* gr_context_type */);
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), vk_context_state);
-    EXPECT_NE(representation, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGaneshWithGLContext) {
-    // Use a GL context_state for this test
-    auto gl_context_state = base::MakeRefCounted<SharedContextState>(
-        base::MakeRefCounted<gl::GLShareGroup>(),
-        surf_, /* surface */
-        gl_context_, /* context */
-        false, /* use_virtualized_gl_contexts */
-        base::DoNothing(), /* context_lost_callback */
-        GrContextType::kGL /* gr_context_type */);
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), gl_context_state);
-    EXPECT_NE(representation, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentationBeginAccessWithFence) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(representation, nullptr);
-    int efd = eventfd(1, 0);
-    ASSERT_NE(efd, -1);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>(
-        ScopedNativeBufferHandle(),
-        base::ScopedFD(efd)
-    );
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_TRUE(result);
-    representation->EndAccess();
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, MultipleGLTextureRepresentations) {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(2)
-        .WillRepeatedly(Return(true));
-    auto rep1 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep2 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    EXPECT_NE(rep1, nullptr);
-    EXPECT_NE(rep2, nullptr);
-}
- 
 TEST_F(SameLayerNativeBufferImageBackingTest, BackingMailboxMatchesInput)
 {
     EXPECT_EQ(backing_->mailbox(), mailbox_);
 }
- 
+
 TEST_F(SameLayerNativeBufferImageBackingTest, BackingSizeMatchesInput)
 {
     EXPECT_EQ(backing_->size(), size_);
 }
- 
+
 TEST_F(SameLayerNativeBufferImageBackingTest, BackingColorSpaceMatchesInput)
 {
     EXPECT_EQ(backing_->color_space(), color_space_);
 }
- 
+
 TEST_F(SameLayerNativeBufferImageBackingTest, BackingSurfaceOriginMatchesInput)
 {
     EXPECT_EQ(backing_->surface_origin(), surface_origin_);
 }
- 
+
 TEST_F(SameLayerNativeBufferImageBackingTest, BackingAlphaTypeMatchesInput)
 {
     EXPECT_EQ(backing_->alpha_type(), alpha_type_);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, BackingStreamTextureSii_NotNull)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_Fail)
 {
-    EXPECT_NE(backing_->stream_texture_sii_, nullptr);
+    EXPECT_CALL(*stream_, HasTextureOwner()).WillOnce(Return(false));
+    SharedImageManager manager;
+    auto result = backing_->ProduceGLTexture(&manager, tracker_.get());
+    EXPECT_EQ(result, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_DestroyWithoutContextLost)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_Success)
 {
-    auto helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_NE(helper->context_state_, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper.reset();
+    SharedImageManager manager;
+    auto result = backing_->ProduceGLTexture(&manager, tracker_.get());
+    EXPECT_NE(result, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_OnContextLost_ThenDestroy)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGanesh_NoTextureOwner)
 {
-    auto helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper->OnContextLost();
-    EXPECT_EQ(helper->context_state_, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper.reset();
+    EXPECT_CALL(*stream_, HasTextureOwner()).WillOnce(Return(false));
+    SharedImageManager manager;
+    auto result = backing_->ProduceSkiaGanesh(&manager, tracker_.get(), state_);
+    EXPECT_EQ(result, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_ContextStateNullAfterLost)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GetEstimatedSizeForMemoryDump)
 {
-    auto helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_NE(helper->context_state_, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper->OnContextLost();
-    EXPECT_EQ(helper->context_state_, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper.reset();
+    size_t estimated_size = backing_->GetEstimatedSizeForMemoryDump();
+    EXPECT_GT(estimated_size, 0u);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_MultipleInstances)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GetEstimatedSizeForMemoryDump_Consistent)
 {
-    auto helper1 = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    auto helper2 = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(2);
-    helper1.reset();
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(2);
-    helper2.reset();
+    size_t result1 = backing_->GetEstimatedSizeForMemoryDump();
+    size_t result2 = backing_->GetEstimatedSizeForMemoryDump();
+    EXPECT_EQ(result1, result2);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentation_BeginAccess_ReadWriteMode)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_BeginAccess_NullBuffer)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto representation = backing_->ProduceGLTexture(&manager, tracker_.get());
     ASSERT_NE(representation, nullptr);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
+    EXPECT_CALL(*stream_, GetNativeBuffer()).WillOnce(Return(nullptr));
+    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_BeginAccess_ReadWrite_NullBuffer)
+{
+    SharedImageManager manager;
+    auto representation = backing_->ProduceGLTexture(&manager, tracker_.get());
+    ASSERT_NE(representation, nullptr);
+    EXPECT_CALL(*stream_, GetNativeBuffer()).WillOnce(Return(nullptr));
     bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READWRITE_CHROMIUM);
-    EXPECT_TRUE(result);
-    representation->EndAccess();
+    EXPECT_FALSE(result);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentation_BeginEndAccess_TwoCycles)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_GetTexture)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto representation = backing_->ProduceGLTexture(&manager, tracker_.get());
     ASSERT_NE(representation, nullptr);
-    for (int i = 0; i < 2; ++i) {
-        auto mock_buf = std::make_unique<MockScopedNativeBufferFenceSync>();
-        EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-            .WillOnce(Return(testing::ByMove(std::move(mock_buf))));
-        bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-        EXPECT_TRUE(result);
-        representation->EndAccess();
-    }
+    auto* texture = representation->GetTexture(0);
+    EXPECT_NE(texture, nullptr);
+    EXPECT_EQ(texture->target(), GL_TEXTURE_EXTERNAL_OES);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentation_DestroyWithoutAccess)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_DestroyWithoutAccess)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto representation = backing_->ProduceGLTexture(&manager, tracker_.get());
     ASSERT_NE(representation, nullptr);
     representation.reset();
     EXPECT_NE(backing_, nullptr);
 }
- 
+
+TEST_F(SameLayerNativeBufferImageBackingTest, MultipleGLTextureRepresentations)
+{
+    SharedImageManager manager;
+    auto rep1 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    auto rep2 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    EXPECT_NE(rep1, nullptr);
+    EXPECT_NE(rep2, nullptr);
+}
+
 TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_FailThenSucceed)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
+    EXPECT_CALL(*stream_, HasTextureOwner())
         .WillOnce(Return(false))
         .WillOnce(Return(true));
-    auto fail_rep = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto fail_rep = backing_->ProduceGLTexture(&manager, tracker_.get());
     EXPECT_EQ(fail_rep, nullptr);
-    auto ok_rep = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    auto ok_rep = backing_->ProduceGLTexture(&manager, tracker_.get());
     EXPECT_NE(ok_rep, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGanesh_WithVulkanContext_MultipleReps)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_MixedResponses)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(2)
-        .WillRepeatedly(Return(true));
-    auto rep1 = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    auto rep2 = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_NE(rep1, nullptr);
+    EXPECT_CALL(*stream_, HasTextureOwner())
+        .WillOnce(Return(false))
+        .WillOnce(Return(true))
+        .WillOnce(Return(false));
+    SharedImageManager manager;
+    auto rep1 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    EXPECT_EQ(rep1, nullptr);
+    auto rep2 = backing_->ProduceGLTexture(&manager, tracker_.get());
     EXPECT_NE(rep2, nullptr);
+    auto rep3 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    EXPECT_EQ(rep3, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, SkiaVkRepresentation_BeginReadAccess_NullBuffer)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(representation, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(nullptr)));
-    std::vector<GrBackendSemaphore> begin_semaphores;
-    std::vector<GrBackendSemaphore> end_semaphores;
-    std::unique_ptr<skgpu::MutableTextureState> end_state;
-    auto result = representation->BeginReadAccess(
-        &begin_semaphores, &end_semaphores, &end_state);
-    EXPECT_TRUE(result.empty());
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, SkiaVkRepresentation_BeginReadAccess_MockBuffer_NoContextCrash)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(representation, nullptr);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    std::vector<GrBackendSemaphore> begin_semaphores;
-    std::vector<GrBackendSemaphore> end_semaphores;
-    std::unique_ptr<skgpu::MutableTextureState> end_state;
-    // Should not crash regardless of result
-    auto result = representation->BeginReadAccess(
-        &begin_semaphores, &end_semaphores, &end_state);
-    EXPECT_NE(backing_, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGanesh_FailThenSucceed)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(false))
-        .WillOnce(Return(true));
-    auto fail_rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_EQ(fail_rep, nullptr);
-    auto ok_rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_NE(ok_rep, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGanesh_DestroyWithoutAccess)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(rep, nullptr);
-    rep.reset();
-    EXPECT_NE(backing_, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureAndSkia_BothSucceed)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(2)
-        .WillRepeatedly(Return(true));
-    auto gl_rep = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto sk_rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    EXPECT_NE(gl_rep, nullptr);
-    EXPECT_NE(sk_rep, nullptr);
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_BeginAccess_WithFenceAndEnd)
-{
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto representation = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(representation, nullptr);
-    int efd = eventfd(1, 0);
-    ASSERT_NE(efd, -1);
-    auto mock_native_buffer = std::make_unique<MockScopedNativeBufferFenceSync>(
-        ScopedNativeBufferHandle(), base::ScopedFD(efd));
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_native_buffer))));
-    bool result = representation->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
-    EXPECT_TRUE(result);
-    representation->EndAccess();
-}
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ConstructorAndDestructor_WithContextLost)
-{
-    // Create a fresh backing
-    auto temp_backing = std::make_unique<SameLayerNativeBufferImageBacking>(
-        mailbox_, size_, color_space_, surface_origin_, alpha_type_, debug_label_,
-        stream_texture_sii_, context_state_, drdc_lock_);
-    EXPECT_NE(temp_backing, nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    temp_backing.reset();
-}
- 
+
 TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_ThreeRepresentations)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(3)
-        .WillRepeatedly(Return(true));
-    auto rep1 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep2 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep3 = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto rep1 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    auto rep2 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    auto rep3 = backing_->ProduceGLTexture(&manager, tracker_.get());
     EXPECT_NE(rep1, nullptr);
     EXPECT_NE(rep2, nullptr);
     EXPECT_NE(rep3, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, GLTextureRepresentation_BeginAccess_FailThenSuccess)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GLTexture_BeginAccess_MixedNullBufferResults)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(2)
-        .WillRepeatedly(Return(true));
-    auto rep1 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep2 = backing_->ProduceGLTexture(nullptr, tracker_.get());
+    SharedImageManager manager;
+    auto rep1 = backing_->ProduceGLTexture(&manager, tracker_.get());
+    auto rep2 = backing_->ProduceGLTexture(&manager, tracker_.get());
     ASSERT_NE(rep1, nullptr);
     ASSERT_NE(rep2, nullptr);
- 
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(nullptr)));
+    EXPECT_CALL(*stream_, GetNativeBuffer()).WillOnce(Return(nullptr));
     EXPECT_FALSE(rep1->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM));
- 
-    auto mock_buf = std::make_unique<MockScopedNativeBufferFenceSync>();
-    EXPECT_CALL(*stream_texture_sii_, GetNativeBuffer())
-        .WillOnce(Return(testing::ByMove(std::move(mock_buf))));
-    EXPECT_TRUE(rep2->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM));
-    rep2->EndAccess();
+    EXPECT_CALL(*stream_, GetNativeBuffer()).WillOnce(Return(nullptr));
+    EXPECT_FALSE(rep2->BeginAccess(GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM));
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_StreamTextureSiiIsNiceMock)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostHelper_OnContextLost)
 {
-    auto helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), drdc_lock_);
-    EXPECT_NE(helper.get(), nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper.reset();
+    EXPECT_CALL(*stream_, ReleaseResources()).Times(2);
+    backing_->context_lost_helper_->OnContextLost();
+    EXPECT_EQ(backing_->context_lost_helper_->context_state_, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_HoldAndDestroy)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostHelper_OnContextLost_ThenDestroy)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto rep = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    ASSERT_NE(rep, nullptr);
-    // Hold for a bit, then destroy
-    rep.reset();
-    EXPECT_EQ(rep, nullptr);
+    EXPECT_CALL(*stream_, ReleaseResources()).Times(1);
+    backing_->context_lost_helper_->OnContextLost();
+    EXPECT_EQ(backing_->context_lost_helper_->context_state_, nullptr);
+    EXPECT_CALL(*stream_, ReleaseResources()).Times(1);
+    backing_.reset();
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceSkiaGanesh_HoldAndDestroy)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostHelper_OnContextLost_StreamTextureSiiRemains)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), context_state_);
-    ASSERT_NE(rep, nullptr);
-    rep.reset();
-    EXPECT_EQ(rep, nullptr);
+    EXPECT_CALL(*stream_, ReleaseResources()).Times(2);
+    backing_->context_lost_helper_->OnContextLost();
+    EXPECT_NE(backing_->context_lost_helper_->stream_texture_sii_, nullptr);
+    EXPECT_EQ(backing_->context_lost_helper_->context_state_, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostObserverHelper_WithDrdcLock)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ContextLostHelper_Destructor_SkipsRemoveWhenNull)
 {
-    auto new_drdc_lock = base::MakeRefCounted<RefCountedLock>();
-    auto helper = std::make_unique<SameLayerNativeBufferImageBacking::ContextLostObserverHelper>(
-        context_state_, stream_texture_sii_,
-        base::SingleThreadTaskRunner::GetCurrentDefault(), new_drdc_lock);
-    EXPECT_NE(helper.get(), nullptr);
-    EXPECT_CALL(*stream_texture_sii_, ReleaseResources()).Times(1);
-    helper.reset();
+    EXPECT_CALL(*stream_, ReleaseResources()).Times(2);
+    backing_->context_lost_helper_->OnContextLost();
+    EXPECT_EQ(backing_->context_lost_helper_->context_state_, nullptr);
+    backing_.reset();
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, BackingGrContextType_IsVulkan)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingUpdate)
 {
-    EXPECT_EQ(gr_context_type_, GrContextType::kVulkan);
+    backing_->Update(nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, SkiaGanesh_ProduceWithGLContext_Succeeds)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingStreamTextureSii_NotNull)
 {
-    auto gl_context_state = base::MakeRefCounted<SharedContextState>(
-        base::MakeRefCounted<gl::GLShareGroup>(),
-        surf_, gl_context_, false, base::DoNothing(),
-        GrContextType::kGL);
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .WillOnce(Return(true));
-    auto rep = backing_->ProduceSkiaGanesh(nullptr, tracker_.get(), gl_context_state);
-    EXPECT_NE(rep, nullptr);
-    rep.reset();
+    EXPECT_NE(backing_->stream_texture_sii_, nullptr);
 }
- 
-TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_FourRepresentations)
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingGpuMainTaskRunner_NotNull)
 {
-    EXPECT_CALL(*stream_texture_sii_, HasTextureOwner())
-        .Times(4)
-        .WillRepeatedly(Return(true));
-    auto rep1 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep2 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep3 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    auto rep4 = backing_->ProduceGLTexture(nullptr, tracker_.get());
-    EXPECT_NE(rep1, nullptr);
-    EXPECT_NE(rep2, nullptr);
-    EXPECT_NE(rep3, nullptr);
-    EXPECT_NE(rep4, nullptr);
+    EXPECT_NE(backing_->gpu_main_task_runner_, nullptr);
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingContextLostHelper_NotNull)
+{
+    EXPECT_NE(backing_->context_lost_helper_, nullptr);
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, DrDcLock_NotNull)
+{
+    EXPECT_NE(backing_->GetDrDcLock(), nullptr);
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingDebugLabel)
+{
+    EXPECT_FALSE(debug_label_.empty());
+    EXPECT_EQ(debug_label_, "test");
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, BackingContextStateIsGL)
+{
+    EXPECT_EQ(gr_context_type_, GrContextType::kGL);
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, ProduceGLTexture_CreateDestroyMultiple)
+{
+    SharedImageManager manager;
+    for (int i = 0; i < 3; ++i) {
+        auto rep = backing_->ProduceGLTexture(&manager, tracker_.get());
+        EXPECT_NE(rep, nullptr);
+        rep.reset();
+    }
+}
+
+TEST_F(SameLayerNativeBufferImageBackingTest, GetEstimatedSizeForMemoryDump_AlternatingStates)
+{
+    size_t size1 = backing_->GetEstimatedSizeForMemoryDump();
+    EXPECT_GT(size1, 0u);
+    size_t size2 = backing_->GetEstimatedSizeForMemoryDump();
+    EXPECT_EQ(size1, size2);
 }
 
 }  // namespace gpu

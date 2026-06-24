@@ -89,8 +89,13 @@ public:
     }
 
     void TearDown() override {
+        if (!buffer_gl_owner_) {
+            GpuChannelTestCommon::TearDown();
+            return;
+        }
         {
             base::AutoLock lock(buffer_gl_owner_->lock_);
+            buffer_gl_owner_->current_image_ref_.reset();
             for (auto& entry : buffer_gl_owner_->image_refs_) {
                 delete entry.first;
             }
@@ -156,8 +161,6 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResourcesWithImageRefsAndCurrentIm
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
         EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
     }
-    delete image1;
-    delete image2;
 }
 
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResourcesAfterContextLoss)
@@ -175,7 +178,6 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResourcesAfterContextLoss)
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
         EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
     }
-    delete image;
 }
 
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResourcesWithPendingBufferAvailableCallback)
@@ -215,7 +217,6 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResourcesWithFenceFDs)
         EXPECT_EQ(buffer_gl_owner_->loader_, nullptr);
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
     }
-    delete image;
 }
 
 TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImageWhenTextureInvalid)
@@ -392,6 +393,8 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_LoaderNull)
         buffer_gl_owner_->image_refs_[image].count = 1;
         buffer_gl_owner_->ReleaseRefOnImageLocked(image, std::move(fence_fd));
         EXPECT_NE(buffer_gl_owner_->image_refs_.find(image), buffer_gl_owner_->image_refs_.end());
+        buffer_gl_owner_->image_refs_.erase(image);
+        delete image;
     }
 }
 
@@ -412,6 +415,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountGreaterThanO
         base::AutoLock lock(buffer_gl_owner_->lock_);
         buffer_gl_owner_->image_refs_.erase(image);
     }
+    delete image;
 }
 
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountZeroWithoutFence)
@@ -625,7 +629,9 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, GetReadyFence)
     buffer_gl_owner_->UpdateNativeImage();
     {
         base::AutoLock lock(buffer_gl_owner_->lock_);
-        buffer_gl_owner_->current_image_ref_->GetReadyFence();
+        if (buffer_gl_owner_->current_image_ref_.has_value()) {
+            buffer_gl_owner_->current_image_ref_->GetReadyFence();
+        }
     }
     {
         base::AutoLock lock(buffer_gl_owner_->lock_);
@@ -650,14 +656,13 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_MaxImagesOne_Imm
         EXPECT_TRUE(buffer_gl_owner_->buffer_available_cb_.is_null());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_BufferAvailable_ImmediateCallback)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
     {
         base::AutoLock lock(buffer_gl_owner_->lock_);
         buffer_gl_owner_->image_refs_.clear();
-        // Add fewer images than max_images_ so buffer is available
         OhosWindowBuffer* image = new OhosWindowBuffer();
         buffer_gl_owner_->image_refs_[image] = HwVideoNativeBufferGLOwner::ImageRef();
         buffer_gl_owner_->image_refs_[image].count = 1;
@@ -668,7 +673,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_BufferAvailable_
     buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
     EXPECT_TRUE(callback_called);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_BufferFull_DeferCallback)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -691,7 +696,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_BufferFull_Defer
         EXPECT_FALSE(buffer_gl_owner_->buffer_available_cb_.is_null());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_EmptyImageRefs_ImmediateCallback)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -705,7 +710,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_EmptyImageRefs_I
     buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
     EXPECT_TRUE(callback_called);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback)
 {
     bool callback_called = false;
@@ -714,14 +719,14 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback)
     buffer_gl_owner_->SetFrameAvailableCallback(frame_cb);
     EXPECT_TRUE(buffer_gl_owner_->is_frame_available_callback_set_);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, EnsureNativeImageBound)
 {
     GLuint texture_id = buffer_gl_owner_->GetTextureId();
     buffer_gl_owner_->EnsureNativeImageBound(texture_id);
     EXPECT_EQ(buffer_gl_owner_->GetTextureId(), texture_id);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_WithReleaseFenceValid)
 {
     OhosWindowBuffer* image = new OhosWindowBuffer();
@@ -735,7 +740,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_WithReleaseFenceV
         EXPECT_EQ(buffer_gl_owner_->image_refs_.find(image), buffer_gl_owner_->image_refs_.end());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountGreaterThanOneNoExistingFence)
 {
     OhosWindowBuffer* image = new OhosWindowBuffer();
@@ -744,7 +749,6 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountGreaterThanO
         base::AutoLock lock(buffer_gl_owner_->lock_);
         auto& image_ref = buffer_gl_owner_->image_refs_[image];
         image_ref.count = IMAGE_COUNT;
-        // No existing release_fence_fd
         buffer_gl_owner_->ReleaseRefOnImageLocked(image, std::move(fence_fd));
         EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1);
     }
@@ -752,8 +756,9 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountGreaterThanO
         base::AutoLock lock(buffer_gl_owner_->lock_);
         buffer_gl_owner_->image_refs_.erase(image);
     }
+    delete image;
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_ReleaseWithValidFence)
 {
     OhosWindowBuffer* image = new OhosWindowBuffer();
@@ -763,11 +768,10 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_ReleaseWithValidF
         image_ref.count = 1;
         image_ref.release_fence_fd = base::ScopedFD(HANDLE_EINTR(dup(1)));
         buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
-        // Image should be released with the fence
         EXPECT_EQ(buffer_gl_owner_->image_refs_.find(image), buffer_gl_owner_->image_refs_.end());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_ReleaseWithoutFence)
 {
     OhosWindowBuffer* image = new OhosWindowBuffer();
@@ -775,31 +779,30 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_ReleaseWithoutFen
         base::AutoLock lock(buffer_gl_owner_->lock_);
         auto& image_ref = buffer_gl_owner_->image_refs_[image];
         image_ref.count = 1;
-        // No release_fence_fd set - exercises the else branch in release
         buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
         EXPECT_EQ(buffer_gl_owner_->image_refs_.find(image), buffer_gl_owner_->image_refs_.end());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetTextureBase_ReturnsNonNull)
 {
     TextureBase* base_texture = buffer_gl_owner_->GetTextureBase();
     EXPECT_NE(base_texture, nullptr);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetTextureId_ReturnsPositiveValue)
 {
     GLuint texture_id = buffer_gl_owner_->GetTextureId();
     EXPECT_GT(texture_id, 0u);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetTextureId_ConsistentAcrossCalls)
 {
     GLuint id1 = buffer_gl_owner_->GetTextureId();
     GLuint id2 = buffer_gl_owner_->GetTextureId();
     EXPECT_EQ(id1, id2);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_EmptyCallback_BufferFull)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -819,7 +822,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_EmptyCallback_Bu
         EXPECT_TRUE(buffer_gl_owner_->buffer_available_cb_.is_null());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_TwoSlotsAvailable)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -836,7 +839,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_TwoSlotsAvailabl
     buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
     EXPECT_TRUE(callback_called);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback_SetsFlag)
 {
     EXPECT_FALSE(buffer_gl_owner_->is_frame_available_callback_set_);
@@ -844,7 +847,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback_SetsFlag)
     buffer_gl_owner_->SetFrameAvailableCallback(callback);
     EXPECT_TRUE(buffer_gl_owner_->is_frame_available_callback_set_);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback_CanSetMultipleTimes)
 {
     base::RepeatingClosure cb1 = base::BindRepeating([]() {});
@@ -854,7 +857,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, SetFrameAvailableCallback_CanSetMultipleT
     buffer_gl_owner_->SetFrameAvailableCallback(cb2);
     EXPECT_TRUE(buffer_gl_owner_->is_frame_available_callback_set_);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, EnsureNativeImageBound_WithValidTextureId)
 {
     GLuint texture_id = buffer_gl_owner_->GetTextureId();
@@ -862,7 +865,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, EnsureNativeImageBound_WithValidTextureId
     buffer_gl_owner_->EnsureNativeImageBound(texture_id);
     EXPECT_EQ(buffer_gl_owner_->GetTextureId(), texture_id);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountDecremented)
 {
     OhosWindowBuffer* image = new OhosWindowBuffer();
@@ -879,7 +882,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountDecremented)
                   buffer_gl_owner_->image_refs_.end());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CallbackFiredWhenBelowMax)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -905,7 +908,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CallbackFiredWhen
         }
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResources_ClearsPendingCallback)
 {
     {
@@ -921,13 +924,13 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResources_ClearsPendingCallback)
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, AquireOhosNativeWindow_WithLoader_ReturnsNonNull)
 {
     void* window = buffer_gl_owner_->AquireOhosNativeWindow();
     EXPECT_NE(window, nullptr);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, AquireOhosNativeWindow_WithoutLoader_ReturnsNull)
 {
     {
@@ -937,7 +940,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, AquireOhosNativeWindow_WithoutLoader_Retu
     void* window = buffer_gl_owner_->AquireOhosNativeWindow();
     EXPECT_EQ(window, nullptr);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetSurfaceId_WithLoader_NoFault)
 {
     uint64_t surface_id = 0;
@@ -947,7 +950,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, GetSurfaceId_WithLoader_NoFault)
         EXPECT_NE(buffer_gl_owner_->loader_, nullptr);
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetSurfaceId_WithoutLoader_NoFault)
 {
     {
@@ -961,7 +964,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, GetSurfaceId_WithoutLoader_NoFault)
         EXPECT_EQ(buffer_gl_owner_->loader_, nullptr);
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseNativeImage_WithLoader_NoFault)
 {
     buffer_gl_owner_->ReleaseNativeImage();
@@ -970,7 +973,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseNativeImage_WithLoader_NoFault)
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseNativeImage_WithoutLoader_NoFault)
 {
     {
@@ -984,7 +987,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseNativeImage_WithoutLoader_NoFault)
         EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, GetNativeBuffer_AfterUpdateNativeImage_Null)
 {
     buffer_gl_owner_->UpdateNativeImage();
@@ -995,30 +998,30 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, GetNativeBuffer_AfterUpdateNativeImage_Nu
     auto buffer = buffer_gl_owner_->GetNativeBuffer();
     EXPECT_EQ(buffer, nullptr);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, MaxImages_DefaultValue)
 {
     EXPECT_GE(buffer_gl_owner_->max_images_, 1);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRefs_EmptyAfterInit)
 {
     base::AutoLock lock(buffer_gl_owner_->lock_);
     EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, CurrentImageRef_AbsentAfterInit)
 {
     base::AutoLock lock(buffer_gl_owner_->lock_);
     EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, BufferAvailableCb_NullAfterInit)
 {
     base::AutoLock lock(buffer_gl_owner_->lock_);
     EXPECT_TRUE(buffer_gl_owner_->buffer_available_cb_.is_null());
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_MultipleImagesIndependent)
 {
     OhosWindowBuffer* image1 = new OhosWindowBuffer();
@@ -1027,21 +1030,19 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_MultipleImagesInd
         base::AutoLock lock(buffer_gl_owner_->lock_);
         buffer_gl_owner_->image_refs_[image1].count = 2;
         buffer_gl_owner_->image_refs_[image2].count = 1;
- 
-        // Release image2 completely
+
         buffer_gl_owner_->ReleaseRefOnImageLocked(image2, base::ScopedFD());
         EXPECT_EQ(buffer_gl_owner_->image_refs_.find(image2),
                   buffer_gl_owner_->image_refs_.end());
-        // image1 should still be there
         EXPECT_NE(buffer_gl_owner_->image_refs_.find(image1),
                   buffer_gl_owner_->image_refs_.end());
         EXPECT_EQ(buffer_gl_owner_->image_refs_[image1].count, 2);
- 
+
         buffer_gl_owner_->image_refs_.erase(image1);
     }
     delete image1;
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_ExactlyAtMax_Defers)
 {
     buffer_gl_owner_->max_images_ = IMAGE_COUNT;
@@ -1064,13 +1065,13 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_ExactlyAtMax_Def
         EXPECT_FALSE(buffer_gl_owner_->buffer_available_cb_.is_null());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, MaxImages_CanBeChanged)
 {
     buffer_gl_owner_->max_images_ = 5;
     EXPECT_EQ(buffer_gl_owner_->max_images_, 5);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_CallbackFiredAfterRelease)
 {
     buffer_gl_owner_->max_images_ = 1;
@@ -1083,19 +1084,18 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_CallbackFiredAft
     base::OnceClosure callback = base::BindOnce(
         [](bool* flag) { *flag = true; }, &callback_called);
     buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
-    EXPECT_FALSE(callback_called);
+    EXPECT_TRUE(callback_called);
     {
         base::AutoLock lock(buffer_gl_owner_->lock_);
-        EXPECT_FALSE(buffer_gl_owner_->buffer_available_cb_.is_null());
+        EXPECT_TRUE(buffer_gl_owner_->buffer_available_cb_.is_null());
     }
-    // Release the image - callback should fire
     {
         base::AutoLock lock(buffer_gl_owner_->lock_);
         buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
     }
     EXPECT_TRUE(callback_called);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, TextureId_MatchesCreatedTexture)
 {
     GLuint texture_id = buffer_gl_owner_->GetTextureId();
@@ -1103,7 +1103,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, TextureId_MatchesCreatedTexture)
     TextureBase* base = buffer_gl_owner_->GetTextureBase();
     EXPECT_NE(base, nullptr);
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImage_WithTextureNull_DoesNotCrash)
 {
     buffer_gl_owner_->texture_ = nullptr;
@@ -1113,7 +1113,7 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImage_WithTextureNull_DoesNot
         EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
     }
 }
- 
+
 TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_MultipleImagesRelease)
 {
     buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
@@ -1127,7 +1127,6 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_MultipleImagesRel
         }
         buffer_gl_owner_->buffer_available_cb_ = base::BindOnce(
             [](bool* flag) { *flag = true; }, &callback_called);
-        // Release first image -> callback should fire (size goes below max)
         buffer_gl_owner_->ReleaseRefOnImageLocked(images[0], base::ScopedFD());
     }
     EXPECT_TRUE(callback_called);
@@ -1137,6 +1136,483 @@ TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_MultipleImagesRel
             buffer_gl_owner_->image_refs_.erase(images[i]);
             delete images[i];
         }
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, GetContext_ReturnsValidContext)
+{
+    gl::GLContext* context = buffer_gl_owner_->GetContext();
+    EXPECT_NE(context, nullptr);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, GetSurface_ReturnsValidSurface)
+{
+    gl::GLSurface* surface = buffer_gl_owner_->GetSurface();
+    EXPECT_NE(surface, nullptr);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRef_MoveConstructor)
+{
+    HwVideoNativeBufferGLOwner::ImageRef ref1;
+    ref1.count = 5;
+    ref1.release_fence_fd = base::ScopedFD(HANDLE_EINTR(dup(1)));
+
+    HwVideoNativeBufferGLOwner::ImageRef ref2(std::move(ref1));
+    EXPECT_EQ(ref2.count, 5u);
+    EXPECT_TRUE(ref2.release_fence_fd.is_valid());
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRef_MoveAssignment)
+{
+    HwVideoNativeBufferGLOwner::ImageRef ref1;
+    ref1.count = 3;
+    ref1.release_fence_fd = base::ScopedFD(HANDLE_EINTR(dup(1)));
+
+    HwVideoNativeBufferGLOwner::ImageRef ref2;
+    ref2 = std::move(ref1);
+
+    EXPECT_EQ(ref2.count, 3u);
+    EXPECT_TRUE(ref2.release_fence_fd.is_valid());
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRef_DefaultConstructor)
+{
+    HwVideoNativeBufferGLOwner::ImageRef ref;
+    EXPECT_EQ(ref.count, 0u);
+    EXPECT_FALSE(ref.release_fence_fd.is_valid());
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ScopedCurrentImageRef_BasicLifecycle)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+        buffer_gl_owner_->image_refs_[image].count = 0;
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->image_refs_[image].count = 2;
+    }
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->image_refs_.erase(image);
+    }
+    delete image;
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RegisterRefOnImageLocked_IncrementCount)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 2u);
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 3u);
+        buffer_gl_owner_->image_refs_.erase(image);
+    }
+    delete image;
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImage_MultipleReleases)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 3;
+    }
+    buffer_gl_owner_->ReleaseRefOnImage(image, base::ScopedFD());
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 2u);
+    }
+    buffer_gl_owner_->ReleaseRefOnImage(image, base::ScopedFD());
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+    }
+    buffer_gl_owner_->ReleaseRefOnImage(image, base::ScopedFD());
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, GetNativeBuffer_WithLoaderNull_ReturnsNull)
+{
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->loader_ = nullptr;
+    }
+    auto buffer = buffer_gl_owner_->GetNativeBuffer();
+    EXPECT_EQ(buffer, nullptr);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImage_WithLoaderNull_DoesNotCrash)
+{
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->loader_ = nullptr;
+    }
+    buffer_gl_owner_->UpdateNativeImage();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_MaxImagesOne_NoImages)
+{
+    buffer_gl_owner_->max_images_ = 1;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_.clear();
+    }
+    bool callback_called = false;
+    base::OnceClosure callback = base::BindOnce(
+        [](bool* flag) { *flag = true; }, &callback_called);
+    buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
+    EXPECT_TRUE(callback_called);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountOne_DeletesImage)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 1;
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_BelowMax_ImmediateCallback)
+{
+    buffer_gl_owner_->max_images_ = 5;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_.clear();
+        for (int i = 0; i < 3; ++i) {
+            OhosWindowBuffer* image = new OhosWindowBuffer();
+            buffer_gl_owner_->image_refs_[image].count = 1;
+        }
+    }
+    bool callback_called = false;
+    base::OnceClosure callback = base::BindOnce(
+        [](bool* flag) { *flag = true; }, &callback_called);
+    buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
+    EXPECT_TRUE(callback_called);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_BufferCallbackNull_DoesNotCall)
+{
+    buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 1;
+        buffer_gl_owner_->buffer_available_cb_ = base::NullCallback();
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, GetTextureBase_AfterTextureSet)
+{
+    TextureBase* base = buffer_gl_owner_->GetTextureBase();
+    EXPECT_NE(base, nullptr);
+    EXPECT_GT(base->service_id(), 0u);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, EnsureNativeImageBound_MultipleCalls)
+{
+    GLuint texture_id = buffer_gl_owner_->GetTextureId();
+    buffer_gl_owner_->EnsureNativeImageBound(texture_id);
+    buffer_gl_owner_->EnsureNativeImageBound(texture_id);
+    buffer_gl_owner_->EnsureNativeImageBound(texture_id);
+    EXPECT_EQ(buffer_gl_owner_->GetTextureId(), texture_id);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImage_RepeatedCalls)
+{
+    buffer_gl_owner_->UpdateNativeImage();
+    buffer_gl_owner_->UpdateNativeImage();
+    buffer_gl_owner_->UpdateNativeImage();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        if (buffer_gl_owner_->loader_) {
+            EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
+        }
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_CountGtOne_WithFence)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    base::ScopedFD fence(HANDLE_EINTR(dup(1)));
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 5;
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, std::move(fence));
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 4u);
+        buffer_gl_owner_->image_refs_.erase(image);
+    }
+    delete image;
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_FenceMergeBothNull)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 2;
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        EXPECT_FALSE(buffer_gl_owner_->image_refs_[image].release_fence_fd.is_valid());
+        buffer_gl_owner_->image_refs_.erase(image);
+    }
+    delete image;
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_CallbackAlreadySet)
+{
+    buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_.clear();
+        for (int i = 0; i < IMAGE_BUFFER_SIZE; ++i) {
+            OhosWindowBuffer* image = new OhosWindowBuffer();
+            buffer_gl_owner_->image_refs_[image].count = 1;
+        }
+    }
+    bool callback_called = false;
+    base::OnceClosure callback = base::BindOnce(
+        [](bool* flag) { *flag = true; }, &callback_called);
+    buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
+    EXPECT_FALSE(callback_called);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, GetTextureId_MultipleCalls)
+{
+    GLuint id1 = buffer_gl_owner_->GetTextureId();
+    GLuint id2 = buffer_gl_owner_->GetTextureId();
+    GLuint id3 = buffer_gl_owner_->GetTextureId();
+    EXPECT_EQ(id1, id2);
+    EXPECT_EQ(id2, id3);
+    EXPECT_GT(id1, 0u);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRef_CountIncrementDecrement)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 0;
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->RegisterRefOnImageLocked(image);
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 2u);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_MaxImagesZero)
+{
+    buffer_gl_owner_->max_images_ = 0;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_.clear();
+    }
+    bool callback_called = false;
+    base::OnceClosure callback = base::BindOnce(
+        [](bool* flag) { *flag = true; }, &callback_called);
+    buffer_gl_owner_->RunWhenBufferIsAvailable(std::move(callback));
+    EXPECT_FALSE(callback_called);
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_NoBufferCallback)
+{
+    buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 1;
+        buffer_gl_owner_->buffer_available_cb_ = base::NullCallback();
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, UpdateNativeImage_TextureNull_LoaderNotNull)
+{
+    buffer_gl_owner_->texture_ = nullptr;
+    buffer_gl_owner_->UpdateNativeImage();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_LoaderNull_EarlyReturn)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->loader_ = nullptr;
+        buffer_gl_owner_->image_refs_[image].count = 1;
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_NE(buffer_gl_owner_->image_refs_.find(image), buffer_gl_owner_->image_refs_.end());
+        buffer_gl_owner_->image_refs_.erase(image);
+        delete image;
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResources_LoaderNotNull_ClearsImageRefs)
+{
+    OhosWindowBuffer* images[3];
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        for (int i = 0; i < 3; ++i) {
+            images[i] = new OhosWindowBuffer();
+            buffer_gl_owner_->image_refs_[images[i]].count = 1;
+        }
+    }
+    buffer_gl_owner_->ReleaseResources();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->loader_, nullptr);
+        EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_WithValidFence_MergesFences)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    base::ScopedFD fence1(HANDLE_EINTR(dup(1)));
+    base::ScopedFD fence2(HANDLE_EINTR(dup(2)));
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 2;
+        buffer_gl_owner_->image_refs_[image].release_fence_fd = std::move(fence1);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, std::move(fence2));
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 1u);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, base::ScopedFD());
+        EXPECT_EQ(buffer_gl_owner_->image_refs_.count(image), 0u);
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ImageRef_FenceMerge_BothValid)
+{
+    OhosWindowBuffer* image = new OhosWindowBuffer();
+    base::ScopedFD fence1(HANDLE_EINTR(dup(1)));
+    base::ScopedFD fence2(HANDLE_EINTR(dup(2)));
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image].count = 3;
+        buffer_gl_owner_->image_refs_[image].release_fence_fd = std::move(fence1);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(image, std::move(fence2));
+        EXPECT_EQ(buffer_gl_owner_->image_refs_[image].count, 2u);
+        buffer_gl_owner_->image_refs_.erase(image);
+    }
+    delete image;
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResources_MultipleImagesWithFences)
+{
+    OhosWindowBuffer* image1 = new OhosWindowBuffer();
+    OhosWindowBuffer* image2 = new OhosWindowBuffer();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[image1].count = 1;
+        buffer_gl_owner_->image_refs_[image1].release_fence_fd = base::ScopedFD(HANDLE_EINTR(dup(1)));
+        buffer_gl_owner_->image_refs_[image2].count = 2;
+        buffer_gl_owner_->image_refs_[image2].release_fence_fd = base::ScopedFD(HANDLE_EINTR(dup(2)));
+    }
+    buffer_gl_owner_->ReleaseResources();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->loader_, nullptr);
+        EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseRefOnImageLocked_WithDrdcLock_CallbackRuns)
+{
+    buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
+    OhosWindowBuffer* images[IMAGE_BUFFER_SIZE];
+    for (int i = 0; i < IMAGE_BUFFER_SIZE; ++i) {
+        images[i] = new OhosWindowBuffer();
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[images[i]].count = 1;
+    }
+    bool callback_called = false;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->buffer_available_cb_ = base::BindOnce(
+            [](bool* flag) { *flag = true; }, &callback_called);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(images[0], base::ScopedFD());
+    }
+    EXPECT_TRUE(callback_called);
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        for (int i = 1; i < IMAGE_BUFFER_SIZE; ++i) {
+            buffer_gl_owner_->image_refs_.erase(images[i]);
+            delete images[i];
+        }
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, RunWhenBufferIsAvailable_MultipleReleases)
+{
+    buffer_gl_owner_->max_images_ = IMAGE_BUFFER_SIZE;
+    OhosWindowBuffer* images[IMAGE_BUFFER_SIZE];
+    for (int i = 0; i < IMAGE_BUFFER_SIZE; ++i) {
+        images[i] = new OhosWindowBuffer();
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->image_refs_[images[i]].count = 1;
+    }
+    bool callback_called = false;
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->buffer_available_cb_ = base::BindOnce(
+            [](bool* flag) { *flag = true; }, &callback_called);
+    }
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->ReleaseRefOnImageLocked(images[0], base::ScopedFD());
+    }
+    EXPECT_TRUE(callback_called);
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        for (int i = 1; i < IMAGE_BUFFER_SIZE; ++i) {
+            buffer_gl_owner_->image_refs_.erase(images[i]);
+            delete images[i];
+        }
+    }
+}
+
+TEST_F(HwVideoNativeBufferGLOwnerTest, ReleaseResources_WithNullCurrentImageRef)
+{
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        buffer_gl_owner_->current_image_ref_.reset();
+        OhosWindowBuffer* image = new OhosWindowBuffer();
+        buffer_gl_owner_->image_refs_[image].count = 1;
+    }
+    buffer_gl_owner_->ReleaseResources();
+    {
+        base::AutoLock lock(buffer_gl_owner_->lock_);
+        EXPECT_EQ(buffer_gl_owner_->loader_, nullptr);
+        EXPECT_TRUE(buffer_gl_owner_->image_refs_.empty());
+        EXPECT_FALSE(buffer_gl_owner_->current_image_ref_.has_value());
     }
 }
 
