@@ -55,9 +55,9 @@ struct UrlRuleInfoEntry {
 };
 
 struct WhitelistEntry {
-  std::string_view pattern;
-  std::string_view getID;
-  std::string_view getPage;
+  std::string pattern;
+  std::string getID;
+  std::string getPage;
   std::optional<base::Value::List> appRuleInfos;
   std::optional<std::vector<UrlRuleInfoEntry>> urlRuleInfos;
 };

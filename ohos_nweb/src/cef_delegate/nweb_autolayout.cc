@@ -98,7 +98,7 @@ void NwebAutolayout::SetWebAutoLayoutConfig(const std::string& config) {
   }
 
   mEnable_ = true;
-  mPatternJSSource_ = std::string(mWListEntry_->pattern);
+  mPatternJSSource_ = mWListEntry_->pattern;
   LoadAutoLayoutFromHap();
   LOG(DEBUG) << "SetWebAutoLayoutConfig successfull";
 }
@@ -126,7 +126,7 @@ void NwebAutolayout::LoadWebAutoLayoutConfigFromCCM() {
     return;
   }
 
-  mPatternJSSource_ = std::string(mWListEntry_->pattern);
+  mPatternJSSource_ = mWListEntry_->pattern;
   LoadAutoLayoutFromHap();
   LOG(DEBUG) << "LoadWebAutoLayoutConfigFromCCM successfull";
 }
@@ -151,8 +151,8 @@ void NwebAutolayout::CheckCCMandApplyRule(CefRefPtr<CefFrame> frame) {
   if (!mEnable_ || mWListEntry_ == nullptr || frame == nullptr) {
     return;
   }
-  frame->ExecuteJavaScript(std::string(mWListEntry_->getID), frame->GetURL(), 0);
-  frame->ExecuteJavaScript(std::string(mWListEntry_->getPage), frame->GetURL(), 0);
+  frame->ExecuteJavaScript(mWListEntry_->getID, frame->GetURL(), 0);
+  frame->ExecuteJavaScript(mWListEntry_->getPage, frame->GetURL(), 0);
   LOG(DEBUG) << "Add autolayout JavaScript...";
   frame->ExecuteJavaScript(mAutoLayoutJSSource_, frame->GetURL(), 0);
 
@@ -390,9 +390,9 @@ std::optional<base::Value::List> NwebAutolayout::ParseAppRuleInfo(
     LOG(ERROR) << "Parse Error: Missing, empty or invalid type for getPage.";
     return std::nullopt;
   }
-  current_entry.pattern = std::string_view(*pattern_ptr);
-  current_entry.getID = std::string_view(*get_id_ptr);
-  current_entry.getPage = std::string_view(*get_page_ptr);
+  current_entry.pattern = *pattern_ptr;
+  current_entry.getID = *get_id_ptr;
+  current_entry.getPage = *get_page_ptr;
 
   const base::Value::List* app_rules_list =
       whitelist_dict.FindList(kAppRuleInfosKey);
