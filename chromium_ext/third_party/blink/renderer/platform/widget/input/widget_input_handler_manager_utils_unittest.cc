@@ -32,9 +32,12 @@
 #include "build/build_config.h"
 #include "cc/base/features.h"
 #include "cc/metrics/event_metrics.h"
+#include "cc/input/browser_controls_offset_tag_modifications.h"
 #include "cc/mojo_embedder/software_compositor_registry_ohos.h"
 #include "cc/raster/task.h"
+#include "cc/raster/task_graph_runner.h"
 #include "cc/trees/layer_tree_host.h"
+#include "cc/tiles/raster_dark_mode_filter.h"
 #include "cc/trees/paint_holding_reason.h"
 #include "services/tracing/public/cpp/perfetto/flow_event_utils.h"
 #include "third_party/blink/public/common/features.h"
@@ -56,6 +59,7 @@
 #include "third_party/blink/renderer/platform/widget/input/widget_input_handler_manager.cc"
 #include "third_party/blink/renderer/platform/widget/widget_base.h"
 #include "third_party/blink/renderer/platform/widget/widget_base_client.h"
+#include "cc/trees/layer_tree_host_impl_client.h"
 #define protected public
 #include "cc/trees/layer_tree_host_impl.h"
 #undef protected
@@ -106,7 +110,7 @@ class LayerTreeHostImplClientMock : public cc::LayerTreeHostImplClient {
   void NotifyReadyToDraw();
   void SetNeedsRedrawOnImplThread();
   void SetNeedsOneBeginImplFrameOnImplThread();
-  void SetNeedsCommitOnImplThread();
+  void SetNeedsCommitOnImplThread(bool urgent = false);
   void SetNeedsPrepareTilesOnImplThread();
   void SetVideoNeedsBeginFrames(bool needs_begin_frames);
   void SetDeferBeginMainFrameFromImpl(bool defer_begin_main_frame);
@@ -121,7 +125,7 @@ class LayerTreeHostImplClientMock : public cc::LayerTreeHostImplClient {
   void OnDrawForLayerTreeFrameSink(bool resourceless_software_draw,
                                    bool skip_draw);
   void NeedsImplSideInvalidation(bool needs_first_draw_on_activation);
-  void NotifyImageDecodeRequestFinished(int request_id, bool decode_succeeded);
+  void NotifyImageDecodeRequestFinished(int request_id, bool speculative, bool decode_succeeded);
   void NotifyTransitionRequestFinished(uint32_t sequence_id, const viz::ViewTransitionElementResourceRects&);
   void DidPresentCompositorFrameOnImplThread(
       uint32_t frame_token,
@@ -152,7 +156,7 @@ bool LayerTreeHostImplClientMock::IsReadyToActivate() {
 void LayerTreeHostImplClientMock::NotifyReadyToDraw() {}
 void LayerTreeHostImplClientMock::SetNeedsRedrawOnImplThread() {}
 void LayerTreeHostImplClientMock::SetNeedsOneBeginImplFrameOnImplThread() {}
-void LayerTreeHostImplClientMock::SetNeedsCommitOnImplThread() {}
+void LayerTreeHostImplClientMock::SetNeedsCommitOnImplThread(bool urgent) {}
 void LayerTreeHostImplClientMock::SetNeedsPrepareTilesOnImplThread() {}
 void LayerTreeHostImplClientMock::SetVideoNeedsBeginFrames(
     bool needs_begin_frames) {}
@@ -174,7 +178,7 @@ void LayerTreeHostImplClientMock::OnDrawForLayerTreeFrameSink(
     bool skip_draw) {}
 void LayerTreeHostImplClientMock::NeedsImplSideInvalidation(
     bool needs_first_draw_on_activation) {}
-void LayerTreeHostImplClientMock::NotifyImageDecodeRequestFinished(int request_id, bool decode_succeeded) {}
+void LayerTreeHostImplClientMock::NotifyImageDecodeRequestFinished(int request_id, bool speculative, bool decode_succeeded) {}
 void LayerTreeHostImplClientMock::NotifyTransitionRequestFinished(
     uint32_t sequence_id, const viz::ViewTransitionElementResourceRects&) {}
 void LayerTreeHostImplClientMock::DidPresentCompositorFrameOnImplThread(
@@ -264,7 +268,7 @@ class CompositorDelegateForInputMock : public cc::CompositorDelegateForInput {
   void DidMouseLeave();
   bool IsInHighLatencyMode() const;
   void WillScrollContent(cc::ElementId element_id);
-  void DidScrollContent(cc::ElementId element_id, bool animated);
+  void DidScrollContent(cc::ElementId element_id, bool animated, const gfx::Vector2dF& scroll_delta);
   float DeviceScaleFactor() const;
   float PageScaleFactor() const;
   gfx::Size VisualDeviceViewportSize() const;
@@ -272,7 +276,7 @@ class CompositorDelegateForInputMock : public cc::CompositorDelegateForInput {
   void UpdateBrowserControlsState(cc::BrowserControlsState constraints,
                                   cc::BrowserControlsState current,
                                   bool animate,
-                                  base::optional_ref<const cc::BrowserControlsOffsetTagsInfo> offset_tags_info);
+                                  base::optional_ref<const cc::BrowserControlsOffsetTagModifications> offset_tag_modifications);
   bool HasScrollLinkedAnimation(cc::ElementId for_scroller) const;
   cc::LayerTreeHostImpl& GetImplDeprecated();
   const cc::LayerTreeHostImpl& GetImplDeprecated() const;
@@ -305,7 +309,8 @@ bool CompositorDelegateForInputMock::IsInHighLatencyMode() const {
 void CompositorDelegateForInputMock::WillScrollContent(
     cc::ElementId element_id) {}
 void CompositorDelegateForInputMock::DidScrollContent(cc::ElementId element_id,
-                                                      bool animated) {}
+                                                      bool animated,
+                                                      const gfx::Vector2dF& scroll_delta) {}
 float CompositorDelegateForInputMock::DeviceScaleFactor() const {
   return 1.0;
 }
@@ -324,7 +329,7 @@ void CompositorDelegateForInputMock::UpdateBrowserControlsState(
     cc::BrowserControlsState constraints,
     cc::BrowserControlsState current,
     bool animate,
-    base::optional_ref<const cc::BrowserControlsOffsetTagsInfo> offset_tags_info) {}
+    base::optional_ref<const cc::BrowserControlsOffsetTagModifications> offset_tag_modifications) {}
 bool CompositorDelegateForInputMock::HasScrollLinkedAnimation(
     cc::ElementId for_scroller) const {
   return false;
