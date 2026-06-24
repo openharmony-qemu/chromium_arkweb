@@ -17,6 +17,7 @@
 
 #include "base/files/file_path.h"
 #include "components/web_cache/browser/web_cache_manager.h"
+#include "mojo/public/cpp/system/message_pipe.h"
 #include "gtest/gtest.h"
 
 #if BUILDFLAG(ARKWEB_INJECT_OFFLINE_RESOURCE)
@@ -284,6 +285,38 @@ TEST_F(WebCacheManagerUtilsTest, AddResourceToCache016) {
   for (int i = 0; i < kNumThreads; ++i) {
     webCacheManagerUtils.AddResourceToCache(url, origin, resource, response_headers, type);
   }
+}
+
+TEST_F(WebCacheManagerUtilsTest, AddResourceToCache_SizeOneUnbound) {
+  WebCacheManager* manager = WebCacheManager::GetInstance();
+  manager->web_cache_services_.clear();
+  manager->web_cache_services_.emplace(1, mojo::Remote<mojom::WebCache>());
+
+  WebCacheManagerUtils utils(manager);
+  utils.AddResourceToCache("https://example.com/test.html",
+                           "https://example.com",
+                           {'T', 'e', 's', 't'},
+                           {{"Content-Type", "text/html"}},
+                           1);
+
+  manager->web_cache_services_.clear();
+}
+
+TEST_F(WebCacheManagerUtilsTest, AddResourceToCache_SizeTwo) {
+  WebCacheManager* manager = WebCacheManager::GetInstance();
+  manager->web_cache_services_.clear();
+
+  manager->web_cache_services_.emplace(1, mojo::Remote<mojom::WebCache>());
+  manager->web_cache_services_.emplace(2, mojo::Remote<mojom::WebCache>());
+
+  WebCacheManagerUtils utils(manager);
+  utils.AddResourceToCache("https://example.com/test.html",
+                           "https://example.com",
+                           {'T', 'e', 's', 't'},
+                           {{"Content-Type", "text/html"}},
+                           1);
+
+  manager->web_cache_services_.clear();
 }
  
 }  // namespace web_cache

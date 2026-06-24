@@ -146,4 +146,66 @@ TEST_F(ArkWebContentSettingsAgentImplExtTest, TestSetContentSettingRules) {
   agent.SetContentSettingRules(&content_setting_rules);
   EXPECT_FALSE(false);
 }
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_UnreachableURL) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("https://example.com"));
+  WebURL document_url(GURL("arkweb-error://webdata/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_OpaqueOrigin) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("data:text/html,hello"));
+  WebURL document_url(GURL("data:text/html,hello"));
+  EXPECT_FALSE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_ChromeUI) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("chrome://settings"));
+  WebURL document_url(GURL("chrome://settings/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_NormalHttps) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("https://example.com"));
+  WebURL document_url(GURL("https://example.com/"));
+  EXPECT_FALSE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+#if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_ArkWebUI) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("arkweb://settings"));
+  WebURL document_url(GURL("arkweb://settings/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_NotArkWebUI) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("devtools://inspect"));
+  WebURL document_url(GURL("devtools://inspect/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+#endif
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_DevTools) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("devtools://inspect"));
+  WebURL document_url(GURL("devtools://inspect/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_FileDirectory) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("file:///usr/local/"));
+  WebURL document_url(GURL("file:///usr/local/"));
+  EXPECT_TRUE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_FileWithFilename) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("file:///usr/local/"));
+  WebURL document_url(GURL("file:///home/user/file.html"));
+  EXPECT_FALSE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
+
+TEST_F(ArkWebContentSettingsAgentImplExtTest, StaticIsWhitelisted_FileOriginNonFileUrl) {
+  WebSecurityOrigin origin = WebSecurityOrigin::Create(GURL("file:///usr/local/"));
+  WebURL document_url(GURL("https://example.com/file.html"));
+  EXPECT_FALSE(ArkWebContentSettingsAgentImplExt::IsWhitelistedForContentSettings(origin, document_url));
+}
 #endif
