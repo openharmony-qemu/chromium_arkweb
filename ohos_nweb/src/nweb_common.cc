@@ -19,16 +19,7 @@
 extern "C" {
 #endif  // __cplusplus
 
-bool g_is_native_api_enable = false;
 OnArkWebFreeMemoryFunc g_free_memory_func = nullptr;
-
-void EnableNativeApi(void) {
-  g_is_native_api_enable = true;
-}
-
-bool IsNativeApiEnable() {
-  return g_is_native_api_enable;
-}
 
 void SetFreeMemoryFunc(OnArkWebFreeMemoryFunc func) {
   g_free_memory_func = func;

@@ -83,7 +83,7 @@ struct RunJavaScriptParam;
 #endif // ARKWEB_ARKWEB_EXTENSIONS
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_app_client_extension_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_app_client_extension_delegate_impl.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
@@ -709,12 +709,12 @@ class NWebImpl : public NWeb {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool CanStoreWebArchive() const;
   static const std::vector<std::string>& GetCommandLineArgsForNWebEx();
-  static void InitBrowserServiceApi(std::vector<std::string>& browser_args,
-                                    int32_t api_level);
+  static void InitBrowserServiceApi(
+      const std::vector<std::string>& browser_args,
+      int32_t api_level);
   static bool GetBrowserServiceApiEnabled();
   static int32_t GetBrowserServiceSdkAPILevel();
-  void PutArkWebAppClientExtensionCallback(
-      std::shared_ptr<ArkWebAppClientExtensionCallback> callback);
+  void PutArkWebAppClientExtensionCallback(ArkWebAppClientExtensionCallback callback);
   void PutWebAppClientExtensionCallback(
       std::shared_ptr<NWebAppClientExtensionCallback>
           web_app_client_extension_listener);
@@ -957,10 +957,6 @@ class NWebImpl : public NWeb {
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PERMISSION)
-  void Grant(NWebPermissionRequest* request, int32_t resourse_id);
-  void Deny(NWebPermissionRequest* request);
-  std::string GetOrigin(NWebPermissionRequest* request);
-  int32_t GetResourceId(NWebPermissionRequest* request);
   void GrantV2(int32_t resourse_id, int nweb_request_key);
   void DenyV2(int nweb_request_key);
   std::string GetOriginV2(int nweb_request_key);
@@ -1000,12 +996,10 @@ class NWebImpl : public NWeb {
   void OnCreateNativeMediaPlayer(
       std::shared_ptr<NWebCreateNativeMediaPlayerCallback> callback) override;
 
-  static void SetLoggerReportEventCallback(void* callback);
   static void UploadCallback(const std::string& module,
                              const std::string& resource,
                              const std::string& errorCode,
                              const std::string& errorMsg);
-  static void* logger_report_event_callback_;
 
 #if BUILDFLAG(ARKWEB_ITP)
   static void AddIntelligentTrackingPreventionBypassingList(

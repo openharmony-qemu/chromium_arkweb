@@ -256,17 +256,8 @@ NWebNotificationOptionsItemIcon CreateFromImageSkiaReps(
         new NWebNotificationOptionsItemIconBitmap(
             CreateIconBitmapFromImage(rep.GetBitmap()));
 #else
-    if (IsNativeApiEnable()) {
-      actionIcon.bitmaps[scale] = new NWebNotificationOptionsItemIconBitmap(
-          CreateIconBitmapFromImage(rep.GetBitmap()));
-    } else {
-      NWebNotificationOptionsItemIconBitmap* addr =
-          (NWebNotificationOptionsItemIconBitmap*)__real_malloc(
-              sizeof(NWebNotificationOptionsItemIconBitmap));
-      actionIcon.bitmaps[scale] =
-          new (addr) NWebNotificationOptionsItemIconBitmap(
-              CreateIconBitmapFromImage(rep.GetBitmap()));
-    }
+    actionIcon.bitmaps[scale] = new NWebNotificationOptionsItemIconBitmap(
+        CreateIconBitmapFromImage(rep.GetBitmap()));
 #endif
   }
   return actionIcon;
@@ -344,25 +335,12 @@ void NotificationPlatformBridgeOhos::Display(
       notification.icon().GetImage().AsImageSkia().image_reps());
   options->icon = new NWebNotificationOptionsItemIcon(icon);
 #else
-  if (IsNativeApiEnable()) {
-    options->icon = new NWebNotificationOptionsItemIcon(CreateFromImageSkiaReps(
-        notification.icon().GetImage().AsImageSkia().image_reps()));
-  } else {
-    NWebNotificationOptionsItemIcon icon = CreateFromImageSkiaReps(
-        notification.icon().GetImage().AsImageSkia().image_reps());
-    NWebNotificationOptionsItemIcon* addr =
-        (NWebNotificationOptionsItemIcon*)__real_malloc(sizeof(icon));
-    options->icon = new (addr) NWebNotificationOptionsItemIcon(icon);
-  }
+  options->icon = new NWebNotificationOptionsItemIcon(CreateFromImageSkiaReps(
+      notification.icon().GetImage().AsImageSkia().image_reps()));
 #endif
 
   OHOS::NWeb::NWebNotificationManagerDelegate::OnShowNotification(options);
-  if (IsNativeApiEnable()) {
-    DeleteNWebNotificationOptionsItemIcon(options->icon);
-  } else {
-    options->icon->bitmaps =
-       std::map<double, NWebNotificationOptionsItemIconBitmap*>();
-  }
+  DeleteNWebNotificationOptionsItemIcon(options->icon);
 #endif // ARKWEB_NOTIFICATION
 }
 

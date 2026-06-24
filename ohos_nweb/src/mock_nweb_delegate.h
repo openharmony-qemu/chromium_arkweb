@@ -59,7 +59,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (override));
   MOCK_METHOD(void,
               RegisterArkWebAppClientExtensionListener,
-              (std::shared_ptr<ArkWebAppClientExtensionCallback> callback),
+              (ArkWebAppClientExtensionCallback callback),
               (override));
   MOCK_METHOD(void,
               RegisterWebAppClientExtensionListener,

@@ -42,12 +42,6 @@ class NweExtensionWindowCefDelegate {
     void WindowBoundsChanged(const WebExtensionWindow& window);
     void WindowFocusChanged(const WebExtensionWindow& window);
  
-    bool OnCreateWindow(const WebExtensionWindowCreateData& create_date, WindowCreatedCallback callback);
-    bool OnUpdateWindow(int windowId,
-                        const WebExtensionWindowUpdateInfo& update_info,
-                        WindowUpdatedCallback callback);
-    bool OnRemoveWindow(int windowId, WindowRemovedCallback callback);
- 
     bool OnCreateWindowV2(const WebExtensionWindowCreateData& create_date,
                           const WebExtensionWindowCreateDataV2& create_date_V2,
                           WindowCreatedCallback callback);
@@ -57,19 +51,9 @@ class NweExtensionWindowCefDelegate {
     bool OnRemoveWindowV2(int windowId,
                           const WebExtensionWindowRemoveInfoV2& remove_info,
                           WindowRemovedCallback callback);
-    bool HasOnCreateWindowV2CallBack();
-    bool HasOnUpdateWindowV2CallBack();
-    bool HasOnRemoveWindowV2CallBack();
 
-    std::optional<WebExtensionWindow> OnGetWindow(
-      int windowId,
-      const WebExtensionWindowQueryOptions& queryOptions);
-    std::vector<WebExtensionWindow> OnGetAllWindows(
-      const WebExtensionWindowQueryOptions& queryOptions);
     std::optional<WebExtensionWindow> OnGetCurrentWindow(
       int currentWindowId,
-      const WebExtensionWindowQueryOptions& queryOptions);
-    std::optional<WebExtensionWindow> OnGetLastFocusedWindow(
       const WebExtensionWindowQueryOptions& queryOptions);
  
     std::optional<WebExtensionWindow> OnGetWindowV2(
@@ -82,10 +66,7 @@ class NweExtensionWindowCefDelegate {
       const WebExtensionWindowQueryOptionsV2& queryOptions);
     std::optional<WebExtensionWindow> OnGetLastFocusedWindowV2(
       const WebExtensionWindowQueryOptionsV2& queryOptions);
-    bool HasOnGetWindowV2CallBack();
-    bool HasOnGetAllWindowsV2CallBack();
     bool HasOnGetCurrentWindowV2CallBack();
-    bool HasOnGetLastFocusedWindowV2CallBack();
 
     void WindowCreateCallback(int request_id,
                               const std::optional<WebExtensionWindow>& window,

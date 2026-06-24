@@ -16,27 +16,32 @@
 #ifndef NWEB_EXTENSION_BROWSING_DATA_CEF_DELEGATE_H
 #define NWEB_EXTENSION_BROWSING_DATA_CEF_DELEGATE_H
 
-#include "base/values.h"
 #include "base/functional/callback.h"
+#include "base/values.h"
 #include "ohos_nweb/src/capi/web_extension_browsing_data_items.h"
 
-using BrowsingDataRemoveCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
+using BrowsingDataRemoveCallback =
+    base::RepeatingCallback<void(const std::optional<std::string>&)>;
 
 namespace OHOS::NWeb {
 
 class NWebExtensionBrowsingDataCefDelegate {
  public:
-  static void RemoveDownloads(const NWebExtensionBrowsingDataRemovalOptions& removalOptions,
-                              BrowsingDataRemoveCallback callback,
-                              const std::optional<NWebExtensionBrowsingDataQueryOptions>& queryOptions);
-  static void RemoveHistory(const NWebExtensionBrowsingDataRemovalOptions& removalOptions,
-                            BrowsingDataRemoveCallback callback,
-                            const std::optional<NWebExtensionBrowsingDataQueryOptions>& queryOptions);
+  static void RemoveDownloads(
+      const NWebExtensionBrowsingDataRemovalOptions& removalOptions,
+      BrowsingDataRemoveCallback callback,
+      const std::optional<NWebExtensionBrowsingDataQueryOptions>& queryOptions);
+  static void RemoveHistory(
+      const NWebExtensionBrowsingDataRemovalOptions& removalOptions,
+      BrowsingDataRemoveCallback callback,
+      const std::optional<NWebExtensionBrowsingDataQueryOptions>& queryOptions);
 
-  static void RemoveDownloadsCallback(int32_t request_id, std::optional<std::string>& error);
-  static void RemoveHistoryCallback(int32_t request_id, std::optional<std::string>& error);
+  static void RemoveDownloadsCallback(int32_t request_id,
+                                      const std::optional<std::string>& error);
+  static void RemoveHistoryCallback(int32_t request_id,
+                                    const std::optional<std::string>& error);
 };
 
 }  // namespace OHOS::NWeb
 
-#endif // NWEB_EXTENSION_BROWSING_DATA_CEF_DELEGATE_H
+#endif  // NWEB_EXTENSION_BROWSING_DATA_CEF_DELEGATE_H

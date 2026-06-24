@@ -1217,8 +1217,7 @@ void NWebDelegate::FindNext(const bool forward) const {
 }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-void NWebDelegate::RegisterArkWebAppClientExtensionListener(
-    std::shared_ptr<ArkWebAppClientExtensionCallback> callback) {
+void NWebDelegate::RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback) {
   if (handler_delegate_ == nullptr) {
     LOG(ERROR) << "fail to register web app client extension listener, nweb "
                   "handler delegate is nullptr";
@@ -6457,13 +6456,9 @@ void NWebDelegate::StaticOpenDevtoolsWith(
   NWebDelegate* devtools_delegate =
       static_cast<NWebDelegate*>(nweb_delegate.get());
   CefRefPtr<NWebDevToolsMessageHandlerImpl> devtools_message_handler;
-  if (IsNativeApiEnable()) {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
-  } else {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handler)));
-  }
+  devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
+      new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
+
 
   CefPoint inspect_element_at(param->point.x, param->point.y);
   CefOpenDevToolsExtOpt cef_ext_opt = GetCefExtOpt(ext_opt);
@@ -6492,13 +6487,8 @@ void NWebDelegate::OpenDevtoolsWith(
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   CefRefPtr<NWebDevToolsMessageHandlerImpl> devtools_message_handler;
-  if (IsNativeApiEnable()) {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
-  } else {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handler)));
-  }
+  devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
+      new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
 
   CefPoint inspect_element_at(param->point.x, param->point.y);
   GetBrowser()->GetHost()->ShowDevToolsWith(
@@ -6521,13 +6511,8 @@ void NWebDelegate::OpenDevtoolsWithByPb(
       static_cast<NWebDelegate*>(nweb_delegate.get());
 
   CefRefPtr<NWebDevToolsMessageHandlerImpl> devtools_message_handler;
-  if (IsNativeApiEnable()) {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
-  } else {
-    devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
-        new NWebDevToolsMessageHandlerImpl(std::move(param->handler)));
-  }
+  devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
+      new NWebDevToolsMessageHandlerImpl(std::move(param->handlerNativeApi)));
  
   CefPoint inspect_element_at(param->point.x, param->point.y);
   struct CefOpenDevToolsExtOpt cef_ext_opt = GetCefExtOpt(ext_opt);

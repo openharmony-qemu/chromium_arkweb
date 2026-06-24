@@ -1826,101 +1826,6 @@ TEST_F(NWebImplTest, OnBrowserBackgroundWithNullInitArgs)
 }
 #endif
 
-#if BUILDFLAG(ARKWEB_EXT_PERMISSION)
-TEST_F(NWebImplTest, GetOrigin001) {
-  NWebPermissionRequest* request = nullptr;
-  auto res = nweb_impl_->GetOrigin(request);
-  EXPECT_EQ(res, "");
-}
-
-TEST_F(NWebImplTest, GetOrigin002) {
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, nullptr);
-  auto res = nweb_impl_->GetOrigin(request);
-  EXPECT_EQ(res, "");
-  delete request;
-}
-
-TEST_F(NWebImplTest, GetOrigin003) {
-  auto temp = std::make_shared<MockNWebAccessRequest>();
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, temp);
-  EXPECT_CALL(*temp, Origin())
-    .WillOnce(::testing::Return("https://example.com"));
-  auto res = nweb_impl_->GetOrigin(request);
-  EXPECT_EQ(res, "https://example.com");
-  delete request;
-}
-
-TEST_F(NWebImplTest, GetResourceId001) {
-  NWebPermissionRequest* request = nullptr;
-  auto res = nweb_impl_->GetResourceId(request);
-  EXPECT_EQ(res, -1);
-}
-
-TEST_F(NWebImplTest, GetResourceId002) {
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, nullptr);
-  auto res = nweb_impl_->GetResourceId(request);
-  EXPECT_EQ(res, -1);
-  delete request;
-}
-
-TEST_F(NWebImplTest, GetResourceId003) {
-  auto temp = std::make_shared<MockNWebAccessRequest>();
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, temp);
-  EXPECT_CALL(*temp, ResourceAcessId())
-    .WillOnce(::testing::Return(999));
-  auto res = nweb_impl_->GetResourceId(request);
-  EXPECT_EQ(res, 999);
-  delete request;
-}
-
-TEST_F(NWebImplTest, Grant001) {
-  NWebPermissionRequest* request = nullptr;
-  int32_t resourse_id = -1;
-  nweb_impl_->Grant(request, resourse_id);
-  EXPECT_NE(nweb_impl_, nullptr);
-}
-
-TEST_F(NWebImplTest, Grant002) {
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, nullptr);
-  int32_t resourse_id = -1;
-  nweb_impl_->Grant(request, resourse_id);
-  EXPECT_NE(nweb_impl_, nullptr);
-  delete request;
-}
-
-TEST_F(NWebImplTest, Grant003) {
-  auto temp = std::make_shared<MockNWebAccessRequest>();
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, temp);
-  int32_t resourse_id = -1;
-  EXPECT_CALL(*temp, Agree(resourse_id)).Times(1);
-  nweb_impl_->Grant(request, resourse_id);
-  EXPECT_NE(nweb_impl_, nullptr);
-  delete request;
-}
-
-TEST_F(NWebImplTest, Deny001) {
-  NWebPermissionRequest* request = nullptr;
-  nweb_impl_->Deny(request);
-  EXPECT_NE(nweb_impl_, nullptr);
-}
-
-TEST_F(NWebImplTest, Deny002) {
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, nullptr);
-  nweb_impl_->Deny(request);
-  EXPECT_NE(nweb_impl_, nullptr);
-  delete request;
-}
-
-TEST_F(NWebImplTest, Deny003) {
-  auto temp = std::make_shared<MockNWebAccessRequest>();
-  NWebPermissionRequest* request = new NWebPermissionRequest(0, temp);
-  EXPECT_CALL(*temp, Refuse()).Times(1);
-  nweb_impl_->Deny(request);
-  EXPECT_NE(nweb_impl_, nullptr);
-  delete request;
-}
-#endif
-
 TEST_F(NWebImplTest, OnDestroyWithNativeDestroyCallback) {
   nweb_impl_->destroyCallback_ = nullptr;
   EXPECT_EQ(nweb_impl_->destroyCallback_, nullptr);
@@ -4491,17 +4396,17 @@ TEST_F(NWebImplTest, SetBrowserUserAgentString002) {
 }
 
 TEST_F(NWebImplTest, PutArkWebAppClientExtensionCallback001) {
-  std::shared_ptr<ArkWebAppClientExtensionCallback> callback = nullptr;
+  ArkWebAppClientExtensionCallback callback;
   nweb_impl_->nweb_delegate_ = nullptr;
-  EXPECT_CALL(*mock_delegate_, RegisterArkWebAppClientExtensionListener(callback)).Times(0);
+  EXPECT_CALL(*mock_delegate_, RegisterArkWebAppClientExtensionListener(_)).Times(0);
   nweb_impl_->PutArkWebAppClientExtensionCallback(callback);
   EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
 }
 
 TEST_F(NWebImplTest, PutArkWebAppClientExtensionCallback002) {
-  std::shared_ptr<ArkWebAppClientExtensionCallback> callback = nullptr;
+  ArkWebAppClientExtensionCallback callback;
   nweb_impl_->nweb_delegate_ = mock_delegate_;
-  EXPECT_CALL(*mock_delegate_, RegisterArkWebAppClientExtensionListener(callback)).Times(1);
+  EXPECT_CALL(*mock_delegate_, RegisterArkWebAppClientExtensionListener(_)).Times(1);
   nweb_impl_->PutArkWebAppClientExtensionCallback(callback);
   EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
 }
@@ -9100,14 +9005,6 @@ TEST_F(NWebImplTest, IsScrollbarModeChanged001) {
   EXPECT_FALSE(nweb_impl_->IsScrollbarModeChanged());
   nweb_impl_->scrollbarModeChanged_ = true;
   EXPECT_TRUE(nweb_impl_->IsScrollbarModeChanged());
-}
-
-TEST_F(NWebImplTest, SetLoggerReportEventCallback001) {
-  nweb_impl_->SetLoggerReportEventCallback(nullptr);
-  EXPECT_EQ(nweb_impl_->logger_report_event_callback_, nullptr);
-  void* mock_callback = reinterpret_cast<void*>(0x12345678);
-  nweb_impl_->SetLoggerReportEventCallback(mock_callback);
-  EXPECT_EQ(nweb_impl_->logger_report_event_callback_, mock_callback);
 }
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)

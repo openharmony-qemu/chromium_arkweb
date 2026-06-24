@@ -80,8 +80,6 @@ class ExtensionRegistryInfoManager : public MenuManager::LoadObserver,
 
   static void OnExtensionUnLoadedCallBack(const std::string& eid);
 
-  static void OnExtensionOpenUrlCallBack(const std::string& url);
-
   static void StartInitialLoad();
  
   static void StopInitialLoad();

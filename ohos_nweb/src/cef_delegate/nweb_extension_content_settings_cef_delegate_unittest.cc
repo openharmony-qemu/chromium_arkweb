@@ -30,7 +30,7 @@
 #endif
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_content_settings_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_content_settings_delegate_impl.h"
 #endif
 
 

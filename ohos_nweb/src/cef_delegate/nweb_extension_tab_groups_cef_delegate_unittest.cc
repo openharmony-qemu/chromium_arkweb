@@ -30,11 +30,6 @@ namespace OHOS::NWeb {
 class NWebExtensionTabGroupsCefDelegateTest : public ::testing::Test {
  protected:
   void SetUp() override {
-#if BUILDFLAG(ARKWEB_NWEB_EX)
-    g_tab_groups_callback_ =
-        std::make_shared<ArkWebExtensionTabGroupsCallback>(nullptr);
-#endif
-
     g_get_tab_group_callback_map_.clear();
     g_move_tab_group_callback_map_.clear();
     g_query_tab_group_callback_map_.clear();
@@ -53,8 +48,7 @@ class NWebExtensionTabGroupsCefDelegateTest : public ::testing::Test {
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  std::shared_ptr<ArkWebExtensionTabGroupsCallback> g_tab_groups_callback_ =
-      nullptr;
+  ArkWebExtensionTabGroupsCallback* g_tab_groups_callback_;
 #endif
 };
 
@@ -85,18 +79,18 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, GetTabGroup002) {
   function_context.extension_id = "test_extension";
   function_context.include_incognito_info = true;
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
-  NWebExtensionTabGroupsDispatcher::RegistArkWebExtensionTabGroupsCallback(
-      g_tab_groups_callback_);
+  g_tab_groups_callback_ = static_cast<ArkWebExtensionTabGroupsCallback*>(
+      nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().CreateCallback());
   auto get_func = [](int32_t request_id, int32_t groupId,
                      const ArkWebPbBuffer* pb_buffer) {};
   g_tab_groups_callback_->on_get = get_func;
   EXPECT_TRUE(NWebExtensionTabGroupsCefDelegate::GetTabGroup(test_callback, 1,
                                                              function_context));
-  NWebExtensionTabGroupsDispatcher::UnRegistArkWebExtensionTabGroupsCallback();
+  nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().ReleaseCallback();
 #endif
 }
 
@@ -106,9 +100,9 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, GetTabGroupCallback001) {
   std::optional<std::string> test_error = "test_error";
 
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
   g_get_tab_group_callback_map_.emplace(test_request_id, test_callback);
 
@@ -148,18 +142,18 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, MoveTabGroup002) {
   move_properties.contextType = "background";
   move_properties.includeIncognitoInfo = true;
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
-  NWebExtensionTabGroupsDispatcher::RegistArkWebExtensionTabGroupsCallback(
-      g_tab_groups_callback_);
+  g_tab_groups_callback_ = static_cast<ArkWebExtensionTabGroupsCallback*>(
+      nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().CreateCallback());
   auto move_func = [](int32_t request_id, int32_t groupId,
                       const ArkWebPbBuffer* pb_buffer) {};
   g_tab_groups_callback_->on_move = move_func;
   EXPECT_TRUE(NWebExtensionTabGroupsCefDelegate::MoveTabGroup(test_callback, 1,
                                                               move_properties));
-  NWebExtensionTabGroupsDispatcher::UnRegistArkWebExtensionTabGroupsCallback();
+  nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().ReleaseCallback();
 #endif
 }
 
@@ -169,9 +163,9 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, MoveTabGroupCallback001) {
   std::optional<std::string> test_error = "test_error";
 
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
   g_move_tab_group_callback_map_.emplace(test_request_id, test_callback);
 
@@ -215,17 +209,17 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, QueryTabGroup002) {
   query_info.window_id = 10;
 
   auto test_lambda = [](const std::vector<NWebExtensionTabGroup>& tab_groups,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const std::vector<NWebExtensionTabGroup>&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const std::vector<NWebExtensionTabGroup>&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
-  NWebExtensionTabGroupsDispatcher::RegistArkWebExtensionTabGroupsCallback(
-      g_tab_groups_callback_);
+  g_tab_groups_callback_ = static_cast<ArkWebExtensionTabGroupsCallback*>(
+      nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().CreateCallback());
   auto query_func = [](int32_t request_id, const ArkWebPbBuffer* pb_buffer) {};
   g_tab_groups_callback_->on_query = query_func;
   EXPECT_TRUE(NWebExtensionTabGroupsCefDelegate::QueryTabGroup(test_callback,
                                                                query_info));
-  NWebExtensionTabGroupsDispatcher::UnRegistArkWebExtensionTabGroupsCallback();
+  nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().ReleaseCallback();
 #endif
 }
 
@@ -235,9 +229,9 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, QueryTabGroupCallback001) {
   std::optional<std::string> test_error = "test_error";
 
   auto test_lambda = [](const std::vector<NWebExtensionTabGroup>& tab_groups,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const std::vector<NWebExtensionTabGroup>&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const std::vector<NWebExtensionTabGroup>&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
   g_query_tab_group_callback_map_.emplace(test_request_id, test_callback);
 
@@ -279,18 +273,18 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, UpdateTabGroup002) {
   update_properties.title = "test_title";
 
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
-  NWebExtensionTabGroupsDispatcher::RegistArkWebExtensionTabGroupsCallback(
-      g_tab_groups_callback_);
+  g_tab_groups_callback_ = static_cast<ArkWebExtensionTabGroupsCallback*>(
+      nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().CreateCallback());
   auto update_func = [](int32_t request_id, int32_t groupId,
                         const ArkWebPbBuffer* pb_buffer) {};
   g_tab_groups_callback_->on_update = update_func;
   EXPECT_TRUE(NWebExtensionTabGroupsCefDelegate::UpdateTabGroup(
       test_callback, 1, update_properties));
-  NWebExtensionTabGroupsDispatcher::UnRegistArkWebExtensionTabGroupsCallback();
+  nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().ReleaseCallback();
 #endif
 }
 
@@ -300,9 +294,9 @@ TEST_F(NWebExtensionTabGroupsCefDelegateTest, UpdateTabGroupCallback001) {
   std::optional<std::string> test_error = "test_error";
 
   auto test_lambda = [](const NWebExtensionTabGroup& tab_group,
-                        std::optional<std::string>& error) { (void)error; };
+                        const std::optional<std::string>& error) { (void)error; };
 
-  base::RepeatingCallback<void(const NWebExtensionTabGroup&,std::optional<std::string>&)>
+  base::RepeatingCallback<void(const NWebExtensionTabGroup&, const std::optional<std::string>&)>
         test_callback = base::BindRepeating(test_lambda);
   g_update_tab_group_callback_map_.emplace(test_request_id, test_callback);
 

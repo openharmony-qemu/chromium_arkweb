@@ -239,7 +239,6 @@ extern bool g_siteIsolationMode;
 #endif
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
-#include "cef_delegate/nweb_extension_window_delegate_handler.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/speech/extension_api/tts_engine_extension_api.h"
 #include "cef/include/cef_request_context.h"
@@ -314,8 +313,8 @@ extern bool g_siteIsolationMode;
 #endif
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/static/nweb_static_dispatcher.h"
-#include "ohos_nweb_ex/core/web_extension/web_extension_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_web_static_delegate_impl.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_delegate_impl.h"
 #endif
 #if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
 #include "base/ohos/ltpo/include/dynamic_frame_rate_decision.h"
@@ -378,7 +377,6 @@ std::atomic<bool> OHOS::NWeb::NWebImpl::should_lazy_init_web_engine_{false};
 #include "ohos_nweb/src/nweb_advanced_security.h"
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 
-#include "capi/nweb_logger_report_event_callback.h"
 #include "base/ohos/nweb_engine_event_logger.h"
 
 #include "cef/include/cef_app.h"
@@ -1436,8 +1434,6 @@ namespace OHOS::NWeb {
 
 bool NWebImpl::disableWebActivePolicy_ = false;
 
-void* NWebImpl::logger_report_event_callback_ = nullptr;
-
 WebDestroyMode NWebImpl::webDestroyMode_ = WebDestroyMode::NORMAL_MODE;
 
 ScrollbarMode NWebImpl::scrollbarMode_ = ScrollbarMode::OVERLAY_LAYOUT_SCROLLBAR;
@@ -1670,7 +1666,7 @@ NWebImpl::~NWebImpl() {
   g_nweb_map.Get().erase(nweb_id_);
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionDispatcher::GetInstance().CheckDevtoolsNwebClosed(nweb_id_);
+  nweb_ex::NWebExtensionDelegateImpl::GetInstance().CheckDevtoolsNwebClosed(nweb_id_);
 #endif
 }
 
@@ -1758,24 +1754,15 @@ bool NWebImpl::Init(std::shared_ptr<NWebCreateInfo> create_info) {
 }
 
 // static
-void NWebImpl::SetLoggerReportEventCallback(void* callback) {
-  logger_report_event_callback_ = callback;
-}
-
-// static
-NO_SANITIZE("cfi") void NWebImpl::UploadCallback(const std::string& module,
-                                                 const std::string& resource,
-                                                 const std::string& errorCode,
-                                                 const std::string& errorMsg) {
+NO_SANITIZE("cfi")
+void NWebImpl::UploadCallback(const std::string& module,
+                              const std::string& resource,
+                              const std::string& errorCode,
+                              const std::string& errorMsg) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebStaticDispatcher::OnLoggerReportEvent(module, resource, errorCode, errorMsg);
+  nweb_ex::NWebWebStaticDelegateImpl::GetInstance().OnLoggerReportEvent(
+      module, resource, errorCode, errorMsg);
 #endif
-
-  if (logger_report_event_callback_ == nullptr) {
-    return;
-  }
-  (static_cast<NWebLoggerReportEventCallback *>(logger_report_event_callback_))
-      ->OnUploadCallback(module, resource, errorCode, errorMsg);
 }
 
 void NWebImpl::OnDestroy() {
@@ -4442,8 +4429,9 @@ const std::vector<std::string>& NWebImpl::GetCommandLineArgsForNWebEx() {
   return g_browser_args;
 }
 
-void NWebImpl::InitBrowserServiceApi(std::vector<std::string>& browser_args,
-                                     int32_t api_level) {
+void NWebImpl::InitBrowserServiceApi(
+    const std::vector<std::string>& browser_args,
+    int32_t api_level) {
   g_browser_args = browser_args;
   g_browser_service_api_enabled = true;
   g_browser_service_sdk_api_level = api_level;
@@ -4480,8 +4468,7 @@ void NWebImpl::SetBrowserUserAgentString(const std::string& user_agent) {
   nweb_delegate_->SetBrowserUserAgentString(user_agent);
 }
 
-void NWebImpl::PutArkWebAppClientExtensionCallback(
-    std::shared_ptr<ArkWebAppClientExtensionCallback> callback) {
+void NWebImpl::PutArkWebAppClientExtensionCallback(ArkWebAppClientExtensionCallback callback) {
   if (nweb_delegate_ == nullptr) {
     WVLOG_E(
         "set web app client extension callback failed, nweb delegate is "
@@ -6496,46 +6483,6 @@ bool NWebImpl::NeedSoftKeyboard() {
 }
 
 #if BUILDFLAG(ARKWEB_EXT_PERMISSION)
-void NWebImpl::Grant(NWebPermissionRequest* request, int32_t resourse_id) {
-  if (!request) {
-    return;
-  }
-  if (!request->access_request) {
-    return;
-  }
-  request->access_request->Agree(resourse_id);
-}
-
-void NWebImpl::Deny(NWebPermissionRequest* request) {
-  if (!request) {
-    return;
-  }
-  if (!request->access_request) {
-    return;
-  }
-  request->access_request->Refuse();
-}
-
-std::string NWebImpl::GetOrigin(NWebPermissionRequest* request) {
-  if (!request) {
-    return "";
-  }
-  if (!request->access_request) {
-    return "";
-  }
-  return request->access_request->Origin();
-}
-
-int32_t NWebImpl::GetResourceId(NWebPermissionRequest* request) {
-  if (!request) {
-    return -1;
-  }
-  if (!request->access_request) {
-    return -1;
-  }
-  return request->access_request->ResourceAcessId();
-}
-
 void NWebImpl::GrantV2(int32_t resourse_id, int nweb_request_key) {
   if (!nweb_delegate_) {
     LOG(ERROR) << "failed to GrantV2, delegate is null";

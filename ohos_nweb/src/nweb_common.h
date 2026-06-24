@@ -23,10 +23,6 @@
 extern "C" {
 #endif  // __cplusplus
 
-void EnableNativeApi(void);
-
-bool IsNativeApiEnable();
-
 void SetFreeMemoryFunc(OnArkWebFreeMemoryFunc func);
 
 void FreeExternalMemory(void* addr);

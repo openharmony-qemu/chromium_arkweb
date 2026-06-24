@@ -23,16 +23,16 @@
 
 using GetTabGroupsCallback =
     base::RepeatingCallback<void(const NWebExtensionTabGroup&,
-                                 std::optional<std::string>&)>;
+                                 const std::optional<std::string>&)>;
 using MoveTabGroupsCallback =
     base::RepeatingCallback<void(const NWebExtensionTabGroup&,
-                                 std::optional<std::string>&)>;
+                                 const std::optional<std::string>&)>;
 using QueryTabGroupsCallback =
     base::RepeatingCallback<void(const std::vector<NWebExtensionTabGroup>&,
-                                 std::optional<std::string>&)>;
+                                 const std::optional<std::string>&)>;
 using UpdateTabGroupsCallback =
     base::RepeatingCallback<void(const NWebExtensionTabGroup&,
-                                 std::optional<std::string>&)>;
+                                 const std::optional<std::string>&)>;
 
 namespace OHOS::NWeb {
 
@@ -41,21 +41,21 @@ class NWebExtensionTabGroupsCefDelegate {
   static bool GetTabGroup(GetTabGroupsCallback callback, int32_t groupId,
       const NWebExtensionFunctionContext& function_context);
   static void GetTabGroupCallback(
-      int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error);
+      int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error);
 
   static bool MoveTabGroup(
       MoveTabGroupsCallback callback, int32_t groupId, const NWebExtensionTabGroupsMoveProperties& move_properties);
   static void MoveTabGroupCallback(
-      int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error);
+      int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error);
 
   static bool QueryTabGroup(QueryTabGroupsCallback callback, const NWebExtensionTabGroupsQueryInfo& query_info);
   static void QueryTabGroupCallback(
-      int32_t request_id, const std::vector<NWebExtensionTabGroup>& tabGroups, std::optional<std::string>& error);
+      int32_t request_id, const std::vector<NWebExtensionTabGroup>& tabGroups, const std::optional<std::string>& error);
 
   static bool UpdateTabGroup(UpdateTabGroupsCallback callback, int32_t groupId,
       const NWebExtensionTabGroupsUpdateProperties& update_properties);
   static void UpdateTabGroupCallback(
-      int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error);
+      int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error);
 
   static void TabGroupCreated(const NWebExtensionTabGroup& tabGroup);
   static void TabGroupMoved(const NWebExtensionTabGroup& tabGroup);

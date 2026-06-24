@@ -274,8 +274,6 @@ static_library("cef_nweb") {
       "src/cef_delegate/nweb_extension_utils.h",
       "src/cef_delegate/nweb_extension_browsing_data_cef_delegate.cc",
       "src/cef_delegate/nweb_extension_browsing_data_cef_delegate.h",
-      "src/cef_delegate/nweb_extension_window_delegate_handler.h",
-      "src/cef_delegate/nweb_extension_window_delegate_handler.cc",
       "src/cef_delegate/nweb_extension_window_cef_delegate.h",
       "src/cef_delegate/nweb_extension_window_cef_delegate.cc",
       "src/cef_delegate/nweb_extension_top_sites_cef_delegate.cc",
@@ -787,7 +785,6 @@ source_set("unittests") {
     "src/nweb_cookie_manager_impl_unittest.cc",
     "src/nweb_download_manager_impl_unittest.cc",
     "src/nweb_fallback_proxy_unittest.cc",
-    "src/nweb_permission_status_query_manager_unittest.cc",
     "src/nweb_impl_unittest.cc",
     "src/nweb_input_handler_unittest.cc",
     "src/nweb_inputmethod_handler_unittest.cc",
@@ -831,15 +828,6 @@ source_set("unittests") {
 
   if (enable_arkweb) {
     deps += [ "//arkweb/build/features" ]
-  }
-
-  if (enable_arkweb_ext) {
-    deps += [ "//arkweb/ohos_nweb_ex/build/features" ]
-    sources += [ "//arkweb/ohos_nweb_ex/core/web_screencapturer_unittest.cc" ]
-    include_dirs += [
-      "//arkweb/ohos_nweb_ex",
-      "//arkweb/ohos_nweb/src/capi",
-    ]
   }
 
   public_deps = [

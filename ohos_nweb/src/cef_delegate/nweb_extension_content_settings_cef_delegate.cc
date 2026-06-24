@@ -27,52 +27,55 @@
 #include "content/public/browser/browser_context.h"
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_content_settings_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_content_settings_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
 namespace {
 
-static std::map<int, ContentSettingsGetCallback> g_content_settings_get_callback_map_;
+static std::map<int, ContentSettingsGetCallback>
+    g_content_settings_get_callback_map_;
 std::mutex g_content_settings_get_callback_map_mutex;
 
-static std::map<int, ContentSettingsSetCallback> g_content_settings_set_callback_map_;
+static std::map<int, ContentSettingsSetCallback>
+    g_content_settings_set_callback_map_;
 std::mutex g_content_settings_set_callback_map_mutex;
 
-static std::map<int, ContentSettingsClearCallback> g_content_settings_clear_callback_map_;
+static std::map<int, ContentSettingsClearCallback>
+    g_content_settings_clear_callback_map_;
 std::mutex g_content_settings_clear_callback_map_mutex;
 
-content::BrowserContext *GetBrowserContext()
-{
-    CefRequestContextImpl *request_context =
-        static_cast<CefRequestContextImpl *>(CefRequestContext::GetGlobalContext().get());
-    if (!request_context) {
-        LOG(ERROR) << "request_context is null";
-        return nullptr;
-    }
-    CefBrowserContext *cef_browser_context = request_context->GetBrowserContext();
-    if (!cef_browser_context) {
-        LOG(ERROR) << "cef_browser_context is null";
-        return nullptr;
-    }      
-    return cef_browser_context->AsBrowserContext();
+content::BrowserContext* GetBrowserContext() {
+  CefRequestContextImpl* request_context = static_cast<CefRequestContextImpl*>(
+      CefRequestContext::GetGlobalContext().get());
+  if (!request_context) {
+    LOG(ERROR) << "request_context is null";
+    return nullptr;
+  }
+  CefBrowserContext* cef_browser_context = request_context->GetBrowserContext();
+  if (!cef_browser_context) {
+    LOG(ERROR) << "cef_browser_context is null";
+    return nullptr;
+  }
+  return cef_browser_context->AsBrowserContext();
 }
 
 }  // namespace
 
 // static
-NWebExtensionContentSettingsCefDelegate& NWebExtensionContentSettingsCefDelegate::GetInstance()
-{
-    static NWebExtensionContentSettingsCefDelegate instance;
-    return instance;
+NWebExtensionContentSettingsCefDelegate&
+NWebExtensionContentSettingsCefDelegate::GetInstance() {
+  static NWebExtensionContentSettingsCefDelegate instance;
+  return instance;
 }
 
 bool NWebExtensionContentSettingsCefDelegate::HasOnGet() {
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
   return false;
 #else
-  return NWebExtensionContentSettingsDispatcher::GetInstance().HasOnGet();
+  return nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance()
+      .HasOnGet();
 #endif
 }
 
@@ -80,7 +83,8 @@ bool NWebExtensionContentSettingsCefDelegate::HasOnSet() {
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
   return false;
 #else
-  return NWebExtensionContentSettingsDispatcher::GetInstance().HasOnSet();
+  return nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance()
+      .HasOnSet();
 #endif
 }
 
@@ -88,148 +92,161 @@ bool NWebExtensionContentSettingsCefDelegate::HasOnClear() {
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
   return false;
 #else
-  return NWebExtensionContentSettingsDispatcher::GetInstance().HasOnClear();
+  return nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance()
+      .HasOnClear();
 #endif
 }
 
 bool NWebExtensionContentSettingsCefDelegate::OnGet(
-    const NWebExtensionContentSettingsGetParam* getParam, ContentSettingsGetCallback callback) 
-{
-    LOG(INFO) << "OnGet NWebExtensionContentSettingsCefDelegate is call";
+    const NWebExtensionContentSettingsGetParam* getParam,
+    ContentSettingsGetCallback callback) {
+  LOG(INFO) << "OnGet NWebExtensionContentSettingsCefDelegate is call";
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
-    return false;
+  return false;
 #else
-    static std::atomic<int> requestId(0);
-    int currentRequestId;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
-        currentRequestId = ++requestId;
-        g_content_settings_get_callback_map_[currentRequestId] = std::move(callback);
-    }
-    bool result = NWebExtensionContentSettingsDispatcher::GetInstance().OnGet(currentRequestId, getParam);
-    if (!result) {
-        std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
-        g_content_settings_get_callback_map_.erase(currentRequestId);
-    }
-    return result;
+  static std::atomic<int> requestId(0);
+  int currentRequestId;
+  {
+    std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
+    currentRequestId = ++requestId;
+    g_content_settings_get_callback_map_[currentRequestId] =
+        std::move(callback);
+  }
+  bool result =
+      nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance().OnGet(
+          currentRequestId, getParam);
+  if (!result) {
+    std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
+    g_content_settings_get_callback_map_.erase(currentRequestId);
+  }
+  return result;
 #endif
 }
 
-void NWebExtensionContentSettingsCefDelegate::OnGetCallback(const NWebExtensionContentSettingsCallbackResult* result)
-{
-    LOG(INFO) << "NWebExtensionContentSettingsCefDelegate::OnGetCallback";
-    if (!result) {
-        LOG(ERROR) << "OnGetCallback result is null";
-        return;
+void NWebExtensionContentSettingsCefDelegate::OnGetCallback(
+    const NWebExtensionContentSettingsCallbackResult* result) {
+  LOG(INFO) << "NWebExtensionContentSettingsCefDelegate::OnGetCallback";
+  if (!result) {
+    LOG(ERROR) << "OnGetCallback result is null";
+    return;
+  }
+
+  if (result->detailParam != nullptr &&
+      result->detailParam->contentSetting != nullptr) {
+    LOG(INFO) << "NWebExtensionContentSettingsCefDelegate contentSetting: "
+              << std::string(result->detailParam->contentSetting);
+  }
+
+  ContentSettingsGetCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
+    auto it = g_content_settings_get_callback_map_.find(result->requestId);
+    if (it == g_content_settings_get_callback_map_.end()) {
+      LOG(ERROR) << "OnGetCallback requestId not found: " << result->requestId;
+      return;
     }
 
-    if (result->detailParam != nullptr && result->detailParam->contentSetting != nullptr) {
-        LOG(INFO) << "NWebExtensionContentSettingsCefDelegate contentSetting: "
-                  << std::string(result->detailParam->contentSetting);
-    }
-
-    ContentSettingsGetCallback callback;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_get_callback_map_mutex);
-        auto it = g_content_settings_get_callback_map_.find(result->requestId);
-        if (it == g_content_settings_get_callback_map_.end()) {
-            LOG(ERROR) << "OnGetCallback requestId not found: " << result->requestId;
-            return;
-        }
-
-        callback = std::move(it->second);
-        g_content_settings_get_callback_map_.erase(it);
-    }
-    LOG(INFO) << "ContentSettingsGetCallback end";
-    std::move(callback).Run(result->detailParam, result->error);
+    callback = std::move(it->second);
+    g_content_settings_get_callback_map_.erase(it);
+  }
+  LOG(INFO) << "ContentSettingsGetCallback end";
+  std::move(callback).Run(result->detailParam, result->error);
 }
 
 bool NWebExtensionContentSettingsCefDelegate::OnSet(
-    const NWebExtensionContentSettingsSetParam* setParam, ContentSettingsSetCallback callback) 
-{
-    LOG(INFO) << "OnSet NWebExtensionContentSettingsCefDelegate is call";
+    const NWebExtensionContentSettingsSetParam* setParam,
+    ContentSettingsSetCallback callback) {
+  LOG(INFO) << "OnSet NWebExtensionContentSettingsCefDelegate is call";
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
-    return false;
+  return false;
 #else
-    static std::atomic<int> requestId(0);
-    int currentRequestId;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
-        currentRequestId = ++requestId;
-        g_content_settings_set_callback_map_[currentRequestId] = std::move(callback);
-    }
-    bool result = NWebExtensionContentSettingsDispatcher::GetInstance().OnSet(currentRequestId, setParam);
-    if (!result) {
-        std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
-        g_content_settings_set_callback_map_.erase(currentRequestId);
-    }
-    return result;
+  static std::atomic<int> requestId(0);
+  int currentRequestId;
+  {
+    std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
+    currentRequestId = ++requestId;
+    g_content_settings_set_callback_map_[currentRequestId] =
+        std::move(callback);
+  }
+  bool result =
+      nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance().OnSet(
+          currentRequestId, setParam);
+  if (!result) {
+    std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
+    g_content_settings_set_callback_map_.erase(currentRequestId);
+  }
+  return result;
 #endif
 }
 
-void NWebExtensionContentSettingsCefDelegate::OnSetCallback(const NWebExtensionContentSettingsCallbackSetResult* result)
-{
-    if (!result) {
-        LOG(ERROR) << "OnSetCallback result is null";
-        return;
+void NWebExtensionContentSettingsCefDelegate::OnSetCallback(
+    const NWebExtensionContentSettingsCallbackSetResult* result) {
+  if (!result) {
+    LOG(ERROR) << "OnSetCallback result is null";
+    return;
+  }
+  ContentSettingsSetCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
+    auto it = g_content_settings_set_callback_map_.find(result->requestId);
+    if (it == g_content_settings_set_callback_map_.end()) {
+      return;
     }
-    ContentSettingsSetCallback callback;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_set_callback_map_mutex);
-        auto it = g_content_settings_set_callback_map_.find(result->requestId);
-        if (it == g_content_settings_set_callback_map_.end()) {
-            return;
-        }
 
-        callback = std::move(it->second);
-        g_content_settings_set_callback_map_.erase(it);
-    }
-    std::move(callback).Run(result->error);
+    callback = std::move(it->second);
+    g_content_settings_set_callback_map_.erase(it);
+  }
+  std::move(callback).Run(result->error);
 }
 
 bool NWebExtensionContentSettingsCefDelegate::OnClear(
-    const NWebExtensionContentSettingsClearParam* clearParam, ContentSettingsClearCallback callback) 
-{
-    LOG(INFO) << "OnClear NWebExtensionContentSettingsCefDelegate is call";
+    const NWebExtensionContentSettingsClearParam* clearParam,
+    ContentSettingsClearCallback callback) {
+  LOG(INFO) << "OnClear NWebExtensionContentSettingsCefDelegate is call";
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
-    return false;
+  return false;
 #else
-    static std::atomic<int> requestId(0);
-    int currentRequestId;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_clear_callback_map_mutex);
-        currentRequestId = ++requestId;
-        g_content_settings_clear_callback_map_[currentRequestId] = std::move(callback);
-    }
-    bool result = NWebExtensionContentSettingsDispatcher::GetInstance().OnClear(currentRequestId, clearParam);
-    if (!result) {
-        std::lock_guard<std::mutex> lock(g_content_settings_clear_callback_map_mutex);
-        g_content_settings_clear_callback_map_.erase(currentRequestId);
-    }
-    return result;
+  static std::atomic<int> requestId(0);
+  int currentRequestId;
+  {
+    std::lock_guard<std::mutex> lock(
+        g_content_settings_clear_callback_map_mutex);
+    currentRequestId = ++requestId;
+    g_content_settings_clear_callback_map_[currentRequestId] =
+        std::move(callback);
+  }
+  bool result =
+      nweb_ex::NWebExtensionContentSettingsDelegateImpl::GetInstance().OnClear(
+          currentRequestId, clearParam);
+  if (!result) {
+    std::lock_guard<std::mutex> lock(
+        g_content_settings_clear_callback_map_mutex);
+    g_content_settings_clear_callback_map_.erase(currentRequestId);
+  }
+  return result;
 #endif
 }
 
 void NWebExtensionContentSettingsCefDelegate::OnClearCallback(
-    const NWebExtensionContentSettingsCallbackSetResult* result)
-{
-    if (!result) {
-        LOG(ERROR) << "OnClearCallback result is null";
-        return;
+    const NWebExtensionContentSettingsCallbackSetResult* result) {
+  if (!result) {
+    LOG(ERROR) << "OnClearCallback result is null";
+    return;
+  }
+
+  ContentSettingsClearCallback callback;
+  {
+    std::lock_guard<std::mutex> lock(
+        g_content_settings_clear_callback_map_mutex);
+    auto it = g_content_settings_clear_callback_map_.find(result->requestId);
+    if (it == g_content_settings_clear_callback_map_.end()) {
+      return;
     }
 
-    ContentSettingsClearCallback callback;
-    {
-        std::lock_guard<std::mutex> lock(g_content_settings_clear_callback_map_mutex);
-        auto it = g_content_settings_clear_callback_map_.find(result->requestId);
-        if (it == g_content_settings_clear_callback_map_.end()) {
-            return;
-        }
-
-        callback = std::move(it->second);
-        g_content_settings_clear_callback_map_.erase(it);
-    }
-    std::move(callback).Run(result->error);
+    callback = std::move(it->second);
+    g_content_settings_clear_callback_map_.erase(it);
+  }
+  std::move(callback).Run(result->error);
 }
 
 }  // namespace OHOS::NWeb

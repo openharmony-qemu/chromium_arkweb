@@ -25,7 +25,7 @@
 #include "nweb_common.h"
 #include "nweb_extension_utils.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/extension/nweb_extension_tab_groups_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_tab_groups_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
@@ -54,7 +54,7 @@ bool NWebExtensionTabGroupsCefDelegate::GetTabGroup(GetTabGroupsCallback callbac
   static int32_t request_id = 0;
   request_id++;
   g_get_tab_group_callback_map_[request_id] = std::move(callback);
-  bool result = NWebExtensionTabGroupsDispatcher::GetTabGroup(request_id, groupId, function_context);
+  bool result = nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().GetTabGroup(request_id, groupId, function_context);
   if (!result) {
     g_get_tab_group_callback_map_.erase(request_id);
   }
@@ -63,7 +63,7 @@ bool NWebExtensionTabGroupsCefDelegate::GetTabGroup(GetTabGroupsCallback callbac
 }
 
 void NWebExtensionTabGroupsCefDelegate::GetTabGroupCallback(
-    int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error) {
+    int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error) {
   if (g_get_tab_group_callback_map_.count(request_id)) {
     std::move(g_get_tab_group_callback_map_[request_id]).Run(tabGroup, error);
     g_get_tab_group_callback_map_.erase(request_id);
@@ -78,7 +78,7 @@ bool NWebExtensionTabGroupsCefDelegate::MoveTabGroup(
   static int32_t request_id = 0;
   request_id++;
   g_move_tab_group_callback_map_[request_id] = std::move(callback);
-  bool result = NWebExtensionTabGroupsDispatcher::MoveTabGroup(request_id, groupId, move_properties);
+  bool result = nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().MoveTabGroup(request_id, groupId, move_properties);
   if (!result) {
     g_move_tab_group_callback_map_.erase(request_id);
   }
@@ -87,7 +87,7 @@ bool NWebExtensionTabGroupsCefDelegate::MoveTabGroup(
 }
 
 void NWebExtensionTabGroupsCefDelegate::MoveTabGroupCallback(
-    int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error) {
+    int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error) {
   if (g_move_tab_group_callback_map_.count(request_id)) {
     std::move(g_move_tab_group_callback_map_[request_id]).Run(tabGroup, error);
     g_move_tab_group_callback_map_.erase(request_id);
@@ -102,7 +102,7 @@ bool NWebExtensionTabGroupsCefDelegate::QueryTabGroup(
   static int32_t request_id = 0;
   request_id++;
   g_query_tab_group_callback_map_[request_id] = std::move(callback);
-  bool result = NWebExtensionTabGroupsDispatcher::QueryTabGroup(request_id, query_info);
+  bool result = nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().QueryTabGroup(request_id, query_info);
   if (!result) {
     g_query_tab_group_callback_map_.erase(request_id);
   }
@@ -111,7 +111,7 @@ bool NWebExtensionTabGroupsCefDelegate::QueryTabGroup(
 }
 
 void NWebExtensionTabGroupsCefDelegate::QueryTabGroupCallback(
-    int32_t request_id, const std::vector<NWebExtensionTabGroup>& tabGroups, std::optional<std::string>& error) {
+    int32_t request_id, const std::vector<NWebExtensionTabGroup>& tabGroups, const std::optional<std::string>& error) {
   if (g_query_tab_group_callback_map_.count(request_id)) {
     std::move(g_query_tab_group_callback_map_[request_id]).Run(tabGroups, error);
     g_query_tab_group_callback_map_.erase(request_id);
@@ -127,7 +127,7 @@ bool NWebExtensionTabGroupsCefDelegate::UpdateTabGroup(
   static int32_t request_id = 0;
   request_id++;
   g_update_tab_group_callback_map_[request_id] = std::move(callback);
-  bool result = NWebExtensionTabGroupsDispatcher::UpdateTabGroup(request_id, groupId, update_properties);
+  bool result = nweb_ex::NWebExtensionTabGroupsDelegateImpl::GetInstance().UpdateTabGroup(request_id, groupId, update_properties);
   if (!result) {
     g_update_tab_group_callback_map_.erase(request_id);
   }
@@ -136,7 +136,7 @@ bool NWebExtensionTabGroupsCefDelegate::UpdateTabGroup(
 }
 
 void NWebExtensionTabGroupsCefDelegate::UpdateTabGroupCallback(
-    int32_t request_id, const NWebExtensionTabGroup& tabGroup, std::optional<std::string>& error) {
+    int32_t request_id, const NWebExtensionTabGroup& tabGroup, const std::optional<std::string>& error) {
   if (g_update_tab_group_callback_map_.count(request_id)) {
     std::move(g_update_tab_group_callback_map_[request_id]).Run(tabGroup, error);
     g_update_tab_group_callback_map_.erase(request_id);

@@ -19,41 +19,25 @@
 #include "nweb_common.h"
 #include "nweb_hilog.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-#include "ohos_nweb_ex/core/permission_query/nweb_permission_query_dispatcher.h"
-#include "ohos_nweb_ex/public/capi/arkweb_permission_status_query.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_web_permission_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
 
-static NWebPermissionStatusQueryDelegateCallback*
-    g_permission_status_query_delegate_callback;
-
-void NWebPermissionStatusQueryManager::SetPermissionStatusQueryDelegate(
-    NWebPermissionStatusQueryDelegateCallback* callback) {
-  g_permission_status_query_delegate_callback = callback;
-}
-
-NO_SANITIZE("cfi-icall")
-void NWebPermissionStatusQueryManager::QueryPermissionStatus(
-    NWebPermissionStatusQuery* query) {
-  if (!g_permission_status_query_delegate_callback) {
-    WVLOG_E("QueryPermissionStatus callback is null.");
-    if (query) {
-      if (query->access_query) {
-        query->access_query->ReportQueryResult(1);
-      }
-      delete query;
-    }
-    return;
-  }
-
-  g_permission_status_query_delegate_callback->onPermissionStatusQuery(query);
-}
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 NO_SANITIZE("cfi-icall")
 void NWebPermissionStatusQueryManager::QueryPermissionStatus(
     ArkWebPermissionStatusQuery* query) {
-  NWebPermissionQueryDispatcher::OnPermissionStatusQuery(query);
+  if (nweb_ex::NWebWebPermissionDelegateImpl::GetInstance()
+          .OnPermissionStatusQuery(query)) {
+    return;
+  }
+
+  if (query && query->arkweb_access_query) {
+    query->arkweb_access_query->report_query_result(
+        1, query->arkweb_access_query->cef_access_query_key);
+  }
 }
 #endif
+
 }  // namespace OHOS::NWeb

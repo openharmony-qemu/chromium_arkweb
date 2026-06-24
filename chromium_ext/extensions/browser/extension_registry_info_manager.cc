@@ -55,7 +55,7 @@
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 #include "extensions/browser/extension_util.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
-#include "ohos_nweb_ex/core/extension/nweb_extension_manager_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_manager_delegate_impl.h"
 #endif
 
 namespace extensions {
@@ -429,7 +429,7 @@ void ExtensionRegistryInfoManager::BrowserNotifier::HandleImageEvent(
       if (g_load_phase == kEndInitialLoad &&
           g_initial_loaded_extensions().empty()) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-        NWebExtensionManagerDispatcher::OnExtensionInitLoadEndCallBack();
+        nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionInitLoadEndCallBack();
 #endif
         g_load_phase = kNormalLoad;
       }
@@ -458,7 +458,7 @@ void ExtensionRegistryInfoManager::BrowserNotifier::NotifyIfReady() {
     g_initial_loaded_extensions().erase(extension_id_);
     if (g_load_phase == kEndInitialLoad && g_initial_loaded_extensions().empty()) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-      NWebExtensionManagerDispatcher::OnExtensionInitLoadEndCallBack();
+      nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionInitLoadEndCallBack();
 #endif
       g_load_phase = kNormalLoad;
     }
@@ -541,12 +541,7 @@ void ExtensionRegistryInfoManager::BrowserNotifier::
     NotifyManagerExtensionLoaded() {
   LOG(INFO) << "BrowserNotifier NotifyManagerExtensionLoaded";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (NWebExtensionManagerDispatcher::HasPbLoadedCallback()) {
-    NWebExtensionManagerDispatcher::OnExtensionLoadedByPb(loaded_info_);
-  } else {
-    NWebExtensionManagerDispatcher::OnExtensionLoadedCallBack(
-        loaded_info_.info);
-  }
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionLoadedByPb(loaded_info_);
 #endif
 }
 
@@ -759,7 +754,7 @@ void ExtensionRegistryInfoManager::OnExtensionLoaded(
     const Extension* extension) {
   LOG(INFO) << "ExtensionLoaded " << extension->id();
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionStateChangedCallBack(
       extension->id(), static_cast<int>(NWebExtensionState::ENABLED));
 #endif
 }
@@ -772,11 +767,11 @@ void ExtensionRegistryInfoManager::OnExtensionUnloaded(content::BrowserContext* 
   // UNINSTALLED state is notified in OnExtensionUninstalled.
   if (reason != UnloadedExtensionReason::UNINSTALL) {
     NWebExtensionState state = UnloadedReasonToState(reason);
-    NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+    nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionStateChangedCallBack(
         extension->id(), static_cast<int>(state));
   }
 
-  NWebExtensionManagerDispatcher::OnExtensionUnLoadedCallBack(
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionUnLoadedCallBack(
       extension->id(), UnloadedExtensionReasonEnumToInt(reason));
 #endif
 }
@@ -789,7 +784,7 @@ void ExtensionRegistryInfoManager::OnExtensionInstalled(content::BrowserContext*
     return;
   }
 
-  NWebExtensionManagerDispatcher::OnExtensionInstalledCallBack(
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionInstalledCallBack(
       extension->id(), extension->creation_flags(), static_cast<int>(extension->manifest()->location()));
 #endif
 }
@@ -798,9 +793,9 @@ void ExtensionRegistryInfoManager::OnExtensionUninstalled(content::BrowserContex
                                                           const Extension* extension,
                                                           UninstallReason reason) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  NWebExtensionManagerDispatcher::OnExtensionStateChangedCallBack(
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionStateChangedCallBack(
       extension->id(), static_cast<int>(NWebExtensionState::UNINSTALLED));
-  NWebExtensionManagerDispatcher::OnExtensionUninstalledCallBack(
+  nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionUninstalledCallBack(
       extension->id(), static_cast<int>(reason));
 #endif
 }
@@ -850,23 +845,6 @@ void ExtensionRegistryInfoManager::OnExtensionUnLoadedCallBack(const std::string
   }
 
   g_extension_manager_listener()->OnWebExtensionUnLoaded(eid);
-}
-
-//static
-NO_SANITIZE("cfi-icall")
-void ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(const std::string& url) {
-  LOG(INFO) << "ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack";
-  if (!g_extension_manager_listener()) {
-    LOG(ERROR) << "No web extension manager listener";
-    return;
-  }
-
-  if (!g_extension_manager_listener()->OnWebExtensionOpenUrlFun) {
-    LOG(ERROR) << "No OnWebExtensionOpenUrlFun listener";
-    return;
-  }
-
-  g_extension_manager_listener()->OnWebExtensionOpenUrlFun(url);
 }
 
 void ExtensionRegistryInfoManager::OnExtensionIconImageChanged(
@@ -936,7 +914,7 @@ void ExtensionRegistryInfoManager::StopInitialLoad() {
   g_load_phase = kEndInitialLoad;
   if (g_initial_loaded_extensions().empty()) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-    NWebExtensionManagerDispatcher::OnExtensionInitLoadEndCallBack();
+    nweb_ex::NWebExtensionManagerDelegateImpl::GetInstance().OnExtensionInitLoadEndCallBack();
 #endif
     g_load_phase = kNormalLoad;
   }

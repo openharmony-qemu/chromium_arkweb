@@ -50,7 +50,7 @@
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 #include "extensions/browser/extension_util.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
-#include "ohos_nweb_ex/core/extension/nweb_extension_manager_dispatcher.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_manager_delegate_impl.h"
 #endif
 
 namespace extensions {
@@ -664,31 +664,6 @@ TEST_F(ExtensionRegistryInfoManagerTest,
   SetListener(OnWebExtensionLoadedCallback, OnWebExtensionUnLoadedCallback,
               OnWebExtensionOpenUrlCallback);
   ExtensionRegistryInfoManager::OnExtensionUnLoadedCallBack(eid);
-  EXPECT_EQ(GetCalledCount(), 1);
-}
-
-TEST_F(ExtensionRegistryInfoManagerTest,
-       ExtensionRegistryInfoManager_OnExtensionOpenUrlCallBack) {
-  std::string url = "http://test.com";
-  testing::internal::CaptureStderr();
-  // clear env
-  ExtensionRegistryInfoManager::UnRegisterWebExtensionManagerListener();
-  // no register
-  ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(url);
-  std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("No web extension manager listener"),
-            std::string::npos);
-
-  SetListener(nullptr, nullptr, nullptr);
-  testing::internal::CaptureStderr();
-  ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(url);
-  log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("No OnWebExtensionOpenUrlFun listener"),
-            std::string::npos);
-
-  SetListener(OnWebExtensionLoadedCallback, OnWebExtensionUnLoadedCallback,
-              OnWebExtensionOpenUrlCallback);
-  ExtensionRegistryInfoManager::OnExtensionOpenUrlCallBack(url);
   EXPECT_EQ(GetCalledCount(), 1);
 }
 
