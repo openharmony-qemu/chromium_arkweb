@@ -115,9 +115,4 @@ int AshmemUnpinRegion(int fd, size_t offset, size_t len) {
   return ashmem_check_failure(
       fd, TEMP_FAILURE_RETRY(ioctl(fd, ASHMEM_UNPIN, &pin)));
 }
-
-int ashmem_get_size_region(int fd) {
-  return ashmem_check_failure(
-      fd, TEMP_FAILURE_RETRY(ioctl(fd, ASHMEM_GET_SIZE, NULL)));
-}
  
