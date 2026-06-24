@@ -22,6 +22,9 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
+#include "third_party/blink/renderer/platform/scheduler/public/compositor_thread_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/test/fake_widget_scheduler.h"
+#include "third_party/blink/renderer/platform/widget/input/widget_input_handler_manager.h"
 #include "third_party/blink/renderer/platform/widget/widget_base.h"
 #include "third_party/blink/renderer/platform/widget/widget_base_client.h"
 
@@ -68,6 +71,45 @@ class StubWidgetBaseClient : public WidgetBaseClient {
   display::ScreenInfos screen_infos_;
 };
 
+class FakeCompositorThreadScheduler : public blink::CompositorThreadScheduler {
+ public:
+  explicit FakeCompositorThreadScheduler(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner)
+      : task_runner_(std::move(task_runner)) {}
+
+  // CompositorThreadScheduler
+  scoped_refptr<base::SingleThreadTaskRunner> InputTaskRunner() override {
+    return task_runner_;
+  }
+  scoped_refptr<base::SingleThreadTaskRunner> DefaultTaskRunner() override {
+    return task_runner_;
+  }
+
+  // ThreadScheduler
+  void Shutdown() override {}
+  bool ShouldYieldForHighPriorityWork() override { return false; }
+  void PostIdleTask(const base::Location&, blink::Thread::IdleTask) override {}
+  void PostDelayedIdleTask(const base::Location&,
+                           base::TimeDelta,
+                           blink::Thread::IdleTask) override {}
+  void RemoveCancelledIdleTasks() override {}
+  scoped_refptr<base::SingleThreadTaskRunner> V8TaskRunner() override {
+    return task_runner_;
+  }
+  scoped_refptr<base::SingleThreadTaskRunner> CleanupTaskRunner() override {
+    return task_runner_;
+  }
+  base::TimeTicks MonotonicallyIncreasingVirtualTime() override {
+    return base::TimeTicks::Now();
+  }
+  void AddTaskObserver(base::TaskObserver*) override {}
+  void RemoveTaskObserver(base::TaskObserver*) override {}
+  void SetV8Isolate(v8::Isolate*) override {}
+
+ private:
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+};
+
 class WidgetBaseUtilsTest : public testing::Test {
  protected:
   base::test::TaskEnvironment task_environment_;
@@ -98,6 +140,23 @@ class WidgetBaseUtilsTest : public testing::Test {
 
   void SetWidgetInputHandlerManager(scoped_refptr<WidgetInputHandlerManager> manager) {
     widget_base_->widget_input_handler_manager_ = manager;
+  }
+
+  void ResetWidgetHost() {
+    widget_base_->widget_host_.reset();
+  }
+
+  void CreateAndSetManager() {
+    auto widget_scheduler =
+        base::MakeRefCounted<scheduler::FakeWidgetScheduler>();
+    FakeCompositorThreadScheduler compositor_scheduler(
+        task_environment_.GetMainThreadTaskRunner());
+    auto manager = WidgetInputHandlerManager::Create(
+        widget_base_->GetWeakPtr(), nullptr, false, &compositor_scheduler,
+        widget_scheduler, false, false, base::kInvalidThreadId,
+        base::PlatformThread::CurrentId());
+    CHECK(manager);
+    SetWidgetInputHandlerManager(manager);
   }
 
   std::unique_ptr<WidgetBaseUtils> utils_;
@@ -312,6 +371,110 @@ TEST_F(WidgetBaseUtilsTest, WidgetBaseUtilsTest_014) {
     }
   }
 }
+
+#if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+TEST_F(WidgetBaseUtilsTest, OnOverScrollOffsetChanged_BothNonNull) {
+  utils_->OnOverScrollOffsetChanged(1.0f, 2.0f);
+}
+
+TEST_F(WidgetBaseUtilsTest, OnOverScrollOffsetChanged_NullWidgetBase) {
+  auto null_utils = std::make_unique<WidgetBaseUtils>(nullptr);
+  null_utils->OnOverScrollOffsetChanged(1.0f, 2.0f);
+}
+
+#endif  // BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+TEST_F(WidgetBaseUtilsTest, SetZoomLevel_WithManager) {
+  CreateAndSetManager();
+  utils_->SetZoomLevel(1.0f, gfx::Point(10, 10));
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(WidgetBaseUtilsTest, SetOverscrollMode_WithManager) {
+  CreateAndSetManager();
+  utils_->SetOverscrollMode(1);
+  base::RunLoop().RunUntilIdle();
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
+#if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+TEST_F(WidgetBaseUtilsTest, GetOverScrollOffset_WithManager) {
+  CreateAndSetManager();
+  utils_->GetOverScrollOffset();
+  base::RunLoop().RunUntilIdle();
+}
+#endif  // BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+TEST_F(WidgetBaseUtilsTest, DidNativeEmbedEvent_NullWidgetBase) {
+  auto null_utils = std::make_unique<WidgetBaseUtils>(nullptr);
+  null_utils->DidNativeEmbedEvent(
+      WebInputEvent::Type::kTouchStart, "embed1", 1, 10.0f, 20.0f);
+}
+
+TEST_F(WidgetBaseUtilsTest, DidNativeEmbedEvent_NullWidgetHost) {
+  ResetWidgetHost();
+  utils_->DidNativeEmbedEvent(
+      WebInputEvent::Type::kTouchStart, "embed1", 1, 10.0f, 20.0f);
+}
+
+TEST_F(WidgetBaseUtilsTest, DidNativeEmbedMouseEvent_NullWidgetBase) {
+  auto null_utils = std::make_unique<WidgetBaseUtils>(nullptr);
+  null_utils->DidNativeEmbedMouseEvent(
+      WebInputEvent::Type::kMouseDown,
+      WebInputEvent::Modifiers::kLeftButtonDown,
+      "embed1", true, 10.0f, 20.0f);
+}
+
+TEST_F(WidgetBaseUtilsTest, DidNativeEmbedMouseEvent_NullWidgetHost) {
+  ResetWidgetHost();
+  utils_->DidNativeEmbedMouseEvent(
+      WebInputEvent::Type::kMouseDown,
+      WebInputEvent::Modifiers::kLeftButtonDown,
+      "embed1", true, 10.0f, 20.0f);
+}
+
+TEST_F(WidgetBaseUtilsTest, NativeHitTestResult_NullWidgetBase) {
+  auto null_utils = std::make_unique<WidgetBaseUtils>(nullptr);
+  null_utils->NativeHitTestResult(true, 1, 100);
+}
+
+TEST_F(WidgetBaseUtilsTest, NativeHitTestResult_WithManager) {
+  CreateAndSetManager();
+  utils_->NativeHitTestResult(true, 1, 100);
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(WidgetBaseUtilsTest, NativeMouseHitTestResult_NullWidgetBase) {
+  auto null_utils = std::make_unique<WidgetBaseUtils>(nullptr);
+  null_utils->NativeMouseHitTestResult(true, 100, 0);
+}
+
+TEST_F(WidgetBaseUtilsTest, NativeMouseHitTestResult_WithManager) {
+  CreateAndSetManager();
+  utils_->NativeMouseHitTestResult(true, 100, 0);
+  base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(WidgetBaseUtilsTest, DidNativeEmbedMouseEvent_AutoRepeatModifiers) {
+  std::vector<WebInputEvent::Modifiers> modifiers = {
+      static_cast<WebInputEvent::Modifiers>(
+          WebInputEvent::Modifiers::kLeftButtonDown |
+          WebInputEvent::Modifiers::kIsAutoRepeat),
+      static_cast<WebInputEvent::Modifiers>(
+          WebInputEvent::Modifiers::kRightButtonDown |
+          WebInputEvent::Modifiers::kIsAutoRepeat),
+      static_cast<WebInputEvent::Modifiers>(
+          WebInputEvent::Modifiers::kMiddleButtonDown |
+          WebInputEvent::Modifiers::kIsAutoRepeat),
+  };
+  for (auto modifier : modifiers) {
+    utils_->DidNativeEmbedMouseEvent(
+        WebInputEvent::Type::kMouseDown, modifier, "embed1", true, 10.0f, 20.0f);
+  }
+}
+#endif  // BUILDFLAG(ARKWEB_SAME_LAYER)
 
 } // namespace blink
 #pragma clang diagnostic pop

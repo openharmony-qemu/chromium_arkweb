@@ -285,5 +285,477 @@ TEST_F(FirstScreenCalculatorTest, GetViewportAreaAndTrimRect) {
   EXPECT_EQ(calculator_->GetViewportAreaAndTrimRect(rect1), false);
 }
 
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintBackgroundImage) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect rect(0, 0, 700, 700);
+  gfx::RectF root_rect_f(0, 0, 700, 700);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 1, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(1, &record, 10, false);
+  EXPECT_EQ(calculator_->background_image_id_, 1u);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 0u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintBackgroundImageIntersected) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 700, 700);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks::Now());
+  calculator_->image_rects_map_[2] = info;
+  gfx::Rect rect(0, 0, 700, 700);
+  gfx::RectF root_rect_f(0, 0, 700, 700);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 1, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(1, &record, 10, false);
+  EXPECT_NE(calculator_->background_image_id_, 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintVideo) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect rect(100, 100, 100, 100);
+  gfx::RectF root_rect_f(100, 100, 100, 100);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 1, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(1, &record, 10, true);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 1u);
+  auto it = calculator_->image_rects_map_.find(1);
+  ASSERT_NE(it, calculator_->image_rects_map_.end());
+  EXPECT_EQ(it->second.rect_.x(), 50);
+  EXPECT_EQ(it->second.rect_.y(), 50);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintExistingHash) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF root_rect_f(0, 0, 100, 100);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 1, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(1, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintContainedRect) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 200, 200);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  gfx::Rect rect(0, 0, 10, 10);
+  gfx::RectF root_rect_f(0, 0, 10, 10);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 2, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(2, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintTooSmall) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(300, 300, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  calculator_->nearly_finished_ = true;
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  gfx::Rect rect(0, 0, 2, 2);
+  gfx::RectF root_rect_f(0, 0, 2, 2);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 2, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(2, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintIntersected) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 200, 200);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  gfx::Rect rect(100, 100, 200, 200);
+  gfx::RectF root_rect_f(100, 100, 200, 200);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 2, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(2, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 2u);
+  EXPECT_EQ(calculator_->intersected_image_ids_.size(), 1u);
+  EXPECT_EQ(calculator_->intersected_image_ids_[0], 2u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintSecondRecordNoIntersect) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  gfx::Rect rect(400, 400, 100, 100);
+  gfx::RectF root_rect_f(400, 400, 100, 100);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 2, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(2, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 2u);
+  EXPECT_EQ(calculator_->intersected_image_ids_.size(), 0u);
+  EXPECT_EQ(calculator_->timer_.IsRunning(), true);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyImagePaintGetViewportFails) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect rect(1000, 1000, 10, 10);
+  gfx::RectF root_rect_f(1000, 1000, 10, 10);
+  ImageResourceContent* content = ImageResourceContent::CreateNotStarted();
+  ASSERT_NE(content, nullptr);
+  ImageRecord record(one, content, 20, rect, root_rect_f, 1, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyImagePaint(1, &record, 10, false);
+  EXPECT_EQ(calculator_->image_rects_map_.size(), 0u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintWithValidRecord) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF rect_f(0, 0, 100, 100);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 1u);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, timestamp);
+  EXPECT_EQ(calculator_->timer_.IsRunning(), true);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintWithExistingPaintTime) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  base::TimeTicks old_time = base::TimeTicks::Now() - base::Seconds(1);
+  base::TimeTicks new_time = base::TimeTicks::Now();
+  calculator_->first_screen_paint_time_ = old_time;
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF rect_f(0, 0, 100, 100);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, new_time);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, new_time);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintSecondRecord) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(300, 300, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF rect_f(0, 0, 100, 100);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->first_screen_paint_time_ = base::TimeTicks();
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 2u);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, timestamp);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintContainedRect) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 200, 200);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(0, 0, 10, 10);
+  gfx::RectF rect_f(0, 0, 10, 10);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintTooSmall) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(300, 300, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  calculator_->nearly_finished_ = true;
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(0, 0, 2, 2);
+  gfx::RectF rect_f(0, 0, 2, 2);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 1u);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintIntersects) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  gfx::Rect existing_rect(0, 0, 200, 200);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(100, 100, 200, 200);
+  gfx::RectF rect_f(100, 100, 200, 200);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 2u);
+  EXPECT_EQ(calculator_->timer_.IsRunning(), false);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintOldTimestamp) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  base::TimeTicks new_time = base::TimeTicks::Now();
+  base::TimeTicks old_time = new_time - base::Seconds(1);
+  calculator_->first_screen_paint_time_ = new_time;
+  gfx::Rect existing_rect(300, 300, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF rect_f(0, 0, 100, 100);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, old_time);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, new_time);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintGetViewportFails) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  gfx::Rect rect(1000, 1000, 10, 10);
+  gfx::RectF rect_f(1000, 1000, 10, 10);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, timestamp);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 0u);
+}
+
+TEST_F(FirstScreenCalculatorTest, AssignImagePaintTimeNullPaintTimeInMap) {
+  gfx::Rect rect(0, 0, 100, 100);
+  calculator_->background_image_id_ = 99;
+  FirstScreenCalculator::PaintRectInfo info(rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  calculator_->user_scrolled_ = true;
+  calculator_->first_screen_paint_time_ = base::TimeTicks();
+  calculator_->AssignImagePaintTime(1, rect, timestamp);
+  EXPECT_EQ(calculator_->image_rects_map_[1].paint_time_, timestamp);
+}
+
+TEST_F(FirstScreenCalculatorTest, AssignImagePaintTimeNonNullPaintTimeInMap) {
+  gfx::Rect rect(0, 0, 100, 100);
+  calculator_->background_image_id_ = 99;
+  base::TimeTicks existing_time = base::TimeTicks::Now() - base::Seconds(1);
+  FirstScreenCalculator::PaintRectInfo info(rect, existing_time);
+  calculator_->image_rects_map_[1] = info;
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  calculator_->user_scrolled_ = true;
+  calculator_->first_screen_paint_time_ = base::TimeTicks();
+  calculator_->AssignImagePaintTime(1, rect, timestamp);
+  EXPECT_EQ(calculator_->image_rects_map_[1].paint_time_, existing_time);
+}
+
+TEST_F(FirstScreenCalculatorTest, AssignImagePaintTimeIntersectedId) {
+  gfx::Rect rect(0, 0, 100, 100);
+  calculator_->background_image_id_ = 99;
+  FirstScreenCalculator::PaintRectInfo info(rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  calculator_->intersected_image_ids_.emplace_back(1);
+  base::TimeTicks old_time = base::TimeTicks::Now() - base::Seconds(1);
+  base::TimeTicks timestamp = base::TimeTicks::Now();
+  calculator_->first_screen_paint_time_ = old_time;
+  calculator_->user_scrolled_ = false;
+  calculator_->AssignImagePaintTime(1, rect, timestamp);
+  EXPECT_EQ(calculator_->image_rects_map_[1].paint_time_, timestamp);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, old_time);
+}
+
+TEST_F(FirstScreenCalculatorTest, AssignImagePaintTimeUpdateTimestamp) {
+  gfx::Rect rect(0, 0, 100, 100);
+  calculator_->background_image_id_ = 99;
+  base::TimeTicks old_time = base::TimeTicks::Now() - base::Seconds(1);
+  base::TimeTicks new_time = base::TimeTicks::Now();
+  calculator_->first_screen_paint_time_ = old_time;
+  calculator_->user_scrolled_ = false;
+  FirstScreenCalculator::PaintRectInfo info(rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  calculator_->AssignImagePaintTime(1, rect, new_time);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, new_time);
+}
+
+TEST_F(FirstScreenCalculatorTest, AssignImagePaintTimeOlderTimestamp) {
+  gfx::Rect rect(0, 0, 100, 100);
+  calculator_->background_image_id_ = 99;
+  base::TimeTicks new_time = base::TimeTicks::Now();
+  base::TimeTicks old_time = new_time - base::Seconds(1);
+  calculator_->first_screen_paint_time_ = new_time;
+  calculator_->user_scrolled_ = false;
+  FirstScreenCalculator::PaintRectInfo info(rect, base::TimeTicks());
+  calculator_->image_rects_map_[1] = info;
+  calculator_->AssignImagePaintTime(1, rect, old_time);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, new_time);
+  EXPECT_EQ(calculator_->timer_.IsRunning(), true);
+}
+
+TEST_F(FirstScreenCalculatorTest, IsRectTooSmallWhenNearlyFinishedNotExceeded) {
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  calculator_->nearly_finished_ = false;
+  calculator_->occupied_rect_ = gfx::Rect();
+  gfx::Rect rect(0, 0, 100, 100);
+  EXPECT_EQ(calculator_->IsRectTooSmallWhenNearlyFinished(rect), false);
+  EXPECT_EQ(calculator_->nearly_finished_, false);
+}
+
+TEST_F(FirstScreenCalculatorTest, IsRectTooSmallWhenNearlyFinishedSmallRect) {
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  calculator_->nearly_finished_ = true;
+  gfx::Rect rect(0, 0, 1, 1);
+  EXPECT_EQ(calculator_->IsRectTooSmallWhenNearlyFinished(rect), true);
+}
+
+TEST_F(FirstScreenCalculatorTest, IsRectTooSmallWhenNearlyFinishedLargeRect) {
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  calculator_->nearly_finished_ = true;
+  gfx::Rect rect(0, 0, 100, 100);
+  EXPECT_EQ(calculator_->IsRectTooSmallWhenNearlyFinished(rect), false);
+}
+
+TEST_F(FirstScreenCalculatorTest, GetPaintRects) {
+  gfx::Rect rect1(0, 0, 100, 100);
+  gfx::Rect rect2(200, 200, 100, 100);
+  gfx::Rect rect3(400, 400, 100, 100);
+  FirstScreenCalculator::PaintRectInfo img_info1(rect1, base::TimeTicks::Now());
+  calculator_->image_rects_map_[1] = img_info1;
+  FirstScreenCalculator::PaintRectInfo img_info2(rect2, base::TimeTicks());
+  calculator_->image_rects_map_[2] = img_info2;
+  FirstScreenCalculator::PaintRectInfo txt_info1(rect3, base::TimeTicks::Now());
+  calculator_->text_paint_rects_.emplace_back(txt_info1);
+  FirstScreenCalculator::PaintRectInfo txt_info2(rect2, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(txt_info2);
+  std::vector<gfx::Rect> paint_rects;
+  calculator_->GetPaintRects(paint_rects);
+  EXPECT_EQ(paint_rects.size(), 2u);
+  EXPECT_EQ(paint_rects[0], rect1);
+  EXPECT_EQ(paint_rects[1], rect3);
+}
+
+TEST_F(FirstScreenCalculatorTest, NotifyTextPaintNewTimestampNonEmpty) {
+  const char* body_content =
+      "<a id=one href='http://www.msn.com'>one</a><b id=two>two</b>";
+  SetBodyContent(body_content);
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  ASSERT_NE(one, nullptr);
+  base::TimeTicks old_time = base::TimeTicks::Now() - base::Seconds(1);
+  base::TimeTicks new_time = base::TimeTicks::Now();
+  calculator_->first_screen_paint_time_ = old_time;
+  gfx::Rect existing_rect(300, 300, 100, 100);
+  FirstScreenCalculator::PaintRectInfo info(existing_rect, base::TimeTicks());
+  calculator_->text_paint_rects_.emplace_back(info);
+  calculator_->viewport_rect_ = gfx::Rect(0, 0, 800, 600);
+  calculator_->nearly_finished_ = false;
+  calculator_->occupied_rect_ = gfx::Rect(0, 0, 10, 10);
+  gfx::Rect rect(0, 0, 100, 100);
+  gfx::RectF rect_f(0, 0, 100, 100);
+  TextRecord record(one, 10, rect_f, rect, rect_f, 0, nullptr);
+  record.lcp_rect_info_ = std::make_unique<LCPRectInfo>(rect, rect);
+  calculator_->user_scrolled_ = false;
+  calculator_->NotifyTextPaint(&record, new_time);
+  EXPECT_EQ(calculator_->text_paint_rects_.size(), 2u);
+  EXPECT_EQ(calculator_->first_screen_paint_time_, new_time);
+  EXPECT_EQ(calculator_->timer_.IsRunning(), true);
+}
+
 }  // namespace
 }  // namespace blink

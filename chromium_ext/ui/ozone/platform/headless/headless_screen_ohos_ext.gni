@@ -7,8 +7,10 @@
 headless_unittests_ext = {
   sources = ["//arkweb/chromium_ext/ui/ozone/platform/headless/headless_screen_ohos_unittest.cc"]
   deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk",
     "//base",
     "//base/test:test_support",
+    "//mojo/core/embedder",
     "//skia",
     "//testing/gmock",
     "//testing/gtest",

@@ -28,8 +28,11 @@ class MockCallbackHelper {
 public:
     MOCK_METHOD(void, JavaScriptCallback, (::base::Value result));
     MOCK_METHOD(void, GenerateCodeCacheCallback, (int32_t status));
-    MOCK_METHOD(void, GetImageCallback, 
+    MOCK_METHOD(void, GetImageCallback,
                 (uint32_t id, ::base::ReadOnlySharedMemoryRegion region));
+    MOCK_METHOD(void, GetImageByXPathCallback,
+                (uint32_t size, ::base::ReadOnlySharedMemoryRegion region,
+                 uint32_t width, uint32_t height));
 };
 
 class ArkWebLocalFrameMojoHandlerExtTest : public RenderingTest {
@@ -37,6 +40,7 @@ protected:
     void SetUp() override {
         EnableCompositing();
         RenderingTest::SetUp();
+        ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
         web_view_helper_.Initialize();
         dummy_page_holder_ = std::make_unique<DummyPageHolder>();
         local_frame_ = &dummy_page_holder_->GetFrame();
@@ -45,8 +49,6 @@ protected:
     }
 
     mojo::ScopedHandle CreateMockHandle(const std::string& script_content) {
-
-        base::ScopedTempDir temp_dir_;
         base::FilePath file_path = temp_dir_.GetPath().AppendASCII("script.js");
         base::File file(file_path, base::File::FLAG_CREATE | base::File::FLAG_WRITE);
         if (!file.IsValid()) return mojo::ScopedHandle();
@@ -95,6 +97,43 @@ protected:
         return;
     }
 
+    void DetectBlankScreenTest(
+                const String& url,
+                bool detectionEnable,
+                const Vector<double>& detectionTiming,
+                const Vector<int32_t>& detectionMethods,
+                int32_t contentfulNodesCountThreshold)
+    {
+        handler_->DetectBlankScreen(url, detectionEnable, detectionTiming, detectionMethods,
+                                    contentfulNodesCountThreshold);
+    }
+
+    void GetImageByXPathTest(
+                int32_t taskid,
+                const String& xpath,
+                LocalFrameMojoHandler::GetImageByXPathCallback callback)
+    {
+        handler_->GetImageByXPath(taskid, xpath, std::move(callback));
+    }
+
+    void GetImageByXPathOnHandler(
+                ArkWebLocalFrameMojoHandlerExt* h,
+                int32_t taskid,
+                const String& xpath,
+                LocalFrameMojoHandler::GetImageByXPathCallback callback)
+    {
+        CHECK(h);
+        h->GetImageByXPath(taskid, xpath, std::move(callback));
+    }
+
+    void GetAllImageTest(
+                int32_t taskid,
+                const String& url,
+                LocalFrameMojoHandler::GetAllImageCallback callback)
+    {
+        handler_->GetAllImage(taskid, url, std::move(callback));
+    }
+
     void TearDown() override {
         dummy_page_holder_.reset();
     }
@@ -104,6 +143,7 @@ protected:
     Persistent<ArkWebLocalFrameMojoHandlerExt> handler_;
     std::unique_ptr<MockCallbackHelper> mock_callback_;
     frame_test_helpers::WebViewHelper web_view_helper_;
+    base::ScopedTempDir temp_dir_;
 };
 
 TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetImageFromCache_ValidUrl) {
@@ -213,6 +253,122 @@ TEST_F(ArkWebLocalFrameMojoHandlerExtTest, JavaScriptExecuteRequestExt_NoResult)
         std::move(callback));
     
     base::RunLoop().RunUntilIdle();
+}
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, DetectBlankScreen_EmptyVectors) {
+    Vector<double> timing;
+    Vector<int32_t> methods;
+    ASSERT_NO_FATAL_FAILURE(
+        DetectBlankScreenTest("https://example.com", true,  timing, methods, 5));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, DetectBlankScreen_WithTimingOnly) {
+    Vector<double> timing = {1.0, 2.0, 3.0};
+    Vector<int32_t> methods;
+    ASSERT_NO_FATAL_FAILURE(
+        DetectBlankScreenTest("https://example.com", true, timing, methods, 5));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, DetectBlankScreen_WithMethodsOnly) {
+    Vector<double> timing;
+    Vector<int32_t> methods = {0, 1};
+    ASSERT_NO_FATAL_FAILURE(
+        DetectBlankScreenTest("https://example.com", true, timing, methods, 5));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, DetectBlankScreen_WithBothNonEmpty) {
+    Vector<double> timing = {1.0, 2.0};
+    Vector<int32_t> methods = {0};
+    ASSERT_NO_FATAL_FAILURE(
+        DetectBlankScreenTest("https://example.com", true, timing, methods, 5));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, DetectBlankScreen_WithDetectionEnableOnly) {
+    Vector<double> timing = {1.0, 2.0};
+    Vector<int32_t> methods = {0};
+    ASSERT_NO_FATAL_FAILURE(
+        DetectBlankScreenTest("https://example.com", false, timing, methods, 5));
+}
+#endif  // BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetImageByXPath_NoMatch) {
+    EXPECT_CALL(*mock_callback_, GetImageByXPathCallback(
+        testing::Eq(0u),
+        testing::A<base::ReadOnlySharedMemoryRegion>(),
+        testing::Eq(0u),
+        testing::Eq(0u)
+    )).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageByXPathCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetImageByXPathTest(1, "/html/body/img[1]", std::move(callback));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetImageByXPath_InvalidXPath) {
+    EXPECT_CALL(*mock_callback_, GetImageByXPathCallback(
+        testing::Eq(0u),
+        testing::A<base::ReadOnlySharedMemoryRegion>(),
+        testing::Eq(0u),
+        testing::Eq(0u)
+    )).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageByXPathCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetImageByXPathTest(1, "///invalid[[[", std::move(callback));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetImageByXPath_EmptyXPath) {
+    EXPECT_CALL(*mock_callback_, GetImageByXPathCallback(
+        testing::Eq(0u),
+        testing::A<base::ReadOnlySharedMemoryRegion>(),
+        testing::Eq(0u),
+        testing::Eq(0u)
+    )).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageByXPathCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetImageByXPathTest(1, "", std::move(callback));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetAllImage_ValidUrl) {
+    EXPECT_CALL(*mock_callback_, GetImageCallback(
+        testing::Eq(0u),
+        testing::A<base::ReadOnlySharedMemoryRegion>()
+    )).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetAllImageTest(1, "https://example.com/image.png", std::move(callback));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetAllImage_EmptyUrl) {
+    EXPECT_CALL(*mock_callback_, GetImageCallback(
+        testing::Eq(0u),
+        testing::A<base::ReadOnlySharedMemoryRegion>()
+    )).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetAllImageTest(1, "", std::move(callback));
+}
+
+TEST_F(ArkWebLocalFrameMojoHandlerExtTest, GetImageByXPath_WithRealElement) {
+    SetBodyInnerHTML(R"HTML(
+        <div id="target" style="width:100px;height:100px;background:red;">text</div>
+    )HTML");
+    UpdateAllLifecyclePhasesForTest();
+
+    Persistent<ArkWebLocalFrameMojoHandlerExt> rendering_handler =
+        MakeGarbageCollected<ArkWebLocalFrameMojoHandlerExt>(GetFrame());
+    CHECK(rendering_handler);
+
+    EXPECT_CALL(*mock_callback_, GetImageByXPathCallback(_, _, _, _)).Times(1);
+
+    auto callback = base::BindOnce(&MockCallbackHelper::GetImageByXPathCallback,
+                                    base::Unretained(mock_callback_.get()));
+    GetImageByXPathOnHandler(rendering_handler.Get(), 1,
+                             "//*[@id='target']", std::move(callback));
 }
 
 }
