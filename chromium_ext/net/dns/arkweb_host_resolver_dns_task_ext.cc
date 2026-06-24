@@ -27,18 +27,19 @@
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
+#include "arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/overrides/net/dns/secure_dns_fallback_utils.h"
+#endif  // BUILDFLAG(IS_ARKWEB_EXT)
 #endif
 
 namespace net {
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 void ArkWebHostResolverDnsTaskExt::ArkWebSetNotNeedQueryType(int legacy_results_error, DnsQueryType dns_query_type) {
-  if (legacy_results_error == OK &&
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableNwebExHttpDnsFallback) &&
-      AnyAOrAAAATransactionRemain()) {
+  if (legacy_results_error == OK && AnyAOrAAAATransactionRemain()) {
     SetNotNeedMoreAttemptIPQueryType(dns_query_type);
   }
 }
@@ -104,13 +105,73 @@ void ArkWebHostResolverDnsTaskExt::SetNotNeedMoreAttemptIPQueryType(
   }
 }
 
-#if defined(ARKWEB_EXT_NAVIGATION_TODO)
 void ArkWebHostResolverDnsTaskExt::MaybeModifyInsecureDnsTaskResolveResults(
     const std::string& host,
     bool secure_dns_fallback_available,
-    HostCache::Entry& out_results,
-    std::vector<IPEndPoint>& truncation_results) {}
+    Results& out_results) {
+  if (hostResolverDnsTask->secure_fallback()) {
+    return;
+  }
+
+  // Obtain all original IP addresses.
+  std::vector<IPEndPoint> all_ip_endpoints;
+  for (const auto& result : out_results) {
+    if (result->type() == HostResolverInternalResult::Type::kData) {
+      const auto& data_result = result->AsData();
+      for (const auto& endpoint : data_result.endpoints()) {
+        all_ip_endpoints.push_back(endpoint);
+      }
+    }
+  }
+
+  if (all_ip_endpoints.empty()) {
+    return;
+  }
+
+  bool need_to_modify_resolve_result = false;
+  std::vector<IPEndPoint> ip_endpoints_modified;
+  bool need_to_replace_address = MaybeNeedToProcessAddressList(
+      host, all_ip_endpoints, secure_dns_fallback_available,
+      ip_endpoints_modified, need_to_modify_resolve_result);
+
+  if (!need_to_replace_address) {
+    return;
+  }
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  ReportDnsHijackHitInfo(host, RecordQueryType::UDP, all_ip_endpoints);
 #endif
+
+  // need to flush all IP addresses.
+  if (need_to_modify_resolve_result) {
+    for (auto& result : out_results) {
+      if (result->type() == HostResolverInternalResult::Type::kData) {
+        result->AsData().ClearEndpoints();
+      }
+    }
+    return;
+  }
+
+  std::vector<IPEndPoint> ips_to_remove;
+  std::set<IPEndPoint> keep_set(ip_endpoints_modified.begin(),
+                                ip_endpoints_modified.end());
+  for (const auto& ip : all_ip_endpoints) {
+    if (keep_set.find(ip) == keep_set.end()) {
+      ips_to_remove.push_back(ip);
+    }
+  }
+
+  // Remove the IP to be deleted.
+  for (auto& result : out_results) {
+    if (result->type() == HostResolverInternalResult::Type::kData) {
+      auto& data_result = result->AsData();
+      for (const auto& ip_to_remove : ips_to_remove) {
+        data_result.RemoveEndpoint(ip_to_remove);
+      }
+    }
+  }
+}
+
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 
 }  // namespace net

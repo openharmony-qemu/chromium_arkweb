@@ -33,10 +33,12 @@
 namespace net {
 
 class HostResolverDnsTask;
+class HostResolverInternalResult;
 
 class NET_EXPORT_PRIVATE ArkWebHostResolverDnsTaskExt final {
  public:
   friend class HostResolverDnsTask;
+  using Results = std::set<std::unique_ptr<HostResolverInternalResult>>;
   raw_ptr<HostResolverDnsTask> hostResolverDnsTask;
   ArkWebHostResolverDnsTaskExt(HostResolverDnsTask *resolver) { hostResolverDnsTask = resolver; }
   ~ArkWebHostResolverDnsTaskExt() = default;
@@ -53,13 +55,10 @@ class NET_EXPORT_PRIVATE ArkWebHostResolverDnsTaskExt final {
                                    int net_error,
                                    DnsQueryType dns_query_type);
   void SetNotNeedMoreAttemptIPQueryType(DnsQueryType dns_query_type);
-#if defined(ARKWEB_EXT_NAVIGATION_TODO)
   void MaybeModifyInsecureDnsTaskResolveResults(
       const std::string& host,
       bool secure_dns_fallback_available,
-      HostCache::Entry& out_results,
-      std::vector<IPEndPoint>& truncation_results);
-#endif
+      Results& out_results);
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 };
 
