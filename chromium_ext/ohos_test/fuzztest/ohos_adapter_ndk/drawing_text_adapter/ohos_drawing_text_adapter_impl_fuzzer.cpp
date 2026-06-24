@@ -29,6 +29,7 @@ void FuzzDrawingTextAdapter1(FuzzedDataProvider* fdp) {
     int32_t systemFontType = fdp->ConsumeIntegralInRange<int32_t>(1, 5);
     void* drawingArray = nullptr;
     adapter.GetSystemFontFullNamesByType(systemFontType, &drawingArray);
+    adapter.DestroySystemFontFullNames(drawingArray);
 }
 
 void FuzzDrawingTextAdapter2(FuzzedDataProvider* fdp) {
@@ -38,6 +39,7 @@ void FuzzDrawingTextAdapter2(FuzzedDataProvider* fdp) {
     const void* drawingString=nullptr;
     void* drawingArray = nullptr;
     adapter.GetSystemFontFullNameByIndex(drawingArray, indexOfFullName, &drawingString);
+    adapter.DestroySystemFontFullNames(drawingArray);
 }
 
 void FuzzDrawingTextAdapter3(FuzzedDataProvider* fdp) {
@@ -58,6 +60,7 @@ void FuzzDrawingTextTypographyAdapter1(FuzzedDataProvider* fdp) {
     static_cast<OH_Drawing_FontConfigInfoErrorCode>(errorCode);
     void* fontConfigInfo=nullptr;
     adapter.GetSystemFontConfigInfo(&errorPtr, &fontConfigInfo);
+    adapter.DestroySystemFontConfigInfo(fontConfigInfo);
 }
 
 void FuzzDrawingTextTypographyAdapter2(FuzzedDataProvider* fdp) {
