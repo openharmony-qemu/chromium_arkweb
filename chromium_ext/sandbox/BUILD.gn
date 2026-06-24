@@ -14,13 +14,17 @@ import("//build/config/features.gni")
 import("//sandbox/features.gni")
 import("//testing/test.gni")
 
-static_library("arkweb_sandbox") {
+config("no_inline_config") {
+  cflags = [ "-fno-inline" ]
+}
+
+source_set("arkweb_sandbox") {
   sources = [
     "seccomp-bpf-helpers/baseline_policy_ohos.cc",
     "seccomp-bpf-helpers/baseline_policy_ohos.h",
   ]
 
-  defines = [ "SANDBOX_IMPLEMENTATION" ]
+  configs += [ ":no_inline_config" ]
 
   deps = [
     "//base",
@@ -28,7 +32,7 @@ static_library("arkweb_sandbox") {
   ]
 }
 
-component("seccomp_starter_ohos") {
+source_set("seccomp_starter_ohos") {
   sources = [
     "seccomp-bpf-helpers/seccomp_starter_ohos.cc",
     "seccomp-bpf-helpers/seccomp_starter_ohos.h",
@@ -45,9 +49,12 @@ test("arkweb_sandbox_unittests") {
   include_dirs = [ "//ppapi/lib/gl/include" ]
 
   sources = [
+    "//sandbox/linux/tests/main.cc",
     "seccomp-bpf-helpers/baseline_policy_ohos_unittest.cc",
-    "seccomp-bpf-helpers/seccomp_starter_ohos_unittest.cc"
+    "seccomp-bpf-helpers/seccomp_starter_ohos_unittest.cc",
   ]
+
+  defines = [ "SANDBOX_IMPLEMENTATION" ]
 
   public_deps = [
     "//testing/gmock",
@@ -56,15 +63,16 @@ test("arkweb_sandbox_unittests") {
 
   deps = [
     ":arkweb_sandbox",
+    ":seccomp_starter_ohos",
     "//base",
     "//base/test:test_support",
-    "//cef:libcef_static",
-    "//components/web_cache/browser:browser",
-    "//content/public/common",
-    "//ohos_glue:ohos_adapter_glue_source",
-    "//ohos_glue:ohos_nweb_glue_source",
-    "//third_party/boringssl",
+    "//sandbox:sandbox_export",
+    "//sandbox/linux:seccomp_bpf",
+    "//sandbox/linux:sandbox_linux_test_utils",
   ]
 
-  include_dirs += [ "//third_party/ohos_ndk/includes/ohos_adapter" ]
+  if (is_ohos) {
+    deps += [ "//sandbox/linux:seccomp_bpf" ]
+  }
+
 }
