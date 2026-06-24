@@ -773,7 +773,11 @@ ARKWEB_NDK_EXPORT void OH_WebMessage_SetData(ArkWeb_WebMessagePtr message,
     return;
   }
 
-  char* destination = OHOS::NWeb::malloc_wrapper(dataLength);
+  if (message->webMessageType == ArkWeb_WebMessageType::ARKWEB_STRING) {
+    dataLength = strnlen((char*)data, dataLength);
+  }
+
+  char* destination = OHOS::NWeb::malloc_wrapper(dataLength + 1);
 
   if (!destination) {
     LOG(ERROR) << "NativeArkWeb SetData malloc failed";
@@ -784,6 +788,10 @@ ARKWEB_NDK_EXPORT void OH_WebMessage_SetData(ArkWeb_WebMessagePtr message,
     LOG(ERROR) << "NativeArkWeb SetData memcpy failed";
     free(destination);
     return;
+  }
+
+  if (message->webMessageType == ArkWeb_WebMessageType::ARKWEB_STRING) {
+    destination[dataLength] = '\0';
   }
 
   message->data = (void*)destination;
@@ -1069,7 +1077,11 @@ OH_JavaScript_CreateJavaScriptValue(ArkWeb_JavaScriptValueType type,
     return nullptr;
   }
 
-  char* destination = OHOS::NWeb::malloc_wrapper(dataLength);
+  if (type == ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_STRING) {
+    dataLength = strnlen((char*)data, dataLength);
+  }
+
+  char* destination = OHOS::NWeb::malloc_wrapper(dataLength + 1);
 
   if (!destination) {
     LOG(ERROR) << "NativeArkWeb CreateJavaScriptValue malloc failed";
@@ -1080,6 +1092,10 @@ OH_JavaScript_CreateJavaScriptValue(ArkWeb_JavaScriptValueType type,
     LOG(ERROR) << "NativeArkWeb CreateJavaScriptValue memcpy failed";
     free(destination);
     return nullptr;
+  }
+
+  if (type == ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_STRING) {
+    destination[dataLength] = '\0';
   }
 
   ArkWeb_JavaScriptValuePtr value = new (std::nothrow) ArkWeb_JavaScriptValue();
