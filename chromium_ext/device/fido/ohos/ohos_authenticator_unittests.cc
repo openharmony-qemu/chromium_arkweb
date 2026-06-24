@@ -244,5 +244,51 @@ TEST_F(OhosAuthenticatorTest, GetWeakPtr_001)
     auto weak_ptr = ohosAuthenticator.GetWeakPtr();
     EXPECT_TRUE(weak_ptr.get() != nullptr);
 }
+
+TEST_F(OhosAuthenticatorTest, MakeCredentialIsPending_001)
+{
+    OhosAuthenticator ohosAuthenticator;
+    ohosAuthenticator.is_pending_ = true;
+    std::string in_client_data_json = "test";
+    PublicKeyCredentialRpEntity in_rp("test");
+    std::vector<uint8_t> emptyData;
+    PublicKeyCredentialUserEntity in_user(emptyData);
+    std::vector<PublicKeyCredentialParams::CredentialInfo> credentialInfos;
+    PublicKeyCredentialParams params = PublicKeyCredentialParams(credentialInfos);
+    CtapMakeCredentialRequest request(in_client_data_json, in_rp, in_user, params);
+    MakeCredentialOptions options;
+    EXPECT_DEATH({
+        ohosAuthenticator.MakeCredential(request, options,
+            BindOnce(&OhosAuthenticatorTest::MakeCredentialOnceCallback, Unretained(this)));
+    }, "");
+}
+
+TEST_F(OhosAuthenticatorTest, GetTouch_001)
+{
+    OhosAuthenticator ohosAuthenticator;
+    EXPECT_DEATH({
+        ohosAuthenticator.GetTouch(BindOnce([]() {}));
+    }, "");
+}
+
+TEST_F(OhosAuthenticatorTest, GetType_001)
+{
+    OhosAuthenticator ohosAuthenticator;
+    auto type = ohosAuthenticator.GetType();
+    EXPECT_EQ(type, AuthenticatorType::kOhosNative);
+}
+
+TEST_F(OhosAuthenticatorTest, GetPlatformCredentialInfoForRequest_001)
+{
+    OhosAuthenticator ohosAuthenticator;
+    CtapGetAssertionRequest request("in_rp_id", "in_client_data_json");
+    CtapGetAssertionOptions request_options;
+    auto callback = base::BindOnce(
+        [](std::vector<DiscoverableCredentialMetadata>,
+           FidoRequestHandlerBase::RecognizedCredential) {
+        });
+    ohosAuthenticator.GetPlatformCredentialInfoForRequest(
+        request, request_options, std::move(callback));
+}
  
 } // namespace
