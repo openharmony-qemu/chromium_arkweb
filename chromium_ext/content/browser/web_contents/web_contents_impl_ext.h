@@ -572,8 +572,8 @@ private:
   }
 
  private:
-  RenderFrameHostImpl* test_impl_ = nullptr;
-  RenderFrameHostManager* test_manager_ = nullptr;
+  raw_ptr<RenderFrameHostImpl> test_impl_ = nullptr;
+  raw_ptr<RenderFrameHostManager> test_manager_ = nullptr;
   bool flag_ = false;
 #endif  // ARKWEB_TEST
   base::WeakPtrFactory<WebContentsImplExt> weak_factory_{this};
