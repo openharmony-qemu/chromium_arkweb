@@ -400,7 +400,7 @@ void OhosVideoDecoder::OnCodecConfigured(
     EnterTerminalState(State::kError, "Unable to config codec");
     return;
   }
-  if (mediaKeySession_ && codec->SetDecryptionConfig(mediaKeySession_, requires_secure_codec_) ==
+  if (mediaKeySession_ && codec->SetDecryptionConfig(mediaKeySession_.get(), requires_secure_codec_) ==
       DecoderAdapterCode::DECODER_ERROR) {
     LOG(ERROR) << "OhosVideoDecoder::SetDecryptionConfig failed.";
     EnterTerminalState(State::kError, "Unable to initialize codec");
