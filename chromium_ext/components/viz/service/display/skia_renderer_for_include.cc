@@ -50,6 +50,12 @@ int32_t IsPartialDrawEnable() {
 }
 }
 
+void SkiaRenderer::ResetPartialDrawState() {
+  skia_last_damage_rect_ = gfx::Rect();
+  is_partial_damage_ = false;
+  force_full_draw_after_reset_.store(true);
+}
+
 void SkiaRenderer::ClosePostSubBuffer() {
   if (skia_output_surface_ == nullptr) {
     return;
@@ -60,6 +66,13 @@ void SkiaRenderer::ClosePostSubBuffer() {
 bool SkiaRenderer::IsPresentBuffersFullDamage(gfx::Rect damage_rect) {
   auto policy = IsPartialDrawEnable();
   if (skia_output_surface_ == nullptr || (policy == CtlPolicy::NONE)) {
+    is_partial_damage_ = false;
+    return true;
+  }
+
+  if (force_full_draw_after_reset_) {
+    force_full_draw_after_reset_.store(false);
+    skia_output_surface_->SetPresentBufferDamageRect(gfx::Rect(), damage_rect);
     is_partial_damage_ = false;
     return true;
   }
