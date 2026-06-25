@@ -94,5 +94,87 @@ TEST_F(FlingBoosterTest, LimitFlingVelocity_UnderVelocity) {
   ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
   EXPECT_NE(velocity, max_fling_velocity_);
 }
+
+TEST_F(FlingBoosterTest, LimitVelocityForPCWithCustomMaxVelocity) {
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
+  auto& system_properties_mock = ::base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(system_properties_mock, IsPcDevice())
+      .WillOnce(Return(true))
+      .WillRepeatedly(Return(true));
+  Vector2dF max_fling_velocity{5000, 5000};
+  Vector2dF fling_velocity{10000, 10000};
+  LimitVelocity(fling_velocity, max_fling_velocity);
+  EXPECT_EQ(fling_velocity.x(), 5000);
+  EXPECT_EQ(fling_velocity.y(), 5000);
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
+}
+
+TEST_F(FlingBoosterTest, LimitVelocityForNonPC) {
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
+  auto& system_properties_mock = ::base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(system_properties_mock, IsPcDevice())
+      .WillOnce(Return(false))
+      .WillRepeatedly(Return(false));
+  Vector2dF max_fling_velocity{std::numeric_limits<float>::max(),
+                               std::numeric_limits<float>::max()};
+  Vector2dF fling_velocity{10000, 10000};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(false);
+  LimitVelocity(fling_velocity, max_fling_velocity);
+  EXPECT_EQ(fling_velocity.x(), 10000);
+  EXPECT_EQ(fling_velocity.y(), 10000);
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
+}
+
+TEST_F(FlingBoosterTest, ShouldLimitFlingVelocity_Pdf) {
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = true;
+  auto& system_properties_mock = ::base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(system_properties_mock, IsPcDevice())
+      .WillOnce(Return(false))
+      .WillRepeatedly(Return(false));
+  Vector2dF max_fling_velocity_{5000, 5000};
+  Vector2dF velocity{10000, 10000};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(true);
+  Vector2dF original_velocity = velocity;
+  ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
+  EXPECT_EQ(velocity.x(), original_velocity.x());
+  EXPECT_EQ(velocity.y(), original_velocity.y());
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
+}
+
+TEST_F(FlingBoosterTest, ShouldLimitFlingVelocity_MixedVelocity) {
+  Vector2dF max_fling_velocity_{5000, 5000};
+  Vector2dF velocity{10000, 100};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(false);
+  ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
+  EXPECT_EQ(velocity.x(), 5000);
+  EXPECT_EQ(velocity.y(), 100);
+}
+
+TEST_F(FlingBoosterTest, ShouldLimitFlingVelocity_MixedVelocityNegative) {
+  Vector2dF max_fling_velocity_{5000, 5000};
+  Vector2dF velocity{-10000, -100};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(false);
+  ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
+  EXPECT_EQ(velocity.x(), -5000);
+  EXPECT_EQ(velocity.y(), -100);
+}
+
+TEST_F(FlingBoosterTest, ShouldLimitFlingVelocity_OnlyXExceeds) {
+  Vector2dF max_fling_velocity_{5000, 5000};
+  Vector2dF velocity{10000, 100};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(false);
+  ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
+  EXPECT_EQ(velocity.x(), 5000);
+  EXPECT_EQ(velocity.y(), 100);
+}
+
+TEST_F(FlingBoosterTest, ShouldLimitFlingVelocity_OnlyYExceeds) {
+  Vector2dF max_fling_velocity_{5000, 5000};
+  Vector2dF velocity{100, 10000};
+  base::ohos::SlidingObserver::GetInstance().SetIsPdf(false);
+  ShouldLimitFlingVelocity(velocity, max_fling_velocity_);
+  EXPECT_EQ(velocity.x(), 100);
+  EXPECT_EQ(velocity.y(), 5000);
+}
 }  // namespace test
 }  // namespace ui
