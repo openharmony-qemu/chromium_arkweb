@@ -107,6 +107,6 @@ for arg in "$@"; do
 done
 
 if [ $# -eq 0 ];then
-        export product_type="phone" && bash nextbuild.sh -t p musl_64 -A -j 32
+        export product_type="phone" && bash nextbuild.sh -t p musl_64 -use-pac -A -j 32
         bash $ROOT_DIR/arkweb/build/upload.sh
 fi
