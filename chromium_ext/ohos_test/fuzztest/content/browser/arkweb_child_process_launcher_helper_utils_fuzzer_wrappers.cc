@@ -558,13 +558,6 @@ class WrappedOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
   OHOS::NWeb::VSyncAdapter& GetVSyncAdapter() override {
     return UnusedAdapterRef<OHOS::NWeb::VSyncAdapter>();
   }
-  OHOS::NWeb::SurfaceControlAdapter& GetSurfaceControlAdapter() override {
-    return UnusedIncompleteAdapterRef<OHOS::NWeb::SurfaceControlAdapter>();
-  }
-  OHOS::NWeb::SurfaceTransactionAdapter& GetSurfaceTransactionAdapter()
-      override {
-    return UnusedIncompleteAdapterRef<OHOS::NWeb::SurfaceTransactionAdapter>();
-  }
   std::unique_ptr<OHOS::NWeb::OhosInitWebAdapter> GetInitWebAdapter()
       override {
     return nullptr;
