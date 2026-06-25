@@ -15,14 +15,12 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/path_service.h"
-#include "chrome/common/chrome_switches.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 namespace crypto {
@@ -71,10 +69,7 @@ base::FilePath GetPath() {
     return data_path;
   }
 
-  const base::CommandLine* command_line =
-      base::CommandLine::ForCurrentProcess();
-  if (command_line) {
-    data_path = command_line->GetSwitchValuePath(switches::kUserDataDir);
+  if (base::PathService::Get(base::DIR_LAZY_WEB_USER_DATA, &data_path)) {
     return data_path;
   }
 

@@ -20,6 +20,7 @@
 #include "nweb_hilog.h"
 
 #if BUILDFLAG(ARKWEB_COOKIE)
+#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "base/path_service.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -44,8 +45,10 @@ void PostCreateMainMessageLoop() {
     config->product_name = std::string("Chromium");
     config->should_use_preference =
         command_line->HasSwitch(password_manager::kEnableEncryptionSelection);
-    config->user_data_path =
-        command_line->GetSwitchValuePath(switches::kUserDataDir);
+    if (!base::PathService::Get(base::DIR_LAZY_WEB_USER_DATA,
+                                &config->user_data_path)) {
+      base::PathService::Get(base::DIR_CACHE, &config->user_data_path);
+    }
   } else {
     LOG_FEEDBACK(ERROR, kNetwork)
         << "CreateCookieEncryptionFailed message:emptyCommandLine";
@@ -53,6 +56,24 @@ void PostCreateMainMessageLoop() {
   DCHECK(!config->user_data_path.empty());
   OSCrypt::SetConfig(std::move(config));
 }
+
+void SetLazyInitWebUserDataDirectory() {
+  base::FilePath user_data_dir;
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line) {
+    user_data_dir = command_line->GetSwitchValuePath(switches::kUserDataDir);
+    if (!user_data_dir.empty()) {
+      const std::string target_data_dir_tag =
+          command_line->HasSwitch(switches::kEnableCacheDataDirSeparation)
+              ? "files/__arkweb"
+              : "cache/web";
+      user_data_dir = user_data_dir.Append(target_data_dir_tag);
+      base::PathService::Override(base::DIR_LAZY_WEB_USER_DATA, user_data_dir);
+    }
+  }
+}
+
 }  // namespace
 #endif
 
@@ -77,9 +98,10 @@ NWebCookieManagerImpl::NWebCookieManagerImpl() {
   if (NWebImpl::ShouldLazyInitWebEngine()) {
     init_args = NWebImpl::GetSaveInitargs();
     (void)NWebImpl::InitializeICUStatic(init_args);
+    SetLazyInitWebUserDataDirectory();
     PostCreateMainMessageLoop();
   } else {
-  (void)NWebImpl::InitializeICUStatic(init_args);
+    (void)NWebImpl::InitializeICUStatic(init_args);
   }
 #endif  // BUILDFLAG(ARKWEB_COOKIE)
 }
@@ -271,8 +293,8 @@ void NWebCookieManagerImpl::SetCookieAsync(
   }
 }
 
-std::vector<std::shared_ptr<NWebCookie>>
-    NWebCookieManagerImpl::GetAllCookies(bool incognitoMode) {
+std::vector<std::shared_ptr<NWebCookie>> NWebCookieManagerImpl::GetAllCookies(
+    bool incognitoMode) {
   std::vector<std::shared_ptr<NWebCookie>> cookies;
   if (delegate_ != nullptr) {
     delegate_->GetAllCookies(incognitoMode, cookies);
