@@ -955,6 +955,9 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   CefOwnPtr<CefMediaPlayerListenerForVAST> OnFullScreenOverlayEnter(
       CefOwnPtr<CefMediaPlayerController> media_player_controller,
       const std::string& extra_info) override;
+  CefOwnPtr<CefMediaPlayerListenerForVAST> OnAVCastStarted(
+      CefOwnPtr<CefMediaPlayerController> media_player_controller,
+      const std::string& extra_info) override;
 #endif // ARKWEB_VIDEO_ASSISTANT
 
 #if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
@@ -1030,7 +1033,7 @@ class NWebHandlerDelegate : public ArkWebClientExt,
 #endif
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void EnableVideoAssistant(bool enable);
-
+  void EnableVideoAssistantAVCast(bool enable);
   void CustomWebMediaPlayer(bool enable);
   void WebMediaPlayerControllerPlay();
   void WebMediaPlayerControllerPause();
@@ -1387,6 +1390,7 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   std::optional<bool> video_assistant_enabled_;
+  std::optional<bool> video_assistant_avcast_enabled_;
   std::optional<bool> custom_web_media_player_enabled_;
   std::unique_ptr<NWebMediaPlayerControllerImpl> nweb_media_player_controller_;
 #endif  // ARKWEB_VIDEO_ASSISTANT

@@ -297,6 +297,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               (const CefPdfPrintSettings&, CefRefPtr<CefPdfValueCallback>),
               (override));
   MOCK_METHOD(void, EnableVideoAssistant, (bool), (override));
+  MOCK_METHOD(void, EnableVideoAssistantAVCast, (bool), (override));
   MOCK_METHOD(void,
               ExecuteVideoAssistantFunction,
               (const CefString&),

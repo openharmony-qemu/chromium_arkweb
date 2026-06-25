@@ -1625,6 +1625,11 @@ arkweb_components_cookie_config_sources = [
     "//arkweb/chromium_ext/components/cookie_config/ohos_cookie_store_util.h",
 ]
 
+arkweb_content_browser_media_video_assistant = [
+    "//arkweb/chromium_ext/content/browser/media/video_assistant/video_assistant.cc",
+    "//arkweb/chromium_ext/content/browser/media/video_assistant/video_assistant.h",
+]
+
 arkweb_services_network_mojom_traits_sources = []
 arkweb_services_network_mojom_sources = []
 arkweb_net_for_ext_navigation_sources = []
