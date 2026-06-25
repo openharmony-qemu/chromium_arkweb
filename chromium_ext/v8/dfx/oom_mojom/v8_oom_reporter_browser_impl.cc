@@ -40,6 +40,7 @@ static void ReportV8OOMTraceNLog(std::map<std::string, std::string>& oomMap)
             << "fd_num = " << oomMap["fd_num"] << ", "
             << "js_heap_total = " << oomMap["js_heap_total"] << "KB, "
             << "js_heap_used = " << oomMap["js_heap_used"] << "KB, "
+            << "url" << oomMap["url"] << ", "
             << "oom_location = " << oomMap["oom_location"] << ", "
             << "oom_detail = " << oomMap["oom_detail"];
   std::string logMsg = logStream.str();
