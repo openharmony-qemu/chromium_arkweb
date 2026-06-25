@@ -95,6 +95,8 @@ static_library("cef_nweb") {
   ]
 
   sources = [
+    "src/cef_delegate/ai_page_command_dispatcher.cc",
+    "src/cef_delegate/ai_page_command_dispatcher.h",
     "src/cef_delegate/nweb_access_request_delegate.cc",
     "src/cef_delegate/nweb_access_request_delegate.h",
     "src/cef_delegate/nweb_accessibility_node_info_impl.cc",

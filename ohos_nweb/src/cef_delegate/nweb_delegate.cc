@@ -21,6 +21,7 @@
 #include "nweb_accessibility_utils.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #endif
+#include "ai_page_command_dispatcher.h"
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "arkweb/chromium_ext/url/ohos/log_utils.h"
 #if BUILDFLAG(IS_ARKWEB_EXT)
@@ -7412,5 +7413,19 @@ void NWebDelegate::OnContextMenuClosed() {
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   menu_manager->GetMenuManagerExt().onContextMenuClosed();
 #endif // BUILDFLAG(ARKWEB_DEVTOOLS)
+}
+
+void NWebDelegate::ExecuteAIPageCommand(
+    const std::string& command,
+    std::shared_ptr<NWebStringValueCallback> callback) {
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    CEF_POST_TASK(
+        CEF_UIT,
+        base::BindOnce(&NWebDelegate::ExecuteAIPageCommand,
+                       weak_factory_.GetWeakPtr(), command, callback));
+    return;
+  }
+
+  AIPageCommandDispatcher::Dispatch(command, GetBrowser(), callback);
 }
 }  // namespace OHOS::NWeb

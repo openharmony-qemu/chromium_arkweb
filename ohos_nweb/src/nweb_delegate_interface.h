@@ -1071,6 +1071,10 @@ class NWebDelegateInterface
 #endif
 
   virtual void ReloadOriginalUrlIgnoreCache() const = 0;
+
+  virtual void ExecuteAIPageCommand(
+      const std::string& command,
+      std::shared_ptr<NWebStringValueCallback> callback) = 0;
 };
 }  // namespace OHOS::NWeb
 
