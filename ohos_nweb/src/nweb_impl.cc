@@ -68,6 +68,8 @@
 #include "nweb_handler.h"
 #include "nweb_handler_delegate.h"
 #include "nweb_hilog.h"
+#include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "nweb_hit_test_result_impl.h"
 #include "ohos_adapter_helper.h"
 #include "res_sched_client_adapter.h"
@@ -1701,6 +1703,9 @@ bool NWebImpl::Init(std::shared_ptr<NWebCreateInfo> create_info) {
     WVLOG_E("Init nweb failed, input_handler_ is nullptr");
     return false;
   }
+
+  ai_inputmethod_controller_ = std::make_shared<NWebAIInputMethodController>(
+    input_handler_, nweb_delegate_, inputmethod_handler_);
 
 #if BUILDFLAG(ARKWEB_NETWORK_PROXY)
   OHOS::NWeb::OhosAdapterHelper::GetInstance()
@@ -9314,6 +9319,45 @@ void NWebImpl::UpdateWebLtpoInfo() {
 }
 #endif
 
+bool NWebImpl::AIInputCommandAction(const std::string& json, std::shared_ptr<NWebStringValueCallback> callback) {
+  WVLOG_I("AIInputCommandAction: received json: %{public}s", json.c_str());
+  
+  if (json.empty()) {
+    WVLOG_E("AIInputCommandAction: json is empty");
+    return false;
+  }
+
+  auto jsonValue = base::JSONReader::Read(json, base::JSON_ALLOW_TRAILING_COMMAS | base::JSON_PARSE_RFC);
+  if (!jsonValue || !jsonValue->is_dict()) {
+    WVLOG_E("AIInputCommandAction: invalid json format");
+    return false;
+  }
+
+  const auto& jsonDict = jsonValue->GetDict();
+  std::string method;
+  auto methodValue = jsonDict.Find("method");
+  if (!methodValue || !methodValue->is_string()) {
+    WVLOG_E("AIInputCommandAction: method not found");
+    return false;
+  }
+  method = methodValue->GetString();
+  WVLOG_I("AIInputCommandAction: parsed method: %{public}s", method.c_str());
+
+  if (method == "click" || method == "focus" || method == "cursor_position" ||
+    method == "type"|| method == "send_keys") {
+    if (ai_inputmethod_controller_) {
+      std::string result = ai_inputmethod_controller_->ExecuteJsonAction(jsonDict);
+      if (method == "cursor_position" || callback) {
+        callback->OnReceiveValue(result);
+      }
+      return true;
+    }
+    WVLOG_E("JsonAction: ai_inputmethod_controller_ is nullptr");
+  }
+
+  return false;
+}
+
 void NWebImpl::ExecuteAIPageCommand(
     const std::string& command,
     std::shared_ptr<NWebStringValueCallback> callback) {
@@ -9322,6 +9366,11 @@ void NWebImpl::ExecuteAIPageCommand(
       callback->OnReceiveValue("");
     }
     return;
+  }
+
+  bool result = AIInputCommandAction(command, callback);
+  if (result) {
+      return;
   }
 
   nweb_delegate_->ExecuteAIPageCommand(command, callback);

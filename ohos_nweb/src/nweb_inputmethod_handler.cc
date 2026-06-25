@@ -207,6 +207,14 @@ std::shared_ptr<IMFCursorInfoAdapter> NWebInputMethodHandler::GetCursorInfo() {
              << ", cursorInfo.height = " << height;
   return cursorInfo;
 }
+
+bool NWebInputMethodHandler::GetFocusRect(int& x, int& y, int& width, int& height) {
+  x = focus_rect_.x;
+  y = focus_rect_.y;
+  width = focus_rect_.width;
+  height = focus_rect_.height;
+  return focus_rect_status_;
+}
 // LCOV_EXCL_STOP
 
 IMFAdapterTextInputType NWebInputMethodHandler::TextInputModeToIMFAdapter(
