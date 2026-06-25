@@ -35,7 +35,7 @@ class SANDBOX_EXPORT BaselinePolicyOhos : public BaselinePolicy {
 
   // sandbox::BaselinePolicy:
   sandbox::bpf_dsl::ResultExpr EvaluateSyscall(
-      int system_call_number) const override;
+      int system_call_number) const override __attribute__((noinline));
 };
 
 }  // namespace sandbox
