@@ -23,6 +23,7 @@ namespace base {
 
 class JITFort {
 public:
+    static bool IsSupported();
     static void SetJITMemoryWritable();
     static void SetJITMemoryExecutable();
     static void Init();
