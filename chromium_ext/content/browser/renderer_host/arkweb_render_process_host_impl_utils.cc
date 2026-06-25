@@ -20,6 +20,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/site_info.h"
 #include "content/browser/site_instance_impl.h"
+#include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/device_service.h"
@@ -332,10 +333,16 @@ void ArkwebRenderProcessHostImplUtils::Refresh() {
     for (auto rfh_id : temp_set) {
       auto rfh = RenderFrameHostImpl::FromID(rfh_id);
       if (rfh && rfh->IsActive()) {
-        TRACE_EVENT2("base", __FILE__, "func", __func__, "line", __LINE__);
-        LOG(INFO) << "[NativeEmbed]child_id = " << rfh->GetGlobalId().child_id
-                  << "frame_routing_id=" << rfh->GetGlobalId().frame_routing_id;
-        rfh->Reload();
+        WebContentsImpl* web_contents_impl = WebContentsImpl::FromRenderFrameHostImpl(rfh);
+        if (web_contents_impl && web_contents_impl->WasDiscarded()) {
+          LOG(INFO) << "[NativeEmbed] web_contents discarded. child_id = "<< rfh->GetGlobalId().child_id
+                    << "frame_routing_id=" << rfh->GetGlobalId().frame_routing_id;
+        } else {
+          TRACE_EVENT2("base", __FILE__, "func", __func__, "line", __LINE__);
+          LOG(INFO) << "[NativeEmbed]child_id = " << rfh->GetGlobalId().child_id
+                    << "frame_routing_id=" << rfh->GetGlobalId().frame_routing_id;
+          rfh->Reload();
+        }
       }
     }
   }
