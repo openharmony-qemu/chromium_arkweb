@@ -15,6 +15,8 @@
 
 #include "ai_page_command_dispatcher.h"
 
+#include "ai_page_command_param_utils.h"
+
 #include <unistd.h>
 
 #include <algorithm>
@@ -69,6 +71,76 @@ class AIPageCommandCallbackImpl : public CefAIPageCommandCallback {
 };
 
 using CommandHandler = AIPageCommandDispatcher::CommandHandler;
+constexpr char kAnnotationCommandFailed[] = "annotation command failed";
+
+void SetAnnotationListField(base::Value::Dict& output,
+                            const base::Value::Dict& source,
+                            const char* key) {
+  const base::Value::List* list = source.FindList(key);
+  output.Set(key, list ? list->Clone() : base::Value::List());
+}
+
+std::string BuildAnnotationCommandResultJson(const std::string& cef_result,
+                                             bool include_details) {
+  std::optional<base::Value> value =
+      base::JSONReader::Read(cef_result, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  if (!value || !value->is_dict()) {
+    return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::FAILED),
+                           kAnnotationCommandFailed);
+  }
+
+  const base::Value::Dict& cef_dict = value->GetDict();
+  std::optional<bool> ok = cef_dict.FindBool("ok");
+  if (!ok) {
+    return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::FAILED),
+                           kAnnotationCommandFailed);
+  }
+
+  if (!ok.value()) {
+    const std::string* error = cef_dict.FindString("error");
+    std::string message =
+        (error && !error->empty()) ? *error : kAnnotationCommandFailed;
+    WebCommandErrorCode code = message == "timed out"
+                                   ? WebCommandErrorCode::WEB_EXECUTE_TIMEOUT
+                                   : WebCommandErrorCode::FAILED;
+    return BuildResultJson(static_cast<int32_t>(code), message);
+  }
+
+  base::Value::Dict output;
+  output.Set("code", static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  output.Set("message", "success");
+  if (include_details) {
+    output.Set("renderedCount", cef_dict.FindInt("renderedCount").value_or(0));
+    output.Set("truncated", cef_dict.FindBool("truncated").value_or(false));
+    SetAnnotationListField(output, cef_dict, "missingElementIds");
+    SetAnnotationListField(output, cef_dict, "invalidElementIds");
+  }
+
+  std::string json;
+  base::JSONWriter::Write(output, &json);
+  return json;
+}
+
+class AIPageAnnotationCommandCallbackImpl : public CefAIPageCommandCallback {
+ public:
+  AIPageAnnotationCommandCallbackImpl(
+      AIPageCommandDispatcher::ResultCallback callback,
+      bool include_details)
+      : callback_(callback), include_details_(include_details) {}
+
+  void OnResult(const CefString& result) override {
+    if (callback_) {
+      callback_->OnReceiveValue(BuildAnnotationCommandResultJson(
+          result.ToString(), include_details_));
+    }
+  }
+
+ private:
+  AIPageCommandDispatcher::ResultCallback callback_;
+  bool include_details_ = false;
+
+  IMPLEMENT_REFCOUNTING(AIPageAnnotationCommandCallbackImpl);
+};
 
 void ResolveCommandResult(AIPageCommandDispatcher::ResultCallback callback,
                           WebCommandErrorCode code,
@@ -78,6 +150,126 @@ void ResolveCommandResult(AIPageCommandDispatcher::ResultCallback callback,
         BuildResultJson(static_cast<int32_t>(code), message));
   }
 }
+
+std::optional<double> ReadNumberField(const base::Value::Dict& dict,
+                                      const char* key) {
+  const base::Value* value = dict.Find(key);
+  if (!value || (!value->is_int() && !value->is_double())) {
+    return std::nullopt;
+  }
+  return value->is_int() ? value->GetInt() : value->GetDouble();
+}
+
+void ExecuteScrollGestureAndReply(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& params,
+    double x,
+    double y,
+    AIPageCommandDispatcher::ResultCallback callback) {
+  if (!browser || !browser->GetHost()) {
+    LOG(ERROR) << "[AIPageCmd] scroll: browser or host is null";
+    ResolveCommandResult(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                         "browser or host is null");
+    return;
+  }
+
+  CefRefPtr<CefDictionaryValue> cdp =
+      AIPageCommandParamUtils::BuildScrollGestureParams(params, x, y);
+  int result = browser->GetHost()->ExecuteDevToolsMethod(
+      0, "Input.synthesizeScrollGesture", cdp);
+  if (result == 0) {
+    LOG(ERROR) << "[AIPageCmd] scroll gesture CDP send failed";
+    ResolveCommandResult(callback, WebCommandErrorCode::CDP_SEND_FAILED,
+                         "SendDevToolsMessage failed");
+    return;
+  }
+  ResolveCommandResult(callback, WebCommandErrorCode::SUCCESS, "success");
+}
+
+void HandleResolvedScrollRectResult(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& params,
+    const std::string& rect_result,
+    AIPageCommandDispatcher::ResultCallback callback) {
+  std::optional<base::Value> value =
+      base::JSONReader::Read(rect_result, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  if (!value || !value->is_dict()) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element rect is not available");
+    return;
+  }
+
+  const base::Value::Dict& result = value->GetDict();
+  if (!result.FindBool("ok").value_or(false)) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element rect is not available");
+    return;
+  }
+  if (result.FindBool("timedOut").value_or(false)) {
+    ResolveCommandResult(callback, WebCommandErrorCode::WEB_EXECUTE_TIMEOUT,
+                         "element rect resolve timeout");
+    return;
+  }
+  const base::Value::List* invalid_ids = result.FindList("invalidElementIds");
+  if (invalid_ids && !invalid_ids->empty()) {
+    ResolveCommandResult(callback, WebCommandErrorCode::PARAM_INVALID,
+                         "invalid id");
+    return;
+  }
+  const base::Value::List* missing_ids = result.FindList("missingElementIds");
+  if (missing_ids && !missing_ids->empty()) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element not found");
+    return;
+  }
+
+  const base::Value::List* items = result.FindList("items");
+  if (!items || items->empty() || !(*items)[0].is_dict()) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element rect is empty");
+    return;
+  }
+  const base::Value::Dict& item = (*items)[0].GetDict();
+  const base::Value::List* rects = item.FindList("rects");
+  if (!rects || rects->empty() || !(*rects)[0].is_dict()) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element rect is empty");
+    return;
+  }
+  const base::Value::Dict& rect = (*rects)[0].GetDict();
+  std::optional<double> left = ReadNumberField(rect, "left");
+  std::optional<double> top = ReadNumberField(rect, "top");
+  std::optional<double> width = ReadNumberField(rect, "width");
+  std::optional<double> height = ReadNumberField(rect, "height");
+  if (!left || !top || !width || !height || *width <= 0 || *height <= 0) {
+    ResolveCommandResult(callback, WebCommandErrorCode::ELEMENT_NOT_FOUND,
+                         "element rect is empty");
+    return;
+  }
+
+  ExecuteScrollGestureAndReply(browser, params, *left + *width / 2,
+                               *top + *height / 2, callback);
+}
+
+class AIPageScrollRectCallbackImpl : public CefAIPageCommandCallback {
+ public:
+  AIPageScrollRectCallbackImpl(CefRefPtr<ArkWebBrowserExt> browser,
+                               base::Value::Dict params,
+                               AIPageCommandDispatcher::ResultCallback callback)
+      : browser_(browser), params_(std::move(params)), callback_(callback) {}
+
+  void OnResult(const CefString& result) override {
+    HandleResolvedScrollRectResult(browser_, params_, result.ToString(),
+                                   callback_);
+  }
+
+ private:
+  CefRefPtr<ArkWebBrowserExt> browser_;
+  base::Value::Dict params_;
+  AIPageCommandDispatcher::ResultCallback callback_;
+
+  IMPLEMENT_REFCOUNTING(AIPageScrollRectCallbackImpl);
+};
 
 class ValidateElementIdCallbackImpl : public CefAIPageCommandCallback {
  public:
@@ -128,41 +320,39 @@ std::string BuildResultJson(int32_t code, const std::string &message) {
   return json;
 }
 
-std::string WriteJson(base::Value::Dict value) {
+std::string BuildResultJson(int32_t code,
+                            const std::string& message,
+                            base::Value::Dict payload) {
+  base::Value::Dict result;
+  result.Set("code", code);
+  result.Set("message", message);
+  result.Set("result", std::move(payload));
   std::string json;
-  base::JSONWriter::Write(value, &json);
+  base::JSONWriter::Write(result, &json);
   return json;
 }
 
-std::string WriteJsonString(const std::string& value) {
-  std::string json;
-  base::JSONWriter::Write(base::Value(value), &json);
-  return json;
+void ResolveNavigationSuccess(
+    AIPageCommandDispatcher::ResultCallback callback) {
+  ResolveCommandResult(callback, WebCommandErrorCode::SUCCESS, "success");
 }
 
-void ResolveNavigationOk(AIPageCommandDispatcher::ResultCallback callback) {
+void ResolveNavigationSuccess(
+    AIPageCommandDispatcher::ResultCallback callback,
+    base::Value::Dict payload) {
   if (!callback) {
     return;
   }
-  callback->OnReceiveValue("{\"ok\":true}");
+  callback->OnReceiveValue(BuildResultJson(
+      static_cast<int32_t>(WebCommandErrorCode::SUCCESS), "success",
+      std::move(payload)));
 }
 
-void ResolveNavigationOk(AIPageCommandDispatcher::ResultCallback callback,
-                         base::Value::Dict payload) {
-  if (!callback) {
-    return;
-  }
-  callback->OnReceiveValue("{\"ok\":true,\"result\":" +
-                           WriteJson(std::move(payload)) + "}");
-}
-
-void ResolveNavigationError(AIPageCommandDispatcher::ResultCallback callback,
-                            const std::string& error) {
-  if (!callback) {
-    return;
-  }
-  callback->OnReceiveValue("{\"ok\":false,\"error\":" +
-                           WriteJsonString(error) + "}");
+void ResolveNavigationFailure(
+    AIPageCommandDispatcher::ResultCallback callback,
+    WebCommandErrorCode code,
+    const std::string& message) {
+  ResolveCommandResult(callback, code, message);
 }
 
 bool IsAllowedNavigationUrl(const std::string& url) {
@@ -232,7 +422,7 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  std::array<CommandEntry, 14> kCommandEntries = {{
+  std::array<CommandEntry, 17> kCommandEntries = {{
       {"getFullDom", &AIPageCommandDispatcher::HandleGetFullDomCommand},
       {"getLiteDom", &AIPageCommandDispatcher::HandleGetLiteDomCommand},
       {"scroll", &AIPageCommandDispatcher::HandleScrollCommand},
@@ -247,6 +437,9 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
       {"navigate", &AIPageCommandDispatcher::HandleNavigateCommand},
       {"setZoomLevel", &AIPageCommandDispatcher::HandleSetZoomLevelCommand},
       {"getZoomLevel", &AIPageCommandDispatcher::HandleGetZoomLevelCommand},
+      {"dispatchMouseEvent", &AIPageCommandDispatcher::HandleDispatchMouseEventCommand},
+      {"dispatchKeyEvent", &AIPageCommandDispatcher::HandleDispatchKeyEventCommand},
+      {"input", &AIPageCommandDispatcher::HandleInputCommand},
   }};
 
   auto entry = std::find_if(
@@ -274,6 +467,16 @@ std::string BuildParamsJson(const base::Value::Dict& command) {
     base::JSONWriter::Write(*params, &paramsJson);
   }
   return paramsJson;
+}
+
+bool IsValidAnnotationElementList(const base::Value::List& element_list) {
+  if (element_list.empty()) {
+    return false;
+  }
+  return std::all_of(element_list.begin(), element_list.end(),
+                     [](const base::Value& item) {
+                       return item.is_string() && !item.GetString().empty();
+                     });
 }
 
 void AIPageCommandDispatcher::ReplyError(ResultCallback callback,
@@ -337,52 +540,15 @@ void AIPageCommandDispatcher::HandleGetLiteDomCommand(
 }
 
 // --- Scroll ---
-CefRefPtr<CefDictionaryValue> AIPageCommandDispatcher::BuildScrollParams(
-    const base::Value::Dict& params) {
-  auto x = params.FindDouble("x");
-  auto y = params.FindDouble("y");
-  if (!x.has_value() || !y.has_value()) {
-    return nullptr;
-  }
-
-  CefRefPtr<CefDictionaryValue> cdp = CefDictionaryValue::Create();
-  cdp->SetDouble("x", x.value());
-  cdp->SetDouble("y", y.value());
-  if (auto v = params.FindDouble("deltaX")) {
-    cdp->SetDouble("xDistance", v.value());
-  }
-  if (auto v = params.FindDouble("deltaY")) {
-    cdp->SetDouble("yDistance", v.value());
-  }
-  if (auto v = params.FindInt("speed")) {
-    cdp->SetInt("speed", v.value());
-  }
-  return cdp;
-}
-
 void AIPageCommandDispatcher::HandleScrollCommand(
     CefRefPtr<ArkWebBrowserExt> browser,
     const base::Value::Dict& command,
     ResultCallback callback) {
-  if (!browser || !browser->GetHost()) {
-    LOG(ERROR) << "[AIPageCmd] browser or host is null";
-    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
-               "browser or host is null");
-    return;
-  }
-
   const base::Value::Dict* params = command.FindDict("params");
   if (!params) {
     LOG(ERROR) << "[AIPageCmd] scroll: invalid params JSON";
     ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
                "invalid params JSON");
-    return;
-  }
-
-  // Required params must exist
-  if (!params->Find("x") || !params->Find("y")) {
-    LOG(ERROR) << "[AIPageCmd] scroll: missing x or y";
-    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing x or y");
     return;
   }
 
@@ -404,16 +570,51 @@ void AIPageCommandDispatcher::HandleScrollCommand(
     return;
   }
 
-  CefRefPtr<CefDictionaryValue> cdp = BuildScrollParams(*params);
-  int result = browser->GetHost()->ExecuteDevToolsMethod(
-      0, "Input.synthesizeScrollGesture", cdp);
-  if (result == 0) {
-    LOG(ERROR) << "[AIPageCmd] scroll gesture CDP send failed";
-    ReplyError(callback, WebCommandErrorCode::CDP_SEND_FAILED,
-               "SendDevToolsMessage failed");
+  AIPageCommandParamUtils::ElementTarget target =
+      AIPageCommandParamUtils::ResolveScrollTarget(*params);
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kConflict) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "id is mutually exclusive with x/y");
     return;
   }
-  ReplyError(callback, WebCommandErrorCode::SUCCESS, "success");
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kInvalid) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "invalid id");
+    return;
+  }
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kMissing) {
+    LOG(ERROR) << "[AIPageCmd] scroll: missing id or x/y";
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING,
+               "missing id or x/y");
+    return;
+  }
+
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kId) {
+#if !BUILDFLAG(ARKWEB_INPUT_EVENTS)
+    ResolveEmptyResult(callback);
+    return;
+#else
+    if (!browser || !browser->GetHost()) {
+      LOG(ERROR) << "[AIPageCmd] scroll: browser or host is null";
+      ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                 "browser or host is null");
+      return;
+    }
+    CefRefPtr<AIPageScrollRectCallbackImpl> rect_callback =
+        new AIPageScrollRectCallbackImpl(browser, params->Clone(), callback);
+    browser->GetHost()->GetAIPageElementRects({target.value}, 1,
+                                              rect_callback);
+    return;
+#endif
+  }
+
+  auto x = params->FindDouble("x");
+  auto y = params->FindDouble("y");
+  if (!x.has_value() || !y.has_value()) {
+    LOG(ERROR) << "[AIPageCmd] scroll: missing x or y";
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing x or y");
+    return;
+  }
+  ExecuteScrollGestureAndReply(browser, *params, x.value(), y.value(), callback);
 }
 
 // --- Select ---
@@ -426,13 +627,6 @@ void AIPageCommandDispatcher::HandleSelectCommand(
   ResolveEmptyResult(callback);
   return;
 #else
-  if (!browser || !browser->GetHost()) {
-    LOG(ERROR) << "[AIPageCmd] browser or host is null";
-    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
-               "browser or host is null");
-    return;
-  }
-
   const base::Value::Dict* params = command.FindDict("params");
   if (!params) {
     LOG(ERROR) << "[AIPageCmd] select: invalid params JSON";
@@ -441,11 +635,22 @@ void AIPageCommandDispatcher::HandleSelectCommand(
     return;
   }
 
-  const std::string* xpath = params->FindString("xpath");
-  if (!xpath || xpath->empty()) {
+  AIPageCommandParamUtils::ElementTarget target =
+      AIPageCommandParamUtils::ResolveIdOrXPathTarget(*params);
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kConflict) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "id and xpath are mutually exclusive");
+    return;
+  }
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kMissing) {
     LOG(ERROR) << "[AIPageCmd] select: missing xpath";
     ReplyError(callback, WebCommandErrorCode::JSON_INVALID_XPATH,
                "missing or empty xpath");
+    return;
+  }
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kInvalid) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "invalid id or xpath");
     return;
   }
 
@@ -458,7 +663,150 @@ void AIPageCommandDispatcher::HandleSelectCommand(
     return;
   }
 
-  ExecuteSelectAndReply(browser, *xpath, indexes, values, callback);
+  if (!browser || !browser->GetHost()) {
+    LOG(ERROR) << "[AIPageCmd] select: browser or host is null";
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kId) {
+    ExecuteSelectByIdAndReply(browser, target.value, indexes, values, callback);
+    return;
+  }
+  ExecuteSelectAndReply(browser, target.value, indexes, values, callback);
+#endif
+}
+
+void AIPageCommandDispatcher::HandleDispatchMouseEventCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& command,
+    ResultCallback callback) {
+  const base::Value::Dict* params = command.FindDict("params");
+  if (!params) {
+    ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
+               "invalid params JSON");
+    return;
+  }
+  AIPageCommandParamUtils::CdpParamsResult cdp_result =
+      AIPageCommandParamUtils::BuildMouseEventParams(*params);
+  if (!cdp_result.ok()) {
+    ReplyError(callback, cdp_result.code, cdp_result.message);
+    return;
+  }
+  if (!browser || !browser->GetHost()) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+  int result = browser->GetHost()->ExecuteDevToolsMethod(
+      0, "Input.dispatchMouseEvent", cdp_result.params);
+  if (result == 0) {
+    ReplyError(callback, WebCommandErrorCode::CDP_SEND_FAILED,
+               "SendDevToolsMessage failed");
+    return;
+  }
+  ReplyError(callback, WebCommandErrorCode::SUCCESS, "success");
+}
+
+void AIPageCommandDispatcher::HandleDispatchKeyEventCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& command,
+    ResultCallback callback) {
+  const base::Value::Dict* params = command.FindDict("params");
+  if (!params) {
+    ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
+               "invalid params JSON");
+    return;
+  }
+  AIPageCommandParamUtils::CdpParamsResult cdp_result =
+      AIPageCommandParamUtils::BuildKeyEventParams(*params);
+  if (!cdp_result.ok()) {
+    ReplyError(callback, cdp_result.code, cdp_result.message);
+    return;
+  }
+  if (!browser || !browser->GetHost()) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+  int result = browser->GetHost()->ExecuteDevToolsMethod(
+      0, "Input.dispatchKeyEvent", cdp_result.params);
+  if (result == 0) {
+    ReplyError(callback, WebCommandErrorCode::CDP_SEND_FAILED,
+               "SendDevToolsMessage failed");
+    return;
+  }
+  ReplyError(callback, WebCommandErrorCode::SUCCESS, "success");
+}
+
+void AIPageCommandDispatcher::HandleInputCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict& command,
+    ResultCallback callback) {
+#if !BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  ResolveEmptyResult(callback);
+  return;
+#else
+  const base::Value::Dict* params = command.FindDict("params");
+  if (!params) {
+    ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
+               "invalid params JSON");
+    return;
+  }
+
+  AIPageCommandParamUtils::ElementTarget target =
+      AIPageCommandParamUtils::ResolveIdOrXPathTarget(*params);
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kConflict) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "id and xpath are mutually exclusive");
+    return;
+  }
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kMissing) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING,
+               "id or xpath is required");
+    return;
+  }
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kInvalid) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "invalid id or xpath");
+    return;
+  }
+
+  const std::string* input_type = params->FindString("type");
+  if (!input_type || input_type->empty()) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing type");
+    return;
+  }
+  if (!AIPageCommandParamUtils::IsSupportedInputType(*input_type)) {
+    ReplyError(callback, WebCommandErrorCode::INPUT_TYPE_INVALID,
+               "unsupported input type");
+    return;
+  }
+  const base::Value* value = params->Find("value");
+  if (!value) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing value");
+    return;
+  }
+  if (!value->is_string()) {
+    ReplyError(callback, WebCommandErrorCode::JSON_INVALID_INPUT_VALUE,
+               "invalid input value");
+    return;
+  }
+
+  if (!browser || !browser->GetHost()) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+
+  if (target.type == AIPageCommandParamUtils::ElementTargetType::kId) {
+    ExecuteAIPageInputByIdAndReply(browser, target.value, value->GetString(),
+                                     *input_type, callback);
+    return;
+  }
+  ExecuteAIPageInputByXPathAndReply(browser, target.value, value->GetString(),
+                                      *input_type, callback);
 #endif
 }
 
@@ -510,6 +858,51 @@ void AIPageCommandDispatcher::ExecuteSelectAndReply(
                     ? "success"
                     : "select command failed"));
   }
+}
+
+void AIPageCommandDispatcher::ExecuteSelectByIdAndReply(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const std::string& id,
+    const std::vector<int32_t>& indexes,
+    const std::vector<std::string>& values,
+    ResultCallback callback) {
+  int32_t result =
+      browser->GetHost()->ExecuteSelectCommandById(id, indexes, values);
+  ResolveCommandResult(
+      callback, static_cast<WebCommandErrorCode>(result),
+      result == static_cast<int32_t>(WebCommandErrorCode::SUCCESS)
+          ? "success"
+          : "select command failed");
+}
+
+void AIPageCommandDispatcher::ExecuteAIPageInputByXPathAndReply(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const std::string& xpath,
+    const std::string& value,
+    const std::string& input_type,
+    ResultCallback callback) {
+  int32_t result = browser->GetHost()->ExecuteAIPageInputCommandByXPath(
+      xpath, value, input_type);
+  ResolveCommandResult(
+      callback, static_cast<WebCommandErrorCode>(result),
+      result == static_cast<int32_t>(WebCommandErrorCode::SUCCESS)
+          ? "success"
+          : "input command failed");
+}
+
+void AIPageCommandDispatcher::ExecuteAIPageInputByIdAndReply(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const std::string& id,
+    const std::string& value,
+    const std::string& input_type,
+    ResultCallback callback) {
+  int32_t result =
+      browser->GetHost()->ExecuteAIPageInputCommandById(id, value, input_type);
+  ResolveCommandResult(
+      callback, static_cast<WebCommandErrorCode>(result),
+      result == static_cast<int32_t>(WebCommandErrorCode::SUCCESS)
+          ? "success"
+          : "input command failed");
 }
 
 // --- Upload file ---
@@ -697,31 +1090,75 @@ void AIPageCommandDispatcher::HandleAddPageAnnotationCommand(
     CefRefPtr<ArkWebBrowserExt> browser,
     const base::Value::Dict& command,
     ResultCallback callback) {
-  if (browser == nullptr || browser->GetMainFrame() == nullptr ||
-      browser->GetMainFrame()->AsArkWebFrame() == nullptr) {
-    ResolveEmptyResult(callback);
+  const base::Value::Dict* params = command.FindDict("params");
+  if (!params) {
+    ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
+               "params is invalid");
     return;
   }
 
-  CefRefPtr<AIPageCommandCallbackImpl> cefCallback =
-      new AIPageCommandCallbackImpl(callback);
-  browser->GetMainFrame()->AsArkWebFrame()->AddPageAnnotation(
-      BuildParamsJson(command), cefCallback);
+  const base::Value* element_list_value = params->Find("elementList");
+  if (!element_list_value) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING,
+               "missing elementList");
+    return;
+  }
+
+  if (!element_list_value->is_list() ||
+      !IsValidAnnotationElementList(element_list_value->GetList())) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "invalid elementList");
+    return;
+  }
+
+  if (!browser) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
+    return;
+  }
+  auto main_frame = browser->GetMainFrame();
+  if (!main_frame) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
+    return;
+  }
+  auto arkweb_frame = main_frame->AsArkWebFrame();
+  if (!arkweb_frame) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
+    return;
+  }
+
+  CefRefPtr<AIPageAnnotationCommandCallbackImpl> cefCallback =
+      new AIPageAnnotationCommandCallbackImpl(callback, true);
+  arkweb_frame->AddPageAnnotation(BuildParamsJson(command), cefCallback);
 }
 
 void AIPageCommandDispatcher::HandleRemovePageAnnotationCommand(
     CefRefPtr<ArkWebBrowserExt> browser,
     const base::Value::Dict&,
     ResultCallback callback) {
-  if (browser == nullptr || browser->GetMainFrame() == nullptr ||
-      browser->GetMainFrame()->AsArkWebFrame() == nullptr) {
-    ResolveEmptyResult(callback);
+  if (!browser) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
+    return;
+  }
+  auto main_frame = browser->GetMainFrame();
+  if (!main_frame) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
+    return;
+  }
+  auto arkweb_frame = main_frame->AsArkWebFrame();
+  if (!arkweb_frame) {
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or frame is null");
     return;
   }
 
-  CefRefPtr<AIPageCommandCallbackImpl> cefCallback =
-      new AIPageCommandCallbackImpl(callback);
-  browser->GetMainFrame()->AsArkWebFrame()->RemovePageAnnotation(cefCallback);
+  CefRefPtr<AIPageAnnotationCommandCallbackImpl> cefCallback =
+      new AIPageAnnotationCommandCallbackImpl(callback, false);
+  arkweb_frame->RemovePageAnnotation(cefCallback);
 }
 
 void AIPageCommandDispatcher::HandleGetUrlHistoryCommand(
@@ -729,14 +1166,15 @@ void AIPageCommandDispatcher::HandleGetUrlHistoryCommand(
     const base::Value::Dict&,
     ResultCallback callback) {
   if (browser == nullptr || browser->GetHost() == nullptr) {
-    ResolveNavigationError(callback, "browser host is not available");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                              "browser host is not available");
     return;
   }
 
   CefRefPtr<AIPageNavigationEntryVisitor> visitor =
       new AIPageNavigationEntryVisitor();
   browser->GetHost()->GetNavigationEntries(visitor, false);
-  ResolveNavigationOk(callback, visitor->TakeResult(browser));
+  ResolveNavigationSuccess(callback, visitor->TakeResult(browser));
 }
 
 void AIPageCommandDispatcher::HandleGoBackCommand(
@@ -744,16 +1182,18 @@ void AIPageCommandDispatcher::HandleGoBackCommand(
     const base::Value::Dict&,
     ResultCallback callback) {
   if (browser == nullptr) {
-    ResolveNavigationError(callback, "browser is not available");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                              "browser is not available");
     return;
   }
   if (!browser->CanGoBack()) {
-    ResolveNavigationError(callback, "Cannot go back");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::FAILED,
+                              "Cannot go back");
     return;
   }
 
   browser->GoBack();
-  ResolveNavigationOk(callback);
+  ResolveNavigationSuccess(callback);
 }
 
 void AIPageCommandDispatcher::HandleGoForwardCommand(
@@ -761,16 +1201,18 @@ void AIPageCommandDispatcher::HandleGoForwardCommand(
     const base::Value::Dict&,
     ResultCallback callback) {
   if (browser == nullptr) {
-    ResolveNavigationError(callback, "browser is not available");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                              "browser is not available");
     return;
   }
   if (!browser->CanGoForward()) {
-    ResolveNavigationError(callback, "Cannot go forward");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::FAILED,
+                              "Cannot go forward");
     return;
   }
 
   browser->GoForward();
-  ResolveNavigationOk(callback);
+  ResolveNavigationSuccess(callback);
 }
 
 void AIPageCommandDispatcher::HandleNavigateCommand(
@@ -780,21 +1222,29 @@ void AIPageCommandDispatcher::HandleNavigateCommand(
   const base::Value::Dict* params = command.FindDict("params");
   const std::string* url = params ? params->FindString("url") : nullptr;
   if (!url || url->empty()) {
-    ResolveNavigationError(callback, "params.url is required");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_MISSING,
+                              "params.url is required");
     return;
   }
   if (!IsAllowedNavigationUrl(*url)) {
-    ResolveNavigationError(callback, "params.url is invalid");
+    ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_INVALID,
+                              "params.url is invalid");
     return;
   }
 
-  if (browser == nullptr || browser->GetMainFrame() == nullptr) {
-    ResolveNavigationError(callback, "main frame is not available");
+  if (browser == nullptr) {
+    ResolveNavigationFailure(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+                              "browser is not available");
+    return;
+  }
+  if (browser->GetMainFrame() == nullptr) {
+    ResolveNavigationFailure(callback, WebCommandErrorCode::PAGE_NOT_READY,
+                              "main frame is not available");
     return;
   }
 
   browser->GetMainFrame()->LoadURL(CefString(*url));
-  ResolveNavigationOk(callback);
+  ResolveNavigationSuccess(callback);
 }
 
 // --- Zoom level (setZoomLevel / getZoomLevel) ---

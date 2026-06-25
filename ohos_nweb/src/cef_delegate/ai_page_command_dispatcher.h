@@ -98,6 +98,16 @@ class AIPageCommandDispatcher {
 
   bool ResolveZoomPref(bool& out_zoom_control_access);
 
+  void HandleDispatchMouseEventCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                       const base::Value::Dict& command,
+                                       ResultCallback callback);
+  void HandleDispatchKeyEventCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                     const base::Value::Dict& command,
+                                     ResultCallback callback);
+  void HandleInputCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                          const base::Value::Dict& command,
+                          ResultCallback callback);
+
   // Returns true on success (writes normalized factor to out_zoom_factor);
   // otherwise calls ReplyError and returns false.
   bool ValidateZoomLevelParam(const base::Value::Dict& params,
@@ -140,6 +150,22 @@ class AIPageCommandDispatcher {
                             const std::vector<std::string>& files,
                             const std::vector<std::string>& warnings,
                             ResultCallback callback);
+  
+  void ExecuteSelectByIdAndReply(CefRefPtr<ArkWebBrowserExt> browser,
+                                 const std::string& id,
+                                 const std::vector<int32_t>& indexes,
+                                 const std::vector<std::string>& values,
+                                 ResultCallback callback);
+  void ExecuteAIPageInputByXPathAndReply(CefRefPtr<ArkWebBrowserExt> browser,
+                                         const std::string& xpath,
+                                         const std::string& value,
+                                         const std::string& input_type,
+                                         ResultCallback callback);
+  void ExecuteAIPageInputByIdAndReply(CefRefPtr<ArkWebBrowserExt> browser,
+                                      const std::string& id,
+                                      const std::string& value,
+                                      const std::string& input_type,
+                                      ResultCallback callback);
 
   base::WeakPtr<NWebDelegate> delegate_;
 };

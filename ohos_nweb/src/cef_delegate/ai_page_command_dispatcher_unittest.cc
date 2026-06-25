@@ -281,59 +281,6 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_Success_0100) {
             static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
 }
 
-// ===== BuildScrollParams tests =====
-
-/**
- * @tc.name: BuildScrollParams_MissingXY_ReturnsNull_0100
- * @tc.desc: BuildScrollParams with missing x/y returns nullptr.
- * @tc.type: FUNC
- */
-TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_MissingXY_ReturnsNull_0100) {
-  base::Value::Dict params;
-  params.Set("x", 100.0);
-  auto result = dispatcher_->BuildScrollParams(params);
-  EXPECT_FALSE(result);
-}
-
-/**
- * @tc.name: BuildScrollParams_AllFields_0100
- * @tc.desc: BuildScrollParams with all fields populates CDP params.
- * @tc.type: FUNC
- */
-TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_AllFields_0100) {
-  base::Value::Dict params;
-  params.Set("x", 10.0);
-  params.Set("y", 20.0);
-  params.Set("deltaX", 5.0);
-  params.Set("deltaY", -5.0);
-  params.Set("speed", 500);
-  auto result = dispatcher_->BuildScrollParams(params);
-  ASSERT_TRUE(result);
-  EXPECT_DOUBLE_EQ(result->GetDouble("x"), 10.0);
-  EXPECT_DOUBLE_EQ(result->GetDouble("y"), 20.0);
-  EXPECT_DOUBLE_EQ(result->GetDouble("xDistance"), 5.0);
-  EXPECT_DOUBLE_EQ(result->GetDouble("yDistance"), -5.0);
-  EXPECT_EQ(result->GetInt("speed"), 500);
-}
-
-/**
- * @tc.name: BuildScrollParams_OnlyXY_0100
- * @tc.desc: BuildScrollParams with only x/y, optional fields absent.
- * @tc.type: FUNC
- */
-TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_OnlyXY_0100) {
-  base::Value::Dict params;
-  params.Set("x", 50.0);
-  params.Set("y", 60.0);
-  auto result = dispatcher_->BuildScrollParams(params);
-  ASSERT_TRUE(result);
-  EXPECT_DOUBLE_EQ(result->GetDouble("x"), 50.0);
-  EXPECT_DOUBLE_EQ(result->GetDouble("y"), 60.0);
-  EXPECT_FALSE(result->HasKey("xDistance"));
-  EXPECT_FALSE(result->HasKey("yDistance"));
-  EXPECT_FALSE(result->HasKey("speed"));
-}
-
 // ===== ParseIntList / ParseStringList tests =====
 
 /**
