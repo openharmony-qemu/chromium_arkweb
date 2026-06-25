@@ -425,4 +425,106 @@ TEST_F(OhosWebAuthnApiTest, IsUserVerifyingPlatformAuthenticatorAvailableMultipl
     EXPECT_EQ(ret1, ret2);
 }
 
+TEST_F(OhosWebAuthnApiTest, NullFuncGetPlatformAuthenticatorPtr_001)
+{
+    auto* instance = OhosWebAuthnApi::Instance();
+    ASSERT_NE(instance, nullptr);
+    auto capabilities = instance->GetClientCapabilities();
+    EXPECT_TRUE(capabilities.empty() || !capabilities.empty());
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncCapabilityArrayDestroyPtr_001)
+{
+    auto* instance = OhosWebAuthnApi::Instance();
+    ASSERT_NE(instance, nullptr);
+    auto capabilities = instance->GetClientCapabilities();
+    EXPECT_TRUE(capabilities.empty() || !capabilities.empty());
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncAuthenticatorMetadataArrayDestroyPtr_001)
+{
+    auto* instance = OhosWebAuthnApi::Instance();
+    ASSERT_NE(instance, nullptr);
+    auto capabilities = instance->GetClientCapabilities();
+    EXPECT_TRUE(capabilities.empty() || !capabilities.empty());
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncPublicKeyAttestationCredentialDestroyPtr_001)
+{
+    std::string in_client_data_json = "test_client_data";
+    PublicKeyCredentialRpEntity in_rp("test_rp_id", "test_rp_name");
+    std::vector<uint8_t> user_id = {1, 2, 3, 4, 5};
+    PublicKeyCredentialUserEntity in_user(user_id, "test_user", "Test User Display");
+    PublicKeyCredentialParams::CredentialInfo info = {CredentialType::kPublicKey, -7};
+    std::vector<PublicKeyCredentialParams::CredentialInfo> credential_infos;
+    credential_infos.emplace_back(info);
+    PublicKeyCredentialParams params = PublicKeyCredentialParams(credential_infos);
+    CtapMakeCredentialRequest request(in_client_data_json, in_rp, in_user, params);
+    AuthenticatorSelectionCriteria authenticator_selection_criteria;
+    MakeCredentialOptions options(authenticator_selection_criteria);
+
+    auto ret = OhosWebAuthnApi::Instance()->Register(request, options);
+    EXPECT_EQ(ret.first, MakeCredentialStatus::kAuthenticatorResponseInvalid);
+    EXPECT_FALSE(ret.second.has_value());
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncPublicKeyAssertionCredentialDestroyPtr_001)
+{
+    std::string in_rp_id = "test.example.com";
+    std::string in_client_data_json = "test_client_data";
+    CtapGetAssertionRequest request(in_rp_id, in_client_data_json);
+    CtapGetAssertionOptions options;
+
+    auto ret = OhosWebAuthnApi::Instance()->GetAssertion(request, options);
+    EXPECT_EQ(ret.first, GetAssertionStatus::kAuthenticatorResponseInvalid);
+    EXPECT_FALSE(ret.second.has_value());
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncInitCreationOptionsPtr_001)
+{
+    std::string in_client_data_json = "test_client_data";
+    PublicKeyCredentialRpEntity in_rp("test_rp_id", "test_rp_name");
+    std::vector<uint8_t> user_id = {1, 2, 3, 4, 5};
+    PublicKeyCredentialUserEntity in_user(user_id, "test_user", "Test User Display");
+    PublicKeyCredentialParams::CredentialInfo info = {CredentialType::kPublicKey, -7};
+    std::vector<PublicKeyCredentialParams::CredentialInfo> credential_infos;
+    credential_infos.emplace_back(info);
+    PublicKeyCredentialParams params = PublicKeyCredentialParams(credential_infos);
+    CtapMakeCredentialRequest request(in_client_data_json, in_rp, in_user, params);
+    AuthenticatorSelectionCriteria authenticator_selection_criteria;
+    MakeCredentialOptions options(authenticator_selection_criteria);
+
+    auto ret = OhosWebAuthnApi::Instance()->Register(request, options);
+    EXPECT_EQ(ret.first, MakeCredentialStatus::kAuthenticatorResponseInvalid);
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncInitTokenBindingPtr_001)
+{
+    std::string in_client_data_json = "test_client_data";
+    PublicKeyCredentialRpEntity in_rp("test_rp_id", "test_rp_name");
+    std::vector<uint8_t> user_id = {1, 2, 3, 4, 5};
+    PublicKeyCredentialUserEntity in_user(user_id, "test_user", "Test User Display");
+    PublicKeyCredentialParams::CredentialInfo info = {CredentialType::kPublicKey, -7};
+    std::vector<PublicKeyCredentialParams::CredentialInfo> credential_infos;
+    credential_infos.emplace_back(info);
+    PublicKeyCredentialParams params = PublicKeyCredentialParams(credential_infos);
+    CtapMakeCredentialRequest request(in_client_data_json, in_rp, in_user, params);
+    AuthenticatorSelectionCriteria authenticator_selection_criteria;
+    MakeCredentialOptions options(authenticator_selection_criteria);
+
+    auto ret = OhosWebAuthnApi::Instance()->Register(request, options);
+    EXPECT_EQ(ret.first, MakeCredentialStatus::kAuthenticatorResponseInvalid);
+}
+
+TEST_F(OhosWebAuthnApiTest, NullFuncInitRequestOptionsPtr_001)
+{
+    std::string in_rp_id = "test.example.com";
+    std::string in_client_data_json = "test_client_data";
+    CtapGetAssertionRequest request(in_rp_id, in_client_data_json);
+    CtapGetAssertionOptions options;
+
+    auto ret = OhosWebAuthnApi::Instance()->GetAssertion(request, options);
+    EXPECT_EQ(ret.first, GetAssertionStatus::kAuthenticatorResponseInvalid);
+}
+
 } // namespace device

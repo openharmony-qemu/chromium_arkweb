@@ -3,6 +3,8 @@
 #
 device_unittests_ext = {
   sources = [
+    "//components/printing/renderer/print_render_frame_helper.cc",
+    "//arkweb/chromium_ext/components/printing/renderer/print_render_frame_helper_include_unittest.cc",
     "//arkweb/chromium_ext/device/fido/ohos/fido2_api_utils.cpp",
     "//arkweb/chromium_ext/device/fido/ohos/fido2_api_utils_unittests.cc",
     "//arkweb/chromium_ext/device/fido/ohos/ohos_authenticator.cpp",
