@@ -63,6 +63,7 @@
 #include "arkweb/chromium_ext/content/renderer/host_proxy.h"
 #include "arkweb/chromium_ext/gpu/ipc/common/nweb_native_window_tracker.h"
 #include "ndk/arkweb_native_object.h"
+#include "ndk/arkweb_native_javascript_execute_callback.h"
 #include "nweb_delegate_adapter.h"
 #include "nweb_export.h"
 #include "nweb_handler.h"
@@ -2225,8 +2226,34 @@ void NWebImpl::Resize(uint32_t width, uint32_t height, bool isKeyboard) {
           nweb_id_, width, height, isKeyboard);
     base::debug::ArkWebDumpInfo::GetInstance().FormatAndWriteNWebDumpInfo(dumpNWebInfo);
   }
+  pending_client_height_query_.Cancel();
+  pending_client_height_query_.Reset(
+      base::BindOnce(&NWebImpl::QueryClientHeight,
+                     weak_factory_.GetWeakPtr(), width, height));
+  content::GetUIThreadTaskRunner({})->PostDelayedTask(
+      FROM_HERE, pending_client_height_query_.callback(),
+      base::Milliseconds(300));
 #endif
 }
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void NWebImpl::QueryClientHeight(uint32_t width, uint32_t height) {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+  static const char* kQueryClientHeightJs =
+      "(function(){ try { return String(document.documentElement.clientHeight); }"
+      " catch(e){ return 'error:' + e; } })()";
+  auto client_height_callback = std::make_shared<ArkWebNativeJavaScriptExecuteCallback>(
+      [id = nweb_id_, w = width, h = height](const std::vector<uint8_t>& data) {
+        std::string result(data.begin(), data.end());
+        LOG(INFO) << "Resize clientHeight: nweb_id=" << id
+                  << " resize(width=" << w << ", height=" << h << ")"
+                  << " document.documentElement.clientHeight=" << result;
+      });
+  nweb_delegate_->ExecuteJavaScript(kQueryClientHeightJs, client_height_callback, false);
+}
+#endif
 
 void NWebImpl::ResizeVisibleViewport(uint32_t width,
                                      uint32_t height,
