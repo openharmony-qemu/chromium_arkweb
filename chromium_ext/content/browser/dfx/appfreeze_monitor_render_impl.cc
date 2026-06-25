@@ -21,9 +21,13 @@
 #include "arkweb/chromium_ext/content/common/hicollie_freeze_reporter/hicollie_freeze_reporter.h"
 #endif
 
+namespace render_js_freeze {
+bool reported_from_browser = false;
+}
+
 void ReportRenderFreeze(int32_t pid, const std::string& processName, const std::string& freezeMsg, int32_t uid) {
   std::shared_ptr<AppfreezeMonitorImpl> instance = AppfreezeMonitorImpl::GetInstance();
-  if (instance && !instance->IsReported()) {
+  if (instance && !instance->IsReported() && !instance->IsReportedFromBrowser()) {
     instance->GetRemoteAndSend(pid, processName, freezeMsg, uid);
   }
 
@@ -32,9 +36,19 @@ void ReportRenderFreeze(int32_t pid, const std::string& processName, const std::
   HicollieReporter::ReportFreezeToHicollie();
 #endif
 }
+
+bool AppfreezeMonitorImpl::IsReportedFromBrowser() {
+  return render_js_freeze::reported_from_browser;
+}
+
+void OnFreezeReportedFromBrowser() {
+  render_js_freeze::reported_from_browser = true;
+}
+
 AppfreezeMonitorImpl::AppfreezeMonitorImpl() {
   Init();
 }
+
 void AppfreezeMonitorImpl::Init() {
   if (initialized_) {
     return;

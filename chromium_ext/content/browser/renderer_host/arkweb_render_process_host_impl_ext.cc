@@ -185,6 +185,7 @@ void ArkwebRenderProcessHostImplExt::ReportRenderUnresponsive(int32_t pid, const
 #if defined(OS_OHOS)
   child_process_->ReportHicollie(stack);
 #endif
+  child_process_->NotifyFreezeReported();
   child_process_->GetUid(base::BindOnce(&OnUidRetrieved, pid));
 }
 #endif
