@@ -22,7 +22,10 @@ import("//testing/test.gni")
 import("//arkweb/build/features/features.gni")
 
 fuzzer_test("net_proxy_adapter_fuzzer") {
-  sources = [ "net_proxy_adapter_fuzzer.cpp" ]
+  sources = [
+    "net_proxy_adapter_fuzzer.cpp",
+    "net_proxy_adapter_fuzz_mock.cpp",
+  ]
   include_dirs = [
     "//cef",
     "//cef/include",
@@ -47,5 +50,6 @@ fuzzer_test("net_proxy_adapter_fuzzer") {
     "//ohos_nweb:cef_nweb",
     "//ohos_nweb:nweb_sources",
     "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//arkweb/ohos_adapter_ndk/mock_ndk_api:mock_ndk",
   ]
 }

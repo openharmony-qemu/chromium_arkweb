@@ -24,6 +24,7 @@ import("//arkweb/build/features/features.gni")
 fuzzer_test("date_time_format_adapter_impl_fuzzer") {
   sources = [
     "date_time_format_adapter_impl_fuzzer.cc",
+    "date_time_format_adapter_impl_fuzz_mock.cpp",
   ]
   include_dirs = [
     "//cef",
@@ -32,6 +33,7 @@ fuzzer_test("date_time_format_adapter_impl_fuzzer") {
   ]
   deps = [
     "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//arkweb/ohos_adapter_ndk/mock_ndk_api:mock_ndk",
     "//cef:libcef_static",
     "//ohos_nweb:nweb_sources",
     "//third_party/googletest:gtest",
