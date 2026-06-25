@@ -19,16 +19,19 @@
 #include <string>
 
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_handler.h"
 
 namespace extensions {
 
 struct CustomData : public Extension::ManifestData {
-  int store_type_;
+  int store_type_ = kWebStoreTypeDefault;
 
   static int GetStoreType(const Extension* extension);
 
   static void SetStoreType(int store_type, base::Value::Dict* manifest);
+
+  static bool ShouldBypassStoreCheckForWebstoreType(const Extension* extension);
 
   static bool CanBeUpdated(const Extension* extension);
 

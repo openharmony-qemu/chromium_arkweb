@@ -49,9 +49,14 @@ void CustomData::SetStoreType(int store_type, base::Value::Dict* manifest) {
                 base::Value::Dict().Set(kWebStoreType, store_type));
 }
 
+bool CustomData::ShouldBypassStoreCheckForWebstoreType(
+    const Extension* extension) {
+  return GetStoreType(extension) == kWebStoreTypeExternal;
+}
+
 // static
 bool CustomData::CanBeUpdated(const Extension* extension) {
-  return GetStoreType(extension) != kWebStoreTypeDefault;
+  return GetStoreType(extension) == kWebStoreTypeHuawei;
 }
 
 // static

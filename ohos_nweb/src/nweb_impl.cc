@@ -278,6 +278,7 @@ extern bool g_siteIsolationMode;
 #include "url/url_constants.h"
 #include "chrome/browser/extensions/crx_installer.h"
 #include "extensions/browser/install/crx_install_error.h"
+#include "extensions/common/extension_urls.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
@@ -486,6 +487,34 @@ static void HandleExtensionInstallResult(
   }
 }
 
+static bool IsAllowedInstallSourceInput(
+    NWebExtensionInstallSource install_source) {
+  switch (install_source) {
+    case NWebExtensionInstallSource::kFromHwStore:
+    case NWebExtensionInstallSource::kFromGoogleStore:
+    case NWebExtensionInstallSource::kFromExternal:
+      return true;
+    case NWebExtensionInstallSource::kUnknown:
+      return false;
+  }
+  return false;
+}
+ 
+static bool IsAllowedInstallSourceInput(
+    const std::optional<NWebExtensionInstallSource>& install_source) {
+  return !install_source.has_value() ||
+         IsAllowedInstallSourceInput(*install_source);
+}
+ 
+static void NotifyUnrecognizedInstallSource(
+    OnExtensionInstallCallback callback) {
+  if (callback) {
+    callback(static_cast<int>(
+                 extensions::CrxInstallErrorType::UNRECOGNIZED_INSTALL_SOURCE),
+             "Invalid installSource", nullptr);
+  }
+}
+
 static void ConfigureCrxInstaller(
     scoped_refptr<extensions::CrxInstaller> installer) {
   installer->set_install_immediately(true);
@@ -540,17 +569,42 @@ static void ConfigureCrxInstallerV2(
     const NWebExtensionInstallProperties& options) {
   installer->set_install_immediately(true);
 
-  if (options.silent.has_value() && *options.silent) {
+  if (options.silent.value_or(false)) {
     installer->set_allow_silent_install(true);
     installer->set_grant_permissions(true);
   }
+
+  if (!options.install_source.has_value() ||
+      *options.install_source == NWebExtensionInstallSource::kUnknown) {
+    return;
+  }
+ 
+  switch (*options.install_source) {
+    case NWebExtensionInstallSource::kFromHwStore:
+      installer->set_webstore_type(extensions::kWebStoreTypeHuawei);
+      break;
+    case NWebExtensionInstallSource::kFromGoogleStore:
+      installer->set_webstore_type(extensions::kWebStoreTypeDefault);
+      break;
+    case NWebExtensionInstallSource::kFromExternal:
+      installer->set_webstore_type(extensions::kWebStoreTypeExternal);
+      break;
+    case NWebExtensionInstallSource::kUnknown:
+      break;
+  }
 }
 
-static void PerformCrxInstallationV2(const std::string& file_path,
-                                     const NWebExtensionInstallProperties& options,
-                                     OnExtensionInstallCallback callback,
-                                     content::BrowserContext* context,
-                                     bool file_exists) {
+static void PerformCrxInstallationV2(
+    const std::string& file_path,
+    const NWebExtensionInstallProperties& options,
+    OnExtensionInstallCallback callback,
+    content::BrowserContext* context,
+    bool file_exists) {
+  if (!IsAllowedInstallSourceInput(options.install_source)) {
+    NotifyUnrecognizedInstallSource(callback);
+    return;
+  }
+
   if (!file_exists) {
     if (callback) {
       callback(static_cast<int>(extensions::CrxInstallErrorType::OTHER),
@@ -5161,6 +5215,11 @@ void NWebImpl::InstallExtensionFileV2(const std::string& file_path,
       callback(static_cast<int>(extensions::CrxInstallErrorType::OTHER),
                "Invalid file path", nullptr);
     }
+    return;
+  }
+
+  if (!IsAllowedInstallSourceInput(options.install_source)) {
+    NotifyUnrecognizedInstallSource(callback);
     return;
   }
 

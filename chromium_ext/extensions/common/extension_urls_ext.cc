@@ -100,8 +100,12 @@ int GetWebStoreTypeByUrl(bool flag, const GURL& url) {
 }
 
 bool IsWebstoreUpdateUrl(int webstore_type, const GURL& update_url) {
-  if (webstore_type != extensions::kWebStoreTypeDefault) {
+  if (webstore_type == extensions::kWebStoreTypeHuawei) {
     return true;
+  }
+
+  if (webstore_type == extensions::kWebStoreTypeExternal) {
+    return false;
   }
 
   GURL store_url = GURL(kChromeWebstoreUpdateURL);
@@ -110,10 +114,14 @@ bool IsWebstoreUpdateUrl(int webstore_type, const GURL& update_url) {
 }
 
 GURL GetWebstoreUpdateUrl(int webstore_type) {
-  if (webstore_type != extensions::kWebStoreTypeDefault) {
+  if (webstore_type == extensions::kWebStoreTypeHuawei) {
     return GetDefaultWebstoreUpdateUrl();
   }
- 
+
+  if (webstore_type == extensions::kWebStoreTypeExternal) {
+    return GURL();
+  }
+
   return GURL(kChromeWebstoreUpdateURL);
 }
  

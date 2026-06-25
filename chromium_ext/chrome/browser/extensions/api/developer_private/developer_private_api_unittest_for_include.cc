@@ -74,3 +74,39 @@ TEST_F(DeveloperPrivateApiUnitTest, DeveloperPrivateUpdateOptionalPermissions) {
         extensions::mojom::APIPermissionID::kTabs));
   }
 }
+ 
+TEST_F(DeveloperPrivateApiUnitTest,
+       ArkWebInstallDroppedFileCrxSetsExternalWebstoreType) {
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(
+      R"({
+           "name": "foo",
+           "version": "1.0",
+           "manifest_version": 2
+         })");
+  base::FilePath crx_path = test_dir.Pack();
+  base::AutoReset<bool> disable_ui =
+      ExtensionInstallUI::disable_ui_for_tests(true);
+  ScopedTestDialogAutoConfirm auto_confirm(ScopedTestDialogAutoConfirm::ACCEPT);
+ 
+  std::unique_ptr<content::WebContents> web_contents(
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr));
+  DeveloperPrivateAPI::Get(profile())->SetDraggedPath(web_contents.get(),
+                                                      crx_path);
+#if BUILDFLAG(IS_OHOS)
+  SetDraggedExtensionFileName(crx_path.value());
+#endif
+ 
+  auto function =
+      base::MakeRefCounted<api::DeveloperPrivateInstallDroppedFileFunction>();
+  function->SetRenderFrameHost(web_contents->GetPrimaryMainFrame());
+ 
+  TestExtensionRegistryObserver observer(registry());
+  ASSERT_TRUE(api_test_utils::RunFunction(function.get(), "[]", profile()))
+      << function->GetError();
+  scoped_refptr<const Extension> extension =
+      observer.WaitForExtensionInstalled();
+  ASSERT_TRUE(extension);
+  EXPECT_EQ("foo", extension->name());
+  EXPECT_EQ(kWebStoreTypeExternal, CustomData::GetStoreType(extension.get()));
+}
