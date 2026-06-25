@@ -17,6 +17,8 @@
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
+#include <cmath>
+#include <cstdint>
 #include <unordered_map>
 
 #include "arkweb/ohos_nweb/src/nweb_hilog.h"
@@ -30,6 +32,8 @@ namespace OHOS {
 namespace NWeb {
 
 const int64_t OHMEDIA_NAME_SIZE = 256;
+const int64_t kMaxPixelSize = 8192 * 8192;
+
 const std::unordered_map<AllocatorType, IMAGE_ALLOCATOR_TYPE> ALLOC_TYPE_MAP = {
     { AllocatorType::kDmaAlloc, IMAGE_ALLOCATOR_TYPE_DMA },
     { AllocatorType::kShareMemAlloc, IMAGE_ALLOCATOR_TYPE_SHARE_MEMORY },
@@ -103,6 +107,7 @@ bool OhosImageDecoderAdapterImpl::ParseRawData(const uint8_t* data, uint32_t siz
         WVLOG_E("[HeifSupport] ParseRawData GetImageInfo failed, errorCode %{public}d", errorCode);
         return false;
     }
+    downsampleFactor_ = ComputeDownsampleFactor(GetImageWidth(), GetImageHeight());
     return true;
 }
 
@@ -144,7 +149,7 @@ int32_t OhosImageDecoderAdapterImpl::GetImageWidth()
         WVLOG_E("[HeifSupport] GetImageWidth failed, errorCode %{public}d", errorCode);
     }
     WVLOG_D("[HeifSupport] GetImageWidth = %{public}u", width);
-    return width;
+    return width / downsampleFactor_;
 }
 
 int32_t OhosImageDecoderAdapterImpl::GetImageHeight()
@@ -155,7 +160,7 @@ int32_t OhosImageDecoderAdapterImpl::GetImageHeight()
         WVLOG_E("[HeifSupport] GetImageHeight failed, errorCode %{public}d", errorCode);
     }
     WVLOG_D("[HeifSupport] GetImageHeight = %{public}u", height);
-    return height;
+    return height / downsampleFactor_;
 }
 
 bool OhosImageDecoderAdapterImpl::DecodeToPixelMap(const uint8_t* data, uint32_t size)
@@ -188,6 +193,18 @@ bool OhosImageDecoderAdapterImpl::Decode(const uint8_t* data,
         ReleaseDecodeOptions(decodeOptions);
         return false;
     }
+
+    if (downsampleFactor_ != 1) {
+        WVLOG_I("[HeifSupport] scale width = %{public}d, height = %{public}d", GetImageWidth(), GetImageHeight());
+        Image_Size scaleImageSize(GetImageWidth(), GetImageHeight());
+        errorCode = OH_DecodingOptions_SetDesiredSize(decodeOptions, &scaleImageSize);
+        if (errorCode != Image_ErrorCode::IMAGE_SUCCESS) {
+            WVLOG_E("[HeifSupport] Decode set desired size failed, errorCode %{public}d", errorCode);
+            ReleaseDecodeOptions(decodeOptions);
+            return false;
+        }
+    }
+
     errorCode = OH_ImageSourceNative_CreatePixelmapUsingAllocator(imageSource_, decodeOptions,
         GetImageAllocType(type), &pixelMap_);
     if (errorCode != Image_ErrorCode::IMAGE_SUCCESS) {
@@ -499,6 +516,41 @@ bool OhosImageDecoderAdapterImpl::ReadPixels(uint8_t *destination, size_t *buffe
     }
     Image_ErrorCode errorCode = OH_PixelmapNative_ReadPixels(pixelMap_, destination, bufferSize);
     return errorCode == Image_ErrorCode::IMAGE_SUCCESS;
+}
+
+uint32_t OhosImageDecoderAdapterImpl::ComputeDownsampleFactor(int32_t width, int32_t height) {
+    if (width <= 0 || height <= 0) {
+        WVLOG_D("[HeifSupport] invalid width or height width: %{public}d, height: %{public}d", width, height);
+        return 1;
+    }
+
+    if (downsampleFactorComputed_) {
+        WVLOG_D("[HeifSupport] downsampleFactor_ is %{public}u, no need compute", downsampleFactor_);
+        return downsampleFactor_;
+    }
+
+    const int64_t total_pixels = static_cast<int64_t>(width) * height;
+    if (total_pixels <= kMaxPixelSize) {
+        WVLOG_D("[HeifSupport] ComputeDownsampleFactor total_pixels <= max_pixels");
+        return 1;
+    }
+
+    const double ratio = std::ceil(std::sqrt(
+        static_cast<double>(total_pixels) / static_cast<double>(kMaxPixelSize)));
+
+    uint32_t factor = 1;
+    const uint32_t kMaxFactor = 1u << 5;
+    const uint32_t needed = static_cast<uint32_t>(ratio);
+
+    while (factor < needed) {
+        factor <<= 1;
+        if (factor >= kMaxFactor) {
+            break;
+        }
+    }
+    WVLOG_D("[HeifSupport] ComputeDownsampleFactor factor: %{public}u", factor);
+    downsampleFactorComputed_ = true;
+    return factor;
 }
 
 }  // namespace NWeb

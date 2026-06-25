@@ -958,7 +958,8 @@
                 "Image_ErrorCode OH_DecodingOptions_SetPixelFormat(OH_DecodingOptions *options, int32_t pixelFormat)",
                 "Image_ErrorCode OH_ImageSourceNative_CreatePixelmap(OH_ImageSourceNative *source, OH_DecodingOptions *options, OH_PixelmapNative **pixelmap)",
                 "Image_ErrorCode OH_ImageSourceNative_Release(OH_ImageSourceNative *source)",
-                "Image_ErrorCode OH_ImageSourceInfo_Release(OH_ImageSource_Info *info)"
+                "Image_ErrorCode OH_ImageSourceInfo_Release(OH_ImageSource_Info *info)",
+                "Image_ErrorCode OH_DecodingOptions_SetDesiredSize(OH_DecodingOptions *options, Image_Size *desiredSize)"
             ],
             "15": [
                 "int OH_ImageSourceNative_CreatePixelmapUsingAllocator(void *source, void *options, int allocator, void **pixelmap)"
