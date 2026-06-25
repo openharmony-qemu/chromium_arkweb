@@ -184,8 +184,17 @@ void HTMLMediaElementUtils::GetVideoRecordTime(VideoInfoReport& video_report) {
 
 void HTMLMediaElementUtils::GetVideoElementInfo(VideoInfoReport& video_report) {
   video_report.page_url = String::FromUTF8(GetMainUrl().c_str());
-  video_report.video_src = ((htmlMediaElement_->currentSrc().ProtocolIsInHTTPFamily() ||
-    htmlMediaElement_->HasMediaSource()) ? htmlMediaElement_->currentSrc() : KURL()).GetString();
+  auto video_src_record = (htmlMediaElement_->currentSrc().ProtocolIsInHTTPFamily() ||
+    htmlMediaElement_->HasMediaSource()) ? htmlMediaElement_->currentSrc() : KURL();
+  if (video_src_record == video_src_) {
+    video_src_same_ = true;
+    LOG(INFO) << "The video source on the webpage is the same, skip reporting the information, return.";
+    return;
+  } else {
+    video_src_same_ = false;
+    video_src_ = video_src_record;
+    video_report.video_src = video_src_record.GetString();
+  }
   if (!video_report.video_src) {
     video_report.video_src = g_empty_string;
   }
@@ -241,6 +250,10 @@ mojom::blink::VideoExpParamsPtr HTMLMediaElementUtils::ReportVideoExperienceToBI
     return nullptr;
   }
   GetVideoElementInfo(video_info_report);
+  if (video_src_same_) {
+    LOG(INFO) << "OhMedia, ReportVideoExperienceToBI has the same video source, return";
+    return nullptr;
+  }
   GetVideoNetworkInfo(video_info_report);
 
   mojom::blink::VideoExpParamsPtr params = mojom::blink::VideoExpParams::New();
