@@ -40,14 +40,14 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   using ResultCallback = std::shared_ptr<NWebStringValueCallback>;
 
   ScreenshotObserver(CefRefPtr<ArkWebBrowserExt> browser,
-                             ResultCallback callback);
+                     ResultCallback callback);
 
   // Capture full page (no element lookup needed)
   void CaptureFullPage();
 
-  // Capture specific element by CSS selector
-  // Executes: DOM.enable -> DOM.getDocument -> DOM.querySelector -> DOM.getBoxModel -> Page.getLayoutMetrics -> Page.captureScreenshot -> DOM.disable
-  void CaptureElement(const std::string& selector);
+  // Capture specific element by xpath
+  // Executes: DOM.enable -> DOM.getDocument -> DOM.performSearch -> DOM.getSearchResults -> DOM.discardSearchResults -> DOM.getBoxModel -> Page.getLayoutMetrics -> Page.captureScreenshot -> DOM.disable
+  void CaptureElement(const std::string& xpath);
 
   // Capture specific element by node ID
   // Executes: DOM.getBoxModel(node_id) -> Page.getLayoutMetrics -> Page.captureScreenshot
@@ -60,11 +60,13 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
 
   void HandleEnableResult(bool success, const void *result, size_t result_size);
   void HandleGetDocumentResult(bool success, const void *result, size_t result_size);
-  void HandleQuerySelectorResult(bool success, const void *result, size_t result_size);
+  void HandlePerformSearchResult(bool success, const void *result, size_t result_size);
+  void HandleGetSearchResultsResult(bool success, const void *result, size_t result_size);
   void HandleGetBoxModelResult(bool success, const void *result, size_t result_size);
   void HandleLayoutMetricsResult(bool success, const void *result, size_t result_size);
   void HandleScreenshotResult(bool success, const void *result, size_t result_size);
 
+  void DiscardSearchResults();
   void CleanupDomDomain();
   void FinishWithError(int32_t code, const std::string &message);
   void FinishWithSuccess();
@@ -74,14 +76,15 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   ResultCallback callback_;
   CefRefPtr<CefRegistration> registration_;
 
-  std::string selector_;
+  std::string xpath_;
+  std::string search_id_;
   int node_id_ = 0;
-  int document_root_node_id_ = 0;
   int resolved_node_id_ = 0;
 
   int enable_msg_id_ = 0;
   int get_document_msg_id_ = 0;
-  int query_selector_msg_id_ = 0;
+  int perform_search_msg_id_ = 0;
+  int get_search_results_msg_id_ = 0;
   int get_box_model_msg_id_ = 0;
   int layout_metrics_msg_id_ = 0;
   int screenshot_msg_id_ = 0;

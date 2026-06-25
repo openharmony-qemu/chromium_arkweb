@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <string_view>
 
 #include "arkweb/build/features/features.h"
 #include "base/datashare_uri_utils.h"
@@ -27,7 +28,10 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
+#include "base/unguessable_token.h"
 #include "base/values.h"
+#include "cef/libcef/browser/frame_host_impl.h"
+#include "content/public/browser/render_frame_host.h"
 #include "cef/ohos_cef_ext/include/arkweb_browser_ext.h"
 #include "cef/ohos_cef_ext/include/arkweb_frame_ext.h"
 #include "file_upload_observer.h"
@@ -439,6 +443,85 @@ void AIPageCommandDispatcher::DispatchUploadTarget(
   handler->Start();
 }
 
+struct ParsedElementId {
+  std::string frame_token;
+  std::string doc_token;
+  int dom_node_id;
+};
+
+std::optional<ParsedElementId> ParseElementId(const std::string& node_id_str) {
+  std::string_view element_id(node_id_str);
+
+  size_t dom_separator = element_id.rfind('|');
+  if (dom_separator == std::string_view::npos ||
+      dom_separator + 1 >= element_id.size()) {
+    return std::nullopt;
+  }
+
+  size_t document_separator = element_id.rfind('|', dom_separator - 1);
+  if (document_separator == std::string_view::npos || document_separator == 0 ||
+      document_separator + 1 == dom_separator) {
+    return std::nullopt;
+  }
+
+  int dom_node_id = 0;
+  if (!base::StringToInt(std::string(element_id.substr(dom_separator + 1)), &dom_node_id) ||
+      dom_node_id <= 0) {
+    return std::nullopt;
+  }
+
+  ParsedElementId parsed;
+  parsed.frame_token = std::string(element_id.substr(0, document_separator));
+  parsed.doc_token = std::string(element_id.substr(
+      document_separator + 1, dom_separator - document_separator - 1));
+  parsed.dom_node_id = dom_node_id;
+  return parsed;
+}
+
+bool ValidateNodeIdTokens(CefRefPtr<ArkWebBrowserExt> browser,
+                          const ParsedElementId& element_id) {
+  auto cef_frame = browser->GetMainFrame() ? browser->GetMainFrame()->AsCefFrameHostImpl() : nullptr;
+  if (!cef_frame) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: failed to get cef frame";
+    return false;
+  }
+
+  auto frame_token_opt = cef_frame->frame_token();
+  if (!frame_token_opt) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: frame_token not available";
+    return false;
+  }
+
+  content::RenderFrameHost* rfh = cef_frame->GetRenderFrameHost();
+  if (!rfh) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: render frame host is null";
+    return false;
+  }
+
+  std::optional<base::UnguessableToken> doc_token_opt = rfh->GetEmbeddingToken();
+  if (!doc_token_opt) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: document token not available";
+    return false;
+  }
+
+  std::string current_frame_token = frame_token_opt->frame_token.ToString();
+  std::string current_doc_token = doc_token_opt->ToString();
+
+  if (element_id.frame_token != current_frame_token) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: frame token mismatch, cmd="
+               << element_id.frame_token << " vs current=" << current_frame_token;
+    return false;
+  }
+
+  if (element_id.doc_token != current_doc_token) {
+    LOG(ERROR) << "[AIPageCmd] screenCapture: document token mismatch, cmd="
+               << element_id.doc_token << " vs current=" << current_doc_token;
+    return false;
+  }
+
+  return true;
+}
+
 void AIPageCommandDispatcher::HandleScreenCaptureCommand(
     CefRefPtr<ArkWebBrowserExt> browser,
     const base::Value::Dict &command,
@@ -456,20 +539,40 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
   // Check for capture target parameters
   LOG(DEBUG) << "[AIPageCmd]" << " screenCapture: command=" << BuildParamsJson(command);
   const base::Value::Dict *params = command.FindDict("params");
-  const std::string *selector = nullptr;
+  const std::string *xpath = nullptr;
   std::optional<int> node_id;
+
   if (params) {
-    selector = params->FindString("selector");
-    node_id = params->FindInt("node_id");
+    xpath = params->FindString("xpath");
+    const std::string *node_id_str = params->FindString("nodeid");
+
+    if (node_id_str && !node_id_str->empty()) {
+      auto element_id = ParseElementId(*node_id_str);
+      if (!element_id) {
+        LOG(ERROR) << "[AIPageCmd] screenCapture: invalid nodeid format: " << *node_id_str;
+        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "nodeid");
+        return;
+      }
+
+      if (!ValidateNodeIdTokens(browser, element_id.value())) {
+        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "token mismatch");
+        return;
+      }
+      
+      LOG(INFO) << "[AIPageCmd] screenCapture: parsed nodeid=" << element_id->dom_node_id
+                << " from " << *node_id_str;
+      node_id = element_id->dom_node_id;
+    }
   }
+
   if (node_id.has_value() && node_id.value() > 0) {
-    LOG(DEBUG) << "[AIPageCmd] screenCapture: using node_id=" << node_id.value();
+    LOG(INFO) << "[AIPageCmd] screenCapture: using node_id=" << node_id.value();
     observer->CaptureElementByNodeId(node_id.value());
-  } else if (selector && !selector->empty()) {
-    LOG(DEBUG) << "[AIPageCmd] screenCapture: using selector=" << *selector;
-    observer->CaptureElement(*selector);
+  } else if (xpath && !xpath->empty()) {
+    LOG(INFO) << "[AIPageCmd] screenCapture: using xpath=" << *xpath;
+    observer->CaptureElement(*xpath);
   } else {
-    LOG(DEBUG) << "[AIPageCmd] screenCapture: full page capture";
+    LOG(INFO) << "[AIPageCmd] screenCapture: full page capture";
     observer->CaptureFullPage();
   }
 }
