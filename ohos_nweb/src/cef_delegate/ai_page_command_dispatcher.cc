@@ -34,6 +34,7 @@
 #include "include/cef_values.h"
 #include "nweb.h"
 #include "nweb_errors.h"
+#include "screenshot_observer.h"
 
 namespace OHOS::NWeb {
 namespace {
@@ -92,12 +93,13 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  std::array<CommandEntry, 5> kCommandEntries = {{
+  std::array<CommandEntry, 6> kCommandEntries = {{
       {"getFullDom", &AIPageCommandDispatcher::HandleGetFullDomCommand},
       {"getLiteDom", &AIPageCommandDispatcher::HandleGetLiteDomCommand},
       {"scroll", &AIPageCommandDispatcher::HandleScrollCommand},
       {"select", &AIPageCommandDispatcher::HandleSelectCommand},
       {"uploadFile", &AIPageCommandDispatcher::HandleUploadFileCommand},
+      {"screenCapture", &AIPageCommandDispatcher::HandleScreenCaptureCommand},
   }};
 
   auto entry = std::find_if(
@@ -435,6 +437,41 @@ void AIPageCommandDispatcher::DispatchUploadTarget(
   auto handler = new FileUploadObserver(browser, *xpath, files,
                                                 warnings, callback);
   handler->Start();
+}
+
+void AIPageCommandDispatcher::HandleScreenCaptureCommand(
+    CefRefPtr<ArkWebBrowserExt> browser,
+    const base::Value::Dict &command,
+    ResultCallback callback) {
+  if (!browser || !browser->GetHost()) {
+    LOG(ERROR) << "[AIPageCmd] browser or host is null";
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+
+  CefRefPtr<ScreenshotObserver> observer =
+         new ScreenshotObserver(browser, callback);
+
+  // Check for capture target parameters
+  LOG(DEBUG) << "[AIPageCmd]" << " screenCapture: command=" << BuildParamsJson(command);
+  const base::Value::Dict *params = command.FindDict("params");
+  const std::string *selector = nullptr;
+  std::optional<int> node_id;
+  if (params) {
+    selector = params->FindString("selector");
+    node_id = params->FindInt("node_id");
+  }
+  if (node_id.has_value() && node_id.value() > 0) {
+    LOG(DEBUG) << "[AIPageCmd] screenCapture: using node_id=" << node_id.value();
+    observer->CaptureElementByNodeId(node_id.value());
+  } else if (selector && !selector->empty()) {
+    LOG(DEBUG) << "[AIPageCmd] screenCapture: using selector=" << *selector;
+    observer->CaptureElement(*selector);
+  } else {
+    LOG(DEBUG) << "[AIPageCmd] screenCapture: full page capture";
+    observer->CaptureFullPage();
+  }
 }
 
 }  // namespace OHOS::NWeb

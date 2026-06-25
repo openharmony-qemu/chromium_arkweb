@@ -99,6 +99,8 @@ static_library("cef_nweb") {
     "src/cef_delegate/ai_page_command_dispatcher.h",
     "src/cef_delegate/file_upload_observer.cc",
     "src/cef_delegate/file_upload_observer.h",
+    "src/cef_delegate/screenshot_observer.cc",
+    "src/cef_delegate/screenshot_observer.h",
     "src/cef_delegate/nweb_access_request_delegate.cc",
     "src/cef_delegate/nweb_access_request_delegate.h",
     "src/cef_delegate/nweb_accessibility_node_info_impl.cc",
