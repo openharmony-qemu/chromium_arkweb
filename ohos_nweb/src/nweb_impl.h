@@ -754,6 +754,11 @@ class NWebImpl : public NWeb {
   void OnContextMenuClosed();
 #endif
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  void SetVideoSurface(void* native_window) override;
+  void RequestMediaControl(int32_t action, const std::string& param) override;
+#endif // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void EnableVideoAssistant(bool enable);
   void ExecuteVideoAssistantFunction(const std::string& cmd_id);

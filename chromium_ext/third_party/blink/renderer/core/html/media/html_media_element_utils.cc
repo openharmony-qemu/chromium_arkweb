@@ -78,8 +78,9 @@ void HTMLMediaElementUtils::ScheduleNamedEventUtils(const AtomicString& event_na
   }
 #endif // ARKWEB_MEDIA
 
-#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
-  if (htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT) || BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (htmlMediaElement_->IsCustomMediaPlayerEnabled() ||
+      htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     if (event_name == event_type_names::kTimeupdate) {
       TimeUpdateOverlay(htmlMediaElement_->currentTime());
       BufferedEndTimeChangedOverlay(CalculateBufferedEndTime());
@@ -109,7 +110,7 @@ void HTMLMediaElementUtils::ScheduleNamedEventUtils(const AtomicString& event_na
       OnVolumeChanged(htmlMediaElement_->volume());
     }
   }
-#endif // ARKWEB_VIDEO_ASSISTANT
+#endif // ARKWEB_VIDEO_ASSISTANT || ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   if (event_name == event_type_names::kPlay) {
     played_time_recorder_.StartRecord();
@@ -356,7 +357,7 @@ bool HTMLMediaElementUtils::IsMediaPlayerShown() const {
 }
 
 
-#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT) || BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
 // LCOV_EXCL_START
 media::mojom::blink::VideoAttributesForVASTPtr HTMLMediaElementUtils::CollectVideoAttributesForVAST() {
   auto attributes = media::mojom::blink::VideoAttributesForVAST::New();
@@ -417,7 +418,8 @@ void HTMLMediaElementUtils::NotifyVideoVisible(bool visible) {
 }
 
 void HTMLMediaElementUtils::EnterFullScreenOverlay() {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   if (htmlMediaElement_->GetWebMediaPlayer() && !htmlMediaElement_->GetWebMediaPlayer()->SupportVideoSurface()) {
@@ -438,7 +440,8 @@ void HTMLMediaElementUtils::EnterFullScreenOverlay() {
 }
 
 void HTMLMediaElementUtils::UpdatePlayStateOverlay(PlayState playState) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "UpdatePlayStateOverlay(" << static_cast<uint32_t>(playState) << ")";
@@ -450,7 +453,8 @@ void HTMLMediaElementUtils::UpdatePlayStateOverlay(PlayState playState) {
 }
 
 void HTMLMediaElementUtils::MutedChangedOverlay(bool muted) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "MutedChangedOverlay";
@@ -462,7 +466,8 @@ void HTMLMediaElementUtils::MutedChangedOverlay(bool muted) {
 }
 
 void HTMLMediaElementUtils::PlaybackRateChangedOverlay(double playback_rate) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "PlaybackRateChangedOverlay";
@@ -486,7 +491,8 @@ void HTMLMediaElementUtils::DurationChangedOverlay(double duration) {
 }
 
 void HTMLMediaElementUtils::TimeUpdateOverlay(double current_time) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   if (htmlMediaElement_->IsHTMLVideoElement()) {
@@ -532,7 +538,8 @@ double HTMLMediaElementUtils::CalculateBufferedEndTime()
 }
 
 void HTMLMediaElementUtils::EndedOverlay() {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "EndedOverlay";
@@ -562,7 +569,8 @@ void HTMLMediaElementUtils::FullscreenChangedOverlay(bool fullscreen) {
 
 // LCOV_EXCL_START
 void HTMLMediaElementUtils::SeekingOverlay() {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "SeekingOverlay";
@@ -587,7 +595,8 @@ void HTMLMediaElementUtils::SeekingFinishedOverlay() {
 // LCOV_EXCL_STOP
 
 void HTMLMediaElementUtils::ErrorOverlay(int32_t error_code, const String& error_msg) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(INFO) << "ErrorOverlay";
@@ -604,7 +613,8 @@ void HTMLMediaElementUtils::ErrorOverlay(int32_t error_code, const String& error
 }
 
 void HTMLMediaElementUtils::VideoSizeChangedOverlay(int32_t width, int32_t height) {
-  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+      !htmlMediaElement_->IsFullscreenVideoOverlayEnabled()) {
     return;
   }
   LOG(DEBUG) << "VideoSizeChangedOverlay";
@@ -630,7 +640,9 @@ bool HTMLMediaElementUtils::IsRTL() const {
 void HTMLMediaElementUtils::OnVolumeChanged(double volume)
 {
   LOG(INFO) << "HTMLMediaElementUtils::OnVolumeChanged volume=" << volume;
-  if (!htmlMediaElement_ || !htmlMediaElement_->IsCustomMediaPlayerEnabled()) {
+  if (!htmlMediaElement_ ||
+      (!htmlMediaElement_->IsCustomMediaPlayerEnabled() &&
+       !htmlMediaElement_->IsFullscreenVideoOverlayEnabled())) {
     return;
   }
 

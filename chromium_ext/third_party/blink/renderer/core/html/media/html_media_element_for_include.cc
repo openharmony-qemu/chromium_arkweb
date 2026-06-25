@@ -14,9 +14,9 @@
  */
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/html/media/html_media_element_utils.h"
 
-#if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+#if BUILDFLAG(ARKWEB_MEDIA_POLICY) || BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
-#endif  // BUILDFLAG(ARKWEB_MEDIA_POLICY)
+#endif  // BUILDFLAG(ARKWEB_MEDIA_POLICY) || BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
@@ -92,6 +92,19 @@ bool HTMLMediaElement::ShouldCustomVideoPlayerOverlay() {
   return GetDocument().GetSettings() &&
          GetDocument().GetSettings()->IsCustomVideoPlayerOverlay();
 }
+
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+bool HTMLMediaElement::IsFullscreenVideoOverlayEnabled() const {
+  if (base::ohos::IsPcDevice() || base::ohos::IsPcMode()) {
+    return false;
+  }
+
+  return GetDocument().GetSettings() &&
+         GetDocument().GetSettings()->IsFullscreenVideoOverlayEnabled() &&
+         IsHTMLVideoElement();
+}
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 bool HTMLMediaElement::ShouldShowMediaControls() {
   return FastHasAttribute(html_names::kControlsAttr);
 }

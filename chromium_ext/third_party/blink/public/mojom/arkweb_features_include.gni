@@ -93,6 +93,10 @@ if (arkweb_custom_video_player) {
   mojom_platform_enabled_features += [ "arkweb_custom_video_player" ]
 }
 
+if (arkweb_fullscreen_video_overlay) {
+  mojom_platform_enabled_features += [ "arkweb_fullscreen_video_overlay" ]
+}
+
 if (arkweb_video_assistant) {
   mojom_platform_enabled_features += [ "arkweb_video_assistant" ]
 }

@@ -915,6 +915,24 @@ std::unique_ptr<MediaPlayerListener> WebContentsImplExt::OnFullScreenOverlayEnte
       std::move(media_info), media_player_id);
 }
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+void WebContentsImplExt::OnVideoStatusChanged(
+    VideoPlaybackNotificationType action,
+    std::map<std::string, std::string>& param) {
+  if (!delegate_) {
+    return;
+  }
+  delegate_->OnVideoStatusChanged(action, param);
+}
+
+bool WebContentsImplExt::IsFullscreenVideoOverlayEnabled() const {
+  if (!delegate_) {
+    return false;
+  }
+  return delegate_->IsFullscreenVideoOverlayEnabled();
+}
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 void WebContentsImplExt::SetVideoSurface(
     const MediaPlayerId& id, int32_t surface_widget) {
   auto [iter, success] = surface_widget_map_.insert({id, surface_widget});

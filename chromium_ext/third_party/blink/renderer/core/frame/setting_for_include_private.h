@@ -48,6 +48,10 @@
   bool custom_video_player_overlay_ = false;
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  bool fullscreen_video_overlay_enabled_ = false;
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   int32_t usage_scenario_ = 1;
 #endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE

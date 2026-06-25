@@ -304,10 +304,11 @@ void WebMediaPlayerImplExt::HandleSurfaceSwitchWhenPaused() {
   if (has_page_hidden_when_paused_ && pipeline_controller_) {
     has_page_hidden_when_paused_ = false;
     pipeline_controller_->SetPreciseSeekTarget(last_frame_timestamp_);
+    last_frame_timestamp_ = -1;
   }
 
-    Seek(CurrentTime());
-  }
+  Seek(CurrentTime());
+}
 
 void WebMediaPlayerImplExt::SaveLastFrameTimeStamp() {
   auto frame = compositor_->GetCurrentFrameOnAnyThread();

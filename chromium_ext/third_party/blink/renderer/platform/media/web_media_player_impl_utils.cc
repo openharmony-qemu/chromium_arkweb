@@ -340,7 +340,13 @@ void WebMediaPlayerImplUtils::GenerateMediaPlayerUrlParams(base::flat_map<std::s
 
 // LCOV_EXCL_START
 void WebMediaPlayerImplUtils::SetSuspendStateExt() {
-#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT) || BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (impl->video_surface_id_ > 0 && impl->last_frame_timestamp_ > -1 && impl->pipeline_controller_) {
+    impl->pipeline_controller_->SetPreciseSeekTarget(impl->last_frame_timestamp_);
+    impl->has_page_hidden_when_paused_ = false;
+    impl->last_frame_timestamp_ = -1;
+  }
+
   media::RequestSurfaceCB request_surface_cb =
       base::BindPostTaskToCurrentDefault(
           base::BindOnce(&WebMediaPlayerImplExt::OnSurfaceRequested,

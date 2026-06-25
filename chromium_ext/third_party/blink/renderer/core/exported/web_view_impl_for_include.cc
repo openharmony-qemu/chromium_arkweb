@@ -133,6 +133,10 @@ void ApplyOhosWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetCustomVideoPlayerOverlay(prefs.custom_video_player_overlay);
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  settings->SetFullscreenVideoOverlayEnabled(prefs.fullscreen_video_overlay_enable);
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   settings->SetVideoAssistantEnabled(prefs.video_assistant_enabled);
   ApplyOhosMediaPlayerEnabled(prefs, web_view, settings);

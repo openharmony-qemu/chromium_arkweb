@@ -5554,6 +5554,23 @@ void NWebHandlerDelegate::OnReportStatisticLog(const CefString& content) {
 #endif  // ARKWEB_VIDEO_ASSISTANT
 }
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+bool NWebHandlerDelegate::IsFullscreenVideoOverlayEnabled() const {
+  if (!preference_delegate_) {
+    return false;
+  }
+  return preference_delegate_->GetFullScreenVideoOverlayEnable();
+}
+
+void NWebHandlerDelegate::OnVideoStatusChanged(
+    int action,
+    std::map<std::string, std::string>& param) {
+  if (nweb_handler_) {
+    nweb_handler_->OnVideoStatusChanged(action, param);
+  }
+}
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
 void NWebHandlerDelegate::OnShowConfirmInfoBar(
     const CefString& title,
@@ -5587,6 +5604,17 @@ CefOwnPtr<CefMediaPlayerListenerForVAST>
 NWebHandlerDelegate::OnFullScreenOverlayEnter(
     CefOwnPtr<CefMediaPlayerController> media_player_controller,
     const std::string& extra_info) {
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  if (IsFullscreenVideoOverlayEnabled() &&
+      nweb_handler_) {
+    nweb_media_player_controller_ =
+        std::make_unique<NWebMediaPlayerControllerImpl>(
+            std::move(media_player_controller));
+    nweb_handler_->OnFullScreenOverlayEnter(extra_info.c_str());
+    return nullptr;
+  }
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
+
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   nweb_media_player_controller_ =
       std::make_unique<NWebMediaPlayerControllerImpl>(

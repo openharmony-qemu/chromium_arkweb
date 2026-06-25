@@ -162,6 +162,12 @@ void WebSettingsImplExt::SetCustomVideoPlayerOverlay(bool overlay) {
 }
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+void WebSettingsImplExt::SetFullscreenVideoOverlayEnabled(bool enable) {
+  settings_->SetFullscreenVideoOverlayEnabled(enable);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
 void WebSettingsImplExt::SetUsageScenario(int32_t usage_scenario) {
   settings_->SetUsageScenario(usage_scenario);

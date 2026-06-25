@@ -107,6 +107,9 @@ static void WebPreferenceMojomExt(blink::mojom::WebPreferencesDataView data,
   out->custom_video_player_enable = data.custom_video_player_enable();
   out->custom_video_player_overlay = data.custom_video_player_overlay();
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
+#if BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  out->fullscreen_video_overlay_enable = data.fullscreen_video_overlay_enable();
+#endif  // ARKWEB_FULLSCREEN_VIDEO_OVERLAY
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   out->usage_scenario = data.usage_scenario();
 #endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
