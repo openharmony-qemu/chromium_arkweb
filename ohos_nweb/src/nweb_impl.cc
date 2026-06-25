@@ -1320,7 +1320,7 @@ void InitialWebEngineArgs(
  
   for (auto arg : args_to_add) {
     ParsePathFromArgForKey(arg, switches::kUserDataDir, user_data_dir);
-    ParseDataMigrateFromArgForKey(arg, switches::kEnableUserDataDirMigration, isMigration);
+    ParseDataMigrateFromArgForKey(arg, switches::kEnableCacheDataDirMigration, isMigration);
     web_engine_args.emplace_back(arg);
   }
   base::FilePath target_cache_dir = user_data_dir.Append(kUserCacheDir);
