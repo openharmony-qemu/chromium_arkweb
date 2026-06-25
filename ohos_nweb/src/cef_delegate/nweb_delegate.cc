@@ -5461,7 +5461,7 @@ void NWebDelegate::AddAccessibilityNodeInfoAttributes(
     nodeInfo->SetSelectionEnd(0);
   }
   nodeInfo->SetItemCounts(node->GetItemCount());
-  nodeInfo->SetIsClickable(node->IsClickable());
+  nodeInfo->SetIsClickable(node->IsClickable() && node->IsEnabled());
   if (node->IsRangeControlWithoutAriaValueText()) {
     nodeInfo->SetRangeInfoMin(node->RangeMin());
     nodeInfo->SetRangeInfoMax(node->RangeMax());
