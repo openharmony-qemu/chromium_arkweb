@@ -39,5 +39,15 @@ struct ExtensionSidePanelSetOptions {
   std::optional<bool> includeIncognitoInfo;
   std::optional<int32_t> requestId;
 };
- 
+
+struct ExtensionSidePanelCloseOptions {
+  static const int NUM_PROPERTIES = 6;
+  std::optional<int32_t> tabId;
+  std::optional<int32_t> windowId;
+  std::optional<int32_t> requestId;
+  std::optional<std::string> contextType;
+  std::optional<std::string> extensionId;
+  std::optional<bool> includeIncognitoInfo;
+};
+
 #endif  // OHOS_NWEB_SRC_WEB_EXTENSION_SIDE_PANEL_ITEMS_H_

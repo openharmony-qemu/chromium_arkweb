@@ -12,29 +12,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #include "nweb_extension_side_panel_cef_delegate.h"
- 
+
 #include "base/logging.h"
-#include "content/public/browser/browser_context.h"
 #include "cef/libcef/browser/request_context_impl.h"
+#include "content/public/browser/browser_context.h"
 #include "nweb_extension_utils.h"
- 
+
 namespace OHOS::NWeb {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 namespace {
-  static std::map<int, SidePanelOnOpenCallback> g_sidepanel_open_map_;
-}
+static std::map<int, SidePanelOnOpenCallback> g_sidepanel_open_map_;
+static std::map<int, SidePanelOnCloseCallback> g_sidepanel_close_map_;
+}  // namespace
 #endif
 
 // static
-NWebExtensionSidePanelCefDelegate* NWebExtensionSidePanelCefDelegate::GetInstance() {
+NWebExtensionSidePanelCefDelegate*
+NWebExtensionSidePanelCefDelegate::GetInstance() {
   static NWebExtensionSidePanelCefDelegate instance;
   return &instance;
 }
- 
+
 NWebExtensionSidePanelCefDelegate::NWebExtensionSidePanelCefDelegate() {}
- 
+
 // static
 NO_SANITIZE("cfi-icall")
 bool NWebExtensionSidePanelCefDelegate::OnOpenByPb(
@@ -46,18 +48,43 @@ bool NWebExtensionSidePanelCefDelegate::OnOpenByPb(
   LOG(DEBUG) << "NWebExtensionSidePanelCefDelegate OnOpenByPb";
   static int open_request_id = 0;
   open_request_id++;
-  g_sidepanel_open_map_[open_request_id ] = std::move(callback);
+  g_sidepanel_open_map_[open_request_id] = std::move(callback);
   options.requestId = open_request_id;
-  
-  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnOpenByPb(options)) {
+
+  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnOpenByPb(
+          options)) {
     g_sidepanel_open_map_.erase(open_request_id);
     return false;
   }
- 
+
   return true;
 #endif
 }
- 
+
+// static
+NO_SANITIZE("cfi-icall")
+bool NWebExtensionSidePanelCefDelegate::OnClose(
+    ExtensionSidePanelCloseOptions& options,
+    SidePanelOnCloseCallback callback) {
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
+  return false;
+#else
+  LOG(DEBUG) << "NWebExtensionSidePanelCefDelegate OnClose";
+  static int close_request_id = 0;
+  close_request_id++;
+  g_sidepanel_close_map_[close_request_id] = std::move(callback);
+  options.requestId = close_request_id;
+
+  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnClose(
+          options)) {
+    g_sidepanel_close_map_.erase(close_request_id);
+    return false;
+  }
+
+  return true;
+#endif
+}
+
 // static
 NO_SANITIZE("cfi-icall")
 bool NWebExtensionSidePanelCefDelegate::OnSetOptionsByPb(
@@ -69,19 +96,20 @@ bool NWebExtensionSidePanelCefDelegate::OnSetOptionsByPb(
   static int request_id = 0;
   request_id++;
   options.requestId = request_id;
-  
-  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance().OnSetOptionsByPb(options)) {
+
+  if (!nweb_ex::NWebExtensionSidePanelDelegateImpl::GetInstance()
+           .OnSetOptionsByPb(options)) {
     return false;
   }
- 
+
   return true;
 #endif
 }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 void NWebExtensionSidePanelCefDelegate::OnOpenCallback(
-      int request_id,
-      const std::optional<std::string>& error) {
+    int request_id,
+    const std::optional<std::string>& error) {
   if (g_sidepanel_open_map_.count(request_id)) {
     std::move(g_sidepanel_open_map_[request_id]).Run(error);
     g_sidepanel_open_map_.erase(request_id);
@@ -89,15 +117,26 @@ void NWebExtensionSidePanelCefDelegate::OnOpenCallback(
     LOG(ERROR) << "request_id is inValid";
   }
 }
- 
+
+void NWebExtensionSidePanelCefDelegate::OnCloseCallback(
+    int request_id,
+    const std::optional<std::string>& error) {
+  if (g_sidepanel_close_map_.count(request_id)) {
+    std::move(g_sidepanel_close_map_[request_id]).Run(error);
+    g_sidepanel_close_map_.erase(request_id);
+  } else {
+    LOG(ERROR) << "request_id is inValid";
+  }
+}
+
 void NWebExtensionSidePanelCefDelegate::OnSetOptionsCallback(
     int request_id,
     const std::optional<std::string>& error) {
   LOG(DEBUG) << "OnSetOptionsCallback request_id = " << request_id;
   if (error) {
-    LOG(ERROR) <<"SetOptions error happened";
+    LOG(ERROR) << "SetOptions error happened";
   }
 }
 #endif
 
-} // namespace OHOS::NWeb
+}  // namespace OHOS::NWeb
