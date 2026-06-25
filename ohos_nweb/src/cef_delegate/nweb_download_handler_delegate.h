@@ -72,7 +72,7 @@ class NWebDownloadHandlerDelegate : public CefDownloadHandler {
 
   std::shared_ptr<NWebDownloadDelegateCallback>
       web_download_delegate_listener_ = nullptr;
-
+  std::unordered_map<std::string, std::string> suggested_file_name_for_guid_map;
   std::shared_ptr<NWebPreferenceDelegate> preference_delegate_ = nullptr;
 };
 }  // namespace OHOS::NWeb
