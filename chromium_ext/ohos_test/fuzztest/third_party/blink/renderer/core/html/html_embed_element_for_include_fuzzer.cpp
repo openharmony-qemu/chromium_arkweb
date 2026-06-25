@@ -26,6 +26,11 @@ using namespace blink;
 AtomicString CreateAlignedAtomicString(const char* str) {
     size_t len = std::strlen(str);
     const size_t alignment = 8;
+
+    if (len > SIZE_MAX - alignment) {
+        return AtomicString();
+    }
+
     const size_t buffer_size = len + alignment;
     char* raw_mem = static_cast<char*>(std::malloc(buffer_size));
     if (!raw_mem) {
@@ -34,7 +39,9 @@ AtomicString CreateAlignedAtomicString(const char* str) {
     uintptr_t raw_addr = reinterpret_cast<uintptr_t>(raw_mem);
     uintptr_t aligned_addr = (raw_addr + alignment - 1) & ~(alignment - 1);
     char* aligned_ptr = reinterpret_cast<char*>(aligned_addr);
-    if (memcpy_s(aligned_ptr, buffer_size, str, len + 1) != 0) {
+
+    size_t actual_destsz = static_cast<size_t>(raw_mem + buffer_size - aligned_ptr);
+    if (memcpy_s(aligned_ptr, actual_destsz, str, len + 1) != 0) {
         std::free(raw_mem);
         return AtomicString();
     }
