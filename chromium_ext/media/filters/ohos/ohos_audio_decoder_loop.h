@@ -46,7 +46,7 @@ public:
 
     OutputBufferData(uint32_t index, uint8_t* data, uint32_t size, int64_t pts, BufferFlag flag)
         : index_(index), data_(size), size_(size), pts_(pts), flag_(flag) {
-      if (memcpy_s(data_.data(), size, data, size) != EOK) {
+      if (data && memcpy_s(data_.data(), data_.size(), data, size) != EOK) {
         LOG(ERROR) << "OHOSAudioDecoderLoop OutputBufferData copy data error index: " << index;
       }
     }
