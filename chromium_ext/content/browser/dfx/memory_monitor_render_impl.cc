@@ -208,13 +208,16 @@ void MemoryMonitorImpl::Init()
 
 void MemoryMonitorImpl::StartCollectBasicRenderMemory(bool is_hidden)
 {
-  if (is_hidden) {
-    CollectBasicRenderMemory();
-  } else {
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-          FROM_HERE,
-          base::BindOnce(&MemoryMonitorImpl::CollectBasicRenderMemory, base::Unretained(this)),
-            base::Milliseconds(BASIC_INTERVAL));
+  if (OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance()
+      .GetStringParameter("const.logsystem.versiontype", "") == "beta") {
+    if (is_hidden) {
+      CollectBasicRenderMemory();
+    } else {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(&MemoryMonitorImpl::CollectBasicRenderMemory, base::Unretained(this)),
+              base::Milliseconds(BASIC_INTERVAL));
+    }
   }
 }
 
