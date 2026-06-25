@@ -12,7 +12,7 @@ using ResPreloadInfosCB =
   base::RepeatingCallback<void(const PRPPPreconnectInfoList& preconnect_info_list,
     const std::shared_ptr<PRPPReqInfoTreeNode>& preload_info_tree,
     const std::set<std::string>& need_record_header_urls)>;
-class ResRequestInfoUpdater : public base::RefCounted<ResRequestInfoUpdater> {
+class ResRequestInfoUpdater : public base::RefCountedThreadSafe<ResRequestInfoUpdater> {
  public:
   ResRequestInfoUpdater(const std::string& url,
                         const net::NetworkAnonymizationKey& networkAnonymizationKey,

@@ -19,7 +19,7 @@ using ResRequestInfoCacheLoadedCB =
     const LinkedHashMap& preconnect_limit_info_list,
     const net::NetworkAnonymizationKey& networkAnonymizationKey,
     const std::string& page_seq_num)>;
-class ResReqInfoCacheMgr : public base::RefCounted<ResReqInfoCacheMgr> {
+class ResReqInfoCacheMgr : public base::RefCountedThreadSafe<ResReqInfoCacheMgr> {
  public:
   ResReqInfoCacheMgr(const std::string& url,
                      const net::NetworkAnonymizationKey& networkAnonymizationKey,
