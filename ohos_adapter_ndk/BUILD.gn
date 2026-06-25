@@ -139,8 +139,6 @@ component("adapter_ndk") {
     "window_manager_adapter/window_manager_adapter_impl.h",
     "window_manager_adapter/window_manager_adapter_impl.cpp",
     "ndk_callback_wrapper/callback_shared_wrapper.h",
-    "net_event_adapter/net_event_adapter_impl.h",
-    "net_event_adapter/net_event_adapter_impl.cpp",
     "arkts_adapter/arkts_hilog_adapter.h",
     "arkts_adapter/arkts_hilog_adapter.cpp",
     "arkts_adapter/arkts_tts_adapter.h",

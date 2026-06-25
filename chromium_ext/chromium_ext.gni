@@ -794,7 +794,6 @@ arkweb_media_adapter_unittest_sources = [
   "//arkweb/ohos_adapter_ndk/screen_capture_adapter/screen_capture_adapter_impl_unittest.cc",
   "//arkweb/ohos_adapter_ndk/ndk_callback_wrapper/callback_shared_wrapper_unittest.cpp",
   "//arkweb/ohos_adapter_ndk/utils/src/ashmem_unittests.cc",
-  "//arkweb/ohos_adapter_ndk/net_event_adapter/net_event_adapter_impl_unittest.cc",
 ]
 
 arkweb_media_gpu_unittest_sources = [
@@ -1583,15 +1582,6 @@ arkweb_content_browser_unittests_sources =[
   "//arkweb/chromium_ext/content/browser/ohos/software_compositor_host_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager_unittest.cc",
   "//arkweb/chromium_ext/content/browser/speech/tts_ohos_unittest.cc",
-]
-
-arkweb_components_captive_portal_content_sources = [
-  "//arkweb/chromium_ext/components/captive_portal/content/captive_portal_tab_helper_ohos.cc",
-  "//arkweb/chromium_ext/components/captive_portal/content/captive_portal_tab_helper_ohos.h"
-]
-
-arkweb_components_captive_portal_core_sources = [
-  "//arkweb/chromium_ext/components/captive_portal/core/captive_portal_types_ohos.h"
 ]
 
 arkweb_components_page_load_metrics_browser_sources = [
