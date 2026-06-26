@@ -414,4 +414,228 @@ TEST_F(DragControllerTest, DragLinkCheckSrcAndType) {
   EXPECT_FALSE(GetFrame().GetPage()->GetDragController().DragLinkCheckSrcAndType());
 }
 
+TEST_F(DragControllerTest, IsDragEnabledTest) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_src_ = nullptr;
+  EXPECT_FALSE(GetFrame().GetPage()->GetDragController().IsDragEnabled());
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  GetFrame().GetPage()->GetDragController().ContextDestroyed();
+  EXPECT_FALSE(GetFrame().GetPage()->GetDragController().IsDragEnabled());
+}
+
+TEST_F(DragControllerTest, IsDragEnabledTestWithElement) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  EXPECT_TRUE(GetFrame().GetPage()->GetDragController().IsDragEnabled());
+}
+
+TEST_F(DragControllerTest, GetVisibleRectToUIInRootFrameTest) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      body {
+        width: 100px;
+        height: 100px;
+      }
+    </style>
+    <body></body>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto result = GetFrame().GetPage()->GetDragController().GetVisibleRectToUIInRootFrame(&GetFrame());
+  EXPECT_TRUE(result.width() >= 0 && result.height() >= 0);
+}
+
+TEST_F(DragControllerTest, GetVisibleRectToUIInRootFrameNullFrameTest) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      body {
+        width: 100px;
+        height: 100px;
+      }
+    </style>
+    <body></body>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto result = GetFrame().GetPage()->GetDragController().GetVisibleRectToUIInRootFrame(nullptr);
+  EXPECT_TRUE(result.IsEmpty());
+}
+
+TEST_F(DragControllerTest, StartDragTextEffectsWithSelection) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_type_ = kDragSourceActionSelection;
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  drag_state.drag_data_transfer_ = DataTransfer::Create(
+      DataTransfer::kDragAndDrop, DataTransferAccessPolicy::kWritable,
+      DataObject::Create());
+  GetFrame().GetPage()->GetDragController().StartDragTextEffects();
+}
+
+TEST_F(DragControllerTest, RestoreDragTextEffectsWithSelection) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_type_ = kDragSourceActionSelection;
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  drag_state.drag_data_transfer_ = DataTransfer::Create(
+      DataTransfer::kDragAndDrop, DataTransferAccessPolicy::kWritable,
+      DataObject::Create());
+  GetFrame().GetPage()->GetDragController().RestoreDragTextEffects();
+}
+
+TEST_F(DragControllerTest, UpdateLinkStyleWithChildNodes) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='parent' style='color: blue;'>
+      <span id='child1' style='color: red;'>child1</span>
+      <span id='child2' style='color: green;'>child2</span>
+    </div>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  Element* parent = GetDocument().getElementById(AtomicString("parent"));
+  ASSERT_NE(parent, nullptr);
+  GetFrame().GetPage()->GetDragController().UpdateLinkStyle(parent);
+}
+
+TEST_F(DragControllerTest, RestoreLinkStyleWithChildNodes) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='parent' style='color: gray;'>
+      <span id='child1' style='color: gray;'>child1</span>
+      <span id='child2' style='color: gray;'>child2</span>
+    </div>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  Element* parent = GetDocument().getElementById(AtomicString("parent"));
+  ASSERT_NE(parent, nullptr);
+  GetFrame().GetPage()->GetDragController().RestoreLinkStyle(parent);
+}
+
+TEST_F(DragControllerTest, RestoreLinkStyleWithNullChildList) {
+  SetBodyInnerHTML(R"HTML(
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  Element* drag = GetDocument().getElementById(AtomicString("drag"));
+  ASSERT_NE(drag, nullptr);
+  GetFrame().GetPage()->GetDragController().RestoreLinkStyle(drag);
+}
+
+TEST_F(DragControllerTest, IsHyperLinkDraggingWithSelection) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  GetFrame().Selection().SelectAll();
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_type_ = kDragSourceActionLink;
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  drag_state.drag_data_transfer_ = DataTransfer::Create(
+      DataTransfer::kDragAndDrop, DataTransferAccessPolicy::kWritable,
+      DataObject::Create());
+  WebMouseEvent mouse_event(WebInputEvent::Type::kMouseDown,
+                            WebInputEvent::kNoModifiers,
+                            WebInputEvent::GetStaticTimeStampForTests());
+  mouse_event.button = WebMouseEvent::Button::kRight;
+  mouse_event.SetFrameScale(1);
+  mouse_event.SetPositionInWidget(5, 10);
+  GetFrame().GetPage()->GetDragController().StartDrag(
+      &GetFrame(), drag_state, mouse_event, gfx::Point(5, 10));
+  EXPECT_TRUE(GetFrame().GetPage()->GetDragController().IsHyperLinkDragging());
+}
+
+TEST_F(DragControllerTest, IsHyperLinkDraggingWithoutSelectionFocus) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      * { margin: 0; }
+      a {
+        width: 50px;
+        height: 40px;
+        font-size: 30px;
+        margin-top: 2px;
+        display: block;
+      }
+    </style>
+    <a id='drag' href='https://foobarbaz.com'>foobarbaz</a>
+  )HTML");
+  ASSERT_TRUE(GetFrame().GetPage());
+  auto& drag_state = GetFrame().GetPage()->GetDragController().GetDragState();
+  drag_state.drag_type_ = kDragSourceActionLink;
+  drag_state.drag_src_ = GetDocument().getElementById(AtomicString("drag"));
+  drag_state.drag_data_transfer_ = DataTransfer::Create(
+      DataTransfer::kDragAndDrop, DataTransferAccessPolicy::kWritable,
+      DataObject::Create());
+  WebMouseEvent mouse_event(WebInputEvent::Type::kMouseDown,
+                            WebInputEvent::kNoModifiers,
+                            WebInputEvent::GetStaticTimeStampForTests());
+  mouse_event.button = WebMouseEvent::Button::kRight;
+  mouse_event.SetFrameScale(1);
+  mouse_event.SetPositionInWidget(5, 10);
+  GetFrame().GetPage()->GetDragController().StartDrag(
+      &GetFrame(), drag_state, mouse_event, gfx::Point(5, 10));
+  EXPECT_FALSE(GetFrame().GetPage()->GetDragController().IsHyperLinkDragging());
+}
+
 }
