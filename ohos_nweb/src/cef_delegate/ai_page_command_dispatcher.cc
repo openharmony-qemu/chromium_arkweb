@@ -550,12 +550,12 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
       auto element_id = ParseElementId(*node_id_str);
       if (!element_id) {
         LOG(ERROR) << "[AIPageCmd] screenCapture: invalid nodeid format: " << *node_id_str;
-        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "nodeid");
+        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeid");
         return;
       }
 
       if (!ValidateNodeIdTokens(browser, element_id.value())) {
-        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "token mismatch");
+        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeid, token mismatch");
         return;
       }
       

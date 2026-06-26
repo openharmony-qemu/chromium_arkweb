@@ -112,9 +112,9 @@ void ScreenshotObserver::CaptureElementByNodeId(int node_id) {
   }
 
   if (node_id <= 0) {
-    LOG(ERROR) << "[Screenshot] invalid node_id";
+    LOG(ERROR) << "[Screenshot] invalid nodeid";
     FinishWithError(static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID),
-                    "invalid node_id");
+                    "invalid param: nodeid");
     return;
   }
 
