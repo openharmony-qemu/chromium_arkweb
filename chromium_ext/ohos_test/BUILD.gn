@@ -141,6 +141,26 @@ group("ohos_fuzz") {
       "//arkweb/chromium_ext/ohos_test/fuzztest/gpu/command_buffer/service/shared_image/:ohos_native_buffer_image_backing_fuzzer",
       "//arkweb/chromium_ext/ohos_test/fuzztest/content/browser/gpu/:ark_web_compositor_util_fuzzer",
       ":nweb_output_handler_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb/src/nweb_notification_manager_delegate_fuzzer:nweb_notification_manager_delegate_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb_ex/core/notification_manager:notification_manager_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/third_party/blink/renderer/core/editing:ohos_selection_controller_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:document_exec_command_for_include_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:paint_layer_scrollable_area_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/third_party/blink/renderer/core/page/drag_controller_ext:drag_controller_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/third_party/blink/renderer/core/page/drag_image_ext:drag_image_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/third_party/blink/renderer/core/page/context_menu_controller_ext:context_menu_controller_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/chromium_ext/third_party/blink/renderer/core/page/drag_controller_utils:drag_controller_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:password_autofill_manager_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:mouse_event_manager_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:native_theme_aura_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:image_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:scrollbar_theme_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:native_scroller_ohos_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:touch_selection_controller_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/components/password_manager/content/browser:content_password_manager_driver_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/gesture_manager_utils_fuzzer:gesture_manager_utils_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:touch_handle_ext_fuzzer",
+      "//arkweb/chromium_ext/ohos_test:chrome_client_impl_ext_fuzzer",
     ]
 }
 
@@ -1172,5 +1192,307 @@ fuzzer_test("ohos_heif_image_decode_fuzzer") {
     "//third_party/googletest:gtest",
     "//third_party/googletest:gmock",
     "//arkweb/ohos_adapter_ndk:adapter_ndk",
+  ]
+}
+
+fuzzer_test("document_exec_command_for_include_fuzzer") {
+  sources = [ "fuzztest/chromium_ext/third_party/blink/renderer/core/editing/commands/document_exec_command_for_include/document_exec_command_for_include_fuzzer.cc" ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//content/test:test_support",
+    "//v8:cppgc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//third_party/blink/renderer/core/editing",
+    "//third_party/blink/renderer/core/execution_context",
+    "//third_party/blink/renderer/core/frame",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+}
+
+fuzzer_test("paint_layer_scrollable_area_utils_fuzzer") {
+  sources = [ "fuzztest/chromium_ext/third_party/blink/renderer/core/paint/paint_layer_scrollable_area_utils_fuzzer.cc" ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//content/test:test_support",
+    "//v8:cppgc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+}
+
+fuzzer_test("password_autofill_manager_ext_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/components/password_manager/core/browser/password_autofill_manager_ext_fuzzer.cc",
+  ]
+  deps = [
+    "//base",
+    "//cef:libcef_static",
+    "//components/autofill/core/browser:test_support",
+    "//components/autofill/core/common",
+    "//components/password_manager/core/browser:browser",
+    "//components/password_manager/core/browser:test_support",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//net",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/googletest:gtest",
+    "//third_party/googletest:gmock",
+    "//url",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//third_party/blink/renderer/core/frame",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+}
+
+fuzzer_test("mouse_event_manager_ext_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/third_party/blink/renderer/core/input/mouse_event_manager_ext/mouse_event_manager_ext_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//content/test:test_support",
+    "//v8:cppgc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//third_party/blink/renderer/core/frame",
+    "//third_party/blink/renderer/core/input",
+    "//third_party/blink/renderer/core/layout",
+    "//third_party/blink/renderer/core/page",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+}
+
+fuzzer_test("native_theme_aura_utils_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/ui/native_theme/native_theme_aura_utils/native_theme_aura_utils_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//ui/native_theme:native_theme",
+    "//cc/paint",
+    "//ui/color",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//ui",
+    "//third_party/blink",
+    "//arkweb/chromium_ext",
+  ]
+}
+
+fuzzer_test("image_ext_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/third_party/blink/renderer/platform/graphics/image_ext/image_ext_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//cc/paint",
+    "//third_party/blink/renderer/platform",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//third_party/blink",
+    "//arkweb/chromium_ext",
+  ]
+}
+
+fuzzer_test("scrollbar_theme_utils_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/third_party/blink/renderer/core/scroll/scrollbar_theme_utils_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//third_party/blink/renderer/platform/scheduler:test_support",
+    "//content/test:test_support",
+    "//third_party/googletest:gtest",
+    "//third_party/googletest:gmock",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//third_party/blink/renderer/core/frame",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+}
+
+fuzzer_test("touch_selection_controller_ext_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/ui/touch_selection/touch_selection_controller_ext_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//ui/events:test_support",
+    "//ui/touch_selection",
+    "//base",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//arkweb/chromium_ext",
+  ]
+}
+
+fuzzer_test("native_scroller_ohos_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/ui/gl/events/native_scroller_ohos_fuzzer.cc",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//ui/events:events_base",
+    "//ui/events/gestures/blink:blink",
+    "//base",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/public/common/input",
+    "//arkweb",
+    "//arkweb/chromium_ext",
+    "//arkweb/ohos_adapter_ndk/interfaces",
+    "//arkweb/chromium_ext/ui/events/gestures/blink",
+    "//deps_code/webview/ohos_interface/include",
+    "//deps_code/webview/ohos_interface/ohos_glue/ohos_adapter/include",
+    "//deps_code/webview/ohos_adapter/include",
+  ]
+}
+
+fuzzer_test("touch_handle_ext_fuzzer") {
+  sources = [
+    "fuzztest/chromium_ext/ui/touch_selection/touch_handle_ext_fuzzer.cc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//arkweb/chromium_ext/ui/touch_selection",
+    "//third_party/blink",
+  ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:nweb_sources",
+    "//ui/touch_selection",
+    "//third_party/googletest:gtest",
+    "//third_party/googletest:gmock",
+  ]
+}
+
+fuzzer_test("chrome_client_impl_ext_fuzzer") {
+  sources = [ "fuzztest/third_party/blink/renderer/core/page/chrome_client_impl_ext_fuzzer/chrome_client_impl_ext_fuzzer.cc" ]
+  deps = [
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+    "//third_party/blink/renderer/platform",
+    "//third_party/blink/renderer/platform:blink_fuzzer_test_support",
+    "//content/test:test_support",
+    "//v8:cppgc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//v8/include",
+    "//third_party/blink",
+    "//third_party/blink/renderer/core",
+    "//arkweb/chromium_ext",
+  ]
+  defines = [
+    "BLINK_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
   ]
 }
