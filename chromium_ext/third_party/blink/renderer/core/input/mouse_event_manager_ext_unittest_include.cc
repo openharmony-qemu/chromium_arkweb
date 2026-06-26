@@ -514,4 +514,80 @@ TEST_F(MouseEventManagerExtTest, OverLayerMouseLeaveEventListener002) {
   ASSERT_NO_FATAL_FAILURE(listener.Invoke(nullptr, event));
 }
 
+TEST_F(MouseEventManagerExtTest, GetHitOverlayStatusFromMouseEvent) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  
+  CreateOverlayOnPoint(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  
+  auto result = GetHitTestResultForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  auto inner_node = result.InnerNodeOrImageMapImage();
+  SetHitImageNodeForTest(inner_node);
+  
+  WebMouseEvent mouse_event_in =
+    CreateTestMouseEvent(WebInputEvent::Type::kMouseDown, gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  HitTestLocation location_in(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  HitTestResult hit_in = GetHitTestResultForTest(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  MouseEventWithHitTestResults event_in(mouse_event_in, location_in, hit_in);
+  
+  auto status = GetMouseEventManagerExt().GetHitOverlayStatusFromMouseEvent(event_in);
+  EXPECT_EQ(status, HitOverlayStatus::kCreated);
+}
+
+TEST_F(MouseEventManagerExtTest, HandleGestureCreateOverlay_Disabled) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  
+  CreateOverlayEventBuilder create_overlay_event(gfx::PointF(POINT_VAL_A, POINT_VAL_A));
+  GetEventHandler().HandleGestureEvent(create_overlay_event);
+  EXPECT_TRUE(SimTestExt::LogCheck("IsImageAnalyzerEnabled"));
+}
+
+TEST_F(MouseEventManagerExtTest, GetHitOverlayStatus_IgnoreOverlay) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  
+  auto result_red = GetHitTestResultForTest(gfx::PointF(100, 100));
+  auto inner_node_red = result_red.InnerNodeOrImageMapImage();
+  SetHitImageNodeForTest(inner_node_red);
+  
+  GetOverlayInProgressRef() = false;
+  EXPECT_EQ(GetMouseEventManagerExt().GetHitOverlayStatus(result_red, true),
+            HitOverlayStatus::kNone);
+}
+
+TEST_F(MouseEventManagerExtTest, GetHitOverlayStatus_DifferentNode) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  
+  auto result_red = GetHitTestResultForTest(gfx::PointF(100, 100));
+  auto result_green = GetHitTestResultForTest(gfx::PointF(100, 300));
+  auto inner_node_red = result_red.InnerNodeOrImageMapImage();
+  auto inner_node_green = result_green.InnerNodeOrImageMapImage();
+  
+  SetHitImageNodeForTest(inner_node_red);
+  
+  GetOverlayInProgressRef() = true;
+  EXPECT_EQ(GetMouseEventManagerExt().GetHitOverlayStatus(result_green, false),
+            HitOverlayStatus::kNone);
+}
+
+TEST_F(MouseEventManagerExtTest, GetAbsImageRect_DisconnectedNode) {
+  SetUpHtmlDefault();
+  SimTestExt::LogCatch();
+  
+  CreateOverlayOnPoint(gfx::PointF(100, 100));
+  
+  auto& manager = GetMouseEventManagerExt();
+  Node* node = manager.hit_image_node_;
+  EXPECT_TRUE(node->isConnected());
+  
+  node->remove();
+  EXPECT_FALSE(node->isConnected());
+  
+  gfx::RectF res_rect;
+  manager.GetAbsImageRect(res_rect);
+  EXPECT_TRUE(SimTestExt::LogCheck("hit_image_node_ is nullptr or disconnected"));
+}
+
 }  // namespace blink

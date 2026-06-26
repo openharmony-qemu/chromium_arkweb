@@ -174,4 +174,163 @@ TEST_F(NativeThemeAuraUtilsTest, PCDeviceTest_001) {
       &canvas, rect, scrollbar_color, part, thumb_color, fill_flags);
   base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;      
 }
+
+TEST_F(NativeThemeAuraUtilsTest, PaintOverlayScrollbarThumb_NonPCVertical) {
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
+  auto& system_properties_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(system_properties_mock, IsPcDevice())
+      .WillRepeatedly(Return(false));
+
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 100, 200);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  SkColor thumb_color;
+  cc::PaintFlags fill_flags;
+
+  native_theme_aura_utils_->PaintOverlayScrollbarThumb(
+      &canvas, rect, scrollbar_color, part, thumb_color, fill_flags);
+  EXPECT_EQ(thumb_color, SK_ColorTRANSPARENT);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintOverlayScrollbarThumb_NonPCHorizontal) {
+  base::ohos::SysInfoUtilsMock::mockIsPcDevice = false;
+  auto& system_properties_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+  EXPECT_CALL(system_properties_mock, IsPcDevice())
+      .WillRepeatedly(Return(false));
+
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 200, 100);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  SkColor thumb_color;
+  cc::PaintFlags fill_flags;
+
+  native_theme_aura_utils_->PaintOverlayScrollbarThumb(
+      &canvas, rect, scrollbar_color, part, thumb_color, fill_flags);
+  EXPECT_EQ(thumb_color, SK_ColorTRANSPARENT);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_NormalStateVertical) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 100, 200);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_NormalStateHorizontal) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 200, 100);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_HoveredStateVertical) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 100, 200);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  NativeTheme::State state = NativeTheme::kHovered;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_HoveredStateHorizontal) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 200, 100);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  NativeTheme::State state = NativeTheme::kHovered;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_PressedStateVertical) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 100, 200);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  NativeTheme::State state = NativeTheme::kPressed;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_PressedStateHorizontal) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 200, 100);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  NativeTheme::State state = NativeTheme::kPressed;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kNoPreference;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_DarkSchemeVertical) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 100, 200);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kDark;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_DarkSchemeHorizontal) {
+  cc::RecordPaintCanvas canvas;
+  gfx::Rect rect(0, 0, 200, 100);
+  SkColor scrollbar_color = SK_ColorLTGRAY;
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  NativeTheme::PreferredColorScheme color_scheme = NativeTheme::PreferredColorScheme::kDark;
+  native_theme_aura_utils_->PaintScrollbarThumbWithColor(
+      &canvas, rect, scrollbar_color, color_scheme, part, state, extra_params);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, GetPartSize_OverlayModeOtherPart) {
+  NativeTheme::Part part = NativeTheme::kScrollbarDownArrow;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  native_theme_aura_utils_->native_theme_aura_->set_use_overlay_scrollbar(true);
+  auto size = native_theme_aura_utils_->GetPartSize(part, state, extra_params);
+  EXPECT_EQ(size.width(), 0);
+  EXPECT_EQ(size.height(), 0);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, GetPartSize_NonOverlayModeOtherPart) {
+  NativeTheme::Part part = NativeTheme::kScrollbarVerticalThumb;
+  NativeTheme::State state = NativeTheme::kNormal;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  native_theme_aura_utils_->native_theme_aura_->set_use_overlay_scrollbar(false);
+  auto size = native_theme_aura_utils_->GetPartSize(part, state, extra_params);
+  EXPECT_EQ(size.width(), 0);
+  EXPECT_EQ(size.height(), 0);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, GetNinePatchCanvasSize_Test) {
+  NativeTheme::Part part = NativeTheme::kScrollbarHorizontalThumb;
+  auto size = native_theme_aura_utils_->GetNinePatchCanvasSize(part);
+  EXPECT_TRUE(size.width() >= 0);
+  EXPECT_TRUE(size.height() >= 0);
+}
 }  // namespace ui
