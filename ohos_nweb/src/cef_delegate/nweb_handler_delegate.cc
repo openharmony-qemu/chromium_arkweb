@@ -1604,6 +1604,8 @@ bool NWebHandlerDelegate::TrigAdBlockEnabledForSiteFromUi(
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().TrigAdBlockEnabledForSiteFromUi(
       nweb_id_, url, main_frame_tree_node_id);
+#else
+  return false;
 #endif  // ARKWEB_NWEB_EX
 }
 #endif
