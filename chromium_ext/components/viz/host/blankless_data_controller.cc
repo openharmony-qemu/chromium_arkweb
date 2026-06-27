@@ -505,14 +505,21 @@ void BlanklessDataController::DumpTask(viz::mojom::BlanklessSendInfoPtr infoPtr,
   LOG(DEBUG) << "blankless corrected loading time: " << corrected_time << ", nweb_id: " << infoPtr->nweb_id
              << ", blankless_key: " << infoPtr->blankless_key;
 
+  SkImageInfo info = SkImageInfo::Make(metadata->width, metadata->height,
+                                       static_cast<SkColorType>(metadata->color_type),
+                                       static_cast<SkAlphaType>(metadata->alpha_type));
+  size_t required_size = info.computeByteSize(info.minRowBytes());
+  if (SkImageInfo::ByteSizeOverflowed(required_size) || metadata->size < required_size) {
+    LOG(ERROR) << "blankless DumpTask size is too large or metadata is invalid";
+    return;
+  }
+
   mojo::ScopedSharedBufferMapping mapping = buffer->Map(metadata->size);
   if (!mapping) {
     LOG(ERROR) << "blankless DumpTask failed to map shared buffer";
     return;
   }
-  SkImageInfo info = SkImageInfo::Make(metadata->width, metadata->height,
-                                       static_cast<SkColorType>(metadata->color_type),
-                                       static_cast<SkAlphaType>(metadata->alpha_type));
+
   SkBitmap bitmap;
   if (!bitmap.installPixels(info, mapping.get(), info.minRowBytes())) {
     LOG(ERROR) << "blankless DumpTask failed to install pixels into bitmap";
