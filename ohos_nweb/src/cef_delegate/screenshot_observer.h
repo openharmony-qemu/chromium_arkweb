@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "cef/include/cef_base.h"
 #include "cef/include/cef_devtools_message_observer.h"
 #include "cef/include/cef_registration.h"
@@ -29,6 +30,8 @@
 class ArkWebBrowserExt;
 
 namespace OHOS::NWeb {
+
+struct CaptureResult;
 
 // class NWebStringValueCallback;
 
@@ -46,11 +49,11 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   void CaptureFullPage();
 
   // Capture specific element by xpath
-  // Executes: DOM.enable -> DOM.getDocument -> DOM.performSearch -> DOM.getSearchResults -> DOM.discardSearchResults -> DOM.getBoxModel -> Page.getLayoutMetrics -> Page.captureScreenshot -> DOM.disable
+  // Executes: DOM.enable -> DOM.getDocument -> DOM.performSearch -> DOM.getSearchResults -> DOM.discardSearchResults -> DOM.getBoxModel -> Page.getLayoutMetrics -> ScreenshotCaptureUtil::CaptureWithClip -> DOM.disable
   void CaptureElement(const std::string& xpath);
 
   // Capture specific element by node ID
-  // Executes: DOM.getBoxModel(node_id) -> Page.getLayoutMetrics -> Page.captureScreenshot
+  // Executes: DOM.getBoxModel(node_id) -> Page.getLayoutMetrics -> ScreenshotCaptureUtil::CaptureWithClip
   void CaptureElementByNodeId(int node_id);
 
  private:
@@ -65,6 +68,7 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   void HandleGetBoxModelResult(bool success, const void *result, size_t result_size);
   void HandleLayoutMetricsResult(bool success, const void *result, size_t result_size);
   void HandleScreenshotResult(bool success, const void *result, size_t result_size);
+  void OnNativeCaptureComplete(CaptureResult result);
 
   void DiscardSearchResults();
   void CleanupDomDomain();
@@ -98,6 +102,7 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   double scroll_y_ = 0;
 
   IMPLEMENT_REFCOUNTING(ScreenshotObserver);
+  base::WeakPtrFactory<ScreenshotObserver> weak_factory_{this};
 };
 
 }  // namespace OHOS::NWeb

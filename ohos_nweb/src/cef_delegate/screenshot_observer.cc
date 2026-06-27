@@ -24,6 +24,7 @@
 #include "cef/include/cef_browser.h"
 #include "include/cef_values.h"
 #include "nweb_errors.h"
+#include "screenshot_capture_util.h"
 
 namespace OHOS::NWeb {
 
@@ -143,6 +144,17 @@ void ScreenshotObserver::CaptureElementByNodeId(int node_id) {
                     "failed to send DOM.getBoxModel");
   } else {
     LOG(DEBUG) << "[Screenshot] DOM.getBoxModel sent, msg_id=" << get_box_model_msg_id_;
+  }
+}
+
+void ScreenshotObserver::OnNativeCaptureComplete(CaptureResult result) {
+  if (result.success) {
+    screenshot_data_ = result.base64_data;
+    LOG(DEBUG) << "[Screenshot] Native capture success, data length=" << result.base64_data.length();
+    FinishWithSuccess();
+  } else {
+    LOG(ERROR) << "[Screenshot] Native capture failed: " << result.error_message;
+    FinishWithError(static_cast<int32_t>(result.error_code), result.error_message);
   }
 }
 
@@ -507,30 +519,13 @@ void ScreenshotObserver::HandleLayoutMetricsResult(bool success,
              << " y=" << viewport_y << " width=" << temp_element_width_
              << " height=" << temp_element_height_;
 
-  // Capture screenshot with corrected clip coordinates
-  CefRefPtr<CefDictionaryValue> params = CefDictionaryValue::Create();
-  params->SetString("format", "png");
+  LOG(DEBUG) << "[Screenshot] Using native snapshot with clip for element capture";
 
-  CefRefPtr<CefDictionaryValue> clip = CefDictionaryValue::Create();
-  clip->SetDouble("x", viewport_x);
-  clip->SetDouble("y", viewport_y);
-  clip->SetDouble("width", temp_element_width_);
-  clip->SetDouble("height", temp_element_height_);
-  clip->SetDouble("scale", 1);
-  params->SetDictionary("clip", clip);
-
-  LOG(DEBUG) << "[Screenshot] sending Page.captureScreenshot with viewport clip";
-
-  screenshot_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
-      0, "Page.captureScreenshot", params);
-
-  if (screenshot_msg_id_ == 0) {
-    LOG(ERROR) << "[Screenshot] failed to send Page.captureScreenshot";
-    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED),
-                    "failed to send Page.captureScreenshot");
-  } else {
-    LOG(DEBUG) << "[Screenshot] Page.captureScreenshot sent, msg_id=" << screenshot_msg_id_;
-  }
+  ScreenshotCaptureUtil::CaptureWithClip(
+      browser_,
+      viewport_x, viewport_y, temp_element_width_, temp_element_height_,
+      base::BindOnce(&ScreenshotObserver::OnNativeCaptureComplete,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void ScreenshotObserver::HandleScreenshotResult(bool success,
