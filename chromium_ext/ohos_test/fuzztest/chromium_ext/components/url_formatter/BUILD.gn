@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/config/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+fuzzer_test("arkweb_elide_url_ext_fuzzer") {
+  sources = [ "arkweb_elide_url_ext_fuzzer.cc" ]
+  include_dirs = [
+    "//cef",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+  ]
+  deps = [
+    "//base",
+    # arkweb_elide_url_ext.cc (ParseInput) is compiled into this static
+    # library when is_arkweb is true; see components/url_formatter/BUILD.gn.
+    "//components/url_formatter:url_formatter",
+    "//url",
+  ]
+}
+
+## Url Formatter Fuzzers
+group("url_formatter_fuzzers") {
+  testonly = true
+  deps = [
+    ":arkweb_elide_url_ext_fuzzer",
+  ]
+}
