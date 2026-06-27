@@ -81,12 +81,10 @@ void VideoFrameSubmitter::StopRenderingForSameLayerImpl()
 
 #if !defined(COMPONENT_BUILD) // Avoid component compilation.
 void VideoFrameSubmitter::ResetDroppedFrameMetrics() {
-  LOG(INFO) << "VideoFrameSubmitter ResetDroppedFrameMetrics";
   is_first_frame_ = true;
-  should_report_frame_dropped_ = false;
   dropped_frame_count_ = 0;
   dropped_frame_duration_ = 0;
-  last_frame_time_ = base::TimeTicks();
+  should_report_frame_dropped_ = false;
 }
 
 void VideoFrameSubmitter::UpdateDroppedFrameMetrics(const viz::BeginFrameArgs& args) {
@@ -96,10 +94,15 @@ void VideoFrameSubmitter::UpdateDroppedFrameMetrics(const viz::BeginFrameArgs& a
 
   if (!is_first_frame_) {
     base::TimeTicks cur_frame_time = args.frame_time + args.interval;
-    dropped_frame_count_ = (cur_frame_time - last_frame_time_).IntDiv(args.interval);
-    dropped_frame_duration_ = (cur_frame_time - last_frame_time_).InMilliseconds();
-    if (!!dropped_frame_count_)
-      should_report_frame_dropped_ = true;
+    base::TimeDelta delta = cur_frame_time - last_frame_time_;
+    if (delta > base::TimeDelta()) {
+      int64_t dropped = delta.IntDiv(args.interval);
+      if (dropped > 0) {
+        dropped_frame_count_ += dropped;
+        dropped_frame_duration_ += delta.InMilliseconds();
+        should_report_frame_dropped_ = true;
+      }
+    }
   } else {
     is_first_frame_ = false;
   }
@@ -110,6 +113,8 @@ void VideoFrameSubmitter::SubmitDroppedFrameMetricsToMetadata(viz::CompositorFra
   if (should_report_frame_dropped_) {
     compositor_frame.metadata.dropped_frame_count = dropped_frame_count_;
     compositor_frame.metadata.dropped_frame_duration = dropped_frame_duration_;
+    dropped_frame_count_ = 0;
+    dropped_frame_duration_ = 0;
     should_report_frame_dropped_ = false;
   }
 }
