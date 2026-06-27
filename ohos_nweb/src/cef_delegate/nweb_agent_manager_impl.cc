@@ -56,6 +56,12 @@ void NWebAgentManagerImpl::SetContentChangeDetectionConfig(int32_t min_report_ti
     }
 }
 
+void NWebAgentManagerImpl::SetDomExtractionConfig(bool reportDomTree) {
+    if (content_change_detection_) {
+      content_change_detection_->SetDomExtractionConfig(reportDomTree);
+    }
+}
+
 void NWebAgentManagerImpl::SetAgentNeedHighlight(bool enabled) {
     std::shared_ptr<NWebPreferenceDelegate> pref = 
         nweb_delegate_ ? nweb_delegate_->preference_delegate_ : nullptr;
