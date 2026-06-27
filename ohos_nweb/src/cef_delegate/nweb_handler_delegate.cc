@@ -161,6 +161,8 @@
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "ohos_nweb_ex/overrides/ohos_nweb/src/cef_delegate/nweb_safe_browsing_detection_handler.h"
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_widget_host_impl.h"
 #endif
 #endif
 #if BUILDFLAG(ARKWEB_PIP)
@@ -1954,10 +1956,36 @@ void NWebHandlerDelegate::OnFirstMeaningfulPaint(
         browser != nullptr && browser->GetMainFrame() != nullptr &&
         browser->GetMainFrame()->AsArkWebFrame() != nullptr) {
       browser->GetMainFrame()->AsArkWebFrame()->RequestSnapshotOnce();
+      ForceRedrawForSafeBrowsing();
     } 
 #endif
   }
 }
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+void NWebHandlerDelegate::ForceRedrawForSafeBrowsing() {
+  if (main_browser_ == nullptr) {
+    return;
+  }
+  auto* frame_host = static_cast<CefFrameHostImpl*>(main_browser_->GetMainFrame().get());
+  if (frame_host == nullptr) {
+    return;
+  }
+  auto* render_frame_host = frame_host->GetRenderFrameHost();
+  if (render_frame_host == nullptr) {
+    return;
+  }
+  auto* rwh_impl = static_cast<content::RenderFrameHostImpl*>(render_frame_host);
+  if (rwh_impl == nullptr) {
+    return;
+  }
+  content::RenderWidgetHostImpl* widget_host = rwh_impl->GetRenderWidgetHost();
+  if (widget_host == nullptr) {
+    return;
+  }
+  widget_host->AsRenderWidgetHostImplExt()->ForceRedraw();
+}
+#endif
 
 void NWebHandlerDelegate::OnLargestContentfulPaint(
     CefRefPtr<CefLargestContentfulPaintDetails> details) {
