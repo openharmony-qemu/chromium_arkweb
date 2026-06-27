@@ -181,4 +181,22 @@ blink::WebLocalFrame* PrintRenderFrameHelper::ArkWebUpdateFrame(
   }
   return frame;
 }
+
+bool PrintRenderFrameHelper::IsExtensionPopupPrint(blink::WebLocalFrame* web_frame)
+{
+  if (web_frame) {
+    blink::WebDocument document = web_frame->GetDocument();
+    bool autoResizeMode = false;
+    if (web_frame->View()) {
+      autoResizeMode = web_frame->View()->AutoResizeMode();
+    }
+    // When the extension is on the popup page, prevent 'window.print()' printing;
+    // EnableViewAutoResize is triggered when the popup page is loaded.
+    if (document.Url().ProtocolIs("chrome-extension") && autoResizeMode) {
+      LOG(INFO) << "ScriptedPrint AutoResizeMode is true";
+      return true;
+    }
+  }
+  return false;
+}
 #endif  // BUILDFLAG(ARKWEB_PRINT)
