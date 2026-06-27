@@ -584,6 +584,12 @@ bool NWebInputMethodHandler::Reattach(uint32_t nwebId, ReattachType type) {
   lastAttachNWebId_ = nwebId;
   lastInputMode_ = imf_input_mode_;
 
+  if (focus_status_ && focus_rect_status_) {
+    if (inputmethod_adapter_) {
+      inputmethod_adapter_->OnCursorUpdate(GetCursorInfo());
+    }
+  }
+
   return show_keyboard_;
 }
 
