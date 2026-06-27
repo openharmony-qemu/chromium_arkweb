@@ -23,7 +23,6 @@ using namespace testing;
 #include "third_party/blink/renderer/core/page/drag_image.h"
 #include "third_party/blink/renderer/core/page/drag_image_ext.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/bitmap_image_test.cc"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -173,5 +172,33 @@ TEST_F(DragImageExtTest, CreateClippedByVisualViewport) {
       image_.get(), clip_rect, should_respect_image_orientation,
       device_scale_factor, interpolation_quality, opacity, image_scale);
   EXPECT_EQ(nullptr, drag_image);
+}
+
+TEST_F(DragImageExtTest, HwClampedImageScaleNonUniform) {
+  const gfx::Size image_size = gfx::Size(200, 100);
+  const gfx::Size element_size = gfx::Size(100, 50);
+  const float target_scale = 2.0;
+  gfx::Vector2dF image_scale =
+      DragImageExt::HwClampedImageScale(image_size, element_size, target_scale);
+  EXPECT_EQ(1.0, image_scale.x());
+  EXPECT_EQ(1.0, image_scale.y());
+}
+
+TEST_F(DragImageExtTest, filterNonPrintableEmpty) {
+  const String input = String("");
+  String printable = DragImageExt::filterNonPrintable(input);
+  EXPECT_EQ(0, printable.length());
+}
+
+TEST_F(DragImageExtTest, filterNonPrintableAllNonPrintable) {
+  const String input = String("\x01\x02\x03\x04");
+  String printable = DragImageExt::filterNonPrintable(input);
+  EXPECT_EQ(0, printable.length());
+}
+
+TEST_F(DragImageExtTest, filterNonPrintableMixed) {
+  const String input = String("abc\x01" "def\x02ghi");
+  String printable = DragImageExt::filterNonPrintable(input);
+  EXPECT_EQ(6, printable.length());
 }
 }  // namespace blink

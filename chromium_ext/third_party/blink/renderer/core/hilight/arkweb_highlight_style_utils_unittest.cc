@@ -102,4 +102,22 @@ TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextBackgroundColor_kDark) {
             Color::FromRGBA32(
                 ArkWebHighlightStyleUtils::kTargetTextBackgroundColorDark));
 }
+
+TEST_F(ArkWebHighlightStyleUtilsTest, InSelectionDraggingFalse) {
+  EXPECT_FALSE(ArkWebHighlightStyleUtils::InSelectionDragging(*document_));
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextForegroundColorNoSettings) {
+  document_->GetSettings()->SetArkwebAgentEnabled(false);
+  EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextForegroundColor(
+                *document_, mojom::blink::ColorScheme::kDark),
+            Color::kWhite);
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextBackgroundColorNoSettings) {
+  document_->GetSettings()->SetArkwebAgentEnabled(false);
+  EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextBackgroundColor(
+                *document_, mojom::blink::ColorScheme::kLight),
+            Color::FromRGBA32(shared_highlighting::kFragmentTextBackgroundColorARGB));
+}
 }  // namespace blink

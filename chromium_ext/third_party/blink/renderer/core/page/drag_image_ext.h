@@ -18,7 +18,6 @@
 
 #include "arkweb/build/features/features.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
-#include "third_party/blink/renderer/core/page/drag_controller.h"
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/core/page/drag_image.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
