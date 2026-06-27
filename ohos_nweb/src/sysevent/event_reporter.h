@@ -162,4 +162,8 @@ void ReportMetricsLogData(const std::string& compressed_log_data, const std::str
 
 bool ReportUniversalAccessBlocked();
 
+void ReportCacheDataSeparate(bool isSeparate);
+ 
+void ReportCacheDataMigrate(bool isMigrate);
+
 #endif

@@ -178,6 +178,9 @@ constexpr char HISTOGRAM_UMA_UKM[] = "HISTOGRAM_UMA_UKM";
 constexpr char HISTOGRAM_TYPE[] = "HISTOGRAM_TYPE";
 constexpr char HISTOGRAM_CONTENT[] = "HISTOGRAM_CONTENT";
 
+constexpr char CACHE_DATA_SEPARATE_STATISTICS[] = "CACHE_DATA_SEPARATE_STATISTICS";
+constexpr char CACHE_DATA_MIGRATE_STATISTICS[] = "CACHE_DATA_MIGRATE_STATISTICS";
+
 }  // namespace
 
 void ReportChildProcessInitFail(bool is_gpu, int err) {
@@ -643,4 +646,20 @@ bool ReportUniversalAccessBlocked() {
         BUNDLE_NAME, bundle_name
       });
   return true;
+}
+
+void ReportCacheDataSeparate(bool isSeparate) {
+  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      CACHE_DATA_SEPARATE_STATISTICS, HiSysEventAdapter::EventType::STATISTIC,
+      {
+        "SEPARATE_MODE", isSeparate ? std::string("separate") : std::string("not_separate")
+      });
+}
+ 
+void ReportCacheDataMigrate(bool isMigrate) {
+  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      CACHE_DATA_MIGRATE_STATISTICS, HiSysEventAdapter::EventType::STATISTIC,
+      {
+        "MIGRATE_MODE", isMigrate ? std::string("migrate") : std::string("not_migrate")
+      });
 }
