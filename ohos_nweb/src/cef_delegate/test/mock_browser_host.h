@@ -725,6 +725,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
 #endif
 #if BUILDFLAG(ARKWEB_READER_MODE)
   MOCK_METHOD(void, EnableReaderMode, (bool enabled), (override));
+  MOCK_METHOD(void, EnableCustomReaderMode, (bool enabled), (override));
   MOCK_METHOD(void,
               Distill,
               (uint64_t, const DistillOptions&, CefRefPtr<CefDistillCallback>),

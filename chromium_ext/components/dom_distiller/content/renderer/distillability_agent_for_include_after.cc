@@ -13,8 +13,6 @@
  * limitations under the License.
  */
 
-distillability_service->NotifyDidMeaningfulLayout(doc.Url().GetString().Utf8());
-
 // check host is in whitelist
 blink::mojom::UrlHostDistillerInfoPtr distiller_info = nullptr;
 distillability_service->GetHostDistillerInfo(GURL(doc.Url()).GetHost(),

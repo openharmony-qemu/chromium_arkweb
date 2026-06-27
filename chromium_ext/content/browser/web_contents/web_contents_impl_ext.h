@@ -369,6 +369,7 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   void EnableReaderMode(bool enabled) override;
+  void EnableCustomReaderMode(bool enabled) override;
   void OnIsPageDistillable(int page_type,
                            const std::string& distillable_page_url,
                            const std::string& title) override;

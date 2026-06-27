@@ -253,6 +253,7 @@ class MockRenderFrame : public content::RenderFrame {
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   bool IsReaderModeEnabled() override { return false; }
+  bool IsCustomReaderModeEnabled() override { return false; }
   void ReportDistillableResult(const std::string& event_type,
                                const std::string& value) override {};
 #endif

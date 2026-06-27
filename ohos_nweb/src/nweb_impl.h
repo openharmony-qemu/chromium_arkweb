@@ -812,6 +812,7 @@ class NWebImpl : public NWeb {
   static void UpdateReaderModeConfig(const std::string& file_path, const std::string& version);
   static void SetJsFilePath(const std::string& js_type, const std::string& file_path, const std::string& version);
   void EnableReaderMode(bool enabled);
+  void EnableCustomReaderMode(bool enabled);
   void Distill(uint64_t request_id, const DistillOptions& distill_options, DistillCallback callback);
   void AbortDistill();
 #endif

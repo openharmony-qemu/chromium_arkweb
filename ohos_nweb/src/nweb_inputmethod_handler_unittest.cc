@@ -579,6 +579,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void Distill(uint64_t request_id, const DistillOptions& distill_options,
     CefRefPtr<CefDistillCallback> callback) override {}
   void EnableReaderMode(bool enabled) override {}
+  void EnableCustomReaderMode(bool enabled) override {}
   void AbortDistill() override {}
 #endif // ARKWEB_READER_MODE
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)

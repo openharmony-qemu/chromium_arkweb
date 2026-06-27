@@ -6875,11 +6875,28 @@ void NWebDelegate::SetPageVisibility(bool visible) {
 #if BUILDFLAG(ARKWEB_READER_MODE)
 void NWebDelegate::EnableReaderMode(bool enabled) {
   LOG(INFO) << "NWebDelegate::EnableReaderMode: " << enabled;
-  if (GetBrowser() == nullptr || GetBrowser()->GetHost() == nullptr) {
-    LOG(ERROR) << "NWebDelegate::EnableReaderMode failed, can not get browser";
+  if (GetBrowser() && GetBrowser()->GetHost()) {
+    GetBrowser()->GetHost()->EnableReaderMode(enabled);
     return;
   }
-  GetBrowser()->GetHost()->EnableReaderMode(enabled);
+  if (handler_delegate_) {
+    handler_delegate_->EnableReaderMode(enabled);
+    return;
+  }
+  LOG(ERROR) << "NWebDelegate::EnableReaderMode failed";
+}
+
+void NWebDelegate::EnableCustomReaderMode(bool enabled) {
+  LOG(INFO) << "NWebDelegate::EnableCustomReaderMode: " << enabled;
+  if (GetBrowser() && GetBrowser()->GetHost()) {
+    GetBrowser()->GetHost()->EnableCustomReaderMode(enabled);
+    return;
+  }
+  if (handler_delegate_) {
+    handler_delegate_->EnableCustomReaderMode(enabled);
+    return;
+  }
+  LOG(ERROR) << "NWebDelegate::EnableCustomReaderMode failed";
 }
 
 void NWebDelegate::Distill(uint64_t request_id, const DistillOptions& distill_options, DistillCallback callback) {
