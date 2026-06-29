@@ -36,7 +36,7 @@ UserRulesetPublisher::UserRulesetPublisher(
           std::move(blocking_task_runner),
           ruleset_config)) {
   best_effort_task_runner_ =
-      content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT});
+      content::GetUIThreadTaskRunner({base::TaskPriority::USER_VISIBLE});
   CHECK(best_effort_task_runner_->BelongsToCurrentThread());
 }
 
