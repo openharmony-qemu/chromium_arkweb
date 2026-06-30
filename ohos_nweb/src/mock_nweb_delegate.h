@@ -1253,6 +1253,8 @@ class MockNWebDelegate : public NWebDelegateInterface {
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   MOCK_METHOD(void, SetErrorPageEnabled, (bool enable), (override));
   MOCK_METHOD(bool, GetErrorPageEnabled, (), (override));
+  MOCK_METHOD(void, SetErrorPageEnabled, (bool enable, bool includeSubframe), (override));
+  MOCK_METHOD(bool, GetSubframeErrorPageEnabled, (), (override));
 #endif
 
   MOCK_METHOD(int,
