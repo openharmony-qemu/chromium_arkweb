@@ -41,6 +41,7 @@ using blink::mojom::ReaderModeConfig;
 
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
 #include "base/functional/bind.h"
+#include "base/ohos/sys_info_utils_ext.h"
 #include "base/task/single_thread_task_runner.h"
 #include "arkweb/ohos_nweb/src/sysevent/event_reporter.h"
 #endif
@@ -68,6 +69,20 @@ ArkwebRenderProcessHostImplExt::ArkwebRenderProcessHostImplExt(
                             is_spare_renderer) {}
 
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
+namespace {
+constexpr int kChannelConnectedCheckTimeoutNormalSeconds = 6;
+constexpr int kChannelConnectedCheckTimeoutWearableSeconds = 12;
+
+// Wearable devices are slower to launch the render process and to set up the
+// IPC channel. Therefore, they need a longer timeout to avoid killing the render
+// process by mistake.
+int GetChannelConnectedCheckTimeoutSeconds() {
+  return base::ohos::IsWearableDevice()
+             ? kChannelConnectedCheckTimeoutWearableSeconds
+             : kChannelConnectedCheckTimeoutNormalSeconds;
+}
+}  // namespace
+
 bool ArkwebRenderProcessHostImplExt::IsProcessBackgrounded() {
   return priority_.is_background();
 }
@@ -85,8 +100,9 @@ void ArkwebRenderProcessHostImplExt::RenderProcessChannelConnectCheck() {
     return;
   }
   if (!IsReady()) {
-    LOG(WARNING) << "RenderProcessHost channel connect timeout(6s), terminate process: "
-                 << GetProcess().Handle();
+    LOG(WARNING) << "RenderProcessHost channel connect timeout("
+                 << GetChannelConnectedCheckTimeoutSeconds()
+                 << "s), terminate process: " << GetProcess().Handle();
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_STARTUP) && !defined(COMPONENT_BUILD)
     ReportRenderProcessTerminate(false, GetProcess().Handle(),
       std::string("TERMINATION_CHANNEL_CONNECT_FAILED"), 0);
@@ -97,20 +113,23 @@ void ArkwebRenderProcessHostImplExt::RenderProcessChannelConnectCheck() {
 
 void ArkwebRenderProcessHostImplExt::StartChannelConnectedCheckTask(ArkwebRenderProcessHostImplExt* host) {
   if (host->channel_connected_check_callback_.callback().is_null()) {
+    int timeout_seconds = GetChannelConnectedCheckTimeoutSeconds();
     LOG(INFO) << "RenderProcessHost: " << host->GetProcess().Handle()
-              << " Wait 6-second to monitoring channel connection status.";
+              << " Wait " << timeout_seconds
+              << "-second to monitoring channel connection status.";
     host->channel_connected_check_callback_.Reset(
       base::BindOnce(&ArkwebRenderProcessHostImplExt::RenderProcessChannelConnectCheck,
                      host->instance_weak_factory_.GetWeakPtr()));
     /* If the render process and the main process are killed before establishing IPC,
      * the main process cannot detect the death of the render process. This would cause
      * RenderProcessHostImpl to mistakenly assume that it still holds the connection,
-     * leading to incorrect reuse. Therefore, a 6-second check is set to verify whether
+     * leading to incorrect reuse. Therefore, a timeout check is set to verify whether
      * the IPC channel has been established; if not, the process is terminated and an
      * onRenderProcessExited callback is reported.
      */
     GetUIThreadTaskRunner({})->PostDelayedTask(
-      FROM_HERE, host->channel_connected_check_callback_.callback(), base::Seconds(6));
+      FROM_HERE, host->channel_connected_check_callback_.callback(),
+      base::Seconds(timeout_seconds));
   } else if (host->channel_connected_check_callback_.IsCancelled()) {
     LOG(ERROR) << "RenderProcessHost: " << host->GetProcess().Handle()
                << " channel connect check is cancelled.";
