@@ -1178,7 +1178,7 @@ void ParseDataMigrateFromArgForKey(const std::string& arg, const std::string& ke
     }
   }
 }
- 
+
 bool MigrateUserDataDir(const base::FilePath& src_path, const base::FilePath& dst_path) {
   if (base::PathExists(dst_path)) {
     return true;
@@ -1210,14 +1210,15 @@ void ClearCacheInDataDir(const base::FilePath& user_data_dir, const base::FilePa
   base::CreateDirectory(user_data_dir.Append(kWebCacheMigratedDir));
 }
  
-void MigrateUserData(const base::FilePath& user_data_dir,
+bool MigrateUserData(const base::FilePath& user_data_dir,
                                          const base::FilePath& cache_dir) {
   if (!MigrateUserDataDir(cache_dir, user_data_dir)) {
-    return;
+    return false;
   }
   if (!base::PathExists(user_data_dir.Append(kWebCacheMigratedDir))) {
     ClearCacheInDataDir(user_data_dir, cache_dir);
   }
+  return true;
 }
 
 void InitialWebEngineArgs(
@@ -1320,7 +1321,7 @@ void InitialWebEngineArgs(
   base::FilePath user_data_dir = base::FilePath();
   auto args_to_add = GetArgsToAdd(init_args);
   bool isMigration = false;
- 
+
   for (auto arg : args_to_add) {
     ParsePathFromArgForKey(arg, switches::kUserDataDir, user_data_dir);
     ParseDataMigrateFromArgForKey(arg, switches::kEnableCacheDataDirMigration, isMigration);
@@ -1329,11 +1330,15 @@ void InitialWebEngineArgs(
   base::FilePath target_cache_dir = user_data_dir.Append(kUserCacheDir);
   base::FilePath target_data_dir = user_data_dir.Append(kUserDataDir);
   if (isMigration) {
-    MigrateUserData(target_data_dir, target_cache_dir);
+    bool is_migration_success = MigrateUserData(target_data_dir, target_cache_dir);
+    ReportCacheDataMigrate(is_migration_success);
   }
   if (!(base::PathExists(target_cache_dir) && !base::PathExists(target_data_dir))) {
+    ReportCacheDataSeparate(true);
     web_engine_args.emplace_back("--enable-cache-data-dir-separation");
     LOG(INFO) << "dir data|cache isSeparation : true";
+  } else {
+    ReportCacheDataSeparate(false);
   }
   LOG(INFO) << "dir data|cache isMigration : " << isMigration;
 
