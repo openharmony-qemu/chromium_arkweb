@@ -93,6 +93,9 @@ class CONTENT_EXPORT RenderWidgetHostImplExt : public RenderWidgetHostImpl {
 
   void SetScrollable(bool enable);
 #endif
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  void ForceRedraw();
+#endif
 
 protected:
 #if BUILDFLAG(ARKWEB_SLIDE_LTPO)

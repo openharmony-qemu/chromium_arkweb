@@ -223,4 +223,12 @@ void RenderWidgetHostImplExt::SetScrollable(bool enable) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+void RenderWidgetHostImplExt::ForceRedraw() {
+  if (!blink_widget_) {
+    return;
+  }
+  blink_widget_->ForceRedraw(base::DoNothing());
+}
+#endif
 }  // namespace content

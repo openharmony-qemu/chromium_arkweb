@@ -1212,6 +1212,9 @@ void OnMediaCastEnter() override;
   static void RemoveLoadFinished(uint32_t nweb_id);
 #endif
  private:
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  void ForceRedrawForSafeBrowsing();
+#endif
 #if BUILDFLAG(ARKWEB_JSPROXY)
   enum class JsRunTime{Start = 0, End = 1, HEAD_READY};
   void InjectJsToWeb(JsRunTime time);
