@@ -5702,7 +5702,7 @@ void NWebImpl::SetConnectTimeout(int32_t seconds) {
 }
 
 void NWebImpl::SetConnectionTimeout(int32_t timeout) {
-  if (g_nweb_count == 0) {
+  if (!NWebApplication::GetDefault()->HasInitializedCef()) {
     WVLOG_I(
         "nweb had not initiated. Will set timeout value after network service "
         "initialized.");
