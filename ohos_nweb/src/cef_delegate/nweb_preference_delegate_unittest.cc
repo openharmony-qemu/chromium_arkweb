@@ -1135,6 +1135,17 @@ TEST(NWebPreferenceDelegateTest, PutErrorPageEnabled) {
     EXPECT_TRUE(preference_delegate->ErrorPageEnabled());
 }
 
+TEST(NWebPreferenceDelegateTest, PutSubframeErrorPageEnabled) {
+    auto preference_delegate = std::make_shared<NWebPreferenceDelegate>();
+    CefRefPtr<CefBrowser> browser = nullptr;
+    preference_delegate->SetBrowser(browser);
+    EXPECT_FALSE(preference_delegate->SubframeErrorPageEnabled());
+    preference_delegate->PutSubframeErrorPageEnabled(true);
+    EXPECT_TRUE(preference_delegate->SubframeErrorPageEnabled());
+    preference_delegate->PutSubframeErrorPageEnabled(false);
+    EXPECT_FALSE(preference_delegate->SubframeErrorPageEnabled());
+}
+
 TEST(NWebPreferenceDelegateTest, GetPreferenceHash) {
     auto preference_delegate = std::make_shared<NWebPreferenceDelegate>();
     CefRefPtr<CefBrowser> browser = nullptr;
