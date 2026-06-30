@@ -15,7 +15,12 @@
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "base/time/time.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/content/browser/content_autofill_driver.h"
+#include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
 #define private public
 #include "chrome/browser/password_manager/keyboard_suppressor_ohos.h"
 #undef private
@@ -23,6 +28,15 @@
 using namespace testing;
 
 class KeyboardSuppressorOhosTest : public ::testing::Test {};
+
+class MockContentAutofillDriver : public autofill::ContentAutofillDriver {
+public:
+    MockContentAutofillDriver()
+        : autofill::ContentAutofillDriver(nullptr, nullptr) {}
+    
+    MOCK_METHOD(content::RenderFrameHost*, render_frame_host, ());
+    MOCK_METHOD(content::RenderWidgetHost*, GetRenderWidgetHost, (), (const));
+};
 
 /**
  * @tc.name: KeyboardSuppressorOhosTest_Suppress_001.
@@ -53,4 +67,49 @@ TEST_F(KeyboardSuppressorOhosTest, KeyboardSuppressorOhosTest_Unsuppress_001) {
   keyboardSuppressorOhos.suppressed_driver_ = true;
   keyboardSuppressorOhos.Unsuppress();
   EXPECT_EQ(keyboardSuppressorOhos.suppressed_driver_, false);
+}
+
+TEST_F(KeyboardSuppressorOhosTest, KeyboardSuppressorOhosTest_Suppress_WithDriverNotInited_001) {
+  base::TimeDelta timeout = base::Milliseconds(100);
+  KeyboardSuppressorOhos keyboardSuppressorOhos(nullptr, timeout);
+
+  EXPECT_FALSE(keyboardSuppressorOhos.is_suppressor_inited_);
+  EXPECT_FALSE(keyboardSuppressorOhos.suppressed_driver_);
+
+  autofill::ContentAutofillDriver* driver = nullptr;
+  keyboardSuppressorOhos.Suppress(driver);
+
+  EXPECT_FALSE(keyboardSuppressorOhos.suppressed_driver_);
+}
+
+TEST_F(KeyboardSuppressorOhosTest, KeyboardSuppressorOhosTest_Unsuppress_AlreadyFalse_001) {
+  base::TimeDelta timeout = base::Milliseconds(100);
+  KeyboardSuppressorOhos keyboardSuppressorOhos(nullptr, timeout);
+
+  EXPECT_FALSE(keyboardSuppressorOhos.suppressed_driver_);
+  keyboardSuppressorOhos.Unsuppress();
+  EXPECT_FALSE(keyboardSuppressorOhos.suppressed_driver_);
+}
+
+/**
+ * @tc.name: KeyboardSuppressorOhosTest_Destructor_Unsuppress_001.
+ * @tc.desc: test of destructor in KeyboardSuppressorOhosTest
+ * @tc.type: FUNC.
+ */
+TEST_F(KeyboardSuppressorOhosTest, KeyboardSuppressorOhosTest_Destructor_Unsuppress_001) {
+  base::TimeDelta timeout = base::Milliseconds(100);
+  KeyboardSuppressorOhos* keyboardSuppressorOhos = new KeyboardSuppressorOhos(nullptr, timeout);
+  keyboardSuppressorOhos->suppressed_driver_ = true;
+  delete keyboardSuppressorOhos;
+}
+
+TEST_F(KeyboardSuppressorOhosTest, KeyboardSuppressorOhosTest_InitSuppressor_RfhNull_001) {
+  base::TimeDelta timeout = base::Milliseconds(100);
+  KeyboardSuppressorOhos keyboardSuppressorOhos(nullptr, timeout);
+
+  MockContentAutofillDriver mockDriver;
+  EXPECT_CALL(mockDriver, render_frame_host()).WillRepeatedly(Return(nullptr));
+  keyboardSuppressorOhos.InitSuppressor(mockDriver);
+
+  EXPECT_FALSE(keyboardSuppressorOhos.is_suppressor_inited_);
 }

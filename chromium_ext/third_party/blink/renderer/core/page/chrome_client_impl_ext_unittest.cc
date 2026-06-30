@@ -79,3 +79,22 @@ TEST_F(ChromeClientImplExtTest, GetFoldStatus) {
   request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
   EXPECT_EQ(chrome_client_impl_ext_->GetFoldStatus(nullptr), 0);
 }
+
+TEST_F(ChromeClientImplExtTest, GetWordSelection) {
+  ScopedPagePauser pauser;
+  LocalFrame* frame = To<WebLocalFrameImpl>(main_frame_)->GetFrame();
+  ASSERT_TRUE(frame);
+  FrameLoadRequest request(frame->DomWindow(), ResourceRequest());
+  request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
+  String text = String("Hello World");
+  Vector<int8_t> result = chrome_client_impl_ext_->GetWordSelection(frame, text, 0);
+}
+
+TEST_F(ChromeClientImplExtTest, GetVisibleRectToWebWithValidFrame) {
+  ScopedPagePauser pauser;
+  LocalFrame* frame = To<WebLocalFrameImpl>(main_frame_)->GetFrame();
+  ASSERT_TRUE(frame);
+  FrameLoadRequest request(frame->DomWindow(), ResourceRequest());
+  request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
+  gfx::Rect rect = chrome_client_impl_ext_->GetVisibleRectToWeb(frame);
+}

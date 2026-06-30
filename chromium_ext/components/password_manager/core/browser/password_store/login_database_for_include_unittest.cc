@@ -14,7 +14,7 @@
  */
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
-TEST_P(LoginDatabaseTest, UpdateLoginDisplayName) {
+TEST_F(LoginDatabaseTest, UpdateLoginDisplayName) {
   PasswordForm form;
   
   password_manager::PasswordStoreChangeList changes = db().AddLogin(form);

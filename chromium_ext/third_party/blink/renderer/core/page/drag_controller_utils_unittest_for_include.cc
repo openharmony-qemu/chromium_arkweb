@@ -128,6 +128,22 @@ TEST_F(DragControllerUtilsTest, DragRectForSelectionDrag) {
   EXPECT_TRUE(rect.y() <= visibleRect.y());
 }
 
+TEST_F(DragControllerUtilsTest, DragRectForSelectionDragEmptyVisibleRect) {
+  const gfx::RectF& visibleRect = gfx::RectF(0, 0, 0, 0);
+  gfx::Rect rect = DragRectForSelectionDrag(GetFrame(), visibleRect);
+  EXPECT_TRUE(rect.x() >= 0);
+  EXPECT_TRUE(rect.y() >= 0);
+}
+
+TEST_F(DragControllerUtilsTest, DragImageForLinkNullDocument) {
+  const KURL url = KURL("www.xxx.com");
+  const String link_text = String("www.xxx.com");
+  float device_scale_factor = 1.0;
+  std::unique_ptr<DragImage> drag_img =
+      DragImageForLink(url, link_text, device_scale_factor, nullptr);
+  EXPECT_NE(nullptr, drag_img);
+}
+
 /**
  * @tc.name: DragControllerUtilsTest
  * @tc.desc: DragImageForLink
@@ -158,6 +174,15 @@ TEST_F(DragControllerUtilsTest, ArkClampedImageScale) {
   // image_size.Area64() > kMaxOriginalImageArea
   image_size = gfx::Size(1600, 1600);
   ArkClampedImageScale(image_scale, image_size, image_element_size_in_pixels);
+}
+
+TEST_F(DragControllerUtilsTest, ArkClampedImageScaleLargeArea) {
+  gfx::Vector2dF image_scale = gfx::Vector2dF(0.5, 0.5);
+  gfx::Size image_size = gfx::Size(2000, 2000);
+  gfx::Size image_element_size_in_pixels = gfx::Size(100, 100);
+  ArkClampedImageScale(image_scale, image_size, image_element_size_in_pixels);
+  EXPECT_EQ(0.25, image_scale.x());
+  EXPECT_EQ(0.25, image_scale.y());
 }
 
 /**
@@ -228,5 +253,32 @@ TEST_F(DragControllerUtilsTest, CreateClippedDragImageForImage) {
   result_img = CreateClippedDragImageForImage(src, *target, c_image_rect,
                                               visibleRect, clipped_image_rect);
   EXPECT_EQ(nullptr, result_img);
+}
+
+TEST_F(DragControllerUtilsTest, CreateClippedDragImageForImageWithViewport) {
+  SetBodyInnerHTML(R"HTML(
+  <img id='drag' src="data:image/png;base64,)HTML" +
+                   String(BASE64_RED_IMAGE_DATA_100_100) +
+                   R"HTML(" width="100%" height="auto">
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  LocalFrame* src = &GetFrame();
+  Element* target = GetDocument().getElementById(AtomicString("drag"));
+  CreateImage(gfx::Size(100, 100));
+  ImageResourceContent* image_content =
+      ImageResourceContent::CreateLoaded(image_);
+  LayoutObject* obj = GetLayoutObjectByElementId("drag");
+  ASSERT_NE(obj, nullptr);
+  LayoutImage* img = DynamicTo<LayoutImage>(obj);
+  ASSERT_NE(img, nullptr);
+  LayoutImageResource* image_resource_ptr = img->ImageResource();
+  image_resource_ptr->SetImageResource(image_content);
+  gfx::Rect image_rect(0, 0, 100, 100);
+  gfx::RectF visibleRect(50, 50, 100, 100);
+  gfx::Rect clipped_image_rect(0, 0, 100, 100);
+
+  const gfx::Rect c_image_rect = image_rect;
+  std::unique_ptr<DragImage> result_img = CreateClippedDragImageForImage(
+      src, *target, c_image_rect, visibleRect, clipped_image_rect);
 }
 }  // namespace blink
