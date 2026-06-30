@@ -89,6 +89,8 @@
 #include "third_party/blink/renderer/platform/media/video_decode_stats_reporter.h"
 #include "third_party/blink/renderer/platform/media/web_content_decryption_module_impl.h"
 #include "third_party/blink/renderer/platform/media/web_media_source_impl.h"
+#include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "ui/gfx/geometry/size.h"
 
 #include "arkweb/chromium_ext/third_party/blink/renderer/platform/media/web_media_player_impl_ext.h"
@@ -293,6 +295,8 @@ void WebMediaPlayerImplExt::SetVideoSurface(int32_t widget_id) {
   video_surface_id_ = widget_id;
   if (surface_created_cb_) {
     surface_created_cb_.Run(widget_id);
+    if (widget_id > 0)
+      SetRenderVideoView(true);
   }
 
   if (paused_ && !seeking_) {
@@ -317,6 +321,17 @@ void WebMediaPlayerImplExt::SaveLastFrameTimeStamp() {
     LOG(DEBUG) << "WebMediaPlayerImplExt::SaveLastFrameTimeStamp:"
                << last_frame_timestamp_;
   }
+}
+
+void WebMediaPlayerImplExt::SetRenderVideoView(bool render_video_view) {
+  if (!client_->IsCustomMediaPlayerEnabled() || pip_enabled_)
+    return;
+
+  PostCrossThreadTask(
+      *vfc_task_runner_, FROM_HERE,
+      CrossThreadBindOnce(&VideoFrameCompositor::SetRenderVideoView,
+                          CrossThreadUnretained(compositor_.get()),
+                          render_video_view));
 }
 
 bool WebMediaPlayerImplExt::SupportVideoSurface() {
@@ -455,6 +470,7 @@ bool WebMediaPlayerImplExt::IsFrameHidden() {
 #if BUILDFLAG(ARKWEB_PIP)
 void WebMediaPlayerImpl::PipEnable(bool enable) {
   LOG(INFO) << "Pip WebMediaPlayerImpl::PipEnable" << enable << "]";
+  pip_enabled_ = enable;
   if (pipeline_controller_) {
     pipeline_controller_->PipEnable(enable);
   } else {

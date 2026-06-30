@@ -175,6 +175,7 @@ public:
   void OnLayerOpacityChange(float opacity);
   void SaveLastFrameTimeStamp();
   void HandleSurfaceSwitchWhenPaused();
+  void SetRenderVideoView(bool render_video_view) override;
 #endif  // ARKWEB_VIDEO_ASSISTANT
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)

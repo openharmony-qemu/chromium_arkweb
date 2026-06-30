@@ -44,6 +44,9 @@ class MockWebVideoFrameSubmitter : public WebVideoFrameSubmitter {
   MOCK_METHOD(void, DidReceiveFrame, (), (override));
   MOCK_METHOD(bool, IsDrivingFrameUpdates, (), (const, override));
   MOCK_METHOD(void, ResetDroppedFrameMetrics, (), (override));
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+  MOCK_METHOD(void, SetRenderVideoView, (bool), (override));
+#endif
 };
 
 class VideoFrameCompositorForIncludeTest : public testing::Test {
