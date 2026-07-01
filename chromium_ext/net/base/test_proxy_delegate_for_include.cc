@@ -78,4 +78,8 @@ bool TestProxyDelegate::IsFallbackProxyServer(
     const net::ProxyChain& proxy_chain) {
   return false;
 }
+
+bool TestProxyDelegate::IsAccelerateProxyConfig() {
+  return false;
+}
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)

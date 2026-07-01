@@ -51,4 +51,5 @@
   bool IsFallbackProxyServer(const net::ProxyChain& proxy_chain) override {
     return false;
   }
+  bool IsAccelerateProxyConfig() override { return false; }
 #endif

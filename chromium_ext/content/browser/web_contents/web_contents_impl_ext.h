@@ -500,6 +500,26 @@ private:
   cc::BrowserControlsState GetBrowserControlState();
 #endif // BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 
+#if BUILDFLAG(ARKWEB_NETWORK_DFX) && BUILDFLAG(ARKWEB_NWEB_EX)
+ public:
+  base::TimeTicks GetFullLoadingProgressTime(const GURL& source);
+  base::TimeTicks FirstVisuallyNonEmptyPaintTime(const GURL& source);
+  base::TimeTicks PageFinishedTime(const GURL& source);
+ 
+ private:
+  void RecordFirstVisuallyNonEmptyPaint();
+  void RecordFullLoadingProgress();
+  void RecordPageFinished();
+ 
+  base::TimeTicks first_visually_non_empty_paint_;
+  GURL first_visually_non_empty_paint_url_;
+  double last_loading_progress_ = 0;
+  base::TimeTicks full_loading_progress_time_;
+  GURL full_loading_progress_url_;
+  base::TimeTicks page_load_finished_;
+  GURL page_load_finished_url_;
+#endif
+
  private:
 #if BUILDFLAG(ARKWEB_TEST)
   friend class WebContentsImplUtilsTest;

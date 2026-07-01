@@ -15,6 +15,7 @@
 
 #if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
+#include "arkweb/chromium_ext/net/proxy_resolution/fallback_proxy_config.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_EX_HTTP_DNS_FALLBACK)
@@ -140,6 +141,17 @@ bool URLRequestHttpJob::MaybeRetryWithFallbackProxy(int& result) {
     }
   }
 
+  // 如果是仅主动代理模式，代理失败后使用直连重试
+  if (!did_use_fallback_proxy_ &&
+      transaction_ && transaction_->GetResponseInfo() &&
+      transaction_->GetResponseInfo()->is_accelerate_proxy &&
+      !IsFallbackProxyIgnoreErrorCode(result)) {
+    LOG(INFO) << "ActiveProxyAccelerate only mode enabled, try with direct for "
+              << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
+    RetryWithDirect();
+    return true;
+  }
+
   // 失败时查看是否可以使用代理重试
   ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
   if (did_use_fallback_proxy_) {
@@ -212,10 +224,12 @@ bool URLRequestHttpJob::MaybeRetryWithFallbackProxy(int& result) {
   }
 
   // 如果直接使用代理失败的话，需要使用非代理再重试一遍
-  if (is_using_fallback_proxy && !did_use_fallback_proxy_ &&
-      !IsFallbackProxyIgnoreErrorCode(result)) {
-    RetryWithDirect();
-    return true;
+  if (is_using_fallback_proxy && !did_use_fallback_proxy_) {
+    LOG(INFO) << "Request connect via proxy finished, result: " << result;
+    if (!IsFallbackProxyIgnoreErrorCode(result)) {
+      RetryWithDirect();
+      return true;
+    }
   }
 
   return false;
@@ -268,6 +282,14 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
     return false;
   }
 
+  // 如果是仅主动代理模式，不使用Fallback proxy进行重试
+  ProxyDelegate* proxy_delegate = request_->proxy_delegate();
+  if (proxy_delegate && proxy_delegate->IsAccelerateProxyConfig()) {
+      LOG(INFO) << "ActiveProxyAccelerate only mode enabled, skipping fallback retry for "
+                << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
+    return false;
+  }
+
   if (transaction_ && transaction_->GetResponseInfo() &&
       transaction_->GetResponseInfo()->used_fallback_proxy) {
     /* if has used fallback proxy, then return false */
@@ -277,7 +299,6 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
     return false;
   }
 
-  ProxyDelegate* proxy_delegate = request_->proxy_delegate();
   if (!proxy_delegate) {
     LOG(DEBUG)
         << "Can't retry with fallback proxy for proxy delegate null, url "

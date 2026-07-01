@@ -12,20 +12,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #ifndef HUAWEI_NET_PROXY_RESOLUTION_FALLBACK_PROXY_CONFIG_H_
 #define HUAWEI_NET_PROXY_RESOLUTION_FALLBACK_PROXY_CONFIG_H_
- 
+
+#include <atomic>
 #include <memory>
 #include <string>
- 
+
 #include "net/base/net_export.h"
 #include "url/gurl.h"
- 
+
 namespace net {
- 
+
 enum SBThreatURLPolicy { PROCEED, WAIT, DENY };
- 
+
 enum class ProxyUnusedReason {
   CLOUD_CONTROL_SWITCH_DISABLED = 0,
   ERROR_CODE_NOT_IN_CLOUD_LIST,
@@ -38,18 +39,22 @@ enum class ProxyUnusedReason {
   AUTH_FAILED,
   MAX_VALUE = 0xFF,
 };
- 
+
 class NET_EXPORT_PRIVATE FallbackProxyConfigStatus {
  public:
   static void SetStatus(bool enable, bool has_token);
   static int ProxyConfigEnable();
   static int HasToken();
- 
+
+  static bool IsActiveOnlyMode();
+  static void SetActiveOnlyMode(bool enable);
+
  private:
   static bool proxy_config_enable_;
   static bool has_token_;
+  static std::atomic<bool> active_only_mode_;
 };
- 
+
 }  // namespace net
- 
+
 #endif  // HUAWEI_NET_PROXY_RESOLUTION_FALLBACK_PROXY_CONFIG_H_

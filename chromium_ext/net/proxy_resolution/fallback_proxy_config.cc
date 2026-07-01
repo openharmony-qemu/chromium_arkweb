@@ -18,18 +18,27 @@
 namespace net {
 bool FallbackProxyConfigStatus::proxy_config_enable_ = false;
 bool FallbackProxyConfigStatus::has_token_ = false;
- 
+std::atomic<bool> FallbackProxyConfigStatus::active_only_mode_{false};
+
 void FallbackProxyConfigStatus::SetStatus(bool enable, bool has_token) {
   proxy_config_enable_ = enable;
   has_token_ = has_token;
 }
- 
+
 int FallbackProxyConfigStatus::ProxyConfigEnable() {
   return proxy_config_enable_ ? 1 : 0;
 }
- 
+
 int FallbackProxyConfigStatus::HasToken() {
   return has_token_ ? 1 : 0;
 }
- 
+
+void FallbackProxyConfigStatus::SetActiveOnlyMode(bool active_only_mode) {
+  active_only_mode_.store(active_only_mode, std::memory_order_release);
+}
+
+bool FallbackProxyConfigStatus::IsActiveOnlyMode() {
+  return active_only_mode_.load(std::memory_order_acquire);
+}
+
 }  // namespace net

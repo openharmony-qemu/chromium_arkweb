@@ -64,6 +64,10 @@
 #include "content/browser/download/save_package.h"
 #endif // ARKWEB_SAVE_PAGE
 
+#if BUILDFLAG(ARKWEB_NETWORK_DFX) && BUILDFLAG(ARKWEB_NWEB_EX)
+#include "third_party/blink/public/common/loader/loader_constants.h"
+#endif
+
 namespace content {
 
 WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
@@ -1661,6 +1665,59 @@ void WebContentsImplExt::GetSafeBrowsingCheckDetail(int& code,
   code = safe_browsing_check_code_;
   threat_type = safe_browsing_check_threat_type_;
   url = safe_browsing_check_url_;
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_DFX) && BUILDFLAG(ARKWEB_NWEB_EX)
+void WebContentsImplExt::RecordFirstVisuallyNonEmptyPaint() {
+  first_visually_non_empty_paint_ = base::TimeTicks::Now();
+  if (auto* entry = GetController().GetLastCommittedEntry()) {
+    first_visually_non_empty_paint_url_ = entry->GetUserTypedURL();
+  }
+}
+ 
+void WebContentsImplExt::RecordFullLoadingProgress() {
+  if (GetPrimaryPage().load_progress() == blink::kFinalLoadProgress &&
+      last_loading_progress_ != blink::kFinalLoadProgress) {
+    last_loading_progress_ = blink::kFinalLoadProgress;
+    full_loading_progress_time_ = base::TimeTicks::Now();
+    if (auto* entry = GetController().GetLastCommittedEntry()) {
+      full_loading_progress_url_ = entry->GetUserTypedURL();
+    }
+  } else {
+    last_loading_progress_ = GetPrimaryPage().load_progress();
+  }
+}
+ 
+void WebContentsImplExt::RecordPageFinished() {
+  if (!is_being_destroyed_) {
+    page_load_finished_ = base::TimeTicks::Now();
+    if (auto* entry = GetController().GetLastCommittedEntry()) {
+      page_load_finished_url_ = entry->GetUserTypedURL();
+    }
+  }
+}
+ 
+base::TimeTicks WebContentsImplExt::FirstVisuallyNonEmptyPaintTime(
+    const GURL& source) {
+  if (source != first_visually_non_empty_paint_url_) {
+    return base::TimeTicks();
+  }
+  return first_visually_non_empty_paint_;
+}
+ 
+base::TimeTicks WebContentsImplExt::PageFinishedTime(const GURL& source) {
+  if (source != page_load_finished_url_) {
+    return base::TimeTicks();
+  }
+  return page_load_finished_;
+}
+ 
+base::TimeTicks WebContentsImplExt::GetFullLoadingProgressTime(const GURL& source) {
+  if (source != full_loading_progress_url_) {
+    return base::TimeTicks();
+  }
+  return full_loading_progress_time_;
 }
 #endif
 }  // namespace content

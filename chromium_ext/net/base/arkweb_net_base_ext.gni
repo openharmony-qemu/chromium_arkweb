@@ -2,6 +2,7 @@ import("//arkweb/build/features/features.gni")
 
 arkweb_net_base_ext_sources = []
 arkweb_net_base_ext_unittest_sources = []
+arkweb_net_base_ext_host_sources = []
 
 if (arkweb_prp_preload) {
   arkweb_net_base_ext_sources += [
@@ -28,3 +29,8 @@ if (arkweb_logger_report) {
     "//arkweb/chromium_ext/net/base/log_utils.h",
   ]
 }
+
+arkweb_net_base_ext_host_sources += [
+  "//arkweb/chromium_ext/net/base/host_utils.cc",
+  "//arkweb/chromium_ext/net/base/host_utils.h",
+]

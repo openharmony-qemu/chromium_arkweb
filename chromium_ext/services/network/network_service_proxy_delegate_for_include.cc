@@ -273,6 +273,10 @@ int NetworkServiceProxyDelegate::GetProxyTunnelTimeout() {
 net::FallbackProxyStatus NetworkServiceProxyDelegate::GetFallbackProxyStatus() {
   return fallback_proxy_status_;
 }
+
+bool NetworkServiceProxyDelegate::IsAccelerateProxyConfig() {
+  return proxy_config_->is_accelerate_proxy;
+}
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
 
 }
