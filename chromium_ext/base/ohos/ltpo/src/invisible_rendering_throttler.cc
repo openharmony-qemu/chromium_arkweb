@@ -23,21 +23,12 @@ namespace ohos {
 
 static constexpr int64_t kNanosecondsPerSecond = 1000000000;
 
-int InvisibleRenderingThrottler::ReadIntProperty(const std::string& key,
-                                              int default_value) {
-  return OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetSystemPropertiesInstance()
-      .GetIntParameter(key, default_value);
-}
+void InvisibleRenderingThrottler::InitConfigWithParams(int32_t timeout,
+                                                         int32_t ratio) {
+  config_.invisible_throttle_timeout = base::Milliseconds(timeout);
+  config_.invisible_throttle_ratio = ratio;
 
-void InvisibleRenderingThrottler::InitConfig() {
-  int invisible_throttle_timeout = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_timeout", kDefaultInvisibleThrottleTimeoutMs);
-
-  config_.invisible_throttle_ratio = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_ratio", kDefaultInvisibleThrottleRatio);
-
-  LOG(INFO) << "InvisibleRenderingThrottler Config init - "
+  LOG(INFO) << "InvisibleRenderingThrottler Config init with params - "
             << "invisible_timeout_ms=" << config_.invisible_throttle_timeout.InMilliseconds()
             << ", invisible_ratio=" << config_.invisible_throttle_ratio;
 }
@@ -75,7 +66,7 @@ int32_t InvisibleRenderingThrottler::ThrottleRatio() {
     LOG(DEBUG) << "ShouldThrottle: no web components";
     return 1;
   }
- 
+
   // Check if all web components are in INVISIBLE_THROTTLED state
   for (const auto& pair : throttle_info_map_) {
     const auto& info = pair.second;
@@ -85,7 +76,7 @@ int32_t InvisibleRenderingThrottler::ThrottleRatio() {
       return 1;
     }
   }
- 
+
   LOG(DEBUG) << "ThrottleRatio: all components are INVISIBLE_THROTTLED";
   return config_.invisible_throttle_ratio;
 }

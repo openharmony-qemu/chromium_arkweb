@@ -43,10 +43,8 @@ class InvisibleRenderingThrottler {
   InvisibleRenderingThrottler(const InvisibleRenderingThrottler&) = delete;
   InvisibleRenderingThrottler& operator=(const InvisibleRenderingThrottler&) = delete;
 
-  int ReadIntProperty(const std::string& key, int default_value);
-
   // Set configuration parameters
-  void InitConfig();
+  void InitConfigWithParams(int32_t timeout, int32_t ratio);
 
   // Get current configuration
   const ThrottleConfig& GetConfig() const { return config_; }

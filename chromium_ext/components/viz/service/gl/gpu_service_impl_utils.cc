@@ -131,6 +131,10 @@ void GpuServiceImpl::SetLTPOStrategy(int32_t strategy) {
 void GpuServiceImpl::SetWebComponentVisible(int32_t nweb_id, bool visible) {
   base::ohos::DynamicFrameRateDecision::GetInstance().SetWebComponentVisible(nweb_id, visible);
 }
+
+void GpuServiceImpl::InitInvisibleThrottle(int32_t strategy, int32_t timeout, int32_t ratio) {
+  base::ohos::DynamicFrameRateDecision::GetInstance().InitInvisibleThrottle(strategy, timeout, ratio);
+}
 #endif
 //LCOV_EXCL_STOP
 

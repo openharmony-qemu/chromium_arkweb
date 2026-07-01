@@ -83,8 +83,8 @@ SlidingObserver::SlidingObserver() {
                            .GetSystemPropertiesInstance()
                            .GetLTPOConfig("scroll");
   off_screen_setting_ = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-                            .GetSystemPropertiesInstance()
-                            .GetLTPOConfig("fling");
+                           .GetSystemPropertiesInstance()
+                           .GetLTPOConfig("fling");
 
   auto display_manager_adapter =
       OHOS::NWeb::OhosAdapterHelperExt::CreateDisplayMgrAdapter();

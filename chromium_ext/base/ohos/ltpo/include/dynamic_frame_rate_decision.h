@@ -55,6 +55,7 @@ class DynamicFrameRateDecision {
   void SetLTPOStrategy(int32_t strategy);
 #if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
   void SetWebComponentVisible(int nweb_id, bool visible);
+  void InitInvisibleThrottle(int32_t strategy, int32_t timeout, int32_t ratio);
   int32_t ThrottleRatio();
 #endif
 
@@ -71,7 +72,6 @@ class DynamicFrameRateDecision {
 #if BUILDFLAG(ARKWEB_INVISIBLE_RENDER_THROTTLE)
   void SetWebComponentVisibleImpl(int nweb_id, bool visible);
   void EvaluateAllThrottleStates();
-  void InitializeThrottleComponents();
 #endif  
 
  private:
