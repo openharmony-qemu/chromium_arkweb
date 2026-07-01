@@ -139,14 +139,14 @@ disturl=https://repo.huaweicloud.com/nodejs/
 
   def _build(self, node_cmd):
     os.chdir(self.root)
-    source_dir = os.path.join(self.root, '../../ohos_sdk/23/')
+    source_dir = os.path.join(self.root, '../../ohos_sdk/24/')
     dest_dir = os.path.join(self.root, '../../ohos_sdk/sdk/')
     if os.path.exists(dest_dir):
       shutil.rmtree(dest_dir)
-    shutil.copytree(source_dir,f'{dest_dir}23')
-    subprocess.run(['mkdir','-p',f'{dest_dir}23/native'],check=True)
+    shutil.copytree(source_dir,f'{dest_dir}24')
+    subprocess.run(['mkdir','-p',f'{dest_dir}24/native'],check=True)
     subprocess.run(['mkdir','-p',f'{source_dir}native'],check=True)
-    shutil.copy(f'{source_dir}../ohos-sdk/linux/native/oh-uni-package.json',f'{dest_dir}23/native/')
+    shutil.copy(f'{source_dir}../ohos-sdk/linux/native/oh-uni-package.json',f'{dest_dir}24/native/')
     shutil.copy(f'{source_dir}../ohos-sdk/linux/native/oh-uni-package.json',f'{source_dir}native/')
     local_properties = os.path.join(os.path.abspath(self.root),
                                     'local.properties')

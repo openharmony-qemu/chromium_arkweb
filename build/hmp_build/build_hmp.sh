@@ -13,7 +13,7 @@ ls -lh $HW_HARMONY_ENGINE_OUT_RELEASE/ohos_nweb.hap
 python3 $HW_HARMONY_ENGINE_ROOT/src/arkweb/build/hmp_build/process_hap.py \
     --input ohos_nweb.hap \
     --output ohos_nweb_processed.hap \
-    --sdk $HW_HARMONY_ENGINE_ROOT/src/ohos_sdk/sdk/23
+    --sdk $HW_HARMONY_ENGINE_ROOT/src/ohos_sdk/sdk/24
  
 # Overwrite the original hap file
 cp ohos_nweb_processed.hap ohos_nweb.hap
