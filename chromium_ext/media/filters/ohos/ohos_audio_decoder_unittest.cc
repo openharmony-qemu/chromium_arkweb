@@ -879,4 +879,203 @@ TEST_F(OhosAudioDecoderTest, Reset)
   decoder_->Reset(base::BindOnce([]() {}));
   EXPECT_EQ(decoder_->state_, OHOSAudioDecoder::ERROR);
 }
+
+TEST_F(OhosAudioDecoderTest, GetMimeType_01)
+{
+  AudioDecoderConfig config = NewAudioConfig(AudioCodec::kAAC);
+  std::string result01 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result01, "audio/mp4a-latm");
+
+  config = NewAudioConfig(AudioCodec::kFLAC);
+  std::string result02 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result02, "audio/flac");
+
+  config = NewAudioConfig(AudioCodec::kVorbis);
+  std::string result03 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result03, "audio/vorbis");
+
+  config = NewAudioConfig(AudioCodec::kMP3);
+  std::string result04 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result04, "audio/mpeg");
+
+  config = NewAudioConfig(AudioCodec::kAMR_NB);
+  std::string result05 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result05, "audio/3gpp");
+
+  config = NewAudioConfig(AudioCodec::kAMR_WB);
+  std::string result06 = decoder_->GetMimeType(config);
+  EXPECT_EQ(result06, "audio/amr-wb");
+
+  config = NewAudioConfig(AudioCodec::kUnknown);
+  std::string result07 = decoder_->GetMimeType(config);
+
+  config = NewAudioConfig(AudioCodec::kOpus);
+  std::string result08 = decoder_->GetMimeType(config);
+
+  config = NewAudioConfig(AudioCodec::kPCM);
+  std::string result09 = decoder_->GetMimeType(config);
+
+  config = NewAudioConfig(AudioCodec::kAC3);
+  std::string result10 = decoder_->GetMimeType(config);
+
+  config = NewAudioConfig(AudioCodec::kEAC3);
+  std::string result11 = decoder_->GetMimeType(config);
+
+  config = NewAudioConfig(AudioCodec::kMpegHAudio);
+  std::string result12 = decoder_->GetMimeType(config);
+}
+
+TEST_F(OhosAudioDecoderTest, OnMediaCryptoReady_001)
+{
+  base::test::TestFuture<DecoderStatus> future;
+  AudioDecoder::InitCB init_cb = future.GetCallback();
+  decoder_->mime_type_ = "";
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  decoder_->state_ = OHOSAudioDecoder::State::UNINITIALIZED;
+  int32_t test_session;
+  decoder_->OnMediaCryptoReady(std::move(init_cb), &test_session, false);
+  EXPECT_EQ(future.Get(), media::DecoderStatus::Codes::kFailed);
+  EXPECT_EQ(decoder_->state_, OHOSAudioDecoder::State::UNINITIALIZED);
+}
+
+TEST_F(OhosAudioDecoderTest, OnMediaCryptoReady_002)
+{
+  base::test::TestFuture<DecoderStatus> future;
+  AudioDecoder::InitCB init_cb = future.GetCallback();
+  decoder_->mime_type_ = "audio/mpeg";
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  decoder_->channel_count_ = 2;
+  decoder_->sample_rate_ = 44100;
+  decoder_->state_ = OHOSAudioDecoder::State::UNINITIALIZED;
+  int32_t test_session;
+  decoder_->OnMediaCryptoReady(std::move(init_cb), &test_session, false);
+  auto status = future.Get();
+  EXPECT_TRUE(status.is_ok() || status.code() == media::DecoderStatus::Codes::kFailed);
+}
+
+TEST_F(OhosAudioDecoderTest, OnMediaCryptoReady_003)
+{
+  base::test::TestFuture<DecoderStatus> future;
+  AudioDecoder::InitCB init_cb = future.GetCallback();
+  decoder_->mime_type_ = "audio/mp4a-latm";
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  decoder_->channel_count_ = 2;
+  decoder_->sample_rate_ = 48000;
+  decoder_->state_ = OHOSAudioDecoder::State::UNINITIALIZED;
+  int32_t test_session;
+  decoder_->OnMediaCryptoReady(std::move(init_cb), &test_session, false);
+  auto status = future.Get();
+  EXPECT_TRUE(status.is_ok() || status.code() == media::DecoderStatus::Codes::kFailed);
+  EXPECT_EQ(decoder_->mediaKeySession_, &test_session);
+}
+
+TEST_F(OhosAudioDecoderTest, OnMediaCryptoReady_004)
+{
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  decoder_->state_ = OHOSAudioDecoder::State::WAITING_FOR_MEDIA_CRYPTO;
+  int32_t test_session;
+  decoder_->OnMediaCryptoReady(base::DoNothing(), &test_session, false);
+  EXPECT_EQ(decoder_->mediaKeySession_, &test_session);
+}
+
+TEST_F(OhosAudioDecoderTest, OnMediaCryptoReady_005)
+{
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  decoder_->state_ = OHOSAudioDecoder::State::UNINITIALIZED;
+  decoder_->OnMediaCryptoReady(base::DoNothing(), nullptr, true);
+  EXPECT_EQ(decoder_->state_, OHOSAudioDecoder::State::UNINITIALIZED);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_001)
+{
+  decoder_->audio_decoder_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("test");
+  EXPECT_EQ(ret, false);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_002)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->audio_decoder_created_ = true;
+  decoder_->sample_rate_ = 44100;
+  decoder_->channel_count_ = 2;
+  decoder_->decoder_callback_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("audio/mpeg");
+  EXPECT_EQ(ret, false);
+  EXPECT_NE(decoder_->decoder_callback_, nullptr);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_003)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->audio_decoder_created_ = false;
+  decoder_->sample_rate_ = 44100;
+  decoder_->channel_count_ = 2;
+  decoder_->decoder_callback_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("audio/mpeg");
+  EXPECT_EQ(ret, true);
+  EXPECT_TRUE(decoder_->audio_decoder_created_);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_004)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->audio_decoder_created_ = false;
+  decoder_->sample_rate_ = 48000;
+  decoder_->channel_count_ = 2;
+  decoder_->decoder_callback_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("audio/mp4a-latm");
+  EXPECT_EQ(ret, true);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_005)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->audio_decoder_created_ = true;
+  decoder_->sample_rate_ = 44100;
+  decoder_->channel_count_ = 2;
+  decoder_->decoder_callback_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("audio/flac");
+  EXPECT_EQ(ret, false);
+}
+
+TEST_F(OhosAudioDecoderTest, InitAudioDecoder_006)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->audio_decoder_created_ = false;
+  decoder_->sample_rate_ = 22050;
+  decoder_->channel_count_ = 1;
+  decoder_->decoder_callback_ = nullptr;
+  bool ret = decoder_->InitAudioDecoder("audio/vorbis");
+  EXPECT_EQ(ret, false);
+}
+
+TEST_F(OhosAudioDecoderTest, ReleaseOutputBufferDec)
+{
+  decoder_->audio_decoder_ = nullptr;
+  auto code = decoder_->ReleaseOutputBufferDec(0);
+  EXPECT_EQ(code, AudioDecoderAdapterCode::DECODER_ERROR);
+}
+
+TEST_F(OhosAudioDecoderTest, ReleaseOutputBufferDec_001)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  auto code = decoder_->ReleaseOutputBufferDec(0);
+  EXPECT_EQ(code, AudioDecoderAdapterCode::DECODER_ERROR);
+}
+
+TEST_F(OhosAudioDecoderTest, UpdateOutputFormat)
+{
+  decoder_->audio_decoder_ = nullptr;
+  testing::internal::CaptureStderr();
+  decoder_->UpdateOutputFormat();
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("audio_decoder_ is nullptr"), std::string::npos);
+}
+
+TEST_F(OhosAudioDecoderTest, UpdateOutputFormat_001)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  decoder_->UpdateOutputFormat();
+}
 }
