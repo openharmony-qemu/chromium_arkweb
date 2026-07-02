@@ -430,9 +430,10 @@ bool BrowserAccessibilityManagerOHOS::JumpToElementType(
     int64_t accessibility_id, const std::string& element_type, bool forwards, bool can_wrap)
 {
   std::string upper_element_type;
-  std::transform(element_type.begin(), element_type.end(), upper_element_type.begin(), [](char c) {
-      return std::toupper(c);
-  });
+  upper_element_type.reserve(element_type.size());
+  std::transform(element_type.begin(), element_type.end(),
+                 std::back_inserter(upper_element_type),
+                 [](unsigned char c) { return std::toupper(c); });
 
   int64_t id = FindElementType(
       accessibility_id, upper_element_type, forwards, can_wrap, upper_element_type == "");
