@@ -75,7 +75,8 @@ OHOSMediaPlayerBridge::~OHOSMediaPlayerBridge() {
 
 int32_t OHOSMediaPlayerBridge::Initialize() {
   if (url_.SchemeIsBlob()) {
-    NOTREACHED();
+    LOG(ERROR) << "Rejecting blob: URL. Invalid scheme for system player.";
+    return PLAYER_INIT_ERROR;
   }
   if (allow_credentials_ && client_ != nullptr) {
     media::OHOSMediaResourceGetter* resource_getter_ = client_->GetMediaResourceGetter();
@@ -173,7 +174,8 @@ void OHOSMediaPlayerBridge::Prepare() {
   DCHECK(!player_);
 
   if (url_.SchemeIsBlob()) {
-    NOTREACHED();
+    LOG(ERROR) << "Rejecting blob: URL. Invalid scheme for system player.";
+    return;
   }
 
   player_ = OHOS::NWeb::OhosAdapterHelper::GetInstance().CreatePlayerAdapter();
