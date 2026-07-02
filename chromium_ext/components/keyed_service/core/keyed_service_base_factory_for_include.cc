@@ -45,6 +45,11 @@ const std::unordered_set<std::string>& KeyedServiceBaseFactory::GetDisableServic
   // 检查解析结果是否为数组类型
   if (doc.IsArray()) {
     for (const auto& s : doc.GetArray()) {
+      if (!s.IsString()) {
+        LOG(WARNING) << "WARNING: non-string service name in "
+                    << file_path.value();
+        continue;
+      }
       services.insert(s.GetString());
     }
   } else {
@@ -57,6 +62,10 @@ const std::unordered_set<std::string>& KeyedServiceBaseFactory::GetDisableServic
 }
 
 bool KeyedServiceBaseFactory::KeyedServiceDisabled(const char* service_name) {
+  if (service_name == nullptr) {
+    return false;
+  }
+
   const std::unordered_set<std::string>& desired_strings = GetDisableServices();
   std::string service_name_input = std::string(service_name);
   if (desired_strings.count(service_name_input) > 0) {
