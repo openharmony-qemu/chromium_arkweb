@@ -60,3 +60,11 @@ void StatisticsTotalFreeTime(bool is_playing,
   last_frame_time = now;
 }
 #endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+void VideoFrameCompositor::SetRenderVideoView(bool render_video_view) {
+  DCHECK(task_runner_->BelongsToCurrentThread());
+  if (submitter_)
+    submitter_->SetRenderVideoView(render_video_view);
+}
+#endif

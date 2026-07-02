@@ -79,6 +79,18 @@ void VideoFrameSubmitter::StopRenderingForSameLayerImpl()
   }
 }
 
+void VideoFrameSubmitter::SetRenderVideoView(bool render_video_view) {
+  TRACE_EVENT1("media", "VideoFrameSubmitter::SetRenderVideoView", "render_video_view", render_video_view);
+  render_video_view_ = render_video_view;
+  if (!render_video_view) {
+    force_submit_ = true;
+    force_resubmit_ = true;
+    SubmitSingleFrame();
+    force_submit_ = false;
+    force_resubmit_ = false;
+  }
+}
+
 #if !defined(COMPONENT_BUILD) // Avoid component compilation.
 void VideoFrameSubmitter::ResetDroppedFrameMetrics() {
   is_first_frame_ = true;

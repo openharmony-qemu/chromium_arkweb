@@ -530,6 +530,13 @@ bool HTMLMediaElement::SupportVideoAssistantDownload() const {
   return true;
 }
 
+void HTMLMediaElement::SetRenderVideoView(bool render_video_view) {
+  if (GetWebMediaPlayer()) {
+    TRACE_EVENT1("media", "HTMLMediaElement::SetRenderVideoView",
+                 "render_video_view", render_video_view);
+    GetWebMediaPlayer()->SetRenderVideoView(render_video_view);
+  }
+}
 #endif  // ARKWEB_VIDEO_ASSISTANT
 
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
