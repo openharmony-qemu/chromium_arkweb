@@ -23,6 +23,8 @@ void ChromeProcessManagerDelegate::OnOtrProfileAdded(Profile* profile) {
     return;
   }
 
-  ProcessManager::Get(profile)->MaybeCreateStartupBackgroundHosts();
+  if (ProcessManager* process_manager = ProcessManager::Get(profile)) {
+    process_manager->MaybeCreateStartupBackgroundHosts();
+  }
 }
 } // namespace extensions
