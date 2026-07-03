@@ -84,6 +84,11 @@ class DumpFrameObserver : public OHOS::NWeb::SystemPropertiesObserver {
 
   bool ShouldDump() {
     std::lock_guard<std::mutex> lock(mutex_);
+    is_dump_force_ = OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance().GetBoolParameter(
+        "web.debug.forceDump", false);
+    if (is_dump_force_) {
+        return true;
+    }
     return should_dump_ ||
            (dump_param_list_.size() > 0 && dump_param_list_[0] == "true");
   }
@@ -93,6 +98,10 @@ class DumpFrameObserver : public OHOS::NWeb::SystemPropertiesObserver {
     int32_t dumpFreq = DUMP_FRAME_FREQ;
     if (dump_param_list_.size() > 1) {
       dumpFreq = std::stoi(dump_param_list_[1]);
+    }
+
+    if (is_dump_force_) {
+      dumpFreq = 0;
     }
 
     if (dump_freq_count == dumpFreq) {
@@ -115,6 +124,7 @@ class DumpFrameObserver : public OHOS::NWeb::SystemPropertiesObserver {
 
  private:
   bool should_dump_ = false;
+  bool is_dump_force_ = false;
   int dump_freq_count = 0;
   std::vector<std::string> dump_param_list_;
   std::mutex mutex_;

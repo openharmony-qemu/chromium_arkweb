@@ -24,6 +24,11 @@
 #include "third_party/skia/include/core/SkStream.h"
 #include "third_party/skia/include/encode/SkPngEncoder.h"
 
+#include <vector>
+#include "ui/gfx/codec/png_codec.h"
+#include "base/files/file_util.h"
+#include "base/files/file_path.h"
+
 namespace viz {
 
 namespace {
@@ -64,20 +69,22 @@ FrameDumpCopyOutputRequest::FrameDumpCopyOutputRequest(
             filename.append(GetDumpFilePre());
             filename.append(std::to_string(dump_frame_id));
             filename.append(GetDumpFileType());
-#if !defined(SK_CODEC_ENCODES_PNG_WITH_RUST)
-            SkFILEWStream file(filename.c_str());
+
             SkBitmap bitmap = result->ScopedAccessSkBitmap().bitmap();
-            SkPngEncoder::Options opts;
-            opts.fFilterFlags = SkPngEncoder::FilterFlag::kAll;
-            opts.fZLibLevel = 6;
-            bool res = SkPngEncoder::Encode(&file, bitmap.pixmap(), opts);
-            if (!res) {
-              LOG(ERROR) << "frame dump png file error, filename = "
-                         << filename;
+            std::optional<std::vector<uint8_t>> image_data = gfx::PNGCodec::EncodeBGRASkBitmap(
+              bitmap, 
+              /*discard_transparency=*/false
+            );
+
+            if (!image_data) {
+              LOG(ERROR) << "frame encode failed";
+              return;
             }
-#else
-            LOG(ERROR) << "Frame dump to PNG is not supported with Rust PNG encoder (SK_CODEC_ENCODES_PNG_WITH_RUST)";
-#endif
+            const base::FilePath file_path(filename);
+            bool write_success = base::WriteFile(file_path, std::move(image_data).value());
+            if (!write_success) {
+              LOG(ERROR) << "frame dump failed";
+            }
           }),
           id,
           dump_path) {}
