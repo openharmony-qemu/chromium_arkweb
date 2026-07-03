@@ -496,6 +496,9 @@ private:
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void OnSafeBrowsingCheckDetail(int code, int policy, int threat) override;
 #endif
+#if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
+  cc::BrowserControlsState GetBrowserControlState();
+#endif // BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 
  private:
 #if BUILDFLAG(ARKWEB_TEST)
