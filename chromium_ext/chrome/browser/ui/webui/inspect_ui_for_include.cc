@@ -69,7 +69,11 @@ bool InspectUI::InspectInclude(const std::string& source_id,
     .panel = panel
   };
   if (WebContents* web_contents = target->GetWebContents()) {
-    web_contents->GetDelegate()->OnRequestOpenDevTools(&params);
+    if (web_contents->GetDelegate()) {
+      web_contents->GetDelegate()->OnRequestOpenDevTools(&params);
+    } else {
+      LOG(WARNING) << "InspectInclude failed, no WebContentsDelegate";
+    }
   } else {
     RequestOpenDevToolsHandler::GetInstance()->OnRequestOpenDevTools(params);
   }
