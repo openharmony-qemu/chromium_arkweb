@@ -49,9 +49,9 @@ class FilterToolUtils {
       const std::string& request_url,
       const std::string& request_type,
       bool& blocked,
-      std::unordered_map<const url_pattern_index::flat::UrlRule*, int>
+      std::unordered_map<const url_pattern_index::flat::UrlRule*, int>&
           matched_url_rules,
-      std::unordered_map<const url_pattern_index::flat::CssRule*, int>
+      std::unordered_map<const url_pattern_index::flat::CssRule*, int>&
           matched_css_rules,
       raw_ptr<FilterTool> obj) {
     const url_pattern_index::flat::UrlRule* url_rule =
