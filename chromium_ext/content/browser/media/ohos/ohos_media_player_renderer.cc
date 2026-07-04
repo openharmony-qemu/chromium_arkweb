@@ -162,8 +162,8 @@ void OHOSMediaPlayerRenderer::SetPlaybackRate(double playback_rate) {
     } else {
       mode = OHOS::NWeb::PlaybackRateMode::SPEED_FORWARD_2_00_X;
     }
-    media_player_->SetPlaybackSpeed(mode);
     media_player_->Start();
+    media_player_->SetPlaybackSpeed(mode);
   }
 }
 

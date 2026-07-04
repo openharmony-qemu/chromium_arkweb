@@ -136,13 +136,15 @@ void OHOSMediaResourceGetterImpl::GetAuthCredentials(
     return;
   }
 
-  // NOTE: LookupServerBasicAuthCredentials was removed in Chromium 141.
-  // The authentication mechanism has been redesigned. This functionality
-  // needs to be reimplemented using the new authentication architecture.
-  // For now, return empty credentials to maintain compilation and reasonable behavior.
-  // TODO: Reimplement authentication credential retrieval using Chromium 141's new architecture.
-  GetAuthCredentialsCallback(std::move(callback), std::nullopt);
-  return;
+  if (browser_context_ && browser_context_->GetDefaultStoragePartition() &&
+      browser_context_->GetDefaultStoragePartition()->GetNetworkContext()) {
+    browser_context_->GetDefaultStoragePartition()
+        ->GetNetworkContext()
+        ->LookupServerBasicAuthCredentials(
+            url, render_frame_host->GetIsolationInfoForSubresources().network_anonymization_key(),
+            base::BindOnce(&OHOSMediaResourceGetterImpl::GetAuthCredentialsCallback,
+                           weak_factory_.GetWeakPtr(), std::move(callback)));
+  }
 }
 
 void OHOSMediaResourceGetterImpl::GetCookies(
