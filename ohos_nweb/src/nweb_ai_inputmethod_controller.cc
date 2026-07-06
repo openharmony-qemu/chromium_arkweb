@@ -127,20 +127,20 @@ std::string NWebAIInputMethodController::HandleClickOrFocus(const base::Value::D
     auto* paramsValue = jsonDict.FindDict("params");
     if (!paramsValue) {
         WVLOG_E("NWebAIInputMethodController: params not found");
-        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_PARAMS_MISSING), "click params not found");
+        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_PARAMS_MISSING), "click/focus params not found");
     }
 
     std::string xpath;
     auto xpathValue = paramsValue->FindString("XPath/nodeid");
     if (!xpathValue) {
         WVLOG_E("NWebAIInputMethodController: nodeid not found");
-        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_NODEID_MISSING), "click nodeid not found");
+        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_NODEID_MISSING), "click/focus nodeid not found");
     }
     xpath = *xpathValue;
     
     if (xpath.empty()) {
         WVLOG_E("NWebAIInputMethodController: nodeid is empty");
-        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_NODEID_EMPTY), "click nodeid is empty");
+        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_NODEID_EMPTY), "click/focus nodeid is empty");
     }
     WVLOG_I("NWebAIInputMethodController: %{public}s at %{public}s", method.c_str(), xpath.c_str());
 
@@ -148,12 +148,12 @@ std::string NWebAIInputMethodController::HandleClickOrFocus(const base::Value::D
     jsStr = CombineClickFocusJsString(method, xpath);
     if (!nwebDelegate_) {
         WVLOG_E("NWebAIInputMethodController: nwebDelegate_ is null");
-        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_DELEGATE_NULL), "click delegate not initialized");
+        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_DELEGATE_NULL), "click/focus delegate not initialized");
     }
     bool isElement = nwebDelegate_->IsElementExist(xpath);
     if (!isElement) {
         WVLOG_E("NWebAIInputMethodController: element not exist, xpath: %{public}s", xpath.c_str());
-        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_ELEMENT_NOT_FOUND), "click element not exist");
+        return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_ELEMENT_NOT_FOUND), "click/focus element not exist");
     }
     nwebDelegate_->ExecuteJavaScript(jsStr);
     return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::SUCCESS), "success");
