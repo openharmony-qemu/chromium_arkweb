@@ -1791,6 +1791,12 @@ bool NWebImpl::Init(std::shared_ptr<NWebCreateInfo> create_info) {
   }
 
   incognito_mode_ = create_info->GetIsIncognitoMode();
+#if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
+  if (base::ohos::IsWearableDevice()) {
+    WVLOG_E("incognito mode is not supported on wearable devices");
+    incognito_mode_ = false;
+  }
+#endif
 
   output_handler_->SetNWebId(nweb_id_);
 
@@ -2069,15 +2075,14 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
 #endif
 #if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
       ,
-      create_info->GetIsIncognitoMode()
+      incognito_mode_
 #endif
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_SHARE)
           ,
       shared_render_process_token
 #endif
   );
-  WVLOG_D("nweb create_info.incognito_mode: %{public}d",
-          create_info->GetIsIncognitoMode());
+  WVLOG_D("nweb create_info.incognito_mode: %{public}d", incognito_mode_);
   if (nweb_delegate_ == nullptr) {
     WVLOG_E("Init web engine failed, create nweb delegate failed");
     delete[] argv;
