@@ -30,10 +30,13 @@ namespace OHOS::NWeb {
 
 namespace {
 
-std::string BuildResultJson(int32_t code, const std::string& message) {
+std::string BuildResultJson(int32_t code, const std::string& message, const std::string& data = "") {
   base::Value::Dict result;
   result.Set("code", code);
   result.Set("message", message);
+  if (!data.empty()) {
+    result.Set("data", data);
+  }
   std::string json;
   base::JSONWriter::Write(result, &json);
   return json;
@@ -615,7 +618,8 @@ void ScreenshotObserver::FinishWithSuccess() {
   CleanupDomDomain();
 
   if (callback_) {
-    callback_->OnReceiveValue(screenshot_data_);
+    callback_->OnReceiveValue(BuildResultJson(
+        static_cast<int32_t>(WebCommandErrorCode::SUCCESS), "success", screenshot_data_));
   }
   if (registration_) {
     registration_ = nullptr;

@@ -71,14 +71,14 @@ void ApplySurfaceCropAndEncode(
     const gfx::Image& image) {
   if (image.IsEmpty()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Snapshot image is empty";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_SNAPSHOT_IMAGE_EMPTY, "snapshot image is empty"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "snapshot image is empty"));
     return;
   }
 
   const SkBitmap* bitmap = image.ToSkBitmap();
   if (!bitmap || bitmap->drawsNothing()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Failed to get SkBitmap from image";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_SKBITMAP_GET_FAILED, "failed to get SkBitmap from image"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "failed to get SkBitmap from image"));
     return;
   }
 
@@ -113,7 +113,7 @@ void ApplySurfaceCropAndEncode(
   std::string base64_data = EncodeSkBitmapToBase64Png(cropped);
   if (base64_data.empty()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Failed to encode cropped bitmap";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_BITMAP_ENCODE_FAILED, "failed to encode cropped bitmap"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "failed to encode cropped bitmap"));
     return;
   }
 
@@ -133,21 +133,21 @@ void OnSnapshotReceivedSimple(
     const gfx::Image& image) {
   if (image.IsEmpty()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Snapshot image is empty";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_SNAPSHOT_IMAGE_EMPTY, "snapshot image is empty"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "snapshot image is empty"));
     return;
   }
 
   const SkBitmap* bitmap = image.ToSkBitmap();
   if (!bitmap || bitmap->drawsNothing()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Failed to get SkBitmap from image";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_SKBITMAP_GET_FAILED, "failed to get SkBitmap from image"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "failed to get SkBitmap from image"));
     return;
   }
 
   std::string base64_data = EncodeSkBitmapToBase64Png(*bitmap);
   if (base64_data.empty()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] Failed to encode bitmap";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_BITMAP_ENCODE_FAILED, "failed to encode bitmap"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::FAILED, "failed to encode bitmap"));
     return;
   }
 
@@ -164,7 +164,7 @@ void ScreenshotCaptureUtil::CaptureWithClip(
     CaptureCallback callback) {
   if (!browser) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] browser is null";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_BROWSER_NULL, "browser is null"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::WEB_NWEB_NULL, "browser is not available"));
     return;
   }
 
@@ -173,14 +173,14 @@ void ScreenshotCaptureUtil::CaptureWithClip(
                      : nullptr;
   if (!cef_frame) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] failed to get cef frame";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_CEF_FRAME_NOT_FOUND, "cef frame not found"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::PAGE_NOT_READY, "frame is not available"));
     return;
   }
 
   content::RenderFrameHost* rfh = cef_frame->GetRenderFrameHost();
   if (!rfh) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] render frame host is null";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_RENDER_FRAME_HOST_NULL, "render frame host is null"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::PAGE_NOT_READY, "render is not available"));
     return;
   }
 
@@ -188,13 +188,13 @@ void ScreenshotCaptureUtil::CaptureWithClip(
       static_cast<content::RenderWidgetHostImpl*>(rfh->GetRenderWidgetHost());
   if (!widget_host) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] render widget host is null";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_RENDER_WIDGET_HOST_NULL, "render widget host is null"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::PAGE_NOT_READY, "render widget host is not available"));
     return;
   }
 
   if (!widget_host->GetView()) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] render widget host view is null";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_RENDER_WIDGET_HOST_VIEW_NULL, "render widget host view is null"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::PAGE_NOT_READY, "render widget host view is not available"));
     return;
   }
 
@@ -204,7 +204,7 @@ void ScreenshotCaptureUtil::CaptureWithClip(
   auto* metadata_provider = widget_host->render_frame_metadata_provider();
   if (!metadata_provider) {
     LOG(ERROR) << "[ScreenshotCaptureUtil] No metadata provider, render not ready";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_RENDER_NOT_READY, "render not ready"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::PAGE_NOT_READY, "render not ready"));
     return;
   }
 
@@ -236,7 +236,7 @@ void ScreenshotCaptureUtil::CaptureWithClip(
 
   if (!use_surface_crop) {
     LOG(DEBUG) << "[ScreenshotCaptureUtil] Clip outside viewport, element not in view";
-    std::move(callback).Run(CaptureResult(WebCommandErrorCode::SCREENSHOT_CAPTURE_ELEMENT_NOT_IN_VIEWPORT, "element not in viewport"));
+    std::move(callback).Run(CaptureResult(WebCommandErrorCode::ELEMENT_NOT_FOUND, "element not in viewport"));
     return;
   }
 

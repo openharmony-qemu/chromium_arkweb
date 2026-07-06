@@ -235,6 +235,8 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void StoreWebArchive(const CefString&, bool, CefRefPtr<CefStoreWebArchiveResultCallback>) override {}
   void WasKeyboardResized() override {}
   void SetEnableLowerFrameRate(bool) override {}
+  void ValidateElementId(const std::string& element_id,
+      CefRefPtr<CefAIPageCommandCallback> callback) override {}
   CefString Title() override { return CefString(); }
   void CreateWebMessagePorts(std::vector<CefString>&) override {}
   void PostWebMessage(CefString&, std::vector<CefString>&, CefString&) override {}

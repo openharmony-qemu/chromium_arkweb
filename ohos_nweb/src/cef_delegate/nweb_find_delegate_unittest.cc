@@ -350,6 +350,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void WasKeyboardResized() override {}
 
   void SetEnableLowerFrameRate(bool enabled) override {}
+
+  void ValidateElementId(const std::string& element_id,
+      CefRefPtr<CefAIPageCommandCallback> callback) override {}
   /* ---------- ohos webview add end --------- */
 
   CefString Title() override { return CefString(); }

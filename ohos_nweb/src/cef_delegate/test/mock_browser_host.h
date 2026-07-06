@@ -362,6 +362,10 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               (override));
   MOCK_METHOD(void, WasKeyboardResized, (), (override));
   MOCK_METHOD(void, SetEnableLowerFrameRate, (bool), (override));
+  MOCK_METHOD(void,
+              ValidateElementId,
+              (const std::string&, CefRefPtr<CefAIPageCommandCallback>),
+              (override));
   MOCK_METHOD(CefString, Title, (), (override));
   MOCK_METHOD(void,
               CreateWebMessagePorts,
