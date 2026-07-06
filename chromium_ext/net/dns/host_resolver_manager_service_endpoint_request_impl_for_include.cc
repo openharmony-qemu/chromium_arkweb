@@ -14,16 +14,12 @@
  */
 
 #if BUILDFLAG(IS_ARKWEB_EXT)
-#if defined(ARKWEB_EXT_NAVIGATION_TODO)
 #include "arkweb/ohos_nweb_ex/overrides/net/dns/secure_dns_fallback_utils.h"
-#endif
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
-#if defined(ARKWEB_EXT_NAVIGATION_TODO)
 #include "arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.h"
-#endif
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #endif
@@ -59,41 +55,38 @@ void HostResolverManager::ServiceEndpointRequestImpl::
     MaybeModifyResolveLocallyResults(
         HostCache::Entry& out_results,
         std::vector<IPEndPoint>& truncation_results) {
-#if defined(ARKWEB_EXT_NAVIGATION_TODO)
-    if (out_results.error() != OK) {
-      return;
-    }
-    if (out_results.ip_endpoints().empty()) {
-      return;
-    }
+  if (out_results.error() != OK) {
+    return;
+  }
+  if (out_results.ip_endpoints().empty()) {
+    return;
+  }
 
-    std::string host(host_.GetHostnameWithoutBrackets());
-    bool secure_dns_fallback_available = false;
-    if (manager_) {
-      secure_dns_fallback_available =
-          manager_->CanUseSecureDnsFallback(resolve_context_.get());
-    }
-    bool need_to_modify_resolve_result = false;
-    std::vector<IPEndPoint> ip_endpoints_modified;
-    bool need_to_replace_address = MaybeNeedToProcessAddressList(
-        host, out_results.ip_endpoints(), secure_dns_fallback_available,
-        ip_endpoints_modified, need_to_modify_resolve_result,
-        truncation_results);
+  std::string host(host_.GetHostnameWithoutBrackets());
+  bool secure_dns_fallback_available = false;
+  if (manager_) {
+    secure_dns_fallback_available =
+        manager_->CanUseSecureDnsFallback(resolve_context_.get());
+  }
+  bool need_to_modify_resolve_result = false;
+  std::vector<IPEndPoint> ip_endpoints_modified;
+  bool need_to_replace_address = MaybeNeedToProcessAddressList(
+      host, out_results.ip_endpoints(), secure_dns_fallback_available,
+      ip_endpoints_modified, need_to_modify_resolve_result);
 
-    if (!need_to_replace_address) {
-      return;
-    }
+  if (!need_to_replace_address) {
+    return;
+  }
 
-  #if BUILDFLAG(IS_ARKWEB_EXT)
-    ReportDnsHijackHitInfo(host, RecordQueryType::LOCALLY,
-                           out_results.ip_endpoints());
-  #endif  // BUILDFLAG(IS_ARKWEB_EXT)
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  ReportDnsHijackHitInfo(host, RecordQueryType::LOCALLY,
+                         out_results.ip_endpoints());
+#endif  // BUILDFLAG(IS_ARKWEB_EXT)
 
-    out_results.set_ip_endpoints(ip_endpoints_modified);
-    if (need_to_modify_resolve_result) {
-      out_results.set_error(ERR_DNS_CACHE_MISS);
-    }
-#endif
+  out_results.set_ip_endpoints(ip_endpoints_modified);
+  if (need_to_modify_resolve_result) {
+    out_results.set_error(ERR_DNS_CACHE_MISS);
+  }
 }
 #endif
 
