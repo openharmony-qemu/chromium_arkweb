@@ -28,6 +28,7 @@ static bool ShouldSkipSettingForContentTypeExt(
         content_type != ContentSettingsType::JAVASCRIPT) {
       return true;
     }
+    return false;
   } else {
     return true;
   }
