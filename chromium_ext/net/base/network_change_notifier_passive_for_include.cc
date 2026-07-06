@@ -347,7 +347,7 @@ class NetworkChangeNotifierPassiveUtils {
       if (obj->ohos_net_conn_adapter_) {
         LOG(INFO) << "OnConnectionChanged, network_for_dns_ "
                   << obj->network_for_dns_;
-        if (obj->vpn_in_place_) {
+        if (obj->vpn_in_place_.load(std::memory_order_relaxed)) {
           dns_servers = obj->ohos_net_conn_adapter_->GetDnsServersForVpn();
         } else {
           dns_servers = obj->ohos_net_conn_adapter_->GetDnsServersByNetId(obj->network_for_dns_);
@@ -390,14 +390,14 @@ NetworkChangeNotifierPassive::GetCurrentDnsServers() {
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_NETWORK_BASE)
 void NetworkChangeNotifierPassive::OnVpnAvailable() {
   LOG(INFO) << "ohos_network on vpn available";
-  vpn_in_place_ = true;
+  vpn_in_place_.store(true, std::memory_order_relaxed);
   OnIPAddressChanged(net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
   OnConnectionChanged(connection_type_);
 }
 
 void NetworkChangeNotifierPassive::OnVpnLost() {
   LOG(INFO) << "ohos_network on vpn lost";
-  vpn_in_place_ = false;
+  vpn_in_place_.store(false, std::memory_order_relaxed);
   OnIPAddressChanged(net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
   OnConnectionChanged(connection_type_);
 }
@@ -452,6 +452,19 @@ void NetworkChangeNotifierPassive::UpdateNetworkCapabilityOnUIThread() {
   uint8_t old_caps = network_capability_.load(std::memory_order_acquire);
 
   uint8_t new_caps = 0;
+  if (netCapabilities.netCapsSize < 0 ||
+      netCapabilities.netCapsSize > NETCONN_MAX_CAP_SIZE) {
+    LOG_FEEDBACK(ERROR, kNetwork)
+        << "Invalid netCapsSize:" << netCapabilities.netCapsSize;
+    return;
+  }
+  if (netCapabilities.bearerTypesSize < 0 ||
+      netCapabilities.bearerTypesSize > NETCONN_MAX_BEARER_TYPE_SIZE) {
+    LOG_FEEDBACK(ERROR, kNetwork)
+        << "Invalid bearerTypesSize:" << netCapabilities.bearerTypesSize;
+    return;
+  }
+
   for (int32_t i = 0; i < netCapabilities.netCapsSize; i++) {
     if (netCapabilities.netCaps[i] == NETCONN_NET_CAPABILITY_PORTAL) {
       new_caps |= kNetworkCapCaptivePortal;
@@ -563,7 +576,7 @@ const std::vector<std::string>
 NetworkChangeNotifierPassive::GetActiveDnsServers() {
   std::vector<std::string> dns_servers;
   if (ohos_net_conn_adapter_) {
-    if (vpn_in_place_) {
+    if (vpn_in_place_.load(std::memory_order_relaxed)) {
       dns_servers = ohos_net_conn_adapter_->GetDnsServersForVpn();
     } else {
       dns_servers = ohos_net_conn_adapter_->GetDnsServersByNetId(network_for_dns_);
