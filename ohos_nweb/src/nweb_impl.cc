@@ -5829,6 +5829,15 @@ void NWebImpl::EnableReaderMode(bool enabled) {
   nweb_delegate_->EnableReaderMode(enabled);
 }
 
+void NWebImpl::EnableCustomReaderMode(bool enabled) {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "NWebImpl::EnableReaderMode delegate_ is nullptr";
+    return;
+  }
+ 
+  nweb_delegate_->EnableCustomReaderMode(enabled);
+}
+
 void NWebImpl::Distill(uint64_t request_id, const DistillOptions& distill_options, DistillCallback callback) {
   if (nweb_delegate_ == nullptr) {
     LOG(ERROR) << "NWebImpl::Distill delegate_ is nullptr";

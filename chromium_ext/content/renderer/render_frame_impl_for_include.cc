@@ -242,6 +242,10 @@ bool RenderFrameImpl::IsReaderModeEnabled() {
   return GetRendererPreferences().is_reader_mode_enabled;
 }
 
+bool RenderFrameImpl::IsCustomReaderModeEnabled() {
+  return GetRendererPreferences().is_custom_reader_mode_enabled;
+}
+
 void RenderFrameImpl::ReportDistillableResult(
     const std::string& event_type,
     const std::string& value) {

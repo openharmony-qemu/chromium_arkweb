@@ -1112,6 +1112,16 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   bool IsShowHandle() override;
 #endif
 
+#if BUILDFLAG(ARKWEB_READER_MODE)
+  void EnableReaderMode(bool enabled) {
+    reader_mode_enabled_ = enabled;
+  }
+
+  void EnableCustomReaderMode(bool enabled) {
+    custom_reader_mode_enabled_ = enabled;
+  }
+#endif
+
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   std::string OverrideErrorPage(
     CefRefPtr<CefBrowser> browser,
@@ -1458,6 +1468,11 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_WEB_APP)
   base::CallbackListSubscription manifest_subscription_;
+#endif
+
+#if BUILDFLAG(ARKWEB_READER_MODE)
+  bool reader_mode_enabled_{false};
+  bool custom_reader_mode_enabled_{false};
 #endif
 
   base::WeakPtr<NWebHandlerDelegate> weak_this_;

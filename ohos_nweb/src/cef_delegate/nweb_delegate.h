@@ -961,6 +961,7 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   void EnableReaderMode(bool enabled) override;
+  void EnableCustomReaderMode(bool enabled) override;
   void Distill(uint64_t request_id, const DistillOptions& distill_options, DistillCallback callback) override;
 void AbortDistill() override;
 #endif // ARKWEB_READER_MODE

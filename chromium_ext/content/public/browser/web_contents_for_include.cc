@@ -219,6 +219,7 @@ virtual void SetBlankScreenDetectionConfig(
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   virtual void EnableReaderMode(bool enabled) = 0;
+  virtual void EnableCustomReaderMode(bool enabled) = 0;
   virtual void OnIsPageDistillable(int page_type,
                                    const std::string& distillable_page_url,
                                    const std::string& title) = 0;

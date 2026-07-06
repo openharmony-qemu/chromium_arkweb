@@ -1009,6 +1009,7 @@ class NWebDelegateInterface
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   virtual void EnableReaderMode(bool enabled) = 0;
+  virtual void EnableCustomReaderMode(bool enabled) = 0;
   virtual void Distill(uint64_t request_id, const DistillOptions& distill_options, DistillCallback callback) = 0;
   virtual void AbortDistill() = 0;
 #endif // ARKWEB_READER_MODE

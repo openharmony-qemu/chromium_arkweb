@@ -1285,6 +1285,15 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
     if (event_handler_.get()) {
       event_handler_->SetBrowser(main_browser_);
     }
+#if BUILDFLAG(ARKWEB_READER_MODE)
+    if (main_browser_ && main_browser_->GetHost()) {
+      LOG(DEBUG) << "NWebHandlerDelegate::OnAfterCreated,"
+                 <<" reader_mode_enabled_: " << reader_mode_enabled_
+                 <<" custom_reader_mode_enabled_: " << custom_reader_mode_enabled_;
+      main_browser_->GetHost()->EnableReaderMode(reader_mode_enabled_);
+      main_browser_->GetHost()->EnableCustomReaderMode(custom_reader_mode_enabled_);
+    }
+#endif
     if (main_browser_ && main_browser_->GetHost()) {
       if (preference_delegate_.get()) {
         main_browser_->GetHost()->SetVirtualPixelRatio(
@@ -1451,6 +1460,15 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
     if (event_handler_.get()) {
       event_handler_->SetBrowser(browser);
     }
+#if BUILDFLAG(ARKWEB_READER_MODE)
+    if (main_browser_ && main_browser_->GetHost()) {
+      LOG(DEBUG) << "NWebHandlerDelegate::OnAfterCreated,"
+                 <<" reader_mode_enabled_: " << reader_mode_enabled_
+                 <<" custom_reader_mode_enabled_: " << custom_reader_mode_enabled_;
+      main_browser_->GetHost()->EnableReaderMode(reader_mode_enabled_);
+      main_browser_->GetHost()->EnableCustomReaderMode(custom_reader_mode_enabled_);
+    }
+#endif
   } else if (browser->IsPopup()) {
     // Add to the list of existing browsers.
     browser_list_.push_back(browser);

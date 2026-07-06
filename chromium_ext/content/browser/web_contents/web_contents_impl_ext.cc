@@ -1419,6 +1419,17 @@ void WebContentsImplExt::EnableReaderMode(bool enabled) {
   }
 }
 
+void WebContentsImplExt::EnableCustomReaderMode(bool enabled)
+{
+  LOG(INFO) << "WebContentsImplExt::EnableCustomReaderMode: " << enabled;
+ 
+  blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+  if (prefs != NULL && prefs->is_custom_reader_mode_enabled != enabled) {
+    prefs->is_custom_reader_mode_enabled = enabled;
+    SyncRendererPrefs();
+  }
+}
+
 void WebContentsImplExt::OnIsPageDistillable(int page_type,
                                              const std::string& distillable_page_url,
                                              const std::string& title) {
