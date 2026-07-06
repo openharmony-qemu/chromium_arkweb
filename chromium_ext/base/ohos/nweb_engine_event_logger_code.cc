@@ -36,6 +36,8 @@ const char kProxyExceptionResult[] = "101_181003";
 const char kProxyTunnelConnectResult[] = "101_181004";
 // Proxy transport connect result.
 const char kProxyTransportConnectResult[] = "101_181005";
+// Proxy switched report.
+const char kProxySwitchResult[] = "101_181006";
 
 // 网络请求错误
 const char kNetworkSSLError[]                   = "102_011001"; // SSL错误
@@ -93,6 +95,9 @@ const char kAdblockError[] = "102_141001";
 const char kLauchProcessError[] = "102_142001";
 // 密码管理模块
 const char kPasswordManagerError[] = "102_151001";
+
+// Page load metrics report.
+const char kPageLoadMetrics[] = "102_181001";
 
 }  // namespace ohos
 }  // namespace base

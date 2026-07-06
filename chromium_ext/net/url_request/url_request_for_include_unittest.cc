@@ -47,6 +47,8 @@ class MockProxyDelegate : public ProxyDelegate {
                const std::vector<std::string>& dns_aliases,
                const net::NetworkAnonymizationKey& network_anonymization_key), (override));
 
+  MOCK_METHOD(bool, IsAccelerateProxyConfig, (), (override));
+
 #if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
   MOCK_METHOD(void, OnTunnelConnectResult,
               (const net::ProxyChain& proxy_chain,

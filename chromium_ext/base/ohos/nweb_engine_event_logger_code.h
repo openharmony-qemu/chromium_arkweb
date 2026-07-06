@@ -62,6 +62,8 @@ BASE_EXPORT extern const char kProxyExceptionResult[];
 BASE_EXPORT extern const char kProxyTunnelConnectResult[];
 // Proxy transport connect result.
 BASE_EXPORT extern const char kProxyTransportConnectResult[];
+// Proxy switched report.
+BASE_EXPORT extern const char kProxySwitchResult[];
 
 // 网络请求错误
 BASE_EXPORT extern const char kNetworkSSLError[];
@@ -119,6 +121,9 @@ BASE_EXPORT extern const char kAdblockError[];
 BASE_EXPORT extern const char kLauchProcessError[];
 // 密码管理模块
 BASE_EXPORT extern const char kPasswordManagerError[];
+
+// Page load metrics report.
+BASE_EXPORT extern const char kPageLoadMetrics[];
 
 }  // namespace ohos
 }  // namespace base
