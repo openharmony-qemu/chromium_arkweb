@@ -1799,4 +1799,24 @@ TEST_F(MediaCodecDecoderBridgeImplTest, TestSetDecryptionConfig002) {
       bridge_->SetDecryptionConfig(nullptr, true);
   ASSERT_EQ(expected_result, actual_result);
 }
+
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       QueueInputBuffer_ShouldReturnError_WhenMemcpyFails) {
+  SetIsRunning(true);
+  auto mock_signal = make_shared<NiceMock<MockDecoderBridgeSignal>>();
+  mock_signal->isOnError_ = false;
+  mock_signal->isDecoderFlushing_.store(false);
+  const uint8_t* data = reinterpret_cast<const uint8_t*>("testdata");
+  size_t data_size = 100;
+  int64_t presentation_time = 1000000;
+  uint8_t test = 1;
+  uint8_t* addr = &test;
+  VideoBridgeDecoderInputBuffer buffer = {10, {addr, 8}};
+  mock_signal->inputQueue_.push(buffer);
+  SetSignal(mock_signal);
+  auto expected_result = DecoderAdapterCode::DECODER_OK;
+  auto actual_result = bridge_->QueueInputBuffer(
+      data, data_size, presentation_time, nullptr, false);
+  ASSERT_EQ(expected_result, actual_result);
+}
 }  // namespace media

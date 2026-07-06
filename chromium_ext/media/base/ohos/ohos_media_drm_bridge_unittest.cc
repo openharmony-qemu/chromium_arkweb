@@ -1397,4 +1397,108 @@ TEST_F(OHOSMediaDrmBridgeTest, ResumeMediaLicense002) {
   ASSERT_EQ(media_drm_bridge_->ohos_drm_adapter_, nullptr);
 }
 #endif
+
+TEST_F(OHOSMediaDrmBridgeTest, IsKeySystemSupportedWithTypeImpl_001) {
+  const std::string key_system01 = "invalid.key.system";
+  const std::string container_mime_type = "video/mp4";
+  auto result = OHOSMediaDrmBridge::IsKeySystemSupportedWithType(
+      key_system01, container_mime_type);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, IsKeySystemSupportedWithTypeImpl_002) {
+  const std::string key_system = "com.widevine.alpha";
+  const std::string container_mime_type = "";
+  auto result = OHOSMediaDrmBridge::IsKeySystemSupported(key_system);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, IsKeySystemSupportedWithTypeImpl_003) {
+  const std::string key_system = "com.widevine.alpha";
+  const std::string container_mime_type = "audio/mp4";
+  auto result = OHOSMediaDrmBridge::IsKeySystemSupportedWithType(
+      key_system, container_mime_type);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, IsKeySystemSupportedWithTypeImpl_004) {
+  const std::string key_system = "com.test.invalid";
+  auto result = OHOSMediaDrmBridge::IsKeySystemSupported(key_system);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, CreateSessionAndGenerateRequest004) {
+  media::EmeInitDataType init_data_type = media::EmeInitDataType::WEBM;
+  std::vector<uint8_t> init_data = {0x00, 0x01, 0x02, 0x03};
+  CdmSessionType session_type = CdmSessionType::kPersistentLicense;
+  std::unique_ptr<MockNewSessionCdmPromise> mock_promise =
+      std::make_unique<MockNewSessionCdmPromise>();
+  EXPECT_CALL(*mock_promise, reject(testing::_, testing::_, testing::_))
+      .Times(1);
+  auto media_drm_bridge_client = std::make_unique<OHOSMediaDrmBridgeClient>();
+  SetMediaDrmBridgeClient(media_drm_bridge_client.get());
+  media_drm_bridge_->ohos_drm_adapter_ = nullptr;
+  media_drm_bridge_->CreateSessionAndGenerateRequest(
+      session_type, init_data_type, init_data, std::move(mock_promise));
+  media_drm_bridge_.reset();
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, CreateSessionAndGenerateRequest005) {
+  media::EmeInitDataType init_data_type = media::EmeInitDataType::WEBM;
+  std::vector<uint8_t> init_data = {0x00, 0x01, 0x02, 0x03};
+  CdmSessionType session_type = CdmSessionType::kTemporary;
+  std::unique_ptr<MockNewSessionCdmPromise> mock_promise =
+      std::make_unique<MockNewSessionCdmPromise>();
+  EXPECT_CALL(*mock_promise, reject(testing::_, testing::_, testing::_))
+      .Times(1);
+  auto media_drm_bridge_client = std::make_unique<OHOSMediaDrmBridgeClient>();
+  SetMediaDrmBridgeClient(media_drm_bridge_client.get());
+  media_drm_bridge_->CreateSessionAndGenerateRequest(
+      session_type, init_data_type, init_data, std::move(mock_promise));
+  media_drm_bridge_.reset();
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, CreateSessionAndGenerateRequest006) {
+  media::EmeInitDataType init_data_type = media::EmeInitDataType::WEBM;
+  std::vector<uint8_t> init_data = {0x00, 0x01, 0x02, 0x03};
+  CdmSessionType session_type = CdmSessionType::kTemporary;
+  std::unique_ptr<MockNewSessionCdmPromise> mock_promise =
+      std::make_unique<MockNewSessionCdmPromise>();
+  EXPECT_CALL(*mock_promise, reject(testing::_, testing::_, testing::_))
+      .Times(1);
+  auto media_drm_bridge_client = std::make_unique<OHOSMediaDrmBridgeClient>();
+  SetMediaDrmBridgeClient(media_drm_bridge_client.get());
+  media_drm_bridge_->CreateSessionAndGenerateRequest(
+      session_type, init_data_type, init_data, std::move(mock_promise));
+  media_drm_bridge_.reset();
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, CreateSessionAndGenerateRequest007) {
+  media::EmeInitDataType init_data_type = media::EmeInitDataType::WEBM;
+  std::vector<uint8_t> init_data;
+  CdmSessionType session_type = CdmSessionType::kTemporary;
+  std::unique_ptr<MockNewSessionCdmPromise> mock_promise =
+      std::make_unique<MockNewSessionCdmPromise>();
+  EXPECT_CALL(*mock_promise, reject(testing::_, testing::_, testing::_))
+      .Times(1);
+  auto media_drm_bridge_client = std::make_unique<OHOSMediaDrmBridgeClient>();
+  SetMediaDrmBridgeClient(media_drm_bridge_client.get());
+  media_drm_bridge_->CreateSessionAndGenerateRequest(
+      session_type, init_data_type, init_data, std::move(mock_promise));
+  media_drm_bridge_.reset();
+}
+
+TEST_F(OHOSMediaDrmBridgeTest, CreateSessionAndGenerateRequest008) {
+  media::EmeInitDataType init_data_type = media::EmeInitDataType::WEBM;
+  std::vector<uint8_t> init_data = {0x00, 0x01, 0x02, 0x03};
+  CdmSessionType session_type = CdmSessionType::kTemporary;
+  std::unique_ptr<MockNewSessionCdmPromise> mock_promise =
+      std::make_unique<MockNewSessionCdmPromise>();
+  EXPECT_CALL(*mock_promise, reject(testing::_, testing::_, testing::_))
+      .Times(1);
+  SetMediaDrmBridgeClient(nullptr);
+  media_drm_bridge_->CreateSessionAndGenerateRequest(
+      session_type, init_data_type, init_data, std::move(mock_promise));
+  media_drm_bridge_.reset();
+}
 }  // namespace media
