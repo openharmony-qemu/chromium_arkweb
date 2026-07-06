@@ -390,6 +390,7 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnDocumentEndReady) {
   ASSERT_NO_FATAL_FAILURE(rfh->OnDocumentEndReady());
 }
 
+#if BUILDFLAG(ARKWEB_FLING)
 TEST_F(RenderFrameHostImplForIncludeTest, OnNestedScroll_BasicCall) {
   float delta_x = 10.0f;
   float delta_y = 10.0f;
@@ -405,6 +406,7 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnNestedFling_BasicCall) {
   RenderFrameHostImpl* rfh = main_test_rfh();
   ASSERT_NO_FATAL_FAILURE(rfh->OnNestedFling(velocity_x, velocity_y));
 }
+#endif  // BUILDFLAG(ARKWEB_FLING)
 
 #if BUILDFLAG(ARKWEB_MENU)
 TEST_F(RenderFrameHostImplForIncludeTest, HideQuickMenu_WithDelegateNotShowing) {
