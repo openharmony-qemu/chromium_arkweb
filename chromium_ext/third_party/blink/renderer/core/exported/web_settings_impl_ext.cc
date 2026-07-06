@@ -18,6 +18,7 @@
 #include "arkweb/build/features/features.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/inspector/dev_tools_emulator.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 #include "third_party/blink/renderer/modules/media_controls/media_controls_resource_loader.h"
 #endif
@@ -64,7 +65,11 @@ void WebSettingsImplExt::SetScrollable(bool enabled) {
 }
 
 void WebSettingsImplExt::SetScrollbarLayoutPolicy(int policy) {
+  if (settings_->GetScrollbarLayoutPolicy() == policy) {
+    return;
+  }
   settings_->SetScrollbarLayoutPolicy(policy);
+  Page::UsesOverlayScrollbarsChanged();
 }
 
 int WebSettingsImplExt::GetScrollbarLayoutPolicy() {
@@ -72,7 +77,14 @@ int WebSettingsImplExt::GetScrollbarLayoutPolicy() {
 }
 
 void WebSettingsImplExt::SetIsSystemRtlEnable(bool enable) {
+  if (settings_->GetIsSystemRtlEnabled() == enable) {
+    return;
+  }
   settings_->SetIsSystemRtlEnable(enable);
+  if (settings_->GetScrollbarLayoutPolicy() ==
+      static_cast<int>(mojom::ScrollbarLayoutPolicy::kSystem)) {
+    Page::UsesOverlayScrollbarsChanged();
+  }
 }
 
 bool WebSettingsImplExt::GetIsSystemRtlEnabled() {
