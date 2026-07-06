@@ -1052,7 +1052,7 @@ void IMFAdapterImpl::OnCursorUpdate(const std::shared_ptr<IMFCursorInfoAdapter> 
         WVLOG_E("Inputmethod set cursor info failed ret=%{public}d", ret);
         return;
     }
-    if (!inputMethodProxy_) {
+    if (inputMethodProxy_) {
         ret = OH_InputMethodProxy_NotifyCursorUpdate(inputMethodProxy_, ohCursorInfo);
         if (ret != IME_ERR_OK) {
             WVLOG_E("Inputmethod notify cursor update failed ret=%{public}d", ret);
