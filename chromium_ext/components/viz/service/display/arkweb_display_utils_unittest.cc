@@ -794,4 +794,314 @@ TEST_F(ArkwebDisplayUtilsTest, CleanBufferAfterSwapBuffer_OutputSurfaceNull) {
   utils.CleanBufferAfterSwapBuffer(true);
 }
 #endif
+
+class ArkwebDisplayUtilsBranchTest : public testing::Test {
+ protected:
+  std::unique_ptr<Display> CreateTestDisplay(bool auto_resize = false) {
+    RendererSettings settings;
+    settings.auto_resize_output_surface = auto_resize;
+    FrameSinkId frame_sink_id(1, 1);
+    auto output_surface = std::make_unique<OutputSurfaceMock>();
+    auto scheduler = std::make_unique<DisplaySchedulerMock>();
+    auto overlay_processor = std::make_unique<viz::OverlayProcessorStub>();
+    auto display = std::make_unique<Display>(
+        nullptr, nullptr, settings,
+        nullptr, frame_sink_id, nullptr,
+        std::move(output_surface), std::move(overlay_processor),
+        std::move(scheduler), nullptr);
+    auto resource_provider = std::make_unique<DisplayResourceProviderNull>();
+    display->renderer_ = std::make_unique<NullRenderer>(
+        &display->settings_, nullptr,
+        display->output_surface_.get(),
+        resource_provider.get(),
+        display->overlay_processor_.get());
+    display->resource_provider_ = std::move(resource_provider);
+    return display;
+  }
+};
+
+#if BUILDFLAG(ARKWEB_MAXIMIZE_RESIZE)
+TEST_F(ArkwebDisplayUtilsBranchTest, ReenableSwapCheck_ValidSurfaceMatchesCurrent) {
+  auto display = CreateTestDisplay();
+  FrameSinkId fsid(1, 1);
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  LocalSurfaceId lsid(1, token);
+  SurfaceId current_sid(fsid, lsid);
+  display->current_surface_id_ = current_sid;
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP;
+  utils.ReenableSwapCheck(current_sid, 11, 11);
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::REENABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, ReenableSwapCheck_PartialWidthHeight) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  SurfaceId sid;
+
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP;
+  utils.ReenableSwapCheck(sid, 11, 5);
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP;
+  utils.ReenableSwapCheck(sid, 5, 11);
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, ReenableSwapCheck_TimerNull) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  SurfaceId sid;
+
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP;
+  utils.reenable_swap_timer_ = nullptr;
+  utils.ReenableSwapCheck(sid, 11, 11);
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::REENABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, ReenableSwapCheck_TimerNotRunning) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  SurfaceId sid;
+
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP;
+  ASSERT_NE(utils.reenable_swap_timer_, nullptr);
+  ASSERT_FALSE(utils.reenable_swap_timer_->IsRunning());
+  utils.ReenableSwapCheck(sid, 11, 11);
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::REENABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_InitWiderNotTaller) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 20);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.reset_init_timer_ = nullptr;
+  utils.reenable_swap_timer_ = nullptr;
+  utils.Resize(gfx::Size(20, 10));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_InitTallerNotWider) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(20, 10);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.reset_init_timer_ = nullptr;
+  utils.reenable_swap_timer_ = nullptr;
+  utils.Resize(gfx::Size(10, 20));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_InitNeitherBigger) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(20, 20);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.Resize(gfx::Size(10, 10));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::INIT);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_InitTimerNull) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.reset_init_timer_ = nullptr;
+  utils.reenable_swap_timer_ = nullptr;
+  utils.Resize(gfx::Size(20, 20));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_InitTimerNotRunning) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.reset_init_timer_ = std::make_unique<base::RetainingOneShotTimer>();
+  ASSERT_FALSE(utils.reset_init_timer_->IsRunning());
+  utils.reenable_swap_timer_ = nullptr;
+  utils.Resize(gfx::Size(20, 20));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_ReenableSwapTimerNull) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(10, 10);
+  ArkwebDisplayUtils utils(display.get());
+  utils.temp_idle_state_ = ArkwebDisplayUtils::TempIdleState::INIT;
+  utils.reset_init_timer_ = nullptr;
+  utils.reenable_swap_timer_ = nullptr;
+  utils.Resize(gfx::Size(20, 20));
+  EXPECT_EQ(utils.temp_idle_state_, ArkwebDisplayUtils::TempIdleState::DISABLE_SWAP);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_SYNC_RENDER)
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_WidthClampOnly) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.Resize(gfx::Size(9000, 5000));
+  EXPECT_EQ(display->current_surface_size_.width(), 8000);
+  EXPECT_EQ(display->current_surface_size_.height(), 5000);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_HeightClampOnly) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.Resize(gfx::Size(5000, 9000));
+  EXPECT_EQ(display->current_surface_size_.width(), 5000);
+  EXPECT_EQ(display->current_surface_size_.height(), 8000);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_DrawModeHeightBelowMin) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(0, 5000);
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetDrawMode(1);
+  utils.Resize(gfx::Size(100, 100));
+  EXPECT_EQ(display->current_surface_size_, gfx::Size(100, 100));
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, Resize_DrawModeHeightAboveMax) {
+  auto display = CreateTestDisplay();
+  display->current_surface_size_ = gfx::Size(0, 9000);
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetDrawMode(1);
+  utils.Resize(gfx::Size(100, 100));
+  EXPECT_EQ(display->current_surface_size_, gfx::Size(100, 100));
+}
+#endif
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwap_AutoResizeFalse) {
+  viz::AggregatedRenderPass last_render_pass;
+  gfx::Size current_surface_size(10, 10);
+  AggregatedFrame frame;
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetDrawMode(0);
+  last_render_pass.output_rect = gfx::Rect(20, 20);
+  last_render_pass.damage_rect = gfx::Rect(20, 20);
+  utils.DrawAndSwap(last_render_pass, current_surface_size, frame);
+  EXPECT_EQ(frame.surface_damage_rect_list_.size(), 0U);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwap_OutputRectMatchesCurrentSize) {
+  viz::AggregatedRenderPass last_render_pass;
+  gfx::Size current_surface_size(10, 10);
+  AggregatedFrame frame;
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetDrawMode(0);
+  last_render_pass.output_rect = gfx::Rect(10, 10);
+  last_render_pass.damage_rect = gfx::Rect(10, 10);
+  utils.DrawAndSwap(last_render_pass, current_surface_size, frame);
+  EXPECT_EQ(frame.surface_damage_rect_list_.size(), 0U);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwap_CurrentSurfaceSizeEmpty) {
+  viz::AggregatedRenderPass last_render_pass;
+  gfx::Size current_surface_size(0, 0);
+  AggregatedFrame frame;
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetDrawMode(0);
+  last_render_pass.output_rect = gfx::Rect(20, 20);
+  last_render_pass.damage_rect = gfx::Rect(20, 20);
+  utils.DrawAndSwap(last_render_pass, current_surface_size, frame);
+  EXPECT_EQ(frame.surface_damage_rect_list_.size(), 0U);
+}
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwapDump_ObserverExistsShouldDumpFalse) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.dump_frame_observer_ = std::make_unique<DumpFrameObserver>();
+  utils.dump_frame_observer_->should_dump_ = false;
+  utils.dump_frame_observer_->dump_param_list_.clear();
+  AggregatedFrame frame;
+  utils.DrawAndSwapDump(frame);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwapDump_ShouldDumpTrueFreqFalse) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.dump_frame_observer_ = std::make_unique<DumpFrameObserver>();
+  utils.dump_frame_observer_->should_dump_ = true;
+  utils.dump_frame_observer_->dump_param_list_.push_back("true");
+  utils.dump_frame_observer_->dump_param_list_.push_back("1");
+  utils.dump_frame_observer_->dump_freq_count = 0;
+  AggregatedFrame frame;
+  utils.DrawAndSwapDump(frame);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DrawAndSwapDump_NullRootRenderPass) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.dump_frame_observer_ = std::make_unique<DumpFrameObserver>();
+  utils.dump_frame_observer_->should_dump_ = true;
+  utils.dump_frame_observer_->dump_param_list_.push_back("true");
+  utils.dump_frame_observer_->dump_param_list_.push_back("1");
+  utils.dump_frame_observer_->dump_freq_count = 1;
+  AggregatedFrame frame;
+  frame.render_pass_list.emplace_back(nullptr);
+  utils.DrawAndSwapDump(frame);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
+TEST_F(ArkwebDisplayUtilsBranchTest, SetIfNeedCleanBuffers_DisplayNoOutputSurface) {
+  auto display = CreateTestDisplay();
+  OutputSurface* saved = display->output_surface_.release();
+  ArkwebDisplayUtils utils(display.get());
+  utils.SetIfNeedCleanBuffers(true);
+  EXPECT_FALSE(utils.need_clean_buffers_);
+  display->output_surface_.reset(saved);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_OCCLUDED_OPT)
+TEST_F(ArkwebDisplayUtilsBranchTest, DiscardBackbuffer_OutputSurfaceExists) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.DiscardBackbuffer();
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DiscardBackbuffer_OutputSurfaceNull) {
+  auto display = CreateTestDisplay();
+  OutputSurface* saved = display->output_surface_.release();
+  ArkwebDisplayUtils utils(display.get());
+  utils.DiscardBackbuffer();
+  display->output_surface_.reset(saved);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_OFFLINE_WEB_EVICT_BACK_BUFFERS)
+TEST_F(ArkwebDisplayUtilsBranchTest, CleanBufferAfterSwapBuffer_OutputSurfaceExists) {
+  auto display = CreateTestDisplay();
+  ArkwebDisplayUtils utils(display.get());
+  utils.CleanBufferAfterSwapBuffer(true);
+  utils.CleanBufferAfterSwapBuffer(false);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, CleanBufferAfterSwapBuffer_OutputSurfaceNull) {
+  auto display = CreateTestDisplay();
+  OutputSurface* saved = display->output_surface_.release();
+  ArkwebDisplayUtils utils(display.get());
+  utils.CleanBufferAfterSwapBuffer(true);
+  display->output_surface_.reset(saved);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
+TEST_F(ArkwebDisplayUtilsBranchTest, DumpSnapshotForBlankLess_GpuServiceImplNull) {
+  ArkwebDisplayUtils utils(nullptr);
+  AggregatedFrame frame;
+  utils.DumpSnapshotForBlankLess(frame);
+}
+#endif
 }  // namespace viz
