@@ -690,6 +690,10 @@ void WebContentsImplExt::UpdateBrowserControlsHeight(int height, bool animate) {
     view_->UpdateBrowserControlsHeight(height, animate);
   }
 }
+
+cc::BrowserControlsState WebContentsImplExt::GetBrowserControlState() {
+  return browser_controls_state_;
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
