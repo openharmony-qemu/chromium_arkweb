@@ -8,6 +8,9 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/time/time.h"
+#include "content/browser/devtools/devtools_instrumentation.h"
+#include "content/browser/devtools/protocol/network.h"
 #include "content/browser/media/ohos/ohos_media_player_renderer_web_contents_observer.h"
 #include "content/browser/media/session/media_session_impl.h"
 #include "content/browser/media/ohos/ohos_media_resource_getter_impl.h"
@@ -22,6 +25,13 @@
 #include "content/public/common/content_client.h"
 #include "media/base/timestamp_constants.h"
 #include "media/mojo/mojom/renderer_extensions.mojom.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "net/base/isolation_info.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
+#include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/url_loader_factory_builder.h"
+#include "services/network/public/mojom/url_loader_completion_status.mojom.h"
+#include "url/origin.h"
 
 namespace content {
 
@@ -112,6 +122,17 @@ void OHOSMediaPlayerRenderer::CreateMediaPlayer() {
       return;
     }
     media_player_->SetNativeWindowSurface(native_window_id_);
+    // Propagate the per-WebContents HLS network-proxy flag (set via the NWeb
+    // preference PutWebMediaNetworkProxyEnabled) into the bridge before it
+    // prepares. Default false preserves the existing behavior when unset.
+    bool media_proxy_enabled = false;
+    if (web_contents_) {
+      MediaSessionImpl* media_session = MediaSessionImpl::Get(web_contents_.get());
+      if (media_session) {
+        media_proxy_enabled = media_session->IsMediaNetworkProxyEnabled();
+      }
+    }
+    media_player_->SetMediaProxyEnabled(media_proxy_enabled);
     int32_t ret = media_player_->Initialize();
     if (ret != 0) {
       LOG(ERROR) << "media player Initialize failed";
@@ -216,6 +237,106 @@ media::OHOSMediaResourceGetter* OHOSMediaPlayerRenderer::GetMediaResourceGetter(
   return media_resource_getter_.get();
 }
 // LCOV_EXCL_STOP
+
+scoped_refptr<network::SharedURLLoaderFactory> OHOSMediaPlayerRenderer::GetURLLoaderFactory() {
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    if (url_loader_factory_)
+      return url_loader_factory_;
+
+    RenderProcessHost* host = RenderProcessHost::FromID(render_process_id_);
+    if (!host || !host->GetBrowserContext() ||
+        !host->GetBrowserContext()->GetDefaultStoragePartition()) {
+      LOG(ERROR) << "OHOSMediaPlayerRenderer::GetURLLoaderFactory host is nullptr";
+      return nullptr;
+    }
+
+    url_loader_factory_ = host->GetBrowserContext()
+                              ->GetDefaultStoragePartition()
+                              ->GetURLLoaderFactoryForBrowserProcess();
+    return url_loader_factory_;
+  }
+
+media::DevToolsNetworkEventSink* OHOSMediaPlayerRenderer::GetDevToolsNetworkEventSink() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return this;
+}
+
+void OHOSMediaPlayerRenderer::EnsureDevToolsFrameResolved() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (devtools_frame_resolved_) {
+    LOG(INFO) << "EnsureDevToolsFrameResolved devtools_frame_resolved_ is true";
+    return;
+  }
+
+  devtools_frame_resolved_ = true;
+  RenderFrameHostImpl* rfh =
+      RenderFrameHostImpl::FromID(render_process_id_, routing_id_);
+  if (!rfh) {
+    LOG(ERROR) << "EnsureDevToolsFrameResolved rfh is nullptr";
+    return;  // Frame gone; DevTools surfacing stays disabled for this renderer.
+  }
+
+  devtools_frame_ok_ = true;
+  devtools_frame_tree_node_id_ = rfh->GetFrameTreeNodeId();
+  // loader_id = the frame's current devtools navigation token. See
+  // devtools_instrumentation.cc OnAuctionWorkletNetworkRequestWillBeSent.
+  const std::optional<base::UnguessableToken>& token =
+      rfh->GetDevToolsNavigationToken();
+  if (token.has_value()) {
+    devtools_loader_id_ = token->ToString();
+  }
+}
+
+void OHOSMediaPlayerRenderer::NotifyRequestWillBeSent(
+    const std::string& request_id,
+    const network::ResourceRequest& request) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  EnsureDevToolsFrameResolved();
+  if (!devtools_frame_ok_) {
+    LOG(ERROR) << "NotifyRequestWillBeSent devtools_frame_ok_ is no ok";
+    return;
+  }
+
+  // The helper keys the emitted Network.requestWillBeSent on
+  // request.devtools_request_id (stamped by the download manager) and returns
+  // early if it is empty.
+  devtools_instrumentation::OnAuctionWorkletNetworkRequestWillBeSent(
+      devtools_frame_tree_node_id_, request, base::TimeTicks::Now());
+}
+
+void OHOSMediaPlayerRenderer::NotifyResponseReceived(
+    const std::string& request_id,
+    const GURL& url,
+    const network::mojom::URLResponseHead& head) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (!devtools_frame_ok_) {
+    LOG(ERROR) << "NotifyResponseReceived devtools_frame_ok_ is no ok";
+    return;
+  }
+  // Surface as a DevTools "Media" request (matching the renderer media path's
+  // classification) instead of "Other"/MIME, so ts/m3u8 group with other media
+  // and respond to the "Media" filter. The AuctionWorklet variant hardcodes
+  // ResourceType::Other; this overload takes the type explicitly.
+  devtools_instrumentation::OnBrowserProcessNetworkResponseReceived(
+      devtools_frame_tree_node_id_, request_id, devtools_loader_id_, url, head,
+      protocol::Network::ResourceTypeEnum::Media);
+}
+
+void OHOSMediaPlayerRenderer::NotifyLoadingComplete(
+    const std::string& request_id,
+    int net_error_code,
+    int64_t encoded_data_length) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (!devtools_frame_ok_)
+    return;
+  network::URLLoaderCompletionStatus status;
+  status.error_code = net_error_code;
+  status.encoded_data_length = encoded_data_length;
+  status.completion_time = base::TimeTicks::Now();
+  devtools_instrumentation::OnBrowserProcessNetworkRequestComplete(
+      devtools_frame_tree_node_id_, request_id, status,
+      protocol::Network::ResourceTypeEnum::Media);
+}
 
 void OHOSMediaPlayerRenderer::OnMediaDurationChanged(base::TimeDelta duration) {
   if (duration.is_zero()) {

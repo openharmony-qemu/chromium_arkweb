@@ -22,6 +22,9 @@
 #include "gpu/ipc/common/nweb_native_window_tracker.h"
 #include "content/browser/gpu/gpu_process_host.h"
 
+#include "media/base/ohos/ohos_media_source_data_handler_impl.h"
+#include "media/base/ohos/ohos_media_source_download_manager.h"
+
 extern "C" {
   typedef struct NativeWindow OHNativeWindow;
   int32_t OH_NativeWindow_CreateNativeWindowFromSurfaceId(uint64_t surfaceId, NativeWindow **window);
@@ -98,6 +101,15 @@ void OHOSMediaPlayerBridge::SetNativeWindowSurface(int native_window_id) {
   native_window_id_ = native_window_id;
 }
 
+void OHOSMediaPlayerBridge::SetMediaProxyEnabled(bool enabled) {
+  LOG(INFO) << "OHOSMediaPlayerBridge::SetMediaProxyEnabled, enabled: " << enabled;
+  media_proxy_enabled_ = enabled;
+}
+
+bool OHOSMediaPlayerBridge::ShouldUseProxyDownload() const {
+  return media_proxy_enabled_ && native_window_id_ != -1;
+}
+
 void OHOSMediaPlayerBridge::OnCookiesRetrieved(const std::string& cookies)
 {
     cookies_ = cookies;
@@ -116,8 +128,23 @@ void OHOSMediaPlayerBridge::OnCookiesRetrieved(const std::string& cookies)
             return;
         }
         auto player_headers = GetPlayerHeadersInternal();
-        LOG(INFO) << "media player SetMediaSourceHeader url";
-        int32_t ret = player_->SetMediaSourceHeader(url_.spec(), player_headers);
+
+        int32_t ret = -1;
+        if (ShouldUseProxyDownload()) {
+            LOG(INFO) << "Media proxy enabled (deferred prepare), using proxy download path";
+            download_manager_ = std::make_unique<MediaSourceDownloadManager>(
+                player_.get(), task_runner_,
+                client_ ? client_->GetURLLoaderFactory() : nullptr,
+                client_ ? client_->GetDevToolsNetworkEventSink() : nullptr,
+                site_for_cookies_, top_frame_origin_);
+            auto handler = std::make_shared<MediaSourceDataHandlerImpl>(
+                task_runner_, download_manager_->GetWeakPtr());
+            ret = player_->SetMediaSourceHeaderForHls(url_.spec(), player_headers, handler);
+        } else {
+            LOG(INFO) << "media player SetMediaSourceHeader url";
+            ret = player_->SetMediaSourceHeader(url_.spec(), player_headers);
+        }
+
         if (ret != 0) {
           ret = player_->SetSource(url_.spec());
           LOG(INFO) << "media player SetSource url";
@@ -210,8 +237,25 @@ void OHOSMediaPlayerBridge::Prepare() {
       return;
     }
     auto player_headers = GetPlayerHeadersInternal();
-    LOG(INFO) << "media player SetMediaSourceHeader url";
-    ret = player_->SetMediaSourceHeader(url_.spec(), player_headers);
+
+    if (ShouldUseProxyDownload()) {
+      // HLS proxy download (opt-in): route data through Chromium network stack
+      LOG(INFO) << "Media proxy enabled, using proxy download path";
+      download_manager_ = std::make_unique<MediaSourceDownloadManager>(
+          player_.get(), task_runner_,
+          client_ ? client_->GetURLLoaderFactory() : nullptr,
+          client_ ? client_->GetDevToolsNetworkEventSink() : nullptr,
+          site_for_cookies_, top_frame_origin_);
+
+      auto handler = std::make_shared<MediaSourceDataHandlerImpl>(
+          task_runner_, download_manager_->GetWeakPtr());
+
+      ret = player_->SetMediaSourceHeaderForHls(url_.spec(), player_headers, handler);
+    } else {
+      LOG(INFO) << "media player SetMediaSourceHeader url";
+      ret = player_->SetMediaSourceHeader(url_.spec(), player_headers);
+    }
+
     if (ret != 0) {
       ret = player_->SetSource(url_.spec());
       LOG(INFO) << "media player SetSource Url";
