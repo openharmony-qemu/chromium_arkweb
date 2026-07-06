@@ -32,10 +32,11 @@ constexpr float kPointRatio = 72.0f;
 #if BUILDFLAG(ARKWEB_PDF)
 std::atomic<uint64_t> g_bookmark_id_{0};
 
-void PDFiumEngine::UpdateSelectionBoundsAndPositions(gfx::Rect& left,
+bool PDFiumEngine::UpdateSelectionBoundsAndPositions(gfx::Rect& left,
                                                     gfx::Rect& right,
                                                     gfx::Rect& clipped_selection_bounds,
                                                     const std::vector<PDFiumRange>& selections) {
+  bool has_selection_rect = false;
   if (!selections.empty()) {
     int32_t rect_left = std::numeric_limits<int32_t>::max();
     int32_t rect_top = std::numeric_limits<int32_t>::max();
@@ -59,13 +60,16 @@ void PDFiumEngine::UpdateSelectionBoundsAndPositions(gfx::Rect& left,
         sel.GetScreenRects(GetVisibleRect().origin(), current_zoom_,
                            layout_.options().default_page_orientation());
       for (const auto& rect : screen_rects) {
+        has_selection_rect = true;
         rect_left = std::min(rect_left, rect.x());
         rect_top = std::min(rect_top, rect.y());
         rect_right = std::max(rect_right, rect.x() + rect.width());
         rect_bottom = std::max(rect_bottom, rect.y() + rect.height());
       }
     }
-
+    if (!has_selection_rect) {
+      return false;
+    }
     clipped_selection_bounds = gfx::Rect(rect_left, rect_top,
                                          rect_right - rect_left, rect_bottom - rect_top);
     const std::vector<gfx::Rect>& left_screen_rects =
@@ -80,7 +84,9 @@ void PDFiumEngine::UpdateSelectionBoundsAndPositions(gfx::Rect& left,
     if (!right_screen_rects.empty()) {
       right = right_screen_rects.back();
     }
+    return !left_screen_rects.empty() && !right_screen_rects.empty();
   }
+  return false;
 }
 
 static std::string GenerateBookmarkId() {
