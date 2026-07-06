@@ -375,6 +375,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void WasKeyboardResized() override {}
 
   void SetEnableLowerFrameRate(bool enabled) override {}
+
+  void ValidateElementId(const std::string& element_id,
+      CefRefPtr<CefAIPageCommandCallback> callback) override {}
   /* ---------- ohos webview add end --------- */
 
   CefString Title() override { return CefString(); }
@@ -809,6 +812,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
               (const std::string&, const std::vector<int32_t>&,
                const std::vector<std::string>&),
               (override));
+
 #if BUILDFLAG(ARKWEB_PIP)
   void SetPipNativeWindow(int delegate_id,
                           int child_id,

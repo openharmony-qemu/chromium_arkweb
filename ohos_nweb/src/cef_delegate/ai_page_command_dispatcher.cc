@@ -43,6 +43,7 @@
 namespace OHOS::NWeb {
 namespace {
 
+std::string BuildResultJson(int32_t code, const std::string& message);
 class AIPageCommandCallbackImpl : public CefAIPageCommandCallback {
  public:
   explicit AIPageCommandCallbackImpl(
@@ -64,6 +65,50 @@ class AIPageCommandCallbackImpl : public CefAIPageCommandCallback {
 using CommandHandler = void (*)(CefRefPtr<ArkWebBrowserExt> browser,
                                 const base::Value::Dict& command,
                                 AIPageCommandDispatcher::ResultCallback callback);
+
+void ResolveCommandResult(AIPageCommandDispatcher::ResultCallback callback,
+                          WebCommandErrorCode code,
+                          const std::string& message) {
+  if (callback) {
+    callback->OnReceiveValue(
+        BuildResultJson(static_cast<int32_t>(code), message));
+  }
+}
+
+class ValidateElementIdCallbackImpl : public CefAIPageCommandCallback {
+ public:
+  ValidateElementIdCallbackImpl(CefRefPtr<ScreenshotObserver> observer,
+                                 int node_id,
+                                 AIPageCommandDispatcher::ResultCallback callback)
+      : observer_(observer), node_id_(node_id), callback_(callback) {}
+ 
+  void OnResult(const CefString& result) override {
+    std::optional<base::Value> value =
+        base::JSONReader::Read(result.ToString(), base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+    if (!value || !value->is_dict()) {
+      LOG(ERROR) << "[AIPageCmd] screenCapture: ValidateElementId invalid result";
+      ResolveCommandResult(callback_, WebCommandErrorCode::FAILED, "validation failed");
+      return;
+    }
+    const base::Value::Dict& dict = value->GetDict();
+    std::optional<bool> ok = dict.FindBool("ok");
+    if (!ok || !ok.value()) {
+      const std::string* error = dict.FindString("error");
+      std::string error_msg = error ? *error : "validation failed";
+      LOG(ERROR) << "[AIPageCmd] screenCapture: ValidateElementId failed: " << error_msg;
+      ResolveCommandResult(callback_, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeids, " + error_msg);
+      return;
+    }
+    LOG(INFO) << "[AIPageCmd] screenCapture: ValidateElementId passed, node_id=" << node_id_;
+    observer_->CaptureElementByNodeId(node_id_);
+  }
+ 
+ private:
+  CefRefPtr<ScreenshotObserver> observer_;
+  int node_id_;
+  AIPageCommandDispatcher::ResultCallback callback_;
+  IMPLEMENT_REFCOUNTING(ValidateElementIdCallbackImpl);
+};
 
 struct CommandEntry {
   const char* method;
@@ -478,50 +523,6 @@ std::optional<ParsedElementId> ParseElementId(const std::string& node_id_str) {
   return parsed;
 }
 
-bool ValidateNodeIdTokens(CefRefPtr<ArkWebBrowserExt> browser,
-                          const ParsedElementId& element_id) {
-  auto cef_frame = browser->GetMainFrame() ? browser->GetMainFrame()->AsCefFrameHostImpl() : nullptr;
-  if (!cef_frame) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: failed to get cef frame";
-    return false;
-  }
-
-  auto frame_token_opt = cef_frame->frame_token();
-  if (!frame_token_opt) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: frame_token not available";
-    return false;
-  }
-
-  content::RenderFrameHost* rfh = cef_frame->GetRenderFrameHost();
-  if (!rfh) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: render frame host is null";
-    return false;
-  }
-
-  std::optional<base::UnguessableToken> doc_token_opt = rfh->GetEmbeddingToken();
-  if (!doc_token_opt) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: document token not available";
-    return false;
-  }
-
-  std::string current_frame_token = frame_token_opt->frame_token.ToString();
-  std::string current_doc_token = doc_token_opt->ToString();
-
-  if (element_id.frame_token != current_frame_token) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: frame token mismatch, cmd="
-               << element_id.frame_token << " vs current=" << current_frame_token;
-    return false;
-  }
-
-  if (element_id.doc_token != current_doc_token) {
-    LOG(ERROR) << "[AIPageCmd] screenCapture: document token mismatch, cmd="
-               << element_id.doc_token << " vs current=" << current_doc_token;
-    return false;
-  }
-
-  return true;
-}
-
 void AIPageCommandDispatcher::HandleScreenCaptureCommand(
     CefRefPtr<ArkWebBrowserExt> browser,
     const base::Value::Dict &command,
@@ -540,7 +541,6 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
   LOG(DEBUG) << "[AIPageCmd]" << " screenCapture: command=" << BuildParamsJson(command);
   const base::Value::Dict *params = command.FindDict("params");
   const std::string *xpath = nullptr;
-  std::optional<int> node_id;
 
   if (params) {
     xpath = params->FindString("xpath");
@@ -554,21 +554,17 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
         return;
       }
 
-      if (!ValidateNodeIdTokens(browser, element_id.value())) {
-        ReplyError(callback, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeid, token mismatch");
-        return;
-      }
-      
       LOG(INFO) << "[AIPageCmd] screenCapture: parsed nodeid=" << element_id->dom_node_id
                 << " from " << *node_id_str;
-      node_id = element_id->dom_node_id;
+ 
+      browser->GetHost()->ValidateElementId(
+          *node_id_str,
+          new ValidateElementIdCallbackImpl(observer, element_id->dom_node_id, callback));
+      return;
     }
   }
 
-  if (node_id.has_value() && node_id.value() > 0) {
-    LOG(INFO) << "[AIPageCmd] screenCapture: using node_id=" << node_id.value();
-    observer->CaptureElementByNodeId(node_id.value());
-  } else if (xpath && !xpath->empty()) {
+  if (xpath && !xpath->empty()) {
     LOG(INFO) << "[AIPageCmd] screenCapture: using xpath=" << *xpath;
     observer->CaptureElement(*xpath);
   } else {
