@@ -13,15 +13,19 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/timer/timer.h"
 #include "media/base/media_export.h"
+#include "media/base/ohos/devtools_network_event_sink.h"
 #include "media/base/ohos/ohos_media_resource_getter.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/storage_access_api/status.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/graphic_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/media_adapter.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace media {
+
+class MediaSourceDownloadManager;
 class MEDIA_EXPORT OHOSMediaPlayerBridge {
  public:
   class Client {
@@ -54,6 +58,21 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
     virtual void OnPlayerSeekBack(base::TimeDelta back_time) = 0;
 
     virtual OHOSMediaResourceGetter* GetMediaResourceGetter() = 0;
+
+    // Provides the Chromium network stack URL loader factory used by the HLS
+    // proxy download path. Called on the UI thread (the thread Prepare() runs
+    // on). Returns nullptr if the browser context/partition is no longer alive.
+    virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() {
+      return nullptr;
+    }
+
+    // Provides the DevTools Network event sink used by the HLS proxy download
+    // path to surface each proxy download (manifest/segment) in the DevTools
+    // Network panel. Called on the UI thread. Returns nullptr for clients that
+    // don't implement it (the proxy path then downloads without surfacing).
+    virtual DevToolsNetworkEventSink* GetDevToolsNetworkEventSink() {
+      return nullptr;
+    }
   };
 
   enum MediaErrorType {
@@ -90,6 +109,14 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   void FinishPaint(int fd);
   void SetPlaybackSpeed(OHOS::NWeb::PlaybackRateMode mode);
   void SetNativeWindowSurface(int native_window_id);
+
+  // Enable/disable HLS proxy download. Only HLS streams reach this bridge, so
+  // this flag is the sole gate for the proxy path. When disabled (default), the
+  // bridge keeps the current behavior (AVPlayer plays HLS directly via
+  // SetMediaSourceHeader). When enabled, HLS streams are fetched through the
+  // Chromium network stack (proxy download) then fed to AVPlayer. Must be called
+  // before Start()/Prepare() to take effect.
+  void SetMediaProxyEnabled(bool enabled);
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void SetVideoSurface(int32_t surface_id);
@@ -139,6 +166,8 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   // Set media player surface and register listener
   void SetPlayerSurface();
 
+  bool ShouldUseProxyDownload() const;
+
 #if BUILDFLAG(ARKWEB_MEDIA)
   uint64_t uv__get_addr_tag(void* addr);
 #endif
@@ -182,6 +211,14 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 #if defined(RK3568)
   bool is_hls_;
 #endif
+
+  // Whether HLS proxy download is enabled (opt-in via SetMediaProxyEnabled).
+  // Default false: keep the current direct playback behavior. Only when true
+  // does playback route through the proxy download path.
+  bool media_proxy_enabled_ = false;
+
+  // HLS proxy download manager (created only when media_proxy_enabled_ is true)
+  std::unique_ptr<MediaSourceDownloadManager> download_manager_;
 
   // HTTP Request Headers
   base::flat_map<std::string, std::string> headers_;

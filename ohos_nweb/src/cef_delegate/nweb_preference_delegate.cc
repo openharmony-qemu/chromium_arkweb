@@ -1574,6 +1574,18 @@ void NWebPreferenceDelegate::PutWebMediaAVSessionEnabled(bool enable) {
 }
 #endif  // ARKWEB_MEDIA_AVSESSION
 
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void NWebPreferenceDelegate::PutWebMediaNetworkProxyEnabled(bool enable) {
+  if (!(browser_.get()) || !(browser_->GetHost())) {
+    LOG(ERROR) << "PutWebMediaNetworkProxyEnabled failed, browser or host is null";
+    return;
+  }
+  LOG(INFO) << "NWebPreferenceDelegate::PutWebMediaNetworkProxyEnabled enable:"
+            << enable;
+  browser_->GetHost()->PutWebMediaNetworkProxyEnabled(enable);
+}
+#endif // ARKWEB_MEDIA_HLS
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
   bool NWebPreferenceDelegate::GetCastEnabled() {
     return cast_enabled_;
