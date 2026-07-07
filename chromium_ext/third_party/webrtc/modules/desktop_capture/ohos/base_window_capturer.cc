@@ -199,7 +199,23 @@ void BaseWindowCapturer::HandleStateChanged(
  
   if (stateCode == OHOS::NWeb::ScreenCaptureStateCodeAdapter::SCREEN_CAPTURE_STATE_CANCELED) {
     LOG(INFO) << "BaseWindowCapturer::OnStateChanged, Screen capture canceled by user";
-    callback_->OnCaptureResult(Result::ERROR_PERMANENT, nullptr);
+    // This fires on the capturer construction thread (main_task_runner_ in
+    // BaseScreenCaptureSourceBridge), NOT the capture thread. The webrtc
+    // Callback contract requires delivery on the Start() thread, so bounce.
+    if (!capture_task_runner_) {
+      LOG(ERROR) << "HandleStateChanged before Start(), dropping event";
+      return;
+    }
+    capture_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<BaseWindowCapturer> self) {
+              if (!self) return;
+              if (self->callback_) {
+                self->callback_->OnCaptureResult(Result::ERROR_PERMANENT, nullptr);
+              }
+            },
+            weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -210,7 +226,21 @@ void BaseWindowCapturer::HandleUserSelected() {
   }
  
   LOG(INFO) << "BaseWindowCapturer::OnUserSelected, Screen capture started by user";
-  callback_->OnFrameCaptureStart();
+  // Same rationale as HandleStateChanged: bounce to the Start() thread.
+  if (!capture_task_runner_) {
+    LOG(ERROR) << "HandleUserSelected before Start(), dropping event";
+    return;
+  }
+  capture_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<BaseWindowCapturer> self) {
+            if (!self) return;
+            if (self->callback_) {
+              self->callback_->OnFrameCaptureStart();
+            }
+          },
+          weak_factory_.GetWeakPtr()));
 }
 
 void BaseWindowCapturer::HandleBuffer() {
@@ -290,6 +320,12 @@ void BaseWindowCapturer::Start(Callback* callback) {
   RTC_DCHECK(callback);
   (void)capture_source_type_;
   callback_ = callback;
+  // Capture the task runner of the thread invoking Start(). This is the
+  // DesktopCaptureDevice capture thread (see Core::AllocateAndStart which
+  // calls desktop_capturer_->Start(this)). All async OHOS callbacks must
+  // bounce through this runner to satisfy the Callback single-thread contract.
+  capture_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+  RTC_DCHECK(capture_task_runner_);
   if (portal_init_failed_) {
     LOG(ERROR) << "init failed";
     return;
