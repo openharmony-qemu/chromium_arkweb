@@ -16,7 +16,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "arkweb/build/features/features.h"
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
@@ -29,6 +35,9 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/run_loop.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "base/test/task_environment.h"
 
 #define private public
@@ -48,6 +57,8 @@
 
 using net::NetworkChangeNotifier;
 using ::testing::_;
+using ::testing::AnyNumber;
+using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
 using ::testing::Return;
 
@@ -84,11 +95,14 @@ class MockNetConnectAdapter : public NetConnectAdapter {
               GetDnsServersByNetId,
               (int32_t),
               (override));
-  std::vector<std::string> GetDnsServersForVpn() { return {}; }
+  MOCK_METHOD(std::vector<std::string>, GetDnsServersForVpn, (), (override));
   void RegisterVpnListener(std::shared_ptr<VpnListener>) {}
   void UnRegisterVpnListener() {}
-  std::vector<std::string> GetNetAddrListByNetId(int32_t netId) override {}
-  std::vector<std::string> GetNetAddrListForVpn() override {}
+  MOCK_METHOD(std::vector<std::string>,
+              GetNetAddrListByNetId,
+              (int32_t),
+              (override));
+  MOCK_METHOD(std::vector<std::string>, GetNetAddrListForVpn, (), (override));
 };
 }  // namespace OHOS::NWeb
 
@@ -106,7 +120,10 @@ class TestDnsObserver : public NetworkChangeNotifier::DNSObserver {
 
 class MockIPAddressObserver : public NetworkChangeNotifier::IPAddressObserver {
  public:
-  void OnIPAddressChanged(NetworkChangeNotifier::IPAddressChangeType change_type) { changes_++; }
+  void OnIPAddressChanged(
+      NetworkChangeNotifier::IPAddressChangeType change_type) {
+    changes_++;
+  }
   int GetIPChanges() { return changes_; }
 
  private:
@@ -142,6 +159,13 @@ class NetworkChangeNotifierPassiveExtTest : public testing::Test {
     notifier_ = base::WrapUnique(new NetworkChangeNotifierPassive(
         NetworkChangeNotifier::CONNECTION_UNKNOWN,
         NetworkChangeNotifier::SUBTYPE_UNKNOWN));
+  }
+
+  void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kEnableNwebExHttpDnsFallback);
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kEnableNwebEx);
   }
 
   void FastForwardUntilIdle() {
@@ -549,7 +573,7 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
 }
 #endif
 
-#if BUILDFLAG(ARKWEB_NETWORK_BASE)
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_NETWORK_BASE)
 TEST_F(NetworkChangeNotifierPassiveExtTest, VpnListenerImpl_OnAvailable) {
   testing::StrictMock<MockIPAddressObserver> ip_observer;
   NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
@@ -573,21 +597,613 @@ TEST_F(NetworkChangeNotifierPassiveExtTest, VpnListenerImpl_OnVpnLost) {
 }
 #endif
 
-#if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
-TEST_F(NetworkChangeNotifierPassiveExtTest, NetworkChangeNotifierPassiveExtTest) {
-  std::vector<std::string> new_addr_list = {
-    "192.168.1.1",
-    "10.20.20.1"
-  };
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetworkChangeNotifierPassiveExtTest) {
+  std::vector<std::string> new_addr_list = {"192.168.1.1", "10.20.20.1"};
   GetNotifier()->SetAddrListForBindedNetwork(new_addr_list);
-  auto addr_list = GetNotifier()->GetDefaultAddrList();
+  auto addr_list = GetNotifier()->GetAddrListForBindedNetwork();
   EXPECT_EQ(addr_list.size(), 2u);
   EXPECT_EQ(addr_list[0], "192.168.1.1");
 
   // clear
   GetNotifier()->SetAddrListForBindedNetwork({});
-  auto list = GetNotifier()->GetDefaultAddrList();
+  auto list = GetNotifier()->GetAddrListForBindedNetwork();
   EXPECT_TRUE(list.empty());
 }
 #endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetConnCallback_BindDnsToNetwork_NullNotifier) {
+  NetConnCallbackImpl callback(nullptr);
+  ASSERT_NO_FATAL_FAILURE(callback.BindDnsToNetwork(5));
+  EXPECT_EQ(callback.network_for_dns_, 5);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetConnCallback_BindDnsToNetwork_ClearAddrList) {
+  GetNotifier()->SetAddrListForBindedNetwork({"1.1.1.1", "2.2.2.2"});
+  ASSERT_FALSE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.BindDnsToNetwork(-1));
+  EXPECT_TRUE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+  EXPECT_EQ(callback.network_for_dns_, -1);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetConnCallback_BindDnsToNetwork_SetAddrList) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"10.0.0.1", "10.0.0.2"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7)).WillOnce(Return(addrs));
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.BindDnsToNetwork(7));
+  EXPECT_EQ(GetNotifier()->GetAddrListForBindedNetwork(), addrs);
+  EXPECT_EQ(callback.network_for_dns_, 7);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_BASE)
+TEST_F(NetworkChangeNotifierPassiveExtTest, NetConnCallback_IsSameAddrList) {
+  NetConnCallbackImpl callback(GetNotifier());
+  EXPECT_FALSE(callback.IsSameAddrList({"1.1.1.1"}, {"1.1.1.1", "2.2.2.2"}));
+  EXPECT_TRUE(
+      callback.IsSameAddrList({"2.2.2.2", "1.1.1.1"}, {"1.1.1.1", "2.2.2.2"}));
+  EXPECT_TRUE(callback.IsSameAddrList({"1.1.1.1"}, {"1.1.1.1"}));
+  EXPECT_TRUE(callback.IsSameAddrList({}, {}));
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_DifferentAddrList) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(std::vector<std::string>{"9.9.9.9"}));
+  GetNotifier()->SetAddrListForBindedNetwork({"1.1.1.1"});
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = 5;
+  callback.net_id_ = 5;
+  EXPECT_TRUE(callback.HasLinkPropertiesChanged());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_SameAddrList_NetworkForDnsSet) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1", "2.2.2.2"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5)).WillRepeatedly(Return(addrs));
+  GetNotifier()->SetAddrListForBindedNetwork(addrs);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = 5;
+  callback.net_id_ = 5;
+  EXPECT_FALSE(callback.HasLinkPropertiesChanged());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_SameAddrList_NetworkForDnsMinusOne) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7)).WillRepeatedly(Return(addrs));
+  GetNotifier()->SetDefaultAddrList(addrs);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 7;
+  EXPECT_FALSE(callback.HasLinkPropertiesChanged());
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION) && \
+    BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_HttpDnsFallback) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7)).WillRepeatedly(Return(addrs));
+  std::vector<std::string> active_dns = {"8.8.8.8"};
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_))
+      .WillRepeatedly(InvokeWithoutArgs([&]() { return active_dns; }));
+  GetNotifier()->SetDefaultAddrList(addrs);
+  GetNotifier()->network_for_dns_ = 7;
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 7;
+
+  // switch disabled -> returns false before the DNS comparison
+  EXPECT_FALSE(callback.HasLinkPropertiesChanged());
+
+  // switch enabled, same DNS -> false
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  GetNotifier()->dns_servers_ = {"8.8.8.8"};
+  active_dns = {"8.8.8.8"};
+  EXPECT_FALSE(callback.HasLinkPropertiesChanged());
+
+  // switch enabled, different DNS -> true
+  GetNotifier()->dns_servers_ = {"8.8.8.8"};
+  active_dns = {"9.9.9.9"};
+  EXPECT_TRUE(callback.HasLinkPropertiesChanged());
+
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_EarlyReturn_NetIdMismatch) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = 5;
+  callback.net_id_ = 5;
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      42, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  EXPECT_EQ(callback.net_id_, 5);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_EarlyReturn_NullNotifier) {
+  NetConnCallbackImpl callback(nullptr);
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      42, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_NetworkForDnsSet_DiffAddr) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(std::vector<std::string>{"2.2.2.2"}));
+  GetNotifier()->SetAddrListForBindedNetwork({"1.1.1.1"});
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = 5;
+  callback.net_id_ = -1;
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  auto default_list = GetNotifier()->GetDefaultAddrList();
+  ASSERT_EQ(default_list.size(), 1u);
+  EXPECT_EQ(default_list[0], "2.2.2.2");
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_NetworkForDnsSet_SameAddr) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5)).WillRepeatedly(Return(addrs));
+  GetNotifier()->SetAddrListForBindedNetwork(addrs);
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = 5;
+  callback.net_id_ = 5;
+  callback.type_ = OHOS::NWeb::NetConnectType::CONNECTION_UNKNOWN;
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_NetworkForDnsMinusOne) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(std::vector<std::string>{"3.3.3.3"}));
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = -1;
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  auto default_list = GetNotifier()->GetDefaultAddrList();
+  ASSERT_EQ(default_list.size(), 1u);
+  EXPECT_EQ(default_list[0], "3.3.3.3");
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_SubtypeChanged) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 5;
+  callback.type_ = OHOS::NWeb::NetConnectType::CONNECTION_WIFI;
+  callback.subtype_ = OHOS::NWeb::NetConnectSubtype::SUBTYPE_UNKNOWN;
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  EXPECT_EQ(callback.subtype_, OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_BASE) && \
+    !(BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION))
+TEST_F(NetworkChangeNotifierPassiveExtTest, ConnectionTypeChangedTo_NoExtPath) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Utils_GetNetAddrListByNetId_WithAdapter) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(9)).WillOnce(Return(addrs));
+  auto result = net::NetworkChangeNotifierPassiveUtils::GetNetAddrListByNetId(
+      GetNotifier(), 9);
+  EXPECT_EQ(result, addrs);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Utils_GetNetAddrListByNetId_NullAdapter) {
+  GetNotifier()->ohos_net_conn_adapter_ = nullptr;
+  auto result = net::NetworkChangeNotifierPassiveUtils::GetNetAddrListByNetId(
+      GetNotifier(), 9);
+  EXPECT_TRUE(result.empty());
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Utils_UpdateDnsServers_SwitchDisabled) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_)).Times(0);
+  EXPECT_CALL(*adapter, GetDnsServersForVpn()).Times(0);
+  GetNotifier()->dns_servers_ = {"existing"};
+  ASSERT_NO_FATAL_FAILURE(
+      net::NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
+  EXPECT_EQ(GetNotifier()->dns_servers_,
+            std::vector<std::string>({"existing"}));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, Utils_UpdateDnsServers_VpnInPlace) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> dns = {"vpn-dns"};
+  EXPECT_CALL(*adapter, GetDnsServersForVpn()).WillOnce(Return(dns));
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_)).Times(0);
+  GetNotifier()->vpn_in_place_ = true;
+  ASSERT_NO_FATAL_FAILURE(
+      net::NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
+  EXPECT_EQ(GetNotifier()->dns_servers_, dns);
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Utils_UpdateDnsServers_NullAdapter) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  GetNotifier()->ohos_net_conn_adapter_ = nullptr;
+  GetNotifier()->dns_servers_ = {"existing"};
+  ASSERT_NO_FATAL_FAILURE(
+      net::NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
+  EXPECT_EQ(GetNotifier()->dns_servers_,
+            std::vector<std::string>({"existing"}));
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Utils_UpdateDnsServers_EmptyResult) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_))
+      .WillOnce(Return(std::vector<std::string>{}));
+  GetNotifier()->vpn_in_place_ = false;
+  GetNotifier()->dns_servers_ = {"existing"};
+  ASSERT_NO_FATAL_FAILURE(
+      net::NetworkChangeNotifierPassiveUtils::UpdateDnsServers(GetNotifier()));
+  EXPECT_EQ(GetNotifier()->dns_servers_,
+            std::vector<std::string>({"existing"}));
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, GetCurrentDnsServers) {
+  GetNotifier()->dns_servers_ = {"dns1", "dns2"};
+  auto result = GetNotifier()->GetCurrentDnsServers();
+  EXPECT_EQ(result.size(), 2u);
+  EXPECT_EQ(result[0], "dns1");
+  EXPECT_EQ(result[1], "dns2");
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_NETWORK_BASE)
+TEST_F(NetworkChangeNotifierPassiveExtTest, OnVpnAvailable) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  GetNotifier()->vpn_in_place_ = false;
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->OnVpnAvailable());
+  FastForwardUntilIdle();
+  EXPECT_TRUE(GetNotifier()->vpn_in_place_);
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, OnVpnLost) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  GetNotifier()->vpn_in_place_ = true;
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->OnVpnLost());
+  FastForwardUntilIdle();
+  EXPECT_FALSE(GetNotifier()->vpn_in_place_);
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+TEST_F(NetworkChangeNotifierPassiveExtTest, ResetNetworkCapability) {
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapCaptivePortal |
+          NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  EXPECT_TRUE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->ResetNetworkCapability());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, IsCaptivePortalInternal) {
+  GetNotifier()->network_capability_.store(0, std::memory_order_release);
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapCaptivePortal,
+      std::memory_order_release);
+  EXPECT_TRUE(GetNotifier()->IsCaptivePortalInternal());
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, IsNetworkValidatedInternal) {
+  GetNotifier()->network_capability_.store(0, std::memory_order_release);
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapCaptivePortal,
+      std::memory_order_release);
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_SwitchOff) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       PostUpdateNetworkCapabilityTask_NullRunner) {
+  GetNotifier()->ui_task_runner_ = nullptr;
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->PostUpdateNetworkCapabilityTask());
+  FastForwardUntilIdle();
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       PostUpdateNetworkCapabilityTask_SameSequence_SwitchOff) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->ui_task_runner_ =
+      base::SequencedTaskRunner::GetCurrentDefault();
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapCaptivePortal,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->PostUpdateNetworkCapabilityTask());
+  FastForwardUntilIdle();
+  EXPECT_TRUE(GetNotifier()->IsCaptivePortalInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       PostUpdateNetworkCapabilityTask_DifferentSequence_SwitchOff) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->ui_task_runner_ =
+      base::ThreadPool::CreateSequencedTaskRunner({});
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->PostUpdateNetworkCapabilityTask());
+  FastForwardUntilIdle();
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       OnNetCapabilitiesChanged_PostUpdateTask_NullRunner) {
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  EXPECT_CALL(*capabilities, GetNetId()).WillRepeatedly(Return(42));
+  EXPECT_CALL(*capabilities, GetConnectType())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectType::CONNECTION_WIFI));
+  EXPECT_CALL(*capabilities, GetConnectSubtype())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  GetNotifier()->ui_task_runner_ = nullptr;
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.OnNetCapabilitiesChanged(capabilities));
+  FastForwardUntilIdle();
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       OnNetCapabilitiesChanged_PostUpdateTask_NullNotifier) {
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  NetConnCallbackImpl callback(nullptr);
+  ASSERT_NO_FATAL_FAILURE(callback.OnNetCapabilitiesChanged(capabilities));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       OnNetCapabilitiesChanged_PostUpdateTask_SameSeqSwitchOff) {
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  EXPECT_CALL(*capabilities, GetNetId()).WillRepeatedly(Return(42));
+  EXPECT_CALL(*capabilities, GetConnectType())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectType::CONNECTION_WIFI));
+  EXPECT_CALL(*capabilities, GetConnectSubtype())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->ui_task_runner_ =
+      base::SequencedTaskRunner::GetCurrentDefault();
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.OnNetCapabilitiesChanged(capabilities));
+  FastForwardUntilIdle();
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Passive_BindDnsToNetwork_NullCallback) {
+  *g_net_connect_callback = nullptr;
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->BindDnsToNetwork(7));
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+  EXPECT_EQ(GetNotifier()->network_for_dns_, 7);
+#endif
+  *g_net_connect_callback = nullptr;
+}
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Passive_BindDnsToNetwork_ValidCallback) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"10.0.0.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(8)).WillOnce(Return(addrs));
+  *g_net_connect_callback =
+      std::make_shared<NetConnCallbackImpl>(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->BindDnsToNetwork(8));
+  // TODO(arkweb): Expect addrs: GetNotifier()->GetAddrListForBindedNetwork()
+  EXPECT_TRUE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+  EXPECT_EQ(GetNotifier()->network_for_dns_, 8);
+#endif
+  *g_net_connect_callback = nullptr;
+}
+#endif
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Passive_GetNetAddrListByNetId_Empty) {
+  GetNotifier()->ohos_net_conn_adapter_ = nullptr;
+  auto result = GetNotifier()->GetNetAddrListByNetId(11);
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       Passive_GetNetAddrListByNetId_NonEmpty) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"5.5.5.5"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(11)).WillOnce(Return(addrs));
+  auto result = GetNotifier()->GetNetAddrListByNetId(11);
+  EXPECT_EQ(result, addrs);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       SetDefaultAddrList_GetDefaultAddrList) {
+  std::vector<std::string> addrs = {"1.1.1.1", "2.2.2.2"};
+  GetNotifier()->SetDefaultAddrList(addrs);
+  auto result = GetNotifier()->GetDefaultAddrList();
+  EXPECT_EQ(result, addrs);
+  GetNotifier()->SetDefaultAddrList({});
+  EXPECT_TRUE(GetNotifier()->GetDefaultAddrList().empty());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       SetAddrListForBindedNetwork_GetAddrListForBindedNetwork) {
+  std::vector<std::string> addrs = {"3.3.3.3"};
+  GetNotifier()->SetAddrListForBindedNetwork(addrs);
+  auto result = GetNotifier()->GetAddrListForBindedNetwork();
+  EXPECT_EQ(result, addrs);
+  GetNotifier()->SetAddrListForBindedNetwork({});
+  EXPECT_TRUE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, GetActiveDnsServers_VpnInPlace) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> dns = {"vpn-dns"};
+  EXPECT_CALL(*adapter, GetDnsServersForVpn()).WillOnce(Return(dns));
+  GetNotifier()->vpn_in_place_ = true;
+  EXPECT_EQ(GetNotifier()->GetActiveDnsServers(), dns);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, GetActiveDnsServers_NotVpn) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> dns = {"net-dns"};
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_)).WillOnce(Return(dns));
+  GetNotifier()->vpn_in_place_ = false;
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+  GetNotifier()->network_for_dns_ = 13;
+#endif
+  EXPECT_EQ(GetNotifier()->GetActiveDnsServers(), dns);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, GetActiveDnsServers_NullAdapter) {
+  GetNotifier()->ohos_net_conn_adapter_ = nullptr;
+  EXPECT_TRUE(GetNotifier()->GetActiveDnsServers().empty());
+}
+#endif
+
 }  // namespace net
