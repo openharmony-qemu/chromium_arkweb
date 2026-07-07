@@ -71,6 +71,22 @@ void HostFrameSinkManagerUtils::SetIsOfflineWebComponentInactive(
 }
 #endif
 
+void HostFrameSinkManagerUtils::DiscardCompositingResources(
+    const FrameSinkId& frame_sink_id) {
+  if (hostFrameSinkManager->frame_sink_manager_) {
+    hostFrameSinkManager->frame_sink_manager_->DiscardCompositingResources(
+        frame_sink_id);
+  }
+}
+
+void HostFrameSinkManagerUtils::UpdateFocusAndScreenStatus(
+    bool is_focused, bool is_single_screen, const FrameSinkId& frame_sink_id) {
+  if (hostFrameSinkManager->frame_sink_manager_) {
+    hostFrameSinkManager->frame_sink_manager_->UpdateFocusAndScreenStatus(
+        is_focused, is_single_screen, frame_sink_id);
+  }
+}
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
 void HostFrameSinkManagerUtils::UpdateVSyncFrequency(
     const FrameSinkId& frame_sink_id)

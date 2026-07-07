@@ -15,6 +15,7 @@
 
 #include "arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_utils.h"
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 
 #include "content/public/common/content_switches.h"
@@ -28,10 +29,37 @@
 #include "arkweb/chromium_ext/content/browser/renderer_host/arkweb_render_process_host_impl_utils.h"
 #endif
 
+#include "ui/display/screen.h"
+
 namespace content {
+
+static constexpr int kDualScreenCount = 2;
 
 WebContentsImplUtils::WebContentsImplUtils(WebContentsImpl* impl) {
   this->webContentsImpl = impl;
+
+  is_delegated_enabled_ = base::ohos::IsDelegatedCompositingEnabledOhos();
+  LOG(INFO) << "WebContentsImplUtils::is_delegated_enabled_: " << is_delegated_enabled_;
+  if (is_delegated_enabled_) {
+    display_mgr_ =
+        OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateDisplayMgrAdapter();
+    if (display_mgr_) {
+      std::shared_ptr<OHOS::NWeb::DisplayAdapter> display =
+          display_mgr_->GetDefaultDisplay();
+      if (display) {
+        is_foldable_ = display->IsFoldable();
+      }
+    }
+
+    if (display::Screen* screen = display::Screen::Get()) {
+      const auto& displays = screen->GetAllDisplays();
+      auto screen_count = displays.size();
+      is_single_screen_ = (screen_count == 1);
+      if (is_foldable_ && screen_count == kDualScreenCount && display_mgr_) {
+        is_single_screen_ = display_mgr_->IsSinglePhysicalDisplayForFold();
+      }
+    }
+  }
 }
 
 #if BUILDFLAG(ARKWEB_I18N)
@@ -152,4 +180,52 @@ void WebContentsImplUtils::SetIsOfflineWebComponentInactive(Visibility new_visib
   }
 }
 #endif
+
+void WebContentsImplUtils::NotifyFocusStatus(bool focused) {
+  DCHECK(!webContentsImpl->IsBeingDestroyed());
+  if (!is_delegated_enabled_) {
+    return;
+  }
+  if (focused == is_focused_) {
+    return;
+  }
+  is_focused_ = focused;
+
+  LOG(INFO) << "NotifyFocusStatus is_focused_: " << is_focused_ <<
+    ", is_single_screen_: " << is_single_screen_;
+  if (auto* view = webContentsImpl->GetRenderWidgetHostView()) {
+    view->UpdateFocusAndScreenStatus(focused, is_single_screen_);
+  }
+}
+
+void WebContentsImplUtils::NotifyScreenCountChanged(int screen_count) {
+  DCHECK(!webContentsImpl->IsBeingDestroyed());
+  if (!is_delegated_enabled_) {
+    return;
+  }
+  if (screen_count == screen_count_) {
+    return;
+  }
+  screen_count_ = screen_count;
+
+  bool is_single_screen = (screen_count == 1);
+  if (is_foldable_ && screen_count == kDualScreenCount && display_mgr_) {
+    is_single_screen = display_mgr_->IsSinglePhysicalDisplayForFold();
+  }
+  if (is_single_screen_ == is_single_screen) {
+    return;
+  }
+  is_single_screen_ = is_single_screen;
+
+  if (auto* view = webContentsImpl->GetRenderWidgetHostView()) {
+    view->UpdateFocusAndScreenStatus(is_focused_, is_single_screen);
+  }
+}
+
+void WebContentsImplUtils::DiscardCompositingResources() {
+  DCHECK(!webContentsImpl->IsBeingDestroyed());
+  if (auto* view = webContentsImpl->GetRenderWidgetHostView()) {
+    view->DiscardCompositingResources();
+  }
+}
 }  // namespace content

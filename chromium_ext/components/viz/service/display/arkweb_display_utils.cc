@@ -523,4 +523,20 @@ void ArkwebDisplayUtils::CleanBufferAfterSwapBuffer(bool delay_clean) {
   }
 }
 #endif
+
+void ArkwebDisplayUtils::DiscardCompositingResources() {
+  if (display_->output_surface_) {
+    display_->output_surface_->DiscardCompositingResources();
+  }
+}
+
+void ArkwebDisplayUtils::UpdateFocusAndScreenStatus(bool is_focused,
+                                                    bool is_single_screen) {
+#if BUILDFLAG(ARKWEB_VULKAN)
+  if (display_->renderer_) {
+    display_->renderer_->UpdateFocusAndScreenStatus(is_focused, is_single_screen);
+  }
+#endif
+}
+
 }  // namespace viz

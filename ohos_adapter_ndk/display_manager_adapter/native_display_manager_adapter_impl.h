@@ -88,6 +88,7 @@ public:
     static FoldStatusListenerMap foldStatusReg_;
     std::shared_ptr<DisplayAdapter> GetPrimaryDisplay() override;
     std::vector<std::shared_ptr<DisplayAdapter>> GetAllDisplays() override;
+    bool IsSinglePhysicalDisplayForFold() override;
 };
 }
 

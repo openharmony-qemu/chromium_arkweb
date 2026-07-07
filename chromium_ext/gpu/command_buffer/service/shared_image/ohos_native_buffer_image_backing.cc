@@ -7,9 +7,11 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/logging.h"
 #include "base/ohos/scoped_native_buffer_handle.h"
 #include "base/posix/eintr_wrapper.h"
+#include "base/trace_event/trace_event.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -186,6 +188,63 @@ class SkiaVkNBRepresentation : public SkiaVkNBImageRepresentation {
   }
 };
 
+class OhosNativeBufferImageBacking::DelegateNativeBufferImageRepresentation
+    : public OverlayImageRepresentation {
+ public:
+  DelegateNativeBufferImageRepresentation(SharedImageManager* manager,
+                                          SharedImageBacking* backing,
+                                          MemoryTypeTracker* tracker)
+      : OverlayImageRepresentation(manager, backing, tracker) {}
+
+  ~DelegateNativeBufferImageRepresentation() override { EndReadAccess({}); }
+
+ private:
+  OhosNativeBufferImageBacking* ohnb_backing() {
+    return static_cast<OhosNativeBufferImageBacking*>(backing());
+  }
+
+  bool BeginReadAccess(gfx::GpuFenceHandle& acquire_fence) override {
+    base::ScopedFD fd_to_wait_on;
+    if (!ohnb_backing() || !ohnb_backing()->BeginRead(this, &fd_to_wait_on)) {
+      return false;
+    }
+
+    acquire_fence.Adopt(std::move(fd_to_wait_on));
+    is_reading_ = true;
+    return true;
+  }
+
+  void EndReadAccess(gfx::GpuFenceHandle release_fence) override {
+    if (is_reading_) {
+      if (ohnb_backing()) {
+        ohnb_backing()->EndRead(this, release_fence.Release());
+      }
+      is_reading_ = false;
+    }
+  }
+
+  OH_NativeBuffer* GetOHNativeBuffer() override {
+    if (ohnb_backing() == nullptr) {
+      LOG(ERROR) << "Ohnb backing is nullptr, get native buffer failed";
+      return nullptr;
+    }
+    return static_cast<OH_NativeBuffer*>(
+        ohnb_backing()->native_buffer_handle_.get());
+  }
+
+  void InUseByWindowServerInc() override { ++in_use_count_; }
+
+  void InUseByWindowServerDec() override {
+    DCHECK(in_use_count_ != 0);
+    --in_use_count_;
+  }
+
+  bool IsInUseByWindowServer() const override { return in_use_count_ > 0; }
+
+  bool is_reading_ = false;
+  std::atomic<uint32_t> in_use_count_ = 0;
+};
+
 OhosNativeBufferImageBacking::OhosNativeBufferImageBacking(
     const Mailbox& mailbox,
     viz::SharedImageFormat format,
@@ -312,6 +371,40 @@ OhosNativeBufferImageBacking::ProduceGLTexture(SharedImageManager* manager,
       manager, this, tracker, std::move(egl_image), std::move(texture));
 }
 
+std::unique_ptr<GLTextureImageRepresentation>
+OhosNativeBufferImageBacking::ProduceGLTextureInner(
+    SharedImageManager* manager,
+    MemoryTypeTracker* tracker) {
+  // Use same texture for all the texture representations generated from same
+  // backing.
+  DCHECK(native_buffer_handle_.is_valid());
+
+  auto egl_image = CreateEGLImageFromNativeBuffer(native_buffer_handle_.get());
+  if (!egl_image.is_valid()) {
+    LOG(ERROR) << "NATIVE_BUFFER ProduceGLTexture err";
+    return nullptr;
+  }
+
+  // Right GL format for RGBX NativeBuffer is GL_RGB8, so we don't use angle
+  // rgbx.
+  auto gl_format_desc =
+      gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(format(),
+                                                          /*plane_index=*/0);
+  GLuint service_id =
+      CreateAndBindTexture(egl_image.get(), gl_format_desc.target);
+
+  auto* texture =
+      gles2::CreateGLES2TextureWithLightRef(service_id, gl_format_desc.target);
+  texture->SetLevelInfo(gl_format_desc.target, 0,
+                        gl_format_desc.image_internal_format, size().width(),
+                        size().height(), 1, 0, gl_format_desc.data_format,
+                        gl_format_desc.data_type, ClearedRect());
+  texture->SetImmutable(true, false);
+
+  return std::make_unique<GLTextureOhosImageRepresentation>(
+      manager, this, tracker, std::move(egl_image), std::move(texture));
+}
+
 std::unique_ptr<GLTexturePassthroughImageRepresentation>
 OhosNativeBufferImageBacking::ProduceGLTexturePassthrough(
     SharedImageManager* manager,
@@ -383,7 +476,11 @@ OhosNativeBufferImageBacking::ProduceSkiaGanesh(
   if (use_passthrough_) {
     gl_representation = ProduceGLTexturePassthrough(manager, tracker);
   } else {
-    gl_representation = ProduceGLTexture(manager, tracker);
+    if (base::ohos::IsDelegatedCompositingEnabledOhos()) {
+      gl_representation = ProduceGLTextureInner(manager, tracker);
+    } else {
+      gl_representation = ProduceGLTexture(manager, tracker);
+    }
   }
 
   if (!gl_representation) {
@@ -393,5 +490,14 @@ OhosNativeBufferImageBacking::ProduceSkiaGanesh(
   return SkiaGLImageRepresentation::Create(std::move(gl_representation),
                                            std::move(context_state), manager,
                                            this, tracker);
+}
+
+std::unique_ptr<OverlayImageRepresentation>
+OhosNativeBufferImageBacking::ProduceOverlay(SharedImageManager* manager,
+                                             MemoryTypeTracker* tracker) {
+  base::AutoLockMaybe auto_lock(drdc_lock_helper_.GetDrDcLockPtr());
+  TRACE_EVENT0("gpu", "OhosNativeBufferImageBacking::ProduceOverlay");
+  return std::make_unique<DelegateNativeBufferImageRepresentation>(
+      manager, this, tracker);
 }
 }  // namespace gpu

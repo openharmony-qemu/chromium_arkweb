@@ -73,6 +73,10 @@ class COMPOSITOR_EXPORT CompositorUtils {
   void SetIsOfflineWebComponentInactive(bool is_inactive);
 #endif
 
+void DiscardCompositingResources();
+bool IsValidManagerUtils();
+void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
   void UpdateVSyncFrequency();
   void ResetVSyncFrequency();

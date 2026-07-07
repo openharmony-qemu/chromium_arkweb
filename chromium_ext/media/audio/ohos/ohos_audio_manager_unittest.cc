@@ -209,10 +209,12 @@ class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
               (override));
   MOCK_METHOD(SurfaceControlAdapter&,
               GetSurfaceControlAdapter,
-              ());
+              (),
+              (override));
   MOCK_METHOD(SurfaceTransactionAdapter&,
               GetSurfaceTransactionAdapter,
-              ());
+              (),
+              (override));
   static MockOhosAdapterHelper& GetInstance() {
     static MockOhosAdapterHelper instance;
     return instance;

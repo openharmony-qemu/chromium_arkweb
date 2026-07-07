@@ -296,10 +296,12 @@ class OhosAdapterHelperMock : public OhosAdapterHelper {
               (override));
     MOCK_METHOD(SurfaceControlAdapter&,
                 GetSurfaceControlAdapter,
-                ());
+                (),
+                (override));
     MOCK_METHOD(SurfaceTransactionAdapter&,
                 GetSurfaceTransactionAdapter,
-                ());
+                (),
+                (override));
 };
 
 class VideoControlSupportAdapterMock : public VideoControlSupportAdapter {

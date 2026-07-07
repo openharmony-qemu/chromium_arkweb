@@ -65,6 +65,7 @@
 #include "arkweb/ohos_adapter_ndk/interfaces/net_config_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/background_task_adapter.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
 
 namespace OHOS::NWeb {
 
@@ -184,6 +185,10 @@ public:
     virtual ColorPickerAdapter& GetColorPickerAdapter() = 0;
 
     virtual HiAppeventAdapter& GetHiAppeventAdapterInstance() = 0;
+
+    virtual SurfaceControlAdapter& GetSurfaceControlAdapter() = 0;
+
+    virtual SurfaceTransactionAdapter& GetSurfaceTransactionAdapter() = 0;
 };
 
 } // namespace OHOS::NWeb

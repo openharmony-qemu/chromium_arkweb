@@ -872,7 +872,10 @@ public:
 #endif // ARKWEB_READER_MODE
 
 NWebDelegate::NWebDelegate(int argc, const char* argv[])
-    : argc_(argc), argv_(argv) {}
+    : argc_(argc), argv_(argv) {
+  is_delegated_enabled_ = base::ohos::IsDelegatedCompositingEnabledOhos();
+  LOG(INFO) << "NWebDelegate::is_delegated_enabled_: " << is_delegated_enabled_;
+}
 
 NWebDelegate::~NWebDelegate() {
   if (display_listener_id_ >= 0 && display_listener_ != nullptr &&
@@ -5608,10 +5611,14 @@ bool NWebDelegate::Discard() {
     return false;
   }
 
+  if (is_delegated_enabled_) {
+    GetBrowser()->GetHost()->DiscardCompositingResources();
+  }
+
   is_discarded_ = GetBrowser()->GetHost()->Discard();
   LOG(DEBUG) << "NWebDelegate::Discard is_discarded_: " << is_discarded_;
 
-  if (handler_delegate_) {
+  if (handler_delegate_ && !is_delegated_enabled_) {
     handler_delegate_->Discard();
   }
   return is_discarded_;

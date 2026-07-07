@@ -64,6 +64,19 @@ class WebContentsImplUtils {
   void SetIsOfflineWebComponent();
   void SetIsOfflineWebComponentInactive(Visibility new_visibility);
 #endif
+
+  void DiscardCompositingResources();
+  void NotifyFocusStatus(bool focused);
+  void NotifyScreenCountChanged(int screen_count);
+
+private:
+  std::unique_ptr<OHOS::NWeb::DisplayManagerAdapter> display_mgr_;
+  bool is_delegated_enabled_ = false;
+  bool is_focused_ = false;
+  bool is_foldable_ = false;
+  bool is_single_screen_ = false;
+  int screen_count_ = 0;
+
 };
 }  // namespace content
 #endif

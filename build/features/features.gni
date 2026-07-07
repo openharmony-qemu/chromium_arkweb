@@ -183,6 +183,7 @@ declare_args() {
   arkweb_fling = !is_component_build
   arkweb_skia_cache = true
   arkweb_occluded_opt = true
+  arkweb_delegate_compositing = true
   arkweb_optimize_parser_budget = true
   arkweb_performance_trace = true
   arkweb_report_loss_frame = !is_component_build
