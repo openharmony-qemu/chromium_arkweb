@@ -40,13 +40,10 @@
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "v8/include/v8-forward.h"
+#include "chrome/renderer/chrome_content_renderer_client.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/common/conflicts/remote_module_watcher_win.h"
-#endif
-
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "chrome/common/plugin.mojom.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
