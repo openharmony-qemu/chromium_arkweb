@@ -92,6 +92,7 @@ class HTMLMediaElement;
     void GetVideoRecordTime(VideoInfoReport& video_report);
     void GetVideoElementInfo(VideoInfoReport& video_report);
     void GetVideoNetworkInfo(VideoInfoReport& video_report);
+    std::string GetMainUrl() const;
 #endif // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
 
     void ScheduleNamedEventUtils(const AtomicString& event_name);
@@ -180,7 +181,6 @@ private:
   bool has_reported_experience_{false};
   bool video_src_same_{false};
   KURL video_src_;
-  std::string GetMainUrl() const;
 #endif // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
  };
 
