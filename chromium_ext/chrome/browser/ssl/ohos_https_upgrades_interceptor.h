@@ -75,7 +75,9 @@ class OhosHttpsUpgradesInterceptor : public content::URLLoaderRequestInterceptor
       content::URLLoaderRequestInterceptor::LoaderCallback callback,
       bool is_hsts_active_for_host);
 
+#if !BUILDFLAG(ARKWEB_TEST)
  private:
+#endif  // !BUILDFLAG(ARKWEB_TEST)
   // network::mojom::URLLoader:
   void FollowRedirect(
       const std::vector<std::string>& removed_headers,
