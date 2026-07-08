@@ -32,8 +32,9 @@
 #include "ui/display/screen.h"
 
 namespace content {
-
-static constexpr int kDualScreenCount = 2;
+namespace {
+  constexpr int kDualScreenCount = 2;
+} // namespace
 
 WebContentsImplUtils::WebContentsImplUtils(WebContentsImpl* impl) {
   this->webContentsImpl = impl;

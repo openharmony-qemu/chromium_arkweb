@@ -189,12 +189,15 @@ class SkiaVkNBRepresentation : public SkiaVkNBImageRepresentation {
 };
 
 class OhosNativeBufferImageBacking::DelegateNativeBufferImageRepresentation
-    : public OverlayImageRepresentation {
+    : public OverlayImageRepresentation,
+      public RefCountedLockHelperDrDc {
  public:
   DelegateNativeBufferImageRepresentation(SharedImageManager* manager,
                                           SharedImageBacking* backing,
-                                          MemoryTypeTracker* tracker)
-      : OverlayImageRepresentation(manager, backing, tracker) {}
+                                          MemoryTypeTracker* tracker,
+                                          scoped_refptr<RefCountedLock> drdc_lock)
+      : OverlayImageRepresentation(manager, backing, tracker),
+        RefCountedLockHelperDrDc(std::move(drdc_lock)) {}
 
   ~DelegateNativeBufferImageRepresentation() override { EndReadAccess({}); }
 
@@ -204,6 +207,7 @@ class OhosNativeBufferImageBacking::DelegateNativeBufferImageRepresentation
   }
 
   bool BeginReadAccess(gfx::GpuFenceHandle& acquire_fence) override {
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     base::ScopedFD fd_to_wait_on;
     if (!ohnb_backing() || !ohnb_backing()->BeginRead(this, &fd_to_wait_on)) {
       return false;
@@ -215,6 +219,7 @@ class OhosNativeBufferImageBacking::DelegateNativeBufferImageRepresentation
   }
 
   void EndReadAccess(gfx::GpuFenceHandle release_fence) override {
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     if (is_reading_) {
       if (ohnb_backing()) {
         ohnb_backing()->EndRead(this, release_fence.Release());
@@ -224,6 +229,7 @@ class OhosNativeBufferImageBacking::DelegateNativeBufferImageRepresentation
   }
 
   OH_NativeBuffer* GetOHNativeBuffer() override {
+    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     if (ohnb_backing() == nullptr) {
       LOG(ERROR) << "Ohnb backing is nullptr, get native buffer failed";
       return nullptr;
@@ -389,7 +395,7 @@ OhosNativeBufferImageBacking::ProduceGLTextureInner(
   // rgbx.
   auto gl_format_desc =
       gl_format_caps_.ToGLFormatDescOverrideHalfFloatType(format(),
-                                                          /*plane_index=*/0);
+                                                          /* plane_index= */0);
   GLuint service_id =
       CreateAndBindTexture(egl_image.get(), gl_format_desc.target);
 
@@ -492,12 +498,11 @@ OhosNativeBufferImageBacking::ProduceSkiaGanesh(
                                            this, tracker);
 }
 
-std::unique_ptr<OverlayImageRepresentation>
-OhosNativeBufferImageBacking::ProduceOverlay(SharedImageManager* manager,
-                                             MemoryTypeTracker* tracker) {
+std::unique_ptr<OverlayImageRepresentation> OhosNativeBufferImageBacking::ProduceOverlay(
+    SharedImageManager* manager, MemoryTypeTracker* tracker) {
   base::AutoLockMaybe auto_lock(drdc_lock_helper_.GetDrDcLockPtr());
   TRACE_EVENT0("gpu", "OhosNativeBufferImageBacking::ProduceOverlay");
   return std::make_unique<DelegateNativeBufferImageRepresentation>(
-      manager, this, tracker);
+      manager, this, tracker, drdc_lock_helper_.GetDrDcLock());
 }
 }  // namespace gpu

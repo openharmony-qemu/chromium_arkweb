@@ -730,12 +730,12 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
     base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     DCHECK(!scoped_native_buffer_);
     if (scoped_native_buffer_ != nullptr) {
-      LOG(ERROR) << "scoped_native_buffer_ should be nullptr!";
+      LOG(ERROR) << "DelegateDebug scoped_native_buffer_ should be nullptr!";
     }
     scoped_native_buffer_ =
         ohnb_backing()->stream_texture_sii_->GetNativeBuffer();
     if (!scoped_native_buffer_) {
-      LOG(ERROR) << "Failed to get the hardware buffer.";
+      LOG(ERROR) << "DelegateDebug Failed to get the hardware buffer.";
       return false;
     }
     DCHECK(scoped_native_buffer_->buffer());
@@ -750,7 +750,7 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
     base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     DCHECK(scoped_native_buffer_);
     if (scoped_native_buffer_ == nullptr) {
-      LOG(ERROR) << "EndReadAccess scoped_native_buffer_ is nullptr";
+      LOG(ERROR) << "DelegateDebug EndReadAccess scoped_native_buffer_ is nullptr";
       return;
     }
 
@@ -766,7 +766,7 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
     base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     DCHECK(scoped_native_buffer_);
     if (scoped_native_buffer_ == nullptr) {
-      LOG(ERROR) << "GetOHNativeBuffer: scoped_native_buffer_ is null!";
+      LOG(ERROR) << "DelegateDebug GetOHNativeBuffer: scoped_native_buffer_ is null!";
       return nullptr;
     }
     return static_cast<OH_NativeBuffer*>(scoped_native_buffer_->buffer());
@@ -785,9 +785,8 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
   std::unique_ptr<ScopedNativeBufferFenceSync> scoped_native_buffer_;
 };
 
-std::unique_ptr<OverlayImageRepresentation>
-HwVideoNativeBufferImageBacking::ProduceOverlay(SharedImageManager* manager,
-                                                MemoryTypeTracker* tracker) {
+std::unique_ptr<OverlayImageRepresentation> HwVideoNativeBufferImageBacking::ProduceOverlay(
+    SharedImageManager* manager, MemoryTypeTracker* tracker) {
   base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
   TRACE_EVENT0("gpu", "HwVideoNativeBufferImageBacking::ProduceOverlay");
   return std::make_unique<DelegateVideoImageRepresentation>(

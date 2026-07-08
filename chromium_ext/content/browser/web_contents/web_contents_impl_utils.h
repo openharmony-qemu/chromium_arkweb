@@ -76,7 +76,6 @@ private:
   bool is_foldable_ = false;
   bool is_single_screen_ = false;
   int screen_count_ = 0;
-
 };
 }  // namespace content
 #endif
