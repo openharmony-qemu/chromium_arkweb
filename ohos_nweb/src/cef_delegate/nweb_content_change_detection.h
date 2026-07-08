@@ -31,7 +31,9 @@ class NWebContentChangeDetection {
   explicit NWebContentChangeDetection(base::WeakPtr<NWebDelegateInterface> nweb_delegate);
   void SetContentChangeDetectionEnable(bool enable);
   void SetContentChangeDetectionConfig(int32_t min_report_time, float text_content_ratio);
+  void SetDomExtractionConfig(bool reportDomTree);
   void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback);
+  void StartRunDomExtraction();
 
  private:
   void StartDetection();
@@ -40,6 +42,7 @@ class NWebContentChangeDetection {
   bool enable_ = false;
   int32_t min_report_time_ = 100;
   float text_content_ratio_ = 0.15f;
+  bool report_dom_tree_ = true;
 
   base::WeakPtr<NWebDelegateInterface> nweb_delegate_;
   base::WeakPtrFactory<NWebContentChangeDetection> weak_factory_{this};
