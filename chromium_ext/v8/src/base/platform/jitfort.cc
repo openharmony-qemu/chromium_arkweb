@@ -39,12 +39,9 @@ void JITFort::EnableJitfort()
 {
     int fd = open("/dev/xpm", O_RDWR);
     if (fd < 0) {
-        HilogPrint(INFO, "[jitfort]: Open /dev/xpm failed");
         return;
     }
-    if (ioctl(fd, XPM_SET_JITFORT_ENABLE, 0) < 0) {
-        HilogPrint(INFO, "[jitfort]: Ioctl /dev/xpm failed");
-    }
+    ioctl(fd, XPM_SET_JITFORT_ENABLE, 0);
     close(fd);
     return;
 }
@@ -101,8 +98,7 @@ void JITFort::Init()
     JITFort::EnableJitfort();
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_CREATE_COPGTABLE);
     if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: InitJitfort create copytable faild, err = %{public}d, msg = %{public}s",
-                            errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: InitJitfort create copytable faild, return value is %{public}ld", ret);
     }
 }
 
@@ -111,8 +107,7 @@ void JITFort::SetJITMemoryWritable()
     if (!IsSupported()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_IN);
 	if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: Writable prctl in failed, err = %{public}d, msg = %{public}s",
-                            errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: Writable prctl in failed, return value is %{public}ld", ret);
 	}
 }
 
@@ -121,8 +116,7 @@ void JITFort::SetJITMemoryExecutable()
     if (!IsSupported()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_OUT);
 	if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: Executable prctl out failed, err = %{public}d, msg = %s{public}\n",
-                            errno, strerror(errno));
+        HilogPrint(FATAL, "[jitfort]: Executable prctl out failed, return value is %{public}ld", ret);
 	}
 }
 
