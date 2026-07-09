@@ -417,6 +417,8 @@ constexpr base::FilePath::CharType kUserCacheDir[] =
     FILE_PATH_LITERAL("cache/web");
 constexpr base::FilePath::CharType kWebCacheMigratedDir[] =
     FILE_PATH_LITERAL("web_cache_migrated");
+constexpr base::FilePath::CharType kDataCachePathChangedMarker[] =
+    FILE_PATH_LITERAL("data_cache_path_changed");
 const std::set<std::string> cache_names = {
         "Cache", "Code Cache", "DawnGraphiteCache", "DawnWebGPUCache", "font_unique_name_table.pb",
         "GPUCache", "GraphiteDawnCache", "GrShaderCache", "PreloadCache", "rdb", "ShaderCache", "Temp"};
@@ -1221,6 +1223,22 @@ bool MigrateUserData(const base::FilePath& user_data_dir,
   return true;
 }
 
+void ReportCacheDataSeparateMigrateIfNeed(const base::FilePath& target_cache_dir,
+                                          bool is_migration,
+                                          bool is_separation_success,
+                                          bool is_migration_success) {
+  base::FilePath mode_marker = target_cache_dir.Append(kDataCachePathChangedMarker);
+  if (!base::PathExists(mode_marker)) {
+    if (base::CreateDirectory(mode_marker)) {
+      ReportCacheDataSeparateMigrate(true, is_migration,
+                                     is_separation_success,
+                                     is_migration_success);
+    } else {
+      LOG(ERROR) << "Failed to create the split migration flag directory.";
+    }
+  }
+}
+
 void InitialWebEngineArgs(
     std::list<std::string>& web_engine_args,
     std::shared_ptr<OHOS::NWeb::NWebEngineInitArgs> init_args) {
@@ -1320,27 +1338,31 @@ void InitialWebEngineArgs(
 
   base::FilePath user_data_dir = base::FilePath();
   auto args_to_add = GetArgsToAdd(init_args);
-  bool isMigration = false;
+  bool is_migration = false;
 
   for (auto arg : args_to_add) {
     ParsePathFromArgForKey(arg, switches::kUserDataDir, user_data_dir);
-    ParseDataMigrateFromArgForKey(arg, switches::kEnableCacheDataDirMigration, isMigration);
+    ParseDataMigrateFromArgForKey(arg, switches::kEnableCacheDataDirMigration, is_migration);
     web_engine_args.emplace_back(arg);
   }
+  bool is_migration_success = false;
+  bool is_separation_success = false;
   base::FilePath target_cache_dir = user_data_dir.Append(kUserCacheDir);
   base::FilePath target_data_dir = user_data_dir.Append(kUserDataDir);
-  if (isMigration) {
-    bool is_migration_success = MigrateUserData(target_data_dir, target_cache_dir);
-    ReportCacheDataMigrate(is_migration_success);
+  if (is_migration) {
+    is_migration_success = MigrateUserData(target_data_dir, target_cache_dir);
   }
   if (!(base::PathExists(target_cache_dir) && !base::PathExists(target_data_dir))) {
-    ReportCacheDataSeparate(true);
+    is_separation_success = true;
     web_engine_args.emplace_back("--enable-cache-data-dir-separation");
-    LOG(INFO) << "dir data|cache isSeparation : true";
-  } else {
-    ReportCacheDataSeparate(false);
+    LOG(INFO) << "dir data|cache is_separation : true";
   }
-  LOG(INFO) << "dir data|cache isMigration : " << isMigration;
+  LOG(INFO) << "dir data|cache is_migration : " << is_migration;
+
+  if (!user_data_dir.empty()) {
+    ReportCacheDataSeparateMigrateIfNeed(target_cache_dir, is_migration,
+                                         is_separation_success, is_migration_success);
+  }
 
 #if BUILDFLAG(ARKWEB_GWP_ASAN)
   std::string gwpEnable = "--ohos-enable-gwp-asan-type=" + GetGwpAsanEnable();

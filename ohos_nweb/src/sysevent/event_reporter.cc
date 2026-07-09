@@ -178,8 +178,7 @@ constexpr char HISTOGRAM_UMA_UKM[] = "HISTOGRAM_UMA_UKM";
 constexpr char HISTOGRAM_TYPE[] = "HISTOGRAM_TYPE";
 constexpr char HISTOGRAM_CONTENT[] = "HISTOGRAM_CONTENT";
 
-constexpr char CACHE_DATA_SEPARATE_STATISTICS[] = "CACHE_DATA_SEPARATE_STATISTICS";
-constexpr char CACHE_DATA_MIGRATE_STATISTICS[] = "CACHE_DATA_MIGRATE_STATISTICS";
+constexpr char CACHE_DATA_DIR_STATISTICS[] = "CACHE_DATA_DIR_STATISTICS";
 
 }  // namespace
 
@@ -648,18 +647,16 @@ bool ReportUniversalAccessBlocked() {
   return true;
 }
 
-void ReportCacheDataSeparate(bool isSeparate) {
+void ReportCacheDataSeparateMigrate(bool isSeparation,
+                                bool isMigration,
+                                bool isSeparationSuccess,
+                                bool isMigrationSuccess) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
-      CACHE_DATA_SEPARATE_STATISTICS, HiSysEventAdapter::EventType::STATISTIC,
+      CACHE_DATA_DIR_STATISTICS, HiSysEventAdapter::EventType::STATISTIC,
       {
-        "SEPARATE_MODE", isSeparate ? std::string("separate") : std::string("not_separate")
-      });
-}
- 
-void ReportCacheDataMigrate(bool isMigrate) {
-  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
-      CACHE_DATA_MIGRATE_STATISTICS, HiSysEventAdapter::EventType::STATISTIC,
-      {
-        "MIGRATE_MODE", isMigrate ? std::string("migrate") : std::string("not_migrate")
+        "IS_SEPARATE", isSeparation ? "true" : "false",
+        "IS_MIGRATE", isMigration ? "true" : "false",
+        "SEPARATE_MODE", isSeparationSuccess ? "separate" : "not_separate",
+        "MIGRATE_MODE", isMigrationSuccess ? "migrate" : "not_migrate"
       });
 }
