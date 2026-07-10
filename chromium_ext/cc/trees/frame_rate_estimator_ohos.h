@@ -47,15 +47,10 @@ class CC_EXPORT FrameRateEstimator {
  private:
   void OnExitInputPriorityMode();
 
-  // Number of "did not produce frame" since the last draw.
-  uint64_t num_did_not_produce_frame_since_last_draw_ = 0;
-
   // Number of "did not produce frame" caused by no damage continuously.
   uint64_t num_no_damage_did_not_produce_frame_ = 0;
 
   bool begin_frame_throttle_mode_ = false;
-
-  uint64_t num_of_consecutive_frames_with_min_delta_ = 0u;
 
   // We conservatively switch to high frame rate after an input event to lower
   // the input latency for a minimum duration. This tracks when we are in this
