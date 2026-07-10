@@ -15,11 +15,15 @@
 
 #include "net_connect_adapter_impl.h"
 
+#include <atomic>
+#include <dlfcn.h>
+
 #include "net_connect_utils.h"
 #include "net_capabilities_adapter_impl.h"
 #include "net_connection_properties_adapter_impl.h"
 
 #include "arkweb/ohos_nweb/src/nweb_hilog.h"
+#include "base/files/file_path.h"
 
 #include <network/netmanager/net_connection.h>
 #include <network/netmanager/net_connection_type.h>
@@ -35,6 +39,9 @@ CommonEvent_SubscribeInfo *NetConnectAdapterImpl::commonEventSubscribeInfo_ = nu
 CommonEvent_Subscriber *NetConnectAdapterImpl::commonEventSubscriber_ = nullptr;
 std::mutex NetConnectAdapterImpl::mutex_;
 std::mutex NetConnectAdapterImpl::cbMutex_;
+std::unordered_map<int32_t, std::shared_ptr<NetGlobalHttpProxyRefreshCallback>>
+    NetConnectAdapterImpl::httpProxyRefreshCallbackMap_ = {};
+std::mutex NetConnectAdapterImpl::httpProxyRefreshCallbackMutex_;
 
 namespace {
 const int32_t DEFAULT_VALUE = -1;
@@ -42,6 +49,29 @@ const int32_t BEARER_VPN = 4;
 const int32_t NET_CONN_STATE_CONNECTED = 3;
 const int32_t NET_CONN_STATE_DISCONNECTED = 5;
 static const char* COMMON_EVENT_KEY_NET_TYPE = "NetType";
+
+using OHNetConnRefreshGlobalHttpProxyWithCallback = int32_t (*)(OH_NetConn_GlobalHttpProxyRefreshCallback callback,
+    void *userContext);
+ 
+OHNetConnRefreshGlobalHttpProxyWithCallback netConnRefreshGlobalHttpProxyWithCallback = nullptr;
+
+void InitDlopenFun() {
+  static std::once_flag initFlag;
+  std::call_once(initFlag, []() {
+#if defined(ARCH_CPU_ARM64)
+    base::FilePath cmFile("system/lib64/ndk/libnet_connection.so");
+#else
+    base::FilePath cmFile("system/lib/ndk/libnet_connection.so");
+#endif
+    void* dl = dlopen(cmFile.value().c_str(), RTLD_NOW);
+    if (dl) {
+      netConnRefreshGlobalHttpProxyWithCallback = reinterpret_cast<OHNetConnRefreshGlobalHttpProxyWithCallback>(dlsym(
+                                                            dl, "OH_NetConn_RefreshGlobalHttpProxyWithCallback"));
+    } else {
+      WVLOG_E("dlopen failed");
+    }
+  });
+}
 }
 
 void NetConnectAdapterImpl::OnReceiveEvent(const CommonEvent_RcvData *data)
@@ -188,6 +218,10 @@ void NetConnectAdapterImpl::UnRegisterVpnListener()
             WVLOG_E("stop vpn listen, unsubscribe common event failed");
         }
     }
+}
+
+NetConnectAdapterImpl::NetConnectAdapterImpl() {
+    InitDlopenFun();
 }
 
 NetConnectAdapterImpl::~NetConnectAdapterImpl()
@@ -572,6 +606,59 @@ std::vector<std::string> NetConnectAdapterImpl::GetNetAddrListInternal(NetConn_N
     WVLOG_I("get net address success, net id = %{public}d, address size = %{public}d.",
         netHandle.netId, static_cast<int32_t>(connectionProperties.netAddrListSize));
     return netAddrList;
+}
+
+bool NetConnectAdapterImpl::NotifyNetworkServiceAuthRequired(
+    std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback)
+{
+    WVLOG_I("NetConnectAdapterImpl::NotifyNetworkServiceAuthRequired");
+    if (!netConnRefreshGlobalHttpProxyWithCallback) {
+        WVLOG_E("OH_NetConn_RefreshGlobalHttpProxyWithCallback does not exist");
+        return false;
+    }
+
+    static std::atomic<int32_t> callbackId(0);
+    int32_t id = callbackId.fetch_add(1, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(httpProxyRefreshCallbackMutex_);
+        httpProxyRefreshCallbackMap_.insert(std::make_pair(id, callback));
+    }
+ 
+    void* userContext = reinterpret_cast<void*>(static_cast<intptr_t>(id));
+    int32_t ret = netConnRefreshGlobalHttpProxyWithCallback(
+        &NetConnectAdapterImpl::OnRunnableHttpProxyRefreshCallback, userContext);
+    if (ret != 0) {
+        WVLOG_E("refresh global http proxy with callback failed, ret = %{public}d.", ret);
+        {
+            std::lock_guard<std::mutex> lock(httpProxyRefreshCallbackMutex_);
+            httpProxyRefreshCallbackMap_.erase(id);
+        }
+        return false;
+    }
+    return true;
+}
+ 
+void NetConnectAdapterImpl::OnRunnableHttpProxyRefreshCallback(
+    int32_t result, const NetConn_HttpProxy *proxy, void *userContext) {
+    int32_t id = static_cast<int32_t>(reinterpret_cast<intptr_t>(userContext));
+ 
+    std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback;
+    {
+        std::lock_guard<std::mutex> lock(httpProxyRefreshCallbackMutex_);
+        auto it = httpProxyRefreshCallbackMap_.find(id);
+        if (it == httpProxyRefreshCallbackMap_.end()) {
+            WVLOG_E("OnRunnableHttpProxyRefreshCallback, not find the httpProxyRefreshCallback.");
+            return;
+        }
+ 
+        callback = it->second;
+        httpProxyRefreshCallbackMap_.erase(it);
+    }
+ 
+    if (callback) {
+        callback->OnRunnable(result == 0);
+    }
+    WVLOG_I("OnRunnableHttpProxyRefreshCallback success");
 }
 
 } // namespace OHOS::NWeb

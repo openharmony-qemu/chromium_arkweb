@@ -115,6 +115,15 @@ public:
     virtual void OnLost() = 0;
 };
 
+class NetGlobalHttpProxyRefreshCallback {
+public:
+    NetGlobalHttpProxyRefreshCallback() = default;
+ 
+    virtual ~NetGlobalHttpProxyRefreshCallback() = default;
+ 
+    virtual void OnRunnable(bool result) = 0;
+};
+
 class NetConnectAdapter {
 public:
     NetConnectAdapter() = default;
@@ -140,6 +149,8 @@ public:
     virtual std::vector<std::string> GetNetAddrListByNetId(int32_t netId) = 0;
 
     virtual std::vector<std::string> GetNetAddrListForVpn() = 0;
+
+    virtual bool NotifyNetworkServiceAuthRequired(std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback) = 0;
 };
 
 } // namespace OHOS::NWeb

@@ -30,7 +30,118 @@
 #include "base/i18n/time_formatting.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#endif
+
 namespace {
+
+#if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
+constexpr base::TimeDelta kProxyAuthRetryTimeout = base::Seconds(3);
+using ProxyAuthRefreshCompleteCallback = base::OnceClosure;
+using NotifyAuthRequiredCallback = base::OnceClosure;
+ 
+class NetGlobalHttpProxyRefreshCallbackImpl
+    : public OHOS::NWeb::NetGlobalHttpProxyRefreshCallback,
+      public std::enable_shared_from_this<NetGlobalHttpProxyRefreshCallbackImpl> {
+ public:
+  static std::shared_ptr<NetGlobalHttpProxyRefreshCallbackImpl> Create(
+      ProxyAuthRefreshCompleteCallback proxy_auth_refresh_complete_callback,
+      NotifyAuthRequiredCallback notify_auth_required_callback) {
+    auto obj = std::make_shared<NetGlobalHttpProxyRefreshCallbackImpl>(
+        std::move(proxy_auth_refresh_complete_callback),
+        std::move(notify_auth_required_callback));
+
+    obj->Initialize();
+    return obj;
+  }
+
+  NetGlobalHttpProxyRefreshCallbackImpl(
+          ProxyAuthRefreshCompleteCallback proxy_auth_refresh_complete_callback,
+          NotifyAuthRequiredCallback notify_auth_required_callback)
+      : proxy_auth_refresh_complete_callback_(std::move(proxy_auth_refresh_complete_callback)),
+        notify_auth_required_callback_(std::move(notify_auth_required_callback)) {
+    task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+  }
+
+  ~NetGlobalHttpProxyRefreshCallbackImpl() {
+    timeout_timer_.Stop();
+  }
+  
+  void OnRunnable(bool result) override {
+    LOG(INFO) << "NetGlobalHttpProxyRefreshCallbackImpl::OnRunnable result: " << result;
+
+    if (!task_runner_->RunsTasksInCurrentSequence()) {
+      auto self = shared_from_this();
+      task_runner_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&NetGlobalHttpProxyRefreshCallbackImpl::OnRunnable,
+                         self, result));
+      return;
+    }
+
+    if (auth_callback_consumed_) {
+      LOG(ERROR) << "auth callback consumed";
+      return;
+    }
+
+    timeout_timer_.Stop();
+
+    if (result) {
+      std::move(proxy_auth_refresh_complete_callback_).Run();
+    } else {
+      std::move(notify_auth_required_callback_).Run();
+    }
+    auth_callback_consumed_ = true;
+  }
+
+  void RunNotifyAuthRequiredCallback() {
+    if (!task_runner_->RunsTasksInCurrentSequence()) {
+      auto self = shared_from_this();
+      task_runner_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&NetGlobalHttpProxyRefreshCallbackImpl::RunNotifyAuthRequiredCallback,
+                         self));
+      return;
+    }
+
+    if (auth_callback_consumed_) {
+      LOG(ERROR) << "auth callback consumed";
+      return;
+    }
+
+    auth_callback_consumed_ = true;
+    timeout_timer_.Stop();
+    std::move(notify_auth_required_callback_).Run();
+  }
+
+ private:
+  void Initialize() {
+    auto self = shared_from_this();
+    timeout_timer_.Start(
+        FROM_HERE,
+        kProxyAuthRetryTimeout,
+        base::BindOnce(&NetGlobalHttpProxyRefreshCallbackImpl::OnTimeout, self));
+  }
+
+  void OnTimeout() {
+    LOG(INFO) << "NetGlobalHttpProxyRefreshCallbackImpl::OnTimeout triggered";
+    if (auth_callback_consumed_) {
+      LOG(ERROR) << "auth callback consumed";
+      return;
+    }
+    std::move(notify_auth_required_callback_).Run();
+    auth_callback_consumed_ = true;
+  }
+ 
+  ProxyAuthRefreshCompleteCallback proxy_auth_refresh_complete_callback_;
+  NotifyAuthRequiredCallback notify_auth_required_callback_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  base::OneShotTimer timeout_timer_;
+  bool auth_callback_consumed_ {false};
+};
+#endif
+
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 const char* kDnsRetryResultEventType = "dns_retry_result";
 const char* kUrl = "url";
@@ -574,5 +685,36 @@ ConnectionAttempts URLRequestHttpJob::GetExtraConnectionAttempts() const {
   return {};
 }
 #endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+
+#if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
+void URLRequestHttpJob::RestartTransactionAfterProxyAuth() {
+  if (transaction_) {
+    transaction_->CloseConnectionOnDestruction();
+  }
+  transaction_.reset();
+  ResetTimer();
+  RestartTransaction();
+}
+
+void URLRequestHttpJob::NotifyNetworkServiceAuthRequired(std::unique_ptr<AuthChallengeInfo> auth_info) {
+  std::unique_ptr<OHOS::NWeb::NetConnectAdapter> net_connect_adapter =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateNetConnectAdapter();
+  if (!net_connect_adapter) {
+    LOG(ERROR) << "net_connect_adapter is nullptr";
+    NotifyAuthRequiredForRequest(std::move(auth_info));
+    return;
+  }
+
+  std::shared_ptr<NetGlobalHttpProxyRefreshCallbackImpl> callback =
+      NetGlobalHttpProxyRefreshCallbackImpl::Create(
+          base::BindOnce(&URLRequestHttpJob::RestartTransactionAfterProxyAuth,
+                         weak_factory_.GetWeakPtr()),
+          base::BindOnce(&URLRequestHttpJob::NotifyAuthRequiredForRequest,
+                         weak_factory_.GetWeakPtr(), std::move(auth_info)));
+  if (!net_connect_adapter->NotifyNetworkServiceAuthRequired(callback)) {
+    callback->RunNotifyAuthRequiredCallback();
+  }
+}
+#endif
 
 }  // namespace net

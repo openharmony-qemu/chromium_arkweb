@@ -295,6 +295,10 @@ public:
   MOCK_METHOD(void, UnRegisterVpnListener, (), (override));
   MOCK_METHOD(std::vector<std::string>, GetNetAddrListByNetId, (int32_t netId), (override));
   MOCK_METHOD(std::vector<std::string>, GetNetAddrListForVpn, (), (override));
+  MOCK_METHOD(bool,
+              NotifyNetworkServiceAuthRequired,
+              (std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback),
+              (override));
 };
 
 #if BUILDFLAG(ARKWEB_COOKIE)
