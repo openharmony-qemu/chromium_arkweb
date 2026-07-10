@@ -23,6 +23,7 @@ using CefWebNavigationInfoKeys::kAttemptType;
 using CefWebNavigationInfoKeys::kDnsAddressList;
 using CefWebNavigationInfoKeys::kDnsHost;
 using CefWebNavigationInfoKeys::kDnsInfo;
+using CefWebNavigationInfoKeys::kDnsRecordTruncation;
 using CefWebNavigationInfoKeys::kDnsResult;
 using CefWebNavigationInfoKeys::kDnsTransition;
 using CefWebNavigationInfoKeys::kRequestAttemptResult;
@@ -75,6 +76,9 @@ void ParseDnsInfo(CefRefPtr<CefDictionaryValue> the_dict,
 
   auto dns_address_list = the_dict->GetList(kDnsAddressList);
   dns_info.address_list = JoinCefListWithComma(dns_address_list);
+
+  auto truncation_list = the_dict->GetList(kDnsRecordTruncation);
+  dns_info.dns_record_truncation = JoinCefListWithComma(truncation_list);
 }
 
 // Helper: Parse SSL info

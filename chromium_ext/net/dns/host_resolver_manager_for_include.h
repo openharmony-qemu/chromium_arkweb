@@ -47,7 +47,7 @@ enum class DnsTransactionAddressFailedType {
 
 void ReportSecureFallbackDnsResult(
     const std::optional<HostCache::Entry> insecure_results,
-    const HostResolverDnsTask::Results& secure_fallback_results,
+    const HostCache::Entry& secure_fallback_results,
     const std::string& host,
     const int index,
     const base::TimeDelta& duration);

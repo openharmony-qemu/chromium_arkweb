@@ -72,7 +72,7 @@ void HostResolverManager::ServiceEndpointRequestImpl::
   std::vector<IPEndPoint> ip_endpoints_modified;
   bool need_to_replace_address = MaybeNeedToProcessAddressList(
       host, out_results.ip_endpoints(), secure_dns_fallback_available,
-      ip_endpoints_modified, need_to_modify_resolve_result);
+      ip_endpoints_modified, need_to_modify_resolve_result, truncation_results);
 
   if (!need_to_replace_address) {
     return;
