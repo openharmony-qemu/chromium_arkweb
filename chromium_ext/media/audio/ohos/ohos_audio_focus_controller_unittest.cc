@@ -468,4 +468,153 @@ TEST_F(OHOSAudioFocusControllerTest, CheckGetMediaPlayerMuteStateOnUIThread02) {
   EXPECT_EQ(res, false);
 }
 
+TEST_F(OHOSAudioFocusControllerTest, GetMediaContentType01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetMediaContentType(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, media::MediaContentType::kInvalid);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, GetMediaContentType02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetMediaContentType(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, media::MediaContentType::kInvalid);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, GetSessionState01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetSessionState(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, content::MediaSessionImpl::NWebMediaSessionState::NOINITIAL);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, GetSessionState02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetSessionState(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, content::MediaSessionImpl::NWebMediaSessionState::NOINITIAL);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, GetAudioResumeInterval01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetAudioResumeInterval(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, 0);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, GetAudioResumeInterval02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::GetAudioResumeInterval(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, 0);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, HasOnlyOneShotPlayersPublic01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::HasOnlyOneShotPlayersPublic(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, HasOnlyOneShotPlayersPublic02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::HasOnlyOneShotPlayersPublic(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, IsActive01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::IsActive(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, IsActive02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::IsActive(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, IsSuspended01) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::IsSuspended(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
+
+TEST_F(OHOSAudioFocusControllerTest, IsSuspended02) {
+  AudioParameters params(
+      AudioParameters::AUDIO_PCM_LOW_LATENCY,
+      ChannelLayoutConfig::Guess(kDefaultChannelCount), kDefaultSampleRate,
+      kMinimumInputBufferSize);
+  params.set_render_process_id(-1);
+  testing::internal::CaptureStderr();
+  auto result = OHOSAudioFocusController::IsSuspended(params);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("RenderFrameHost not found for PID"), std::string::npos);
+  EXPECT_EQ(result, false);
+}
 } // namespace media
