@@ -14032,4 +14032,24 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher006) {
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher007) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch(
+      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[]}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"method\":\"removePageAnnotation\"}",
+                                    browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("", callback->value_);
+}
+
 }  // namespace OHOS::NWeb

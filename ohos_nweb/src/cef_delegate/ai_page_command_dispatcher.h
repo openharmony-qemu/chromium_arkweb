@@ -62,6 +62,12 @@ class AIPageCommandDispatcher {
   static void HandleUploadFileCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                       const base::Value::Dict& command,
                                       ResultCallback callback);
+  static void HandleAddPageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                             const base::Value::Dict& command,
+                                             ResultCallback callback);
+  static void HandleRemovePageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                                const base::Value::Dict& command,
+                                                ResultCallback callback);
 
   // --- Helpers ---
   static void ReplyError(ResultCallback callback,
