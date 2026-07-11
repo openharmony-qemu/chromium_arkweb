@@ -14052,4 +14052,45 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
   EXPECT_EQ("", callback->value_);
 }
 
+TEST_F(NWebImplTest, AIPageCommandDispatcher009) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"method\":\"getUrlHistory\",\"params\":{}}",
+                                    browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"ok\":false,\"error\":\"browser host is not available\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher010) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"method\":\"goBack\",\"params\":{}}",
+                                    browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher011) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch("{\"method\":\"goForward\",\"params\":{}}",
+                                    browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher012) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  AIPageCommandDispatcher::Dispatch(
+      "{\"method\":\"navigate\",\"params\":{\"url\":\"about:blank\"}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"ok\":false,\"error\":\"main frame is not available\"}",
+            callback->value_);
+}
+
 }  // namespace OHOS::NWeb
