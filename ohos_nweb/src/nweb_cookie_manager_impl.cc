@@ -307,6 +307,7 @@ std::string NWebCookieManagerImpl::ReturnCookie(const std::string& url, bool& is
   if (delegate_ != nullptr) {
     return delegate_->ReturnCookie(url, is_valid, include_partitioned_cookies, incognito_mode);
   }
+  return "";
 }
 
 void NWebCookieManagerImpl::GetCookieAsync(const std::string& url,
