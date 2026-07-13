@@ -4678,6 +4678,16 @@ void NWebDelegate::UpdateBrowserControlsHeight(int height, bool animate) {
   }
 }
 
+void NWebDelegate::SetBrowserControlsParams(float top_controls_height,
+                                            float top_controls_min_height,
+                                            float bottom_controls_height,
+                                            float bottom_controls_min_height) {
+  if (GetBrowser().get()) {
+    GetBrowser()->AsArkWebBrowser()->SetBrowserControlsParams(
+        top_controls_height, top_controls_min_height, bottom_controls_height,
+        bottom_controls_min_height);
+  }
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_PRINT)

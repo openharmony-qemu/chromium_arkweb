@@ -480,9 +480,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 
   void SetBrowserZoomLevel(double zoomFactor) override {}
 
-  int GetTopControlsOffset() override { return 0; }
+  float GetTopControlsOffset() override { return 0; }
 
-  MOCK_METHOD0(GetShrinkViewportHeight, int());
+  MOCK_METHOD0(GetShrinkViewportHeight, float());
 
   void OnEyeDropperResult(bool success, uint32_t color) override {}
 
@@ -687,6 +687,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
                                   int current,
                                   bool animate) override {}
   void UpdateBrowserControlsHeight(int height, bool animate) override {}
+  void SetBrowserControlsParams(float top_controls_height,
+                                float top_controls_min_height,
+                                float bottom_controls_height,
+                                float bottom_controls_min_height) override {}
   void PrefetchPage(const OHOS::NWeb::PrefetchOptions& prefetch_options) override {
   }
   void ReloadOriginalUrl() override {}
@@ -862,6 +866,10 @@ class MockCefBrowser : public ArkWebBrowserExt {
                                   int current,
                                   bool animate) override {}
   void UpdateBrowserControlsHeight(int height, bool animate) override {}
+  void SetBrowserControlsParams(float top_controls_height,
+                                float top_controls_min_height,
+                                float bottom_controls_height,
+                                float bottom_controls_min_height) override {}
   void PrefetchPage(const OHOS::NWeb::PrefetchOptions& prefetch_options) override {
   }
   void ReloadOriginalUrl() override {}

@@ -168,6 +168,10 @@ virtual void OnFormEditingStateChanged(uint64_t form_id, bool did_submit) = 0;
 
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 virtual void UpdateBrowserControlsHeight(int, bool) = 0;
+virtual void SetBrowserControlsParams(float top_controls_height,
+                                      float top_controls_min_height,
+                                      float bottom_controls_height,
+                                      float bottom_controls_min_height) = 0;
 #endif
 
 #if BUILDFLAG(ARKWEB_DISATCH_BEFORE_UNLOAD)
