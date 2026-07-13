@@ -264,6 +264,12 @@ ArkWeb_BlanklessErrorCode OH_NativeArkWeb_SetBlanklessLoadingParams(const char* 
                                                                     const char* key,
                                                                     const ArkWeb_BlanklessLoadingParam& param);
 
+ArkWeb_ErrorCode OH_ArkWebCookieManager_FetchCookieSync(const char* url, bool incognito, bool includeHttpOnly,
+    bool includePartitionedCookies, char** cookieValue);
+
+void OH_ArkWebCookieManager_FetchCookieAsync(const char* url, bool incognito, bool includeHttpOnly,
+    bool includePartitionedCookies, OH_ArkWeb_OnCookieFetchCallback callback);
+
 #ifdef __cplusplus
 }
 #endif
