@@ -111,6 +111,9 @@ public:
 #endif
 
 private:
+#if BUILDFLAG(ARKWEB_MEDIA)
+  bool should_show_title_ = true;
+#endif
   void InitMediaControlsImplUtils(MediaControlsImpl* media_controls_impl, HTMLMediaElement& media_element);
 };
 
