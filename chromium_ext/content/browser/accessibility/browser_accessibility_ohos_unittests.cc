@@ -14,6 +14,7 @@
  */
 
 #include <memory>
+#include <map>
 
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -48,6 +49,8 @@ class MockContentClient : public content::TestContentClient {
         return u"Expanded";
       case IDS_AX_ROLE_HEADING:
         return u"Heading";
+      case IDS_AX_ROLE_HEADING_WITH_LEVEL:
+        return u"Heading $1";
       case IDS_AX_STATE_LINK_VISITED:
         return u"Visited";
       case IDS_AX_ROLE_POP_UP_BUTTON_MENU:
@@ -552,6 +555,79 @@ TEST_F(BrowserAccessibilityOHOSTest, Instance_GetAccessibilityNodeByFocusMove_Nu
   EXPECT_EQ(n->GetAccessibilityNodeByFocusMove(static_cast<int32_t>(OHOS::NWeb::FORWARD)), nullptr);
   EXPECT_EQ(n->GetAccessibilityNodeByFocusMove(static_cast<int32_t>(OHOS::NWeb::BACKWARD)), nullptr);
   EXPECT_EQ(n->GetAccessibilityNodeByFocusMove(static_cast<int32_t>(OHOS::NWeb::LEFT)), nullptr);
+}
+
+TEST_F(BrowserAccessibilityOHOSTest, Instance_GetAccessibilityNodeByParams_LinkAndHeading) {
+  ui::AXNodeData root;
+  root.id = 9000;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {9001, 9002, 9003};
+
+  ui::AXNodeData button;
+  button.id = 9001;
+  button.role = ax::mojom::Role::kButton;
+
+  ui::AXNodeData link;
+  link.id = 9002;
+  link.role = ax::mojom::Role::kLink;
+
+  ui::AXNodeData heading;
+  heading.id = 9003;
+  heading.role = ax::mojom::Role::kHeading;
+
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, button, link, heading);
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  auto* button_node = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(9001));
+  auto* link_node = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(9002));
+  auto* heading_node = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(9003));
+  ASSERT_NE(button_node, nullptr);
+  ASSERT_NE(link_node, nullptr);
+  ASSERT_NE(heading_node, nullptr);
+
+  std::map<std::string, std::string> params;
+  EXPECT_EQ(button_node->GetAccessibilityNodeByParams(
+                static_cast<int32_t>(OHOS::NWeb::FORWARD), 2, params),
+            link_node);
+  EXPECT_EQ(button_node->GetAccessibilityNodeByParams(
+                static_cast<int32_t>(OHOS::NWeb::FORWARD), 3, params),
+            heading_node);
+  EXPECT_EQ(heading_node->GetAccessibilityNodeByParams(
+                static_cast<int32_t>(OHOS::NWeb::BACKWARD), 2, params),
+            link_node);
+}
+
+TEST_F(BrowserAccessibilityOHOSTest, Instance_GetAccessibilityNodeByParams_DefaultAndInvalid) {
+  ui::AXNodeData root;
+  root.id = 9010;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {9011, 9012};
+
+  ui::AXNodeData text;
+  text.id = 9011;
+  text.role = ax::mojom::Role::kStaticText;
+
+  ui::AXNodeData button;
+  button.id = 9012;
+  button.role = ax::mojom::Role::kButton;
+
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, text, button);
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  auto* text_node = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(9011));
+  auto* button_node = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(9012));
+  ASSERT_NE(text_node, nullptr);
+  ASSERT_NE(button_node, nullptr);
+
+  std::map<std::string, std::string> params;
+  EXPECT_EQ(text_node->GetAccessibilityNodeByParams(
+                static_cast<int32_t>(OHOS::NWeb::FORWARD), 1, params),
+            button_node);
+  EXPECT_EQ(text_node->GetAccessibilityNodeByParams(
+                static_cast<int32_t>(OHOS::NWeb::FORWARD), 99, params),
+            nullptr);
 }
 
 TEST_F(BrowserAccessibilityOHOSTest, Instance_SliderScrollAndInputTagGate) {
@@ -1240,6 +1316,26 @@ TEST_F(BrowserAccessibilityOHOSTest, Instance_RoleDescription_HeadingNoVisited) 
   ASSERT_NE(n, nullptr);
   auto desc = n->GetRoleDescription();
   EXPECT_EQ(desc, u"Heading");
+}
+
+TEST_F(BrowserAccessibilityOHOSTest, Instance_RoleDescription_HeadingWithLevel) {
+  ui::AXNodeData root;
+  root.id = 3410;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids.push_back(3411);
+
+  ui::AXNodeData heading;
+  heading.id = 3411;
+  heading.role = ax::mojom::Role::kHeading;
+  heading.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 2);
+
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, heading);
+  std::unique_ptr<ui::BrowserAccessibilityManager> manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  auto* n = static_cast<ui::BrowserAccessibilityOHOS*>(manager->GetFromID(3411));
+  ASSERT_NE(n, nullptr);
+  EXPECT_EQ(n->GetRoleDescription(), u"Heading 2");
 }
 
 TEST_F(BrowserAccessibilityOHOSTest, Instance_RoleDescription_HeadingWithVisited) {

@@ -32,6 +32,11 @@ constexpr int32_t CHECKBOX_GROUP_STATUS_TRUE = 0;
 constexpr int32_t CHECKBOX_GROUP_STATUS_MIXED = 1;
 constexpr int32_t CHECKBOX_GROUP_STATUS_FALSE = 2;
 constexpr int32_t CHECKBOX_GROUP_STATUS_DEFAULT = -1;
+constexpr int32_t WEB_ACCESSIBILITY_ELEMENT_TYPE_DEFAULT = 1;
+constexpr int32_t WEB_ACCESSIBILITY_ELEMENT_TYPE_LINK = 2;
+constexpr int32_t WEB_ACCESSIBILITY_ELEMENT_TYPE_HEADING = 3;
+constexpr char WEB_ACCESSIBILITY_ELEMENT_TYPE_LINK_NAME[] = "LINK";
+constexpr char WEB_ACCESSIBILITY_ELEMENT_TYPE_HEADING_NAME[] = "HEADING";
 }
 
 base::NoDestructor<AccessibilityIdMap> g_accessibility_id_map;
@@ -503,6 +508,64 @@ BrowserAccessibilityOHOS::GetAccessibilityNodeByFocusMove(
     resultNode = FindNodeInAbsoluteDirection(nodeList, direction);
   }
   return resultNode;
+}
+
+BrowserAccessibilityOHOS*
+BrowserAccessibilityOHOS::GetAccessibilityNodeByParams(
+    int32_t direction,
+    int32_t element_type,
+    const std::map<std::string, std::string>&) const {
+  std::list<BrowserAccessibilityOHOS*> nodeList;
+  BrowserAccessibilityOHOS* result_node = nullptr;
+  std::string search_key;
+  bool use_default_predicate = false;
+  switch (element_type) {
+    case WEB_ACCESSIBILITY_ELEMENT_TYPE_DEFAULT:
+      use_default_predicate = true;
+      break;
+    case WEB_ACCESSIBILITY_ELEMENT_TYPE_LINK:
+      search_key = WEB_ACCESSIBILITY_ELEMENT_TYPE_LINK_NAME;
+      break;
+    case WEB_ACCESSIBILITY_ELEMENT_TYPE_HEADING:
+      search_key = WEB_ACCESSIBILITY_ELEMENT_TYPE_HEADING_NAME;
+      break;
+    default:
+      return result_node;
+  }
+
+  if (!manager_) {
+    return result_node;
+  }
+  auto manager = static_cast<BrowserAccessibilityManagerOHOS*>(
+      manager_->GetManagerForRootFrame());
+  if (!manager) {
+    return result_node;
+  }
+  auto root = static_cast<BrowserAccessibilityOHOS*>(
+      manager->GetBrowserAccessibilityRoot());
+  if (!root) {
+    return result_node;
+  }
+
+  if (direction == FocusMoveDirection::FORWARD) {
+    int id = manager->FindElementType(
+        accessibility_id_, search_key, true, false, use_default_predicate);
+    if (id != 0) {
+      result_node = GetFromAccessibilityId(id);
+    }
+  } else if (direction == FocusMoveDirection::BACKWARD) {
+    int id = manager->FindElementType(
+        accessibility_id_, search_key, false,
+        accessibility_id_ == root->GetAccessibilityId(),
+        use_default_predicate);
+    if (id != 0) {
+      result_node = GetFromAccessibilityId(id);
+    }
+  } else {
+    root->AddFocusableNode(nodeList);
+    result_node = FindNodeInAbsoluteDirection(nodeList, direction);
+  }
+  return result_node;
 }
 
 void BrowserAccessibilityOHOS::AddFocusableNode(
@@ -1569,7 +1632,16 @@ std::u16string BrowserAccessibilityOHOS::GetRoleDescription() const {
 
   if (GetRole() == ax::mojom::Role::kHeading) {
     std::vector<std::u16string> role_description;
-    role_description.push_back(GetLocalizedString(IDS_AX_ROLE_HEADING));
+    int heading_level = 0;
+    if (GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
+                        &heading_level) &&
+        heading_level > 0) {
+      role_description.push_back(base::ReplaceStringPlaceholders(
+          GetLocalizedString(IDS_AX_ROLE_HEADING_WITH_LEVEL),
+          base::NumberToString16(heading_level), nullptr));
+    } else {
+      role_description.push_back(GetLocalizedString(IDS_AX_ROLE_HEADING));
+    }
 
     // For visited links, we additionally want to append "visited" to the
     // description.
