@@ -19,10 +19,8 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
-#include "base/values.h"
 #include "cef/ohos_cef_ext/include/arkweb_browser_ext.h"
 #include "cef/include/cef_browser.h"
-#include "include/cef_values.h"
 #include "nweb_errors.h"
 #include "screenshot_capture_util.h"
 
@@ -147,6 +145,84 @@ void ScreenshotObserver::CaptureElementByNodeId(int node_id) {
                     "failed to send DOM.getBoxModel");
   } else {
     LOG(DEBUG) << "[Screenshot] DOM.getBoxModel sent, msg_id=" << get_box_model_msg_id_;
+  }
+}
+
+CefRefPtr<CefDictionaryValue> ScreenshotObserver::BuildAreaParams(const base::Value::Dict& clip)
+{
+  // Check input params validity
+  for (const std::string key : {"x", "y", "width", "height", "scale"}) {
+    std::optional<double> v = clip.FindDouble(key);
+    if (!v.has_value() || v.value() < 0) {
+      LOG(ERROR) << "[Screenshot] screenCapture: invalid param " << key;
+      FinishWithError(static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID),
+                                std::string("invalid param: ") + key);
+      return nullptr;
+    }
+
+    if ((key == "width" || key == "height" || key == "scale") && v.value() == 0) {
+      LOG(ERROR) << "[Screenshot] screenCapture: invalid param " << key;
+      FinishWithError(static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID),
+                                std::string("invalid param: ") + key);
+      return nullptr;
+    }
+  }
+ 
+  auto x = clip.FindDouble("x");
+  auto y = clip.FindDouble("y");
+  auto width = clip.FindDouble("width");
+  auto height = clip.FindDouble("height");
+  auto scale = clip.FindDouble("scale");
+ 
+  LOG(DEBUG) << "[Screenshot] screenCapture: using x=" << x.value() << " y=" << y.value() << " width=" <<
+    width.value() << " height=" << height.value() << " scale=" << scale.value();
+ 
+  CefRefPtr<CefDictionaryValue> cdp = CefDictionaryValue::Create();
+  cdp->SetString("format", "png");
+ 
+  CefRefPtr<CefDictionaryValue> cdp_clip = CefDictionaryValue::Create();
+  cdp_clip->SetDouble("x", x.value());
+  cdp_clip->SetDouble("y", y.value());
+  cdp_clip->SetDouble("width", width.value());
+  cdp_clip->SetDouble("height", height.value());
+  cdp_clip->SetDouble("scale", scale.value());
+  cdp->SetDictionary("clip", cdp_clip);
+  return cdp;
+}
+ 
+void ScreenshotObserver::CapturePageByArea(const base::Value::Dict& clip)
+{
+  if (!browser_ || !browser_->GetHost()) {
+    LOG(ERROR) << "[Screenshot] browser or host is null";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL),
+                    "browser or host is null");
+    return;
+  }
+ 
+  CefRefPtr<CefDictionaryValue> cdp = BuildAreaParams(clip);
+  if (!cdp) {
+    return;
+  }
+ 
+  registration_ = browser_->GetHost()->AddDevToolsMessageObserver(this);
+  if (!registration_) {
+    LOG(ERROR) << "[Screenshot] failed to add observer";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SESSION_NOT_READY),
+                    "failed to add observer");
+    return;
+  }
+ 
+  LOG(DEBUG) << "[Screenshot] sending Page.captureScreenshot with specified area";
+ 
+  screenshot_msg_id_ = browser_->GetHost()->ExecuteDevToolsMethod(
+      0, "Page.captureScreenshot", cdp);
+ 
+  if (screenshot_msg_id_ == 0) {
+    LOG(ERROR) << "[Screenshot] failed to send Page.captureScreenshot";
+    FinishWithError(static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED),
+                    "failed to send Page.captureScreenshot");
+  } else {
+    LOG(DEBUG) << "[Screenshot] Page.captureScreenshot sent, msg_id=" << screenshot_msg_id_;
   }
 }
 
