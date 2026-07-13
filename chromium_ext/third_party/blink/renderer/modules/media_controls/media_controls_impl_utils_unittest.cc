@@ -435,4 +435,71 @@ TEST_F(MediaControlsImplUtilsTest, ScrubbingTimerFiredExt) {
   EXPECT_TRUE(mediaControlsImplUtils_.media_controls_impl_->is_begin_scrubbing);
 }
 
+TEST_F(MediaControlsImplUtilsTest, ShouldHideFullscreenTitle_DefaultFalse) {
+  EXPECT_FALSE(GetMediaElement().ControlsListInternal()->ShouldHideFullscreenTitle());
+}
+
+TEST_F(MediaControlsImplUtilsTest, ShouldHideFullscreenTitle_WithToken) {
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNofullscreentitle);
+  EXPECT_TRUE(GetMediaElement().ControlsListInternal()->ShouldHideFullscreenTitle());
+}
+
+TEST_F(MediaControlsImplUtilsTest, ShouldHideFullscreenTitle_AfterRemove) {
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNofullscreentitle);
+  EXPECT_TRUE(GetMediaElement().ControlsListInternal()->ShouldHideFullscreenTitle());
+  GetMediaElement().ControlsListInternal()->Remove(keywords::kNofullscreentitle);
+  EXPECT_FALSE(GetMediaElement().ControlsListInternal()->ShouldHideFullscreenTitle());
+}
+
+TEST_F(MediaControlsImplUtilsTest, OnEnteredFullscreen_CachesShouldShowTitle_DefaultTrue) {
+  MediaControlsImplUtils mediaControlsImplUtils_ = MediaControlsImplUtils(media_controls_.Get(), GetMediaElement());
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_panel_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenPanelElement>(*mediaControlsImplUtils_.media_controls_impl_);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_title_display_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenTitleDisplayElement>(*media_controls_);
+  mediaControlsImplUtils_.OnEnteredFullscreenSetIswanted();
+  EXPECT_TRUE(mediaControlsImplUtils_.should_show_title_);
+}
+
+TEST_F(MediaControlsImplUtilsTest, OnEnteredFullscreen_CachesShouldShowTitle_TokenSet) {
+  MediaControlsImplUtils mediaControlsImplUtils_ = MediaControlsImplUtils(media_controls_.Get(), GetMediaElement());
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNofullscreentitle);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_panel_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenPanelElement>(*mediaControlsImplUtils_.media_controls_impl_);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_title_display_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenTitleDisplayElement>(*media_controls_);
+  mediaControlsImplUtils_.OnEnteredFullscreenSetIswanted();
+  EXPECT_FALSE(mediaControlsImplUtils_.should_show_title_);
+}
+
+TEST_F(MediaControlsImplUtilsTest, OnEnteredFullscreen_CachesShouldShowTitle_MultiToken) {
+  MediaControlsImplUtils mediaControlsImplUtils_ = MediaControlsImplUtils(media_controls_.Get(), GetMediaElement());
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNodownload);
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNofullscreentitle);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_panel_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenPanelElement>(*mediaControlsImplUtils_.media_controls_impl_);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_title_display_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenTitleDisplayElement>(*media_controls_);
+  mediaControlsImplUtils_.OnEnteredFullscreenSetIswanted();
+  EXPECT_FALSE(mediaControlsImplUtils_.should_show_title_);
+  EXPECT_TRUE(GetMediaElement().ControlsListInternal()->ShouldHideDownload());
+}
+
+TEST_F(MediaControlsImplUtilsTest, OnExitedFullscreen_RespectsShouldShowTitle) {
+  MediaControlsImplUtils mediaControlsImplUtils_ = MediaControlsImplUtils(media_controls_.Get(), GetMediaElement());
+  GetMediaElement().ControlsListInternal()->Add(keywords::kNofullscreentitle);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_panel_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenPanelElement>(*mediaControlsImplUtils_.media_controls_impl_);
+  mediaControlsImplUtils_.media_controls_impl_->entered_fullscreen_title_display_ =
+      MakeGarbageCollected<MediaControlEnteredFullscreenTitleDisplayElement>(*media_controls_);
+
+  // Enter fullscreen — should_show_title_ becomes false
+  mediaControlsImplUtils_.OnEnteredFullscreenSetIswanted();
+  EXPECT_FALSE(mediaControlsImplUtils_.should_show_title_);
+
+  // Exit fullscreen — should complete without crash even though title was never appended
+  mediaControlsImplUtils_.OnExitedFullscreenSetIswanted();
+  EXPECT_FALSE(mediaControlsImplUtils_.media_controls_impl_->classList().contains(AtomicString("fullscreen")));
+}
+
 }  // namespace blink
