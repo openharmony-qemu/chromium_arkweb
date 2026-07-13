@@ -222,6 +222,7 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
 #endif
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   browser_settings.error_page_enabled = ErrorPageEnabled();
+  browser_settings.subframe_error_page_enabled = SubframeErrorPageEnabled();
 #endif
   browser_settings.javascript_can_open_windows_automatically =
       IsCreateWindowsByJavaScriptAllowed();
@@ -813,6 +814,10 @@ int NWebPreferenceDelegate::DefaultFixedFontSize() {
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
 bool NWebPreferenceDelegate::ErrorPageEnabled() {
   return error_page_enabled_;
+}
+
+bool NWebPreferenceDelegate::SubframeErrorPageEnabled() {
+  return subframe_error_page_enabled_;
 }
 #endif
 
@@ -1636,6 +1641,11 @@ uint32_t NWebPreferenceDelegate::GetRotationType() {
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
 void NWebPreferenceDelegate::PutErrorPageEnabled(bool enable) {
   error_page_enabled_ = enable;
+  WebPreferencesChanged();
+}
+
+void NWebPreferenceDelegate::PutSubframeErrorPageEnabled(bool enable) {
+  subframe_error_page_enabled_ = enable;
   WebPreferencesChanged();
 }
 #endif

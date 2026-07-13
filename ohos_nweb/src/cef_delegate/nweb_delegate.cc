@@ -7029,8 +7029,28 @@ bool NWebDelegate::GetErrorPageEnabled() {
   }
   return preference_delegate_->ErrorPageEnabled();
 }
-#endif
 
+void NWebDelegate::SetErrorPageEnabled(bool enable, bool includeSubframe) {
+  if (!preference_delegate_) {
+    LOG(ERROR)
+      << "SetErrorPageEnabled with subframe failed, no preference_delegate_"
+      << ", nweb_id_[" << nweb_id_ << "]";
+    return;
+  }
+  preference_delegate_->PutErrorPageEnabled(enable);
+  preference_delegate_->PutSubframeErrorPageEnabled(enable && includeSubframe);
+}
+
+bool NWebDelegate::GetSubframeErrorPageEnabled() {
+  if (!preference_delegate_) {
+    LOG(ERROR)
+      << "GetSubframeErrorPageEnabled failed, no preference_delegate_"
+      << ", nweb_id_[" << nweb_id_ << "]";
+    return false;
+  }
+  return preference_delegate_->SubframeErrorPageEnabled();
+}
+#endif
 
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
 void NWebDelegate::SetBlankScreenDetectionConfig(

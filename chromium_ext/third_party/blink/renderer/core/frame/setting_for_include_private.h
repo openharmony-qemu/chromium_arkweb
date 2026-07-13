@@ -108,6 +108,7 @@
 
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   bool error_page_enabled_ = false;
+  bool subframe_error_page_enabled_ = false;
 #endif
 
 #endif

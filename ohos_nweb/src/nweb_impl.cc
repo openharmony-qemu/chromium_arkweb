@@ -8970,6 +8970,22 @@ bool NWebImpl::GetErrorPageEnabled() {
   }
   return nweb_delegate_->GetErrorPageEnabled();
 }
+
+void NWebImpl::SetErrorPageEnabled(bool enable, bool includeSubframe) {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "SetErrorPageEnabled with subframe: nweb delegate has not init.";
+    return;
+  }
+  nweb_delegate_->SetErrorPageEnabled(enable, includeSubframe);
+}
+
+bool NWebImpl::GetSubframeErrorPageEnabled() {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "GetSubframeErrorPageEnabled: nweb delegate has not init.";
+    return false;
+  }
+  return nweb_delegate_->GetSubframeErrorPageEnabled();
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
