@@ -14074,10 +14074,11 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher007) {
   auto dispatcher =
       std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
   dispatcher->Dispatch(
-      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[]}}",
+      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[\"frame|doc|1\"]}}",
       browser, callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("", callback->value_);
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser or frame is null\"}",
+            callback->value_);
 }
 
 TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
@@ -14088,7 +14089,8 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
   dispatcher->Dispatch("{\"method\":\"removePageAnnotation\"}", browser,
                        callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("", callback->value_);
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser or frame is null\"}",
+            callback->value_);
 }
 
 TEST_F(NWebImplTest, AIPageCommandDispatcher009) {
@@ -14099,7 +14101,7 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher009) {
   dispatcher->Dispatch("{\"method\":\"getUrlHistory\",\"params\":{}}", browser,
                        callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("{\"ok\":false,\"error\":\"browser host is not available\"}",
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser host is not available\"}",
             callback->value_);
 }
 
@@ -14111,7 +14113,7 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher010) {
   dispatcher->Dispatch("{\"method\":\"goBack\",\"params\":{}}", browser,
                        callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser is not available\"}",
             callback->value_);
 }
 
@@ -14123,7 +14125,7 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher011) {
   dispatcher->Dispatch("{\"method\":\"goForward\",\"params\":{}}", browser,
                        callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser is not available\"}",
             callback->value_);
 }
 
@@ -14136,7 +14138,149 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher012) {
       "{\"method\":\"navigate\",\"params\":{\"url\":\"about:blank\"}}", browser,
       callback);
   EXPECT_TRUE(callback->called_);
-  EXPECT_EQ("{\"ok\":false,\"error\":\"main frame is not available\"}",
+  EXPECT_EQ("{\"code\":132,\"message\":\"browser is not available\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher013) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"dispatchMouseEvent\",\"params\":{\"x\":1,\"y\":2}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":391,\"message\":\"missing type\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher014) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"dispatchMouseEvent\",\"params\":{\"type\":\"mouseMoved\",\"x\":1,\"y\":2,\"pointerType\":\"pen\"}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"pointerType must be mouse\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher015) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"dispatchKeyEvent\",\"params\":{\"type\":\"press\"}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"invalid key event type\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher016) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"scroll\",\"params\":{\"id\":\"frame|doc|1\",\"x\":1,\"deltaY\":100}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"id is mutually exclusive with x/y\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher017) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"select\",\"params\":{\"id\":\"frame|doc|1\",\"xpath\":\"//select\",\"indexes\":[0]}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"id and xpath are mutually exclusive\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher018) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"input\",\"params\":{\"xpath\":\"//input\",\"type\":\"datetime\",\"value\":\"2026-01-01\"}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":202,\"message\":\"unsupported input type\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher019) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"addPageAnnotation\"}",
+                                    browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":110,\"message\":\"params is invalid\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher020) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"addPageAnnotation\",\"params\":{}}", browser,
+      callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":391,\"message\":\"missing elementList\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher021) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[]}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"invalid elementList\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher022) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[\"frame|doc|1\",\"\"]}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"invalid elementList\"}",
+            callback->value_);
+}
+
+TEST_F(NWebImplTest, AIPageCommandDispatcher023) {
+  CefRefPtr<ArkWebBrowserExt> browser;
+  auto callback = std::make_shared<TestNWebStringValueCallback>();
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":\"frame|doc|1\"}}",
+      browser, callback);
+  EXPECT_TRUE(callback->called_);
+  EXPECT_EQ("{\"code\":392,\"message\":\"invalid elementList\"}",
             callback->value_);
 }
 

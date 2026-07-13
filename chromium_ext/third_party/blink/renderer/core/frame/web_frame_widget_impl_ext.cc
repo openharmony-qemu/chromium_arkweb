@@ -150,6 +150,40 @@ int32_t WebFrameWidgetImplExt::ExecuteInputCommand(
   return CommandActionDOMHelper::ExecuteInput(document, xpath, value, event_type);
 }
 
+int32_t WebFrameWidgetImplExt::ExecuteAIPageInputCommandByXPath(
+    const std::string& xpath,
+    const std::string& value,
+    const std::string& input_type) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAIPageInputCommandByXPath: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAIPageInputCommandByXPath: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteAIPageInputByXPath(document, xpath, value,
+                                              input_type);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteAIPageInputCommandById(
+    const std::string& id,
+    const std::string& value,
+    const std::string& input_type) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAIPageInputCommandById: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAIPageInputCommandById: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteAIPageInputById(local_root_, document, id,
+                                                  value, input_type);
+}
+
 int32_t WebFrameWidgetImplExt::ExecuteSelectCommand(
     const std::string& xpath,
     const std::vector<int32_t>& indexes,
@@ -164,6 +198,23 @@ int32_t WebFrameWidgetImplExt::ExecuteSelectCommand(
     return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
   }
   return CommandActionDOMHelper::ExecuteSelect(document, xpath, indexes, values);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteSelectCommandById(
+    const std::string& id,
+    const std::vector<int32_t>& indexes,
+    const std::vector<std::string>& values) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteSelectCommandById: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteSelectCommandById: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteSelectById(local_root_, document, id,
+                                                   indexes, values);
 }
 #endif
 

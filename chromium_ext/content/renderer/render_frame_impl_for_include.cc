@@ -113,6 +113,32 @@ int32_t RenderFrameImpl::ExecuteInputCommand(const std::string& xpath,
   return web_frame_widget->ExecuteInputCommand(xpath, value, event_type);
 }
 
+int32_t RenderFrameImpl::ExecuteAIPageInputCommandByXPath(
+    const std::string& xpath,
+    const std::string& value,
+    const std::string& input_type) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR)
+        << "[WebCommandAction] ExecuteAIPageInputCommandByXPath: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteAIPageInputCommandByXPath(xpath, value, input_type);
+}
+
+int32_t RenderFrameImpl::ExecuteAIPageInputCommandById(
+    const std::string& id,
+    const std::string& value,
+    const std::string& input_type) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR)
+        << "[WebCommandAction] ExecuteAIPageInputCommandById: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteAIPageInputCommandById(id, value, input_type);
+}
+
 int32_t RenderFrameImpl::ExecuteSelectCommand(
     const std::string& xpath,
     const std::vector<int32_t>& indexes,
@@ -123,6 +149,19 @@ int32_t RenderFrameImpl::ExecuteSelectCommand(
     return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
   }
   return web_frame_widget->ExecuteSelectCommand(xpath, indexes, values);
+}
+
+int32_t RenderFrameImpl::ExecuteSelectCommandById(
+    const std::string& id,
+    const std::vector<int32_t>& indexes,
+    const std::vector<std::string>& values) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR)
+        << "[WebCommandAction] ExecuteSelectCommandById: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteSelectCommandById(id, indexes, values);
 }
 
 #if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)

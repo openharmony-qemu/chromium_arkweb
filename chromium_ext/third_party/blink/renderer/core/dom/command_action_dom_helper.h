@@ -32,11 +32,16 @@ using OHOS::NWeb::WebCommandErrorCode;
 namespace blink {
 
 class HTMLSelectElement;
+class WebLocalFrame;
 
 class CommandActionDOMHelper {
  public:
   static Element* FindElementByXPath(Document* document,
                                      const std::string& xpath);
+  static Element* FindElementById(WebLocalFrame* frame,
+                                  Document* document,
+                                  const std::string& id,
+                                  int32_t* error_code);
 
   static int32_t ExecuteInput(Document* document,
                               const std::string& xpath,
@@ -48,7 +53,26 @@ class CommandActionDOMHelper {
                                const std::vector<int32_t>& indexes,
                                const std::vector<std::string>& values);
 
+  static int32_t ExecuteAIPageInputByXPath(Document* document,
+                                           const std::string& xpath,
+                                           const std::string& value,
+                                           const std::string& input_type);
+  static int32_t ExecuteAIPageInputById(WebLocalFrame* frame,
+                                        Document* document,
+                                        const std::string& id,
+                                        const std::string& value,
+                                        const std::string& input_type);
+  static int32_t ExecuteSelectById(WebLocalFrame* frame,
+                                   Document* document,
+                                   const std::string& id,
+                                   const std::vector<int32_t>& indexes,
+                                   const std::vector<std::string>& values);
+
+
  private:
+  static int32_t ExecuteAIPageInputOnElement(Element* element,
+                                             const std::string& value,
+                                             const std::string& input_type);
   static int32_t SelectByIndexes(HTMLSelectElement* select,
                                  const std::vector<int32_t>& indexes);
   static int32_t SelectByValues(HTMLSelectElement* select,

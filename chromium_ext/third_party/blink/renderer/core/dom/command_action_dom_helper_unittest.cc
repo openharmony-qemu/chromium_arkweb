@@ -18,12 +18,15 @@
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/dom/command_action_dom_helper.h"
+#include "arkweb/ohos_nweb/include/nweb_errors.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "ui/gfx/geometry/size.h"
 
 using OHOS::NWeb::WebCommandErrorCode;
 
@@ -133,6 +136,44 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInput_InvalidValueForNumberType) {
       &GetDocument(), "//input[@id='age']", "abc", "input-number");
   EXPECT_EQ(result, static_cast<int32_t>(
                         WebCommandErrorCode::INPUT_VALUE_FORMAT_INVALID));
+}
+
+// ===== ExecuteAIPageInput Tests =====
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_DefaultTypeSuccess) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  UpdateAllLifecyclePhasesForTest();
+
+  int32_t result = CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+      &GetDocument(), "//input[@id='name']", "hello-default", "default");
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+
+  auto* input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("name")));
+  ASSERT_NE(input, nullptr);
+  EXPECT_EQ(input->Value(), "hello-default");
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_UnsupportedType) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  UpdateAllLifecyclePhasesForTest();
+
+  int32_t result = CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+      &GetDocument(), "//input[@id='name']", "hello", "datetime");
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::INPUT_TYPE_INVALID));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputById_PageNotReady) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  UpdateAllLifecyclePhasesForTest();
+
+  int32_t result = CommandActionDOMHelper::ExecuteAIPageInputById(
+      nullptr, &GetDocument(), "invalid", "hello", "default");
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
 }
 
 // ===== ExecuteSelect Tests =====
@@ -323,6 +364,16 @@ TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_ByValues) {
   int32_t result = CommandActionDOMHelper::ExecuteSelect(
       &GetDocument(), "//select[@id='color']", {}, {"red", "green"});
   EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_PageNotReady) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><select id='color'><option value='red'>Red</option></select></body>");
+  UpdateAllLifecyclePhasesForTest();
+
+  int32_t result = CommandActionDOMHelper::ExecuteSelectById(
+      nullptr, &GetDocument(), "invalid", {0}, {});
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
 }
 
 }  // namespace blink
