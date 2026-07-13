@@ -82,6 +82,7 @@ using namespace ui;
 class JavaScriptResultCallbackImpl;
 #if BUILDFLAG(ARKWEB_AI)
 class NWebAgentManagerImpl;
+class AIPageCommandDispatcher;
 #endif
 #if BUILDFLAG(ARKWEB_PDF)
 class CefPdfValueCallbackImpl;
@@ -240,6 +241,9 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void SetEnableLowerFrameRate(bool enabled) override;
   void SetEnableHalfFrameRate(bool enabled) override;
   std::shared_ptr<NWebPreference> GetPreference() const override;
+  NWebPreferenceDelegate* GetPreferenceDelegate() {
+    return preference_delegate_.get();
+  }
 #if BUILDFLAG(ARKWEB_AI)
   std::shared_ptr<NWebAgentManager> GetAgentManager() const override;
 #endif
@@ -1181,6 +1185,7 @@ void AbortDistill() override;
   CefRefPtr<NWebRenderHandler> render_handler_ = nullptr;
   std::shared_ptr<NWebEventHandler> event_handler_ = nullptr;
   std::shared_ptr<NWebPreferenceDelegate> preference_delegate_ = nullptr;
+  std::shared_ptr<AIPageCommandDispatcher> ai_page_command_dispatcher_ = nullptr;
   std::shared_ptr<NWebFindDelegate> find_delegate_ = nullptr;
   std::unique_ptr<OHOS::NWeb::DisplayManagerAdapter> display_manager_adapter_ =
       nullptr;

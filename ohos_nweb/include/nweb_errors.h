@@ -129,6 +129,10 @@ enum class WebCommandErrorCode {
   INPUT_SEND_KEYS_KEY_MISSING = 461,
   INPUT_SEND_KEYS_NO_VALID_KEYS = 462,
   INPUT_SEND_KEYS_UNKNOWN_KEY = 463,
+  // Zoom command error (480-489)
+  ZOOM_LEVEL_OUT_OF_RANGE = 480,
+  ZOOM_LEVEL_INVALID = 481,
+  ZOOM_DISABLED = 482,
 };
 
 }  // namespace OHOS::NWeb

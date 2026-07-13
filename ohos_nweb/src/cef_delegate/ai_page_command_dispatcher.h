@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "base/values.h"
 #include "cef/include/cef_base.h"
 
@@ -29,6 +30,8 @@ class CefDictionaryValue;
 
 namespace OHOS::NWeb {
 
+class NWebDelegate;
+class NWebPreferenceDelegate;
 class NWebStringValueCallback;
 
 enum class WebCommandErrorCode;
@@ -36,81 +39,109 @@ enum class WebCommandErrorCode;
 class AIPageCommandDispatcher {
  public:
   using ResultCallback = std::shared_ptr<NWebStringValueCallback>;
+  using CommandHandler =
+      void (AIPageCommandDispatcher::*)(CefRefPtr<ArkWebBrowserExt> browser,
+                                        const base::Value::Dict& command,
+                                        ResultCallback callback);
 
-  static void Dispatch(const std::string& command,
-                       CefRefPtr<ArkWebBrowserExt> browser,
-                       ResultCallback callback);
+  explicit AIPageCommandDispatcher(base::WeakPtr<NWebDelegate> delegate)
+      : delegate_(std::move(delegate)) {}
+  void Dispatch(const std::string& command,
+                CefRefPtr<ArkWebBrowserExt> browser,
+                ResultCallback callback);
 
-  static void HandleScreenCaptureCommand(CefRefPtr<ArkWebBrowserExt> browser,
+  void HandleScreenCaptureCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                   const base::Value::Dict& command,
                                   ResultCallback callback);
 
  private:
-  static void ResolveEmptyResult(ResultCallback callback);
-  static void HandleGetFullDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
+  void ResolveEmptyResult(ResultCallback callback);
+  void HandleGetFullDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                               const base::Value::Dict& command,
+                               ResultCallback callback);
+  void HandleGetLiteDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                               const base::Value::Dict& command,
+                               ResultCallback callback);
+  void HandleScrollCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                           const base::Value::Dict& command,
+                           ResultCallback callback);
+  void HandleSelectCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                           const base::Value::Dict& command,
+                           ResultCallback callback);
+  void HandleUploadFileCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                               const base::Value::Dict& command,
+                               ResultCallback callback);
+  void HandleAddPageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                       const base::Value::Dict& command,
                                       ResultCallback callback);
-  static void HandleGetLiteDomCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                      const base::Value::Dict& command,
-                                      ResultCallback callback);
-  static void HandleScrollCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                  const base::Value::Dict& command,
-                                  ResultCallback callback);
-  static void HandleSelectCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                  const base::Value::Dict& command,
-                                  ResultCallback callback);
-  static void HandleUploadFileCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                      const base::Value::Dict& command,
-                                      ResultCallback callback);
-  static void HandleAddPageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                             const base::Value::Dict& command,
-                                             ResultCallback callback);
-  static void HandleRemovePageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                                const base::Value::Dict& command,
-                                                ResultCallback callback);
-  static void HandleGetUrlHistoryCommand(CefRefPtr<ArkWebBrowserExt> browser,
+  void HandleRemovePageAnnotationCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                          const base::Value::Dict& command,
                                          ResultCallback callback);
-  static void HandleGoBackCommand(CefRefPtr<ArkWebBrowserExt> browser,
+  void HandleGetUrlHistoryCommand(CefRefPtr<ArkWebBrowserExt> browser,
                                   const base::Value::Dict& command,
                                   ResultCallback callback);
-  static void HandleGoForwardCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                     const base::Value::Dict& command,
-                                     ResultCallback callback);
-  static void HandleNavigateCommand(CefRefPtr<ArkWebBrowserExt> browser,
-                                    const base::Value::Dict& command,
-                                    ResultCallback callback);
+  void HandleGoBackCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                           const base::Value::Dict& command,
+                           ResultCallback callback);
+  void HandleGoForwardCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                              const base::Value::Dict& command,
+                              ResultCallback callback);
+  void HandleNavigateCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                             const base::Value::Dict& command,
+                             ResultCallback callback);
+  void HandleSetZoomLevelCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                 const base::Value::Dict& command,
+                                 ResultCallback callback);
+  void HandleGetZoomLevelCommand(CefRefPtr<ArkWebBrowserExt> browser,
+                                 const base::Value::Dict& command,
+                                 ResultCallback callback);
+
+  bool ResolveZoomPref(bool& out_zoom_control_access);
+
+  // Returns true on success (writes normalized factor to out_zoom_factor);
+  // otherwise calls ReplyError and returns false.
+  bool ValidateZoomLevelParam(const base::Value::Dict& params,
+                              double& out_zoom_factor,
+                              ResultCallback callback);
+
+  // Returns true when zoom may proceed; otherwise calls ReplyError and returns
+  // false.
+  bool CheckZoomPreconditions(ResultCallback callback);
+
+  void ReplyZoomLevel(ResultCallback callback, double zoom_factor);
 
   // --- Helpers ---
-  static void ReplyError(ResultCallback callback,
-                         WebCommandErrorCode code,
-                         const std::string& message);
+  void ReplyError(ResultCallback callback,
+                  WebCommandErrorCode code,
+                  const std::string& message);
 
   // Pure: builds CDP params for Input.synthesizeScrollGesture, returns nullptr
   // if x/y missing
-  static CefRefPtr<CefDictionaryValue> BuildScrollParams(
+  CefRefPtr<CefDictionaryValue> BuildScrollParams(
       const base::Value::Dict& params);
 
   // Select / list helpers
-  static std::vector<int32_t> ParseIntList(const base::Value::Dict& dict,
+  std::vector<int32_t> ParseIntList(const base::Value::Dict& dict,
+                                    const std::string& key);
+  std::vector<std::string> ParseStringList(const base::Value::Dict& dict,
                                            const std::string& key);
-  static std::vector<std::string> ParseStringList(const base::Value::Dict& dict,
-                                                  const std::string& key);
-  static void ExecuteSelectAndReply(CefRefPtr<ArkWebBrowserExt> browser,
-                                    const std::string& xpath,
-                                    const std::vector<int32_t>& indexes,
-                                    const std::vector<std::string>& values,
-                                    ResultCallback callback);
+  void ExecuteSelectAndReply(CefRefPtr<ArkWebBrowserExt> browser,
+                             const std::string& xpath,
+                             const std::vector<int32_t>& indexes,
+                             const std::vector<std::string>& values,
+                             ResultCallback callback);
 
   // Upload helpers
-  static bool ValidateFilePaths(std::vector<std::string>& files,
-                                std::vector<std::string>& warnings,
-                                ResultCallback callback);
-  static void DispatchUploadTarget(CefRefPtr<ArkWebBrowserExt> browser,
-                                   const base::Value::Dict& dict,
-                                   const std::vector<std::string>& files,
-                                   const std::vector<std::string>& warnings,
-                                   ResultCallback callback);
+  bool ValidateFilePaths(std::vector<std::string>& files,
+                         std::vector<std::string>& warnings,
+                         ResultCallback callback);
+  void DispatchUploadTarget(CefRefPtr<ArkWebBrowserExt> browser,
+                            const base::Value::Dict& dict,
+                            const std::vector<std::string>& files,
+                            const std::vector<std::string>& warnings,
+                            ResultCallback callback);
+
+  base::WeakPtr<NWebDelegate> delegate_;
 };
 
 }  // namespace OHOS::NWeb

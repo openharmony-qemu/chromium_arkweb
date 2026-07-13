@@ -13983,7 +13983,9 @@ TEST_F(NWebImplTest, ExecuteAIPageCommand002) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher001) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("invalid json", browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("invalid json", browser, callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -13991,7 +13993,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher001) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher002) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("[]", browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("[]", browser, callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -13999,8 +14003,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher002) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher003) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"method\":\"unknown\"}", browser,
-                                    callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"unknown\"}", browser, callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -14008,7 +14013,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher003) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher004) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"params\":{}}", browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"params\":{}}", browser, callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -14016,9 +14023,11 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher004) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher005) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch(
-      "{\"method\":\"getFullDom\",\"params\":{\"wants\":{\"properties\":[\"tag\"]}}}", browser,
-      callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"getFullDom\",\"params\":{\"wants\":{\"properties\":[\"tag\"]}}}",
+      browser, callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -14026,7 +14035,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher005) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher006) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch(
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
       "{\"method\":\"getLiteDom\",\"params\":{\"rules\":{\"tags\":[\"a\"]}}}",
       browser, callback);
   EXPECT_TRUE(callback->called_);
@@ -14036,7 +14047,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher006) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher007) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch(
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
       "{\"method\":\"addPageAnnotation\",\"params\":{\"elementList\":[]}}",
       browser, callback);
   EXPECT_TRUE(callback->called_);
@@ -14046,8 +14059,10 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher007) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"method\":\"removePageAnnotation\"}",
-                                    browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"removePageAnnotation\"}", browser,
+                       callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("", callback->value_);
 }
@@ -14055,8 +14070,10 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher008) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher009) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"method\":\"getUrlHistory\",\"params\":{}}",
-                                    browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"getUrlHistory\",\"params\":{}}", browser,
+                       callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("{\"ok\":false,\"error\":\"browser host is not available\"}",
             callback->value_);
@@ -14065,8 +14082,10 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher009) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher010) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"method\":\"goBack\",\"params\":{}}",
-                                    browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"goBack\",\"params\":{}}", browser,
+                       callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
             callback->value_);
@@ -14075,8 +14094,10 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher010) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher011) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch("{\"method\":\"goForward\",\"params\":{}}",
-                                    browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch("{\"method\":\"goForward\",\"params\":{}}", browser,
+                       callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("{\"ok\":false,\"error\":\"browser is not available\"}",
             callback->value_);
@@ -14085,9 +14106,11 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher011) {
 TEST_F(NWebImplTest, AIPageCommandDispatcher012) {
   CefRefPtr<ArkWebBrowserExt> browser;
   auto callback = std::make_shared<TestNWebStringValueCallback>();
-  AIPageCommandDispatcher::Dispatch(
-      "{\"method\":\"navigate\",\"params\":{\"url\":\"about:blank\"}}",
-      browser, callback);
+  auto dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  dispatcher->Dispatch(
+      "{\"method\":\"navigate\",\"params\":{\"url\":\"about:blank\"}}", browser,
+      callback);
   EXPECT_TRUE(callback->called_);
   EXPECT_EQ("{\"ok\":false,\"error\":\"main frame is not available\"}",
             callback->value_);

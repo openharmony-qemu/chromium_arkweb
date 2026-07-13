@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -40,6 +41,9 @@
 #include "nweb.h"
 #include "nweb_errors.h"
 #include "screenshot_observer.h"
+#include "nweb_preference_delegate.h"
+#include "nweb_delegate.h"
+#include "third_party/blink/public/common/page/page_zoom.h"
 #include "url/gurl.h"
 
 namespace OHOS::NWeb {
@@ -64,9 +68,7 @@ class AIPageCommandCallbackImpl : public CefAIPageCommandCallback {
   IMPLEMENT_REFCOUNTING(AIPageCommandCallbackImpl);
 };
 
-using CommandHandler = void (*)(CefRefPtr<ArkWebBrowserExt> browser,
-                                const base::Value::Dict& command,
-                                AIPageCommandDispatcher::ResultCallback callback);
+using CommandHandler = AIPageCommandDispatcher::CommandHandler;
 
 void ResolveCommandResult(AIPageCommandDispatcher::ResultCallback callback,
                           WebCommandErrorCode code,
@@ -208,6 +210,9 @@ class AIPageNavigationEntryVisitor : public CefNavigationEntryVisitor {
 
   IMPLEMENT_REFCOUNTING(AIPageNavigationEntryVisitor);
 };
+// Zoom factor range enforced by the spec AC-1.2/AC-1.3/AC-1.4.
+constexpr double kZoomFactorMin = 0.25;
+constexpr double kZoomFactorMax = 5.0;
 }  // namespace
 
 void AIPageCommandDispatcher::Dispatch(const std::string& command,
@@ -227,7 +232,7 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  std::array<CommandEntry, 12> kCommandEntries = {{
+  std::array<CommandEntry, 14> kCommandEntries = {{
       {"getFullDom", &AIPageCommandDispatcher::HandleGetFullDomCommand},
       {"getLiteDom", &AIPageCommandDispatcher::HandleGetLiteDomCommand},
       {"scroll", &AIPageCommandDispatcher::HandleScrollCommand},
@@ -240,6 +245,8 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
       {"goBack", &AIPageCommandDispatcher::HandleGoBackCommand},
       {"goForward", &AIPageCommandDispatcher::HandleGoForwardCommand},
       {"navigate", &AIPageCommandDispatcher::HandleNavigateCommand},
+      {"setZoomLevel", &AIPageCommandDispatcher::HandleSetZoomLevelCommand},
+      {"getZoomLevel", &AIPageCommandDispatcher::HandleGetZoomLevelCommand},
   }};
 
   auto entry = std::find_if(
@@ -250,7 +257,7 @@ void AIPageCommandDispatcher::Dispatch(const std::string& command,
     return;
   }
 
-  entry->handler(browser, commandDict, callback);
+  (this->*entry->handler)(browser, commandDict, callback);
 }
 
 // --- Private helpers ---
@@ -276,6 +283,23 @@ void AIPageCommandDispatcher::ReplyError(ResultCallback callback,
     callback->OnReceiveValue(
         BuildResultJson(static_cast<int32_t>(code), message));
   }
+}
+
+bool AIPageCommandDispatcher::ResolveZoomPref(
+    bool& out_zoom_control_access) {
+  out_zoom_control_access = true;
+  NWebDelegate* delegate = delegate_.get();
+  if (!delegate) {
+    LOG(ERROR) << "[AIPageCmd] ResolveZoomPref: delegate is nullptr";
+    return false;
+  }
+  NWebPreferenceDelegate* pref = delegate->GetPreferenceDelegate();
+  if (!pref) {
+    LOG(ERROR) << "[AIPageCmd] ResolveZoomPref: pref is nullptr";
+    return false;
+  }
+  out_zoom_control_access = pref->IsZoomControlAccess();
+  return true;
 }
 
 // --- Existing DOM handlers (unchanged from eb6ea2df) ---
@@ -766,6 +790,126 @@ void AIPageCommandDispatcher::HandleNavigateCommand(
 
   browser->GetMainFrame()->LoadURL(CefString(*url));
   ResolveNavigationOk(callback);
+}
+
+// --- Zoom level (setZoomLevel / getZoomLevel) ---
+
+bool AIPageCommandDispatcher::ValidateZoomLevelParam(
+    const base::Value::Dict& params, double& out_zoom_factor,
+    ResultCallback callback) {
+  const base::Value* zoom_value = params.Find("zoomLevel");
+  if (!zoom_value || (!zoom_value->is_double() && !zoom_value->is_int())) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: missing or non-numeric zoomLevel";
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING,
+               "param missing: zoomLevel");
+    return false;
+  }
+
+  out_zoom_factor = zoom_value->is_int()
+                        ? static_cast<double>(zoom_value->GetInt())
+                        : zoom_value->GetDouble();
+  // 0.0 must be rejected here as INVALID, not as OUT_OF_RANGE.
+  if (std::isnan(out_zoom_factor) || out_zoom_factor <= 0.0) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: invalid zoomLevel value";
+    ReplyError(callback, WebCommandErrorCode::ZOOM_LEVEL_INVALID,
+               "zoom level invalid");
+    return false;
+  }
+
+  if (out_zoom_factor < kZoomFactorMin || out_zoom_factor > kZoomFactorMax) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: zoomLevel out of range: "
+               << out_zoom_factor;
+    ReplyError(callback, WebCommandErrorCode::ZOOM_LEVEL_OUT_OF_RANGE,
+               "zoom level out of range");
+    return false;
+  }
+
+  return true;
+}
+
+bool AIPageCommandDispatcher::CheckZoomPreconditions(
+    ResultCallback callback) {
+  bool zoom_control_access = true;
+  ResolveZoomPref(zoom_control_access);
+
+  if (!zoom_control_access) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: zoom control disabled";
+    ReplyError(callback, WebCommandErrorCode::ZOOM_DISABLED,
+               "zoom control is disabled");
+    return false;
+  }
+
+  return true;
+}
+
+void AIPageCommandDispatcher::HandleSetZoomLevelCommand(
+    CefRefPtr<ArkWebBrowserExt> browser, const base::Value::Dict& command,
+    ResultCallback callback) {
+  if (!browser || !browser->GetHost()) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: browser or host is null";
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+
+  const base::Value::Dict* params = command.FindDict("params");
+  if (!params) {
+    LOG(ERROR) << "[AIPageCmd] setZoomLevel: invalid params JSON";
+    ReplyError(callback, WebCommandErrorCode::JSON_IS_INVALID,
+               "invalid params JSON");
+    return;
+  }
+
+  double zoom_factor = 0.0;
+  if (!ValidateZoomLevelParam(*params, zoom_factor, callback)) {
+    return;
+  }
+
+  if (!CheckZoomPreconditions(callback)) {
+    return;
+  }
+
+  double cef_zoom_level = blink::ZoomFactorToZoomLevel(zoom_factor);
+  LOG(INFO) << "[AIPageCmd] setZoomLevel: factor=" << zoom_factor
+            << " level=" << cef_zoom_level;
+  browser->GetHost()->SetZoomLevel(cef_zoom_level);
+
+  if (callback) {
+    callback->OnReceiveValue(BuildResultJson(
+        static_cast<int32_t>(WebCommandErrorCode::SUCCESS), "success"));
+  }
+}
+
+void AIPageCommandDispatcher::ReplyZoomLevel(ResultCallback callback,
+                                             double zoom_factor) {
+  if (!callback) {
+    return;
+  }
+  base::Value::Dict result;
+  result.Set("code", static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  result.Set("message", "success");
+  result.Set("zoomLevel", zoom_factor);
+  std::string json;
+  base::JSONWriter::Write(result, &json);
+  callback->OnReceiveValue(json);
+}
+
+void AIPageCommandDispatcher::HandleGetZoomLevelCommand(
+    CefRefPtr<ArkWebBrowserExt> browser, const base::Value::Dict& command,
+    ResultCallback callback) {
+  if (!browser || !browser->GetHost()) {
+    LOG(ERROR) << "[AIPageCmd] getZoomLevel: browser or host is null";
+    ReplyError(callback, WebCommandErrorCode::WEB_NWEB_NULL,
+               "browser or host is null");
+    return;
+  }
+
+  double cef_zoom_level = browser->GetHost()->GetZoomLevel();
+  double zoom_factor = blink::ZoomLevelToZoomFactor(cef_zoom_level);
+  LOG(INFO) << "[AIPageCmd] getZoomLevel: level=" << cef_zoom_level
+            << " factor=" << zoom_factor;
+
+  ReplyZoomLevel(callback, zoom_factor);
 }
 
 }  // namespace OHOS::NWeb

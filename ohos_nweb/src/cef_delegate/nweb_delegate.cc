@@ -32,10 +32,12 @@
 #include "base/command_line.h"
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "base/values.h"
 #include "capi/arkweb_error_code.h"
 #include "cef/include/base/cef_logging.h"
 #include "cef/include/cef_app.h"
@@ -60,6 +62,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ARKWEB_AI)
+#include "ai_page_command_dispatcher.h"
 #include "nweb_agent_manager_impl.h"
 #include "nweb_content_change_detection.h"
 #include "nweb_image_change_detection.h"
@@ -957,6 +960,8 @@ bool NWebDelegate::Init(bool is_enhance_surface,
 #endif
 ) {
   preference_delegate_ = std::make_shared<NWebPreferenceDelegate>();
+  ai_page_command_dispatcher_ =
+      std::make_shared<AIPageCommandDispatcher>(weak_factory_.GetWeakPtr());
   int32_t backgroundColor;
   if (preference_delegate_ && HasBackgroundColorWithInit(backgroundColor)) {
     // background color should set when init in case of first white screen flash
@@ -7463,7 +7468,16 @@ void NWebDelegate::ExecuteAIPageCommand(
                        weak_factory_.GetWeakPtr(), command, callback));
     return;
   }
-
-  AIPageCommandDispatcher::Dispatch(command, GetBrowser(), callback);
+  if (ai_page_command_dispatcher_) {
+    ai_page_command_dispatcher_->Dispatch(command, GetBrowser(), callback);
+    return;
+  } else if (callback) {
+    base::Value::Dict result;
+    result.Set("code", static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
+    result.Set("message", "Command dispatcher is nullptr");
+    std::string json;
+    base::JSONWriter::Write(result, &json);
+    callback->OnReceiveValue(json);
+  }
 }
 }  // namespace OHOS::NWeb
