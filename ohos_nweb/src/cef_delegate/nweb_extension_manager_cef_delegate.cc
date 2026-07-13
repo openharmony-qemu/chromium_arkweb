@@ -38,6 +38,7 @@
 #include "extensions/browser/management_policy.h"
 #include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/browser/ui_util.h"
+#include "extensions/browser/user_script_manager.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest.h"
@@ -241,6 +242,26 @@ bool IsOptionalPermissionActive(content::BrowserContext* browser_context,
   const extensions::PermissionSet& active_set =
       extension->permissions_data()->active_permissions();
   return active_set.HasAPIPermission(permission);
+}
+
+bool GetExtensionFileAccess(const std::string& extension_id,
+                            content::BrowserContext* browser_context) {
+  return extensions::util::AllowFileAccess(extension_id, browser_context);
+}
+
+bool GetExtensionUserScriptsAccess(const std::string& extension_id,
+                                   content::BrowserContext* browser_context) {
+  const extensions::Extension* extension =
+      FindExtensionById(browser_context, extension_id);
+  if (!extension) {
+    LOG(ERROR) << "GetExtensionUserScriptsAccess failed: invalid extension id";
+    return false;
+  }
+
+  extensions::UserScriptManager* user_script_manager =
+      extensions::ExtensionSystem::Get(browser_context)->user_script_manager();
+  return user_script_manager &&
+         user_script_manager->AreUserScriptsAllowed(*extension);
 }
 
 }  // namespace
@@ -466,6 +487,50 @@ void NWebExtensionManagerCefDelegate::EnableRuntimePermission(
               std::move(callback), extension_id, permission, browser_context));
 }
 
+void NWebExtensionManagerCefDelegate::UpdateExtensionConfiguration(
+    const NWebExtensionConfigurationUpdate& config_update,
+    OnUpdateExtensionConfigurationCallback callback) {
+  std::string extension_id = config_update.extension_id;
+  LOG(INFO) << "NWebExtensionManagerCefDelegate::UpdateExtensionConfiguration: "
+            << extension_id;
+
+  content::BrowserContext* browser_context = GetBrowserContext();
+  const extensions::Extension* extension =
+      FindExtensionById(browser_context, extension_id);
+  if (!extension) {
+    NWebExtensionConfigurationUpdate result;
+    result.extension_id = extension_id;
+    LOG(ERROR) << "UpdateExtensionConfiguration failed: invalid extension id";
+    callback(result);
+    return;
+  }
+
+  if (config_update.file_access.has_value()) {
+    extensions::util::SetAllowFileAccess(extension_id,
+                                         browser_context,
+                                         config_update.file_access.value());
+  }
+  if (config_update.user_scripts_access.has_value()) {
+    extensions::UserScriptManager* user_script_manager =
+        extensions::ExtensionSystem::Get(browser_context)
+            ->user_script_manager();
+    if (user_script_manager) {
+      user_script_manager->SetUserScriptPrefEnabled(
+          extension_id,
+          config_update.user_scripts_access.value());
+    } else {
+      LOG(ERROR) << "UpdateExtensionConfiguration: user_script_manager is null";
+    }
+  }
+
+  NWebExtensionConfigurationUpdate result;
+  result.extension_id = extension_id;
+  result.file_access = GetExtensionFileAccess(extension_id, browser_context);
+  result.user_scripts_access =
+      GetExtensionUserScriptsAccess(extension_id, browser_context);
+  callback(result);
+}
+
 void NWebExtensionManagerCefDelegate::GetInstalledExtensionInfos(
     GetInstalledExtensionInfosCallback callback) {
   LOG(INFO) << "GetInstalledExtensionInfos";
@@ -634,6 +699,21 @@ NWebExtensionManagerCefDelegate::BuildExtensionInfoItem(
   // Get optional permissions
   item_info.optional_permissions =
       GetNWebExtensionOptionalPermissionsHelper(browser_context, extension);
+
+  item_info.file_access.emplace();
+  item_info.file_access->is_enabled =
+      (extension->wants_file_access() ||
+       extensions::Manifest::ShouldAlwaysAllowFileAccess(
+           extension->location()));
+  item_info.file_access->is_active =
+      GetExtensionFileAccess(extension->id(), browser_context);
+
+  item_info.user_scripts_access.emplace();
+  item_info.user_scripts_access->is_enabled =
+      extensions::UserScriptManager::IsUserScriptsAPIPermissionAvailable(
+          *extension);
+  item_info.user_scripts_access->is_active =
+      GetExtensionUserScriptsAccess(extension->id(), browser_context);
 
   return item_info;
 }

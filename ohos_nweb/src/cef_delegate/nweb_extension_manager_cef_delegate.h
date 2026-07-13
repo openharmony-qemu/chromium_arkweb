@@ -42,6 +42,9 @@ using OnSetIncognitoEnabledCallback = std::function<void(std::optional<bool>)>;
 using OnEnableRuntimePermissionCallback =
     std::function<void(std::optional<bool>)>;
 
+using OnUpdateExtensionConfigurationCallback =
+    std::function<void(const NWebExtensionConfigurationUpdate&)>;
+
 class NWebExtensionManagerCefDelegate {
  public:
   static NWebExtensionManagerCefDelegate* GetInstance();
@@ -57,6 +60,10 @@ class NWebExtensionManagerCefDelegate {
                                const std::string& permission,
                                bool enabled,
                                OnEnableRuntimePermissionCallback callback);
+
+  void UpdateExtensionConfiguration(
+      const NWebExtensionConfigurationUpdate& config_update,
+      OnUpdateExtensionConfigurationCallback callback);
 
   void GetInstalledExtensionInfos(GetInstalledExtensionInfosCallback callback);
 
