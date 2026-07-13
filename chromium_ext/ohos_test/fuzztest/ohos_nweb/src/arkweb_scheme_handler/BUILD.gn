@@ -15,5 +15,7 @@ group("arkweb_scheme_handler") {
     testonly = true
     deps = [
       "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb/src/arkweb_scheme_handler/request_header_list_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb/src/arkweb_scheme_handler/http_body_stream_fuzzer",
+      "//arkweb/chromium_ext/ohos_test/fuzztest/ohos_nweb/src/arkweb_scheme_handler/resource_request_fuzzer",
     ]
 }
