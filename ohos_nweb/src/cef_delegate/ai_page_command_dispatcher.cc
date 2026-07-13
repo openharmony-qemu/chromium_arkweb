@@ -656,10 +656,12 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
   LOG(DEBUG) << "[AIPageCmd]" << " screenCapture: command=" << BuildParamsJson(command);
   const base::Value::Dict *params = command.FindDict("params");
   const std::string *xpath = nullptr;
+  const base::Value::Dict *clip = nullptr;
 
   if (params) {
     xpath = params->FindString("xpath");
     const std::string *node_id_str = params->FindString("nodeid");
+    clip = params->FindDict("clip");
 
     if (node_id_str && !node_id_str->empty()) {
       auto element_id = ParseElementId(*node_id_str);
@@ -682,6 +684,9 @@ void AIPageCommandDispatcher::HandleScreenCaptureCommand(
   if (xpath && !xpath->empty()) {
     LOG(INFO) << "[AIPageCmd] screenCapture: using xpath=" << *xpath;
     observer->CaptureElement(*xpath);
+  } else if (clip) {
+    LOG(INFO) << "[AIPageCmd] screenCapture: capture by area";
+    observer->CapturePageByArea(*clip);
   } else {
     LOG(INFO) << "[AIPageCmd] screenCapture: full page capture";
     observer->CaptureFullPage();

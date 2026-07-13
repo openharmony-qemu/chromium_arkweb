@@ -1393,3 +1393,131 @@ TEST_F(AIPageCommandDispatcherTest,
             static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
 }
 
+// ===== ScreenCapture command tests =====
+ 
+/**
+ * @tc.name: ScreenCapture_NullBrowser_ErrorCode_0100
+ * @tc.desc: ScreenCapture with null browser returns WEB_NWEB_NULL error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NullBrowser_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("node_id", 1);
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
+}
+ 
+/**
+ * @tc.name: ScreenCapture_InvalidParamType_ErrorCode_0100
+ * @tc.desc: ScreenCapture with non-double x param returns PARAM_INVALID error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_InvalidParamType_ErrorCode_0100) {
+  base::Value::Dict params;
+  base::Value::Dict clip;
+  clip.Set("x", "not_a_number");
+  clip.Set("y", 200.0);
+  clip.Set("width", 100.0);
+  clip.Set("height", 100.0);
+  clip.Set("scale", 1.0);
+  params.Set("clip", std::move(clip));
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+ 
+/**
+ * @tc.name: ScreenCapture_InvalidParamType_ErrorCode_0100
+ * @tc.desc: ScreenCapture with missing x param returns PARAM_INVALID error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_MissingParam_ErrorCode_0100) {
+  base::Value::Dict params;
+  base::Value::Dict clip;
+  clip.Set("y", 200.0);
+  clip.Set("width", 100.0);
+  clip.Set("height", 100.0);
+  clip.Set("scale", 1.0);
+  params.Set("clip", std::move(clip));
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+ 
+/**
+ * @tc.name: ScreenCapture_ObserverRegistrationFailed_0100
+ * @tc.desc: ScreenCapture AddDevToolsMessageObserver returns null reports CDP_SESSION_NOT_READY error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_ObserverRegistrationFailed_0100) {
+  base::Value::Dict params;
+  base::Value::Dict clip;
+  clip.Set("x", 200.0);
+  clip.Set("y", 200.0);
+  clip.Set("width", 100.0);
+  clip.Set("height", 100.0);
+  clip.Set("scale", 1.0);
+  params.Set("clip", std::move(clip));
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::CDP_SESSION_NOT_READY));
+}
+ 
+/**
+ * @tc.name: ScreenCapture_CDPFailed_ErrorCode_0100
+ * @tc.desc: ScreenCapture when CDP returns 0 returns CDP_SEND_FAILED error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_CDPFailed_ErrorCode_0100) {
+  EXPECT_CALL(*mock_browser_, AddDevToolsMessageObserver(_))
+      .WillOnce(Return(new FakeRegistration()));
+  EXPECT_CALL(*mock_browser_, ExecuteDevToolsMethod(_, _, _))
+      .WillOnce(Return(0));
+ 
+  base::Value::Dict params;
+  base::Value::Dict clip;
+  clip.Set("x", 200.0);
+  clip.Set("y", 200.0);
+  clip.Set("width", 100.0);
+  clip.Set("height", 100.0);
+  clip.Set("scale", 1.0);
+  params.Set("clip", std::move(clip));
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED));
+}
+ 
+/**
+ * @tc.name: ScreenCapture_Success_0100
+ * @tc.desc: ScreenCapture with valid params and successful CDP.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_Success_0100) {
+  EXPECT_CALL(*mock_browser_, AddDevToolsMessageObserver(_))
+      .WillOnce(Return(new FakeRegistration()));
+  EXPECT_CALL(*mock_browser_, ExecuteDevToolsMethod(_, _, _))
+      .WillOnce(Return(1));
+ 
+  base::Value::Dict params;
+  base::Value::Dict clip;
+  clip.Set("x", 200.0);
+  clip.Set("y", 200.0);
+  clip.Set("width", 100.0);
+  clip.Set("height", 100.0);
+  clip.Set("scale", 1.0);
+  params.Set("clip", std::move(clip));
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_FALSE(callback_->called_);
+}

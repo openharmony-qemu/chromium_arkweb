@@ -22,9 +22,11 @@
 #include <vector>
 
 #include "base/memory/weak_ptr.h"
+#include "base/values.h"
 #include "cef/include/cef_base.h"
 #include "cef/include/cef_devtools_message_observer.h"
 #include "cef/include/cef_registration.h"
+#include "include/cef_values.h"
 #include "ohos_nweb/include/nweb_value_callback.h"
 
 class ArkWebBrowserExt;
@@ -56,6 +58,9 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   // Executes: DOM.getBoxModel(node_id) -> Page.getLayoutMetrics -> ScreenshotCaptureUtil::CaptureWithClip
   void CaptureElementByNodeId(int node_id);
 
+  // Capture page of a specified area
+  void CapturePageByArea(const base::Value::Dict& clip);
+ 
  private:
   void OnDevToolsMethodResult(CefRefPtr<CefBrowser> browser, int message_id,
                               bool success, const void *result,
@@ -74,6 +79,9 @@ class ScreenshotObserver : public CefDevToolsMessageObserver {
   void CleanupDomDomain();
   void FinishWithError(int32_t code, const std::string &message);
   void FinishWithSuccess();
+
+  // builds CDP params for Page.captureScreenshot clip.
+  CefRefPtr<CefDictionaryValue> BuildAreaParams(const base::Value::Dict& clip);
 
   std::string screenshot_data_;
   CefRefPtr<ArkWebBrowserExt> browser_;
