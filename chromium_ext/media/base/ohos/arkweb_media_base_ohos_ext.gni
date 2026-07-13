@@ -16,6 +16,12 @@ arkweb_media_base_ohos_sources = [
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_callback.cc",
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_callback.h",
 
+  "//arkweb/chromium_ext/media/base/ohos/devtools_network_event_sink.h",
+  "//arkweb/chromium_ext/media/base/ohos/ohos_media_source_data_handler_impl.cc",
+  "//arkweb/chromium_ext/media/base/ohos/ohos_media_source_data_handler_impl.h",
+  "//arkweb/chromium_ext/media/base/ohos/ohos_media_source_download_manager.cc",
+  "//arkweb/chromium_ext/media/base/ohos/ohos_media_source_download_manager.h",
+
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_listener.cc",
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_listener.h",
 
