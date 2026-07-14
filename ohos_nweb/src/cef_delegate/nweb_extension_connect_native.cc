@@ -16,6 +16,8 @@
 #include <string>
 #include <mutex>
 #include "base/logging.h"
+#include "base/functional/bind.h"
+#include "base/task/thread_pool.h"
 
 #include "nweb_extension_connect_native.h"
 #include "nweb_runtime_connect_info_impl.h"
@@ -117,21 +119,40 @@ base::Process NWebConnectNativeManager::LaunchConnectNative(const std::string& n
  
 void NWebConnectNativeManager::DisconnectNative(int connectionId) {
   auto it = connectid_process_map_.find(connectionId);
-  if (it != connectid_process_map_.end()) {
-    if (!nweb_handler_map_.empty()) {
-      auto weak_handler = nweb_handler_map_.begin()->second;
-      if (auto handler = weak_handler.lock()) {      
-        LOG(INFO) << "DisconnectNative send to appservice PID: " << connectionId;
-        handler->OnExtensionDisconnect(connectionId);
-      }
-    } else {
-      LOG(ERROR) << "DisconnectNative cannot find web handler";
-      return;
-    }
-    connectid_process_map_.erase(it);
-  } else {
+  // Reduce the number of nested layers.
+  if (it == connectid_process_map_.end()) {
     LOG(ERROR) << "DisconnectNative Fail, Cannot found PID:" << connectionId;
+    return;
   }
+
+  if (nweb_handler_map_.empty()) {
+    LOG(ERROR) << "DisconnectNative cannot find web handler";
+    connectid_process_map_.erase(it);
+    return;
+  }
+
+  auto weak_handler = nweb_handler_map_.begin()->second;
+  auto handler = weak_handler.lock();
+  if (!handler) {
+    connectid_process_map_.erase(it);
+    return;
+  }
+
+  LOG(INFO) << "DisconnectNative send to appservice PID: " << connectionId;
+  // Execute callback asynchronously to avoid deadlock in destructor
+  std::weak_ptr<NWebHandler> weak_handler_ptr = weak_handler;
+  auto pid = connectionId;
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(
+          [](int connection_id, std::weak_ptr<NWebHandler> h) {
+            auto handler = h.lock();
+            if (handler) {
+              handler->OnExtensionDisconnect(connection_id);
+            }
+          }, pid, weak_handler_ptr));
+
+  connectid_process_map_.erase(it);
 }
 
 }  // namespace OHOS::NWeb
