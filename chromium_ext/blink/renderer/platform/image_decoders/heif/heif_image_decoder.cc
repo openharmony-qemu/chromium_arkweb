@@ -294,9 +294,9 @@ void HEIFImageDecoder::Decode(wtf_size_t index) {
   // CPU software decoding path (existing logic)
   LOG(INFO) << "[HeifSupport] Using CPU decode path";
 
-  base::span<const uint8_t> segment = data_->GetSomeData(0);
-  if (segment.empty()) {
-    LOG(ERROR) << "[HeifSupport] HEIFImageDecoder::Decode GetSomeData failed.";
+  auto sk_data = data_->GetAsSkData();
+  if (sk_data->size() == 0) {
+    LOG(ERROR) << "[HeifSupport] HEIFImageDecoder::Decode GetAsSkData failed.";
     SetFailed();
     return;
   }
@@ -307,7 +307,7 @@ void HEIFImageDecoder::Decode(wtf_size_t index) {
     return;
   }
   bool decode_rst = decoder_adapter->Decode(
-      (const uint8_t*)segment.data(), (uint32_t)data_->size(),
+      sk_data->bytes(), base::checked_cast<uint32_t>(sk_data->size()),
       OHOS::NWeb::AllocatorType::kShareMemAlloc, false);
   if (!decode_rst) {
     LOG(ERROR) << "[HeifSupport] HEIFImageDecoder::Decode Decode failed.";
