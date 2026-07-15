@@ -40,19 +40,29 @@ def main():
         os.makedirs(saved_dir)
     if not os.path.exists(saved_dir + out_dir):
         os.makedirs(saved_dir + out_dir)
-    copy_file('ohos_browser_shell', saved_dir + 'ohos_browser_shell')
-    copy_file('ohos_build', saved_dir + 'ohos_build')
-    copy_file('ohos_glue', saved_dir + 'ohos_glue')
-    copy_file('ohos_nweb', saved_dir + 'ohos_nweb')
-    copy_file('ohos_nweb_ex', saved_dir + 'ohos_nweb_ex')
-    copy_file('ohos_nweb_turbo', saved_dir + 'ohos_nweb_turbo')
-    copy_file(out_dir + 'ut_precise', saved_dir + 'ut_precise')
-    copy_file(out_dir + 'coverage_instrumentation_input.txt', saved_dir + 'coverage_instrumentation_input.txt')
+    copy_items = [
+        ('ohos_browser_shell', saved_dir + 'ohos_browser_shell'),
+        ('ohos_build', saved_dir + 'ohos_build'),
+        ('ohos_glue', saved_dir + 'ohos_glue'),
+        ('ohos_nweb', saved_dir + 'ohos_nweb'),
+        ('ohos_nweb_ex', saved_dir + 'ohos_nweb_ex'),
+        ('ohos_nweb_turbo', saved_dir + 'ohos_nweb_turbo'),
+        (out_dir + 'ut_precise', saved_dir + 'ut_precise'),
+        (out_dir + 'coverage_instrumentation_input.txt', saved_dir + 'coverage_instrumentation_input.txt'),
+    ]
+    for src, dst in copy_items:
+        try:
+            copy_file(src, dst)
+        except Exception as e:
+            print("copy error: " + str(e))
     file_array = []
     for deps in unittests_name:
         utpath = deps
         dep_path = utpath + ".runtime_deps"
-        copy_file(unstripped + utpath, saved_dir + unstripped + utpath)
+        try:
+            copy_file(unstripped + utpath, saved_dir + unstripped + utpath)
+        except Exception as e:
+            print("copy error: " + str(e))
         try:
             with open(out_dir + dep_path, 'r', encoding='utf-8') as out_file:
                 for file_path in out_file.readlines():
@@ -64,10 +74,13 @@ def main():
                             try:
                                 copy_file(file_path, saved_dir + file_path)
                             except Exception as e:
-                                print("permission denied")
+                                print("copy error: " + str(e))
                         else:
                             file_path = file_path.replace("./", "")
-                            copy_file(out_dir + file_path, saved_dir + out_dir + file_path)
+                            try:
+                                copy_file(out_dir + file_path, saved_dir + out_dir + file_path)
+                            except Exception as e:
+                                print("copy error: " + str(e))
         except Exception as e:
             print("file not found")
     print("Archive precise ut result end.")
