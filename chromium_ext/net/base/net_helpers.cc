@@ -230,30 +230,12 @@ bool IsAppStorageSandboxUrl(const GURL& url) {
 }
 #endif
 
-bool IsAnomalousFilePath(const GURL& url) {
-  if (!url.SchemeIsFile()) {
-    return false;
-  }
-
-  std::string path(url.path());
-
-  if (path.find("//") != std::string::npos) {
-    return true;
-  }
-
-  return false;
-}
-
 bool IsURLBlocked(const GURL& url
 #if BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
 ,
                   struct NetHelperSetting setting
 #endif  // BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
 ) {
-  if (IsAnomalousFilePath(url)) {
-    LOG(WARNING) << "Blocked anomalous file url: " << url.path();
-    return true;
-  }
   // Part of implementation of NWebPreference.allowContentAccess.
   if (url.SchemeIs(url::kContentScheme) &&
       NetHelpers::ShouldBlockContentUrls()) {
