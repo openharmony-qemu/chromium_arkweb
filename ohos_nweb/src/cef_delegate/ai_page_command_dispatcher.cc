@@ -292,7 +292,7 @@ class ValidateElementIdCallbackImpl : public CefAIPageCommandCallback {
       const std::string* error = dict.FindString("error");
       std::string error_msg = error ? *error : "validation failed";
       LOG(ERROR) << "[AIPageCmd] screenCapture: ValidateElementId failed: " << error_msg;
-      ResolveCommandResult(callback_, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeids, " + error_msg);
+      ResolveCommandResult(callback_, WebCommandErrorCode::PARAM_INVALID, "invalid param: nodeid, " + error_msg);
       return;
     }
     LOG(INFO) << "[AIPageCmd] screenCapture: ValidateElementId passed, node_id=" << node_id_;
