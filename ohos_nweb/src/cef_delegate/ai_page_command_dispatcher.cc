@@ -773,12 +773,22 @@ void AIPageCommandDispatcher::HandleInputCommand(
     return;
   }
 
-  const std::string* input_type = params->FindString("type");
-  if (!input_type || input_type->empty()) {
+  const base::Value* input_type_value = params->Find("type");
+  if (!input_type_value) {
     ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing type");
     return;
   }
-  if (!AIPageCommandParamUtils::IsSupportedInputType(*input_type)) {
+  if (!input_type_value->is_string()) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_INVALID,
+               "invalid param: type");
+    return;
+  }
+  const std::string& input_type = input_type_value->GetString();
+  if (input_type.empty()) {
+    ReplyError(callback, WebCommandErrorCode::PARAM_MISSING, "missing type");
+    return;
+  }
+  if (!AIPageCommandParamUtils::IsSupportedInputType(input_type)) {
     ReplyError(callback, WebCommandErrorCode::INPUT_TYPE_INVALID,
                "unsupported input type");
     return;
@@ -802,11 +812,11 @@ void AIPageCommandDispatcher::HandleInputCommand(
 
   if (target.type == AIPageCommandParamUtils::ElementTargetType::kId) {
     ExecuteAIPageInputByIdAndReply(browser, target.value, value->GetString(),
-                                     *input_type, callback);
+                                   input_type, callback);
     return;
   }
   ExecuteAIPageInputByXPathAndReply(browser, target.value, value->GetString(),
-                                      *input_type, callback);
+                                    input_type, callback);
 #endif
 }
 
@@ -1220,13 +1230,24 @@ void AIPageCommandDispatcher::HandleNavigateCommand(
     const base::Value::Dict& command,
     ResultCallback callback) {
   const base::Value::Dict* params = command.FindDict("params");
-  const std::string* url = params ? params->FindString("url") : nullptr;
-  if (!url || url->empty()) {
+  const base::Value* url_value = params ? params->Find("url") : nullptr;
+  if (!url_value) {
+    ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_MISSING,
+                             "params.url is required");
+    return;
+  }
+  if (!url_value->is_string()) {
+    ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_INVALID,
+                             "params.url is invalid");
+    return;
+  }
+  const std::string& url = url_value->GetString();
+  if (url.empty()) {
     ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_MISSING,
                               "params.url is required");
     return;
   }
-  if (!IsAllowedNavigationUrl(*url)) {
+  if (!IsAllowedNavigationUrl(url)) {
     ResolveNavigationFailure(callback, WebCommandErrorCode::PARAM_INVALID,
                               "params.url is invalid");
     return;
@@ -1243,7 +1264,7 @@ void AIPageCommandDispatcher::HandleNavigateCommand(
     return;
   }
 
-  browser->GetMainFrame()->LoadURL(CefString(*url));
+  browser->GetMainFrame()->LoadURL(CefString(url));
   ResolveNavigationSuccess(callback);
 }
 

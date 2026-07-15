@@ -190,26 +190,33 @@ ElementTarget ResolveScrollTarget(const base::Value::Dict& params) {
 }
 
 CdpParamsResult BuildMouseEventParams(const base::Value::Dict& params) {
-  const std::string* type = params.FindString("type");
-  if (!type || type->empty()) {
+  const base::Value* type_value = params.Find("type");
+  if (!type_value) {
     return MakeError(WebCommandErrorCode::PARAM_MISSING, "missing type");
   }
-  if (!base::Contains(kMouseEventTypes, *type)) {
+  if (!type_value->is_string()) {
+    return MakeError(WebCommandErrorCode::PARAM_INVALID, "invalid param: type");
+  }
+  const std::string& type = type_value->GetString();
+  if (type.empty()) {
+    return MakeError(WebCommandErrorCode::PARAM_MISSING, "missing type");
+  }
+  if (!base::Contains(kMouseEventTypes, type)) {
     return MakeError(WebCommandErrorCode::PARAM_INVALID,
                      "invalid mouse event type");
   }
-  auto x = params.FindDouble("x");
-  auto y = params.FindDouble("y");
-  if (!x.has_value() || !y.has_value()) {
+  if (!HasField(params, "x") || !HasField(params, "y")) {
     return MakeError(WebCommandErrorCode::PARAM_MISSING, "missing x or y");
   }
 
   CefRefPtr<CefDictionaryValue> cdp = CefDictionaryValue::Create();
-  cdp->SetString("type", *type);
-  cdp->SetDouble("x", x.value());
-  cdp->SetDouble("y", y.value());
-
+  cdp->SetString("type", type);
   std::string error;
+  for (const char* key : {"x", "y"}) {
+    if (!CopyNumberField(params, key, cdp, &error)) {
+      return MakeError(WebCommandErrorCode::PARAM_INVALID, error);
+    }
+  }
   const char* number_fields[] = {"timestamp", "force", "tangentialPressure",
                                  "tiltX", "tiltY", "deltaX", "deltaY"};
   for (const char* key : number_fields) {
@@ -250,17 +257,24 @@ CdpParamsResult BuildMouseEventParams(const base::Value::Dict& params) {
 }
 
 CdpParamsResult BuildKeyEventParams(const base::Value::Dict& params) {
-  const std::string* type = params.FindString("type");
-  if (!type || type->empty()) {
+  const base::Value* type_value = params.Find("type");
+  if (!type_value) {
     return MakeError(WebCommandErrorCode::PARAM_MISSING, "missing type");
   }
-  if (!base::Contains(kKeyEventTypes, *type)) {
+  if (!type_value->is_string()) {
+    return MakeError(WebCommandErrorCode::PARAM_INVALID, "invalid param: type");
+  }
+  const std::string& type = type_value->GetString();
+  if (type.empty()) {
+    return MakeError(WebCommandErrorCode::PARAM_MISSING, "missing type");
+  }
+  if (!base::Contains(kKeyEventTypes, type)) {
     return MakeError(WebCommandErrorCode::PARAM_INVALID,
                      "invalid key event type");
   }
 
   CefRefPtr<CefDictionaryValue> cdp = CefDictionaryValue::Create();
-  cdp->SetString("type", *type);
+  cdp->SetString("type", type);
   std::string error;
   const char* string_fields[] = {"text", "unmodifiedText", "key", "code"};
   for (const char* key : string_fields) {
