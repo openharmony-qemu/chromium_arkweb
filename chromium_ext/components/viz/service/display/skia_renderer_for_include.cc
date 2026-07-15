@@ -25,8 +25,11 @@ enum CtlPolicy {
 };
 
 namespace {
+static std::atomic<int32_t> flag = -1;
+static std::atomic<int> skip_partial_draw{0};
+int SKIP_PARTIAL_DRAW_NUMBER = 360;
+
 int32_t IsPartialDrawEnable() {
-  static std::atomic<int32_t> flag = -1;
   if (flag < 0) {
     bool cloud_ctl = base::FeatureList::IsEnabled(features::kDefaultPartialDraw);
     if (!cloud_ctl) {
@@ -51,6 +54,8 @@ int32_t IsPartialDrawEnable() {
 }
 
 void SkiaRenderer::ResetPartialDrawState() {
+  flag = CtlPolicy::NONE;
+  skip_partial_draw.store(SKIP_PARTIAL_DRAW_NUMBER);
   skia_last_damage_rect_ = gfx::Rect();
   is_partial_damage_ = false;
   force_full_draw_after_reset_.store(true);
@@ -64,6 +69,14 @@ void SkiaRenderer::ClosePostSubBuffer() {
 }
 
 bool SkiaRenderer::IsPresentBuffersFullDamage(gfx::Rect damage_rect) {
+  if (skip_partial_draw > 0) {
+    skip_partial_draw.fetch_sub(1, std::memory_order_relaxed);
+    skia_output_surface_->SetPresentBufferDamageRect(gfx::Rect(), damage_rect);
+    is_partial_damage_ = false;
+    return true;
+  } else {
+      flag = -1;
+  }
   auto policy = IsPartialDrawEnable();
   if (skia_output_surface_ == nullptr || (policy == CtlPolicy::NONE)) {
     is_partial_damage_ = false;
