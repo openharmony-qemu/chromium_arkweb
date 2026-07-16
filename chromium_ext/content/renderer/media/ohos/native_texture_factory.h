@@ -135,7 +135,11 @@ class CONTENT_EXPORT NativeTextureFactory
   // nullptr is returned. If the route_id is valid it returns
   // NativeTextureProxy object.
   ScopedNativeTextureProxy CreateProxy(
-      gl::ohos::TextureOwnerMode texture_owner_mode);
+      gl::ohos::TextureOwnerMode texture_owner_mode
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      , bool is_custom_media_player
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      );
 
   // Returns true if the NativeTextureFactory's channel is lost.
   bool IsLost() const;

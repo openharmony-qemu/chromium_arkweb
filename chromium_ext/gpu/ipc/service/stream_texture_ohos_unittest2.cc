@@ -75,6 +75,9 @@ class StreamTextureOHOSTest : public StreamChannelTest {
 TEST_F(StreamTextureOHOSTest, Create) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->ReleaseChannel();
@@ -83,6 +86,9 @@ TEST_F(StreamTextureOHOSTest, Create) {
 TEST_F(StreamTextureOHOSTest, ReleaseChannel) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->ReleaseChannel();
@@ -91,6 +97,9 @@ TEST_F(StreamTextureOHOSTest, ReleaseChannel) {
 TEST_F(StreamTextureOHOSTest, RunCallback) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   base::Thread thread("MyThread");
@@ -107,6 +116,9 @@ TEST_F(StreamTextureOHOSTest, RunCallback) {
 TEST_F(StreamTextureOHOSTest, RunCallbackOnCurrentThread) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   scoped_refptr<base::SingleThreadTaskRunner> task_runner =
@@ -121,6 +133,9 @@ TEST_F(StreamTextureOHOSTest, RunCallbackOnCurrentThread) {
 TEST_F(StreamTextureOHOSTest, RunCallbackOnCurrentThreadNullPtr) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   scoped_refptr<base::SingleThreadTaskRunner> task_runner =
@@ -134,6 +149,9 @@ TEST_F(StreamTextureOHOSTest, RunCallbackOnCurrentThreadNullPtr) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailable) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->OnFrameAvailable();
@@ -144,6 +162,9 @@ TEST_F(StreamTextureOHOSTest, OnFrameAvailable) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailableNoTextureOwner) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->native_texture_owner_ = nullptr;
@@ -155,6 +176,9 @@ TEST_F(StreamTextureOHOSTest, OnFrameAvailableNoTextureOwner) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailableNoChannel) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   mojo::PendingAssociatedRemote<mojom::StreamTextureClient> pending_client;
@@ -168,6 +192,9 @@ TEST_F(StreamTextureOHOSTest, OnFrameAvailableNoChannel) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailableWithClientEmptySize) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   mojo::PendingAssociatedRemote<mojom::StreamTextureClient> pending_client;
@@ -183,6 +210,9 @@ TEST_F(StreamTextureOHOSTest, OnFrameAvailableWithClientEmptySize) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailableSizeChanged) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   mojo::PendingAssociatedRemote<mojom::StreamTextureClient> pending_client;
@@ -200,6 +230,9 @@ TEST_F(StreamTextureOHOSTest, OnFrameAvailableSizeChanged) {
 TEST_F(StreamTextureOHOSTest, OnFrameAvailableSizeUnchanged) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   mojo::PendingAssociatedRemote<mojom::StreamTextureClient> pending_client;
@@ -218,6 +251,9 @@ TEST_F(StreamTextureOHOSTest, UpdatesSize) {
 
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_TRUE(stream_texture->rotated_visible_size_.IsEmpty());
   stream_texture->UpdateRotatedVisibleSize(kTestSize);
@@ -228,6 +264,9 @@ TEST_F(StreamTextureOHOSTest, UpdatesSize) {
 TEST_F(StreamTextureOHOSTest, UpdateRotatedVisibleSizeDeferredFrame) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   mojo::PendingAssociatedRemote<mojom::StreamTextureClient> pending_client;
@@ -245,6 +284,9 @@ TEST_F(StreamTextureOHOSTest, UpdateRotatedVisibleSizeDeferredFrame) {
 TEST_F(StreamTextureOHOSTest, UpdateRotatedVisibleSizeFromNotEmpty) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->UpdateRotatedVisibleSize(gfx::Size(100, 200));
@@ -257,6 +299,9 @@ TEST_F(StreamTextureOHOSTest, UpdateRotatedVisibleSizeFromNotEmpty) {
 TEST_F(StreamTextureOHOSTest, ReturnsCachedValue) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->native_embed_id_ = 123;
@@ -268,6 +313,9 @@ TEST_F(StreamTextureOHOSTest, ReturnsCachedValue) {
 TEST_F(StreamTextureOHOSTest, GeneratesNewIdWhenUnset) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->native_embed_id_ = -1;
@@ -279,6 +327,9 @@ TEST_F(StreamTextureOHOSTest, GeneratesNewIdWhenUnset) {
 TEST_F(StreamTextureOHOSTest, IsUsingGpuMemoryReturnsTrue) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   EXPECT_TRUE(stream_texture->IsUsingGpuMemory());
@@ -288,6 +339,9 @@ TEST_F(StreamTextureOHOSTest, IsUsingGpuMemoryReturnsTrue) {
 TEST_F(StreamTextureOHOSTest, HasTextureOwnerReturnsTrue) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   EXPECT_TRUE(stream_texture->HasTextureOwner());
@@ -297,6 +351,9 @@ TEST_F(StreamTextureOHOSTest, HasTextureOwnerReturnsTrue) {
 TEST_F(StreamTextureOHOSTest, TextureOwnerBindsTextureOnUpdate) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   EXPECT_EQ(stream_texture->TextureOwnerBindsTextureOnUpdate(),
@@ -310,6 +367,9 @@ TEST_F(StreamTextureOHOSTest, TextureOwnerBindsTextureOnUpdate) {
 TEST_F(StreamTextureOHOSTest, UpdateAndBindTexImage) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->UpdateAndBindTexImage(1);
@@ -319,6 +379,9 @@ TEST_F(StreamTextureOHOSTest, UpdateAndBindTexImage) {
 TEST_F(StreamTextureOHOSTest, StartListeningBindsClient) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   EXPECT_FALSE(stream_texture->client_);
@@ -333,6 +396,9 @@ TEST_F(StreamTextureOHOSTest, StartListeningBindsClient) {
 TEST_F(StreamTextureOHOSTest, NotifyOverlayPromotion) {
   auto stream_texture = StreamTexture::Create(
       channel_, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       std::move(receiver));
   EXPECT_NE(stream_texture, nullptr);
   stream_texture->NotifyOverlayPromotion(true, gfx::Rect(0, 0, 100, 100));

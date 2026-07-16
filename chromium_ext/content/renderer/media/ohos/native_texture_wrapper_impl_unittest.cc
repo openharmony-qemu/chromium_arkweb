@@ -206,8 +206,11 @@ class NativeTextureWrapperImplTest : public testing::Test {
     impl_ = std::unique_ptr<NativeTextureWrapperImpl,
                             NativeTextureWrapperImplDeleter>(
         new NativeTextureWrapperImpl(
-            true, gl::ohos::TextureOwnerMode::kNone, factory_,
-            base::SingleThreadTaskRunner::GetCurrentDefault()),
+            true, gl::ohos::TextureOwnerMode::kNone,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+            false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+            factory_, base::SingleThreadTaskRunner::GetCurrentDefault()),
         NativeTextureWrapperImplDeleter{});
     impl_->compositor_task_runner_ =
         base::MakeRefCounted<MockSingleThreadTaskRunner>();

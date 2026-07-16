@@ -163,6 +163,9 @@ void ArkwebMediaFactoryUtils::AddOhosAndCustomMediaFactory(media::RendererFactor
             &NativeTextureWrapperImpl::Create,
             true,
             texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+            false, // no custom media player
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
             render_thread->GetNativeTexureFactory(),
             media_factory_->render_frame_->GetTaskRunner(blink::TaskType::kInternalMedia)));
   factory_selector->AddFactory(media::RendererType::kOHOSMediaPlayer,
@@ -179,7 +182,9 @@ void ArkwebMediaFactoryUtils::AddOhosAndCustomMediaFactory(media::RendererFactor
               &NativeTextureWrapperImpl::Create,
               features::IsUsingVulkan() || base::ohos::IsEmulator() ||
                   base::SysInfo::IsLowEndDevice(),
-              texture_owner_mode, render_thread->GetNativeTexureFactory(),
+              texture_owner_mode,
+              true, // custom media player
+              render_thread->GetNativeTexureFactory(),
               media_factory_->render_frame_->GetTaskRunner(blink::TaskType::kInternalMedia)));
   factory_selector->AddFactory(media::RendererType::kOHOSCustomMediaPlayer,
                                std::move(ohos_custom_media_player_factory));
