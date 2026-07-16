@@ -20,8 +20,8 @@ import os
 
 
 def copy_file(source_path, target_path):
-    folder_path = target_path[0:target_path.rfind("/")]
-    if not os.path.exists(folder_path):
+    folder_path = os.path.dirname(target_path)
+    if folder_path and not os.path.exists(folder_path):
         os.makedirs(folder_path)
     try:
         shutil.copy(source_path, target_path)
@@ -29,6 +29,8 @@ def copy_file(source_path, target_path):
         print("FileNotFoundError: " + source_path)
     except IsADirectoryError:
         copy_folder(source_path, target_path)
+    except OSError as e:
+        print("copy_file OSError: " + str(e))
 
 
 def copy_folder(source_folder, destination_folder):
@@ -43,9 +45,9 @@ def copy_folder(source_folder, destination_folder):
             try:
                 copy_folder(source, destination)
             except Exception as e:
-                print("permission denied")
+                print("copy_folder error: " + str(e))
         else:
             try:
                 shutil.copy(source, destination)
             except Exception as e:
-                print("permission denied")
+                print("copy error: " + str(e))
