@@ -134,6 +134,14 @@ class BaseWindowCapturer : public DesktopCapturer {
 
   raw_ptr<Callback> callback_ = nullptr;
 
+  // Task runner of the thread that called Start() — i.e. the
+  // DesktopCaptureDevice capture thread. All callback_-> invocations MUST be
+  // posted here, because OHOS state-change callbacks fire on a different
+  // thread (the capturer's construction thread via OHOSScreenCaptureCallback),
+  // but the webrtc::DesktopCapturer::Callback contract requires single-thread
+  // delivery on the Start() thread.
+  ::scoped_refptr<base::SingleThreadTaskRunner> capture_task_runner_;
+
   CaptureSourceType capture_source_type_ =
       BaseWindowCapturer::CaptureSourceType::kScreen;
 
