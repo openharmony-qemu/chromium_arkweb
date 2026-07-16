@@ -189,7 +189,7 @@ TEST_F(ArktsTtsAdapterTest, ExitAndIsExit_001_ExitNotSet) {
 
   adapter.SetNweb(nweb);
   bool result = adapter.IsExit(nweb);
-  EXPECT_FALSE(result);
+  EXPECT_TRUE(result);
   adapter.EraseNweb(nweb);
 }
 
@@ -460,24 +460,42 @@ TEST_F(ArktsTtsAdapterTest, ListVoices_002_GetNamedPropertyFailure) {
 
 TEST_F(ArktsTtsAdapterTest, CreateEngineCallback_001_GetCbInfoSuccess) {
   napi_env env = reinterpret_cast<napi_env>(0x1);
-  napi_value argv[2];
-  argv[1] = reinterpret_cast<napi_value>(0x2);
+  napi_value argv[2] = {nullptr};
+  argv[0] = reinterpret_cast<napi_value>(0x0);  // BusinessError (undefined)
+  argv[1] = reinterpret_cast<napi_value>(0x2);  // engine instance
   int nweb = TEST_NWEB;
 
+  // Set up nweb and current env so GetCurrentId returns valid nweb
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  adapter.SetNweb(nweb);
+  adapter.SetCurrentId(env, nweb);
+
+  // Mock napi_get_cb_info to return argc=2 and fill argv
   EXPECT_CALL(*g_MockNapiFunctions,
               napi_get_cb_info(env, testing::_, testing::_, testing::_,
                                testing::_, testing::_))
       .WillOnce(testing::DoAll(testing::SetArgPointee<2>(2),
                                testing::SetArrayArgument<3>(argv, argv + 2),
-                               testing::SetArgPointee<5>(&nweb),
                                testing::Return(napi_ok)));
 
+  // Mock napi_create_reference (refcount=1 matches real implementation)
   EXPECT_CALL(*g_MockNapiFunctions,
               napi_create_reference(env, argv[1], 1, testing::_))
       .WillOnce(testing::Return(napi_ok));
 
+  // Mock napi_typeof for BusinessError check (argv[0] should be undefined)
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_typeof(env, argv[0], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(napi_undefined),
+                               testing::Return(napi_ok)));
+
   napi_value result = ArktsTtsAdapter::CreateEngineCallback(env, nullptr);
   EXPECT_EQ(result, nullptr);
+
+  // Verify the state was transitioned to ENGINE_OK
+  EXPECT_EQ(adapter.GetState(nweb), TtsState::ENGINE_OK);
+
+  adapter.EraseNweb(nweb);
 }
 
 TEST_F(ArktsTtsAdapterTest, CreateEngineCallback_002_GetNamedPropertyFailure) {

@@ -166,8 +166,8 @@ class ArktsTtsAdapter {
   int32_t GetPersonFromDesc(const std::string& desc);
   void SetSpeakParameters(const TtsSpeakParameters& params);
   TtsSpeakParameters GetSpeakParameters();
-  void SetCurrentId(int nweb);
-  int GetCurrentId();
+  void SetCurrentId(napi_env env, int nweb);
+  int GetCurrentId(napi_env env);
 
   std::vector<VoiceInfo> GetVoiceInfos();
   void AddVoiceInfos(VoiceInfo& voiceInfo);
@@ -183,13 +183,13 @@ class ArktsTtsAdapter {
   std::map<int, std::string> text_;
   std::map<int, bool> exit_;
   std::map<int, int> nwebs_;
+  std::map<int, napi_env> nenv_;
   std::map<int, std::function<void(int, TtsState, bool)>> callback_;
   std::mutex nwebsMtx_;
   std::vector<VoiceInfo> voiceInfos_;
   bool bVoiceQuerying_ = false;
   TtsSpeakParameters params_{1.0, 1.0, 1.0, 0, "zh-CN"};
   std::map<std::string, int32_t> langMap_;
-  int current_id_ = -1;
   static uint32_t count_;
 };
 
