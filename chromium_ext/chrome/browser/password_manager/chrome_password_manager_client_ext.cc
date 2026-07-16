@@ -160,8 +160,13 @@ std::optional<std::string> ChromePasswordManagerClientExt::PasswordFormToJsonFor
       KEY_PAGE_URL, url::Origin::Create(form.url).GetURL().spec()));
 
   base::Value::List list_username;
-  list_username.Append(
-    base::Value::Dict().Set(KEY_VALUE, base::UTF16ToUTF8(form.username_value)));
+  bool is_password_field_reused_as_username =
+      form.username_element_renderer_id && form.password_element_renderer_id &&
+      form.username_element_renderer_id == form.password_element_renderer_id;
+  list_username.Append(base::Value::Dict().Set(
+      KEY_VALUE, is_password_field_reused_as_username
+                     ? std::string()
+                     : base::UTF16ToUTF8(form.username_value)));
 
   base::Value::List list_metadata;
   for (const auto& alt_username : form.all_alternative_usernames) {
