@@ -131,7 +131,9 @@ void OH_ArkWebCookieManager_FetchCookieAsyncImpl(const char* url, bool incognito
         OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager();
     if (!cookie_manager) {
         LOG(ERROR) << "cookie manager is nullptr";
-        callback(ArkWeb_ErrorCode::ARKWEB_ERROR_UNKNOWN, nullptr);
+        if (callback) {
+          callback(ArkWeb_ErrorCode::ARKWEB_ERROR_UNKNOWN, nullptr);
+        }
         return;
     }
 
