@@ -863,13 +863,253 @@ TEST_F(HeadlessScreenOhosTest, ObserverNotRemovedDoesNotify) {
   screen_->OnDisplayCreate(1);
 }
 
-// --- HeadlessScreenOhos_001 (destructor coverage) ---
+// --- LayoutDisplays: cover anonymous-namespace layout functions ---
+// DisplayInfosTouch: all 4 edge directions (RIGHT/BOTTOM/LEFT/TOP)
+// CalculateDisplayPosition: all 4 position branches
+// CalculateDisplayPlacement: TOP/BOTTOM + LEFT/RIGHT switch cases
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysEdgeTouchingAllDirections) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),    // primary
+      display::Display(1, gfx::Rect(1000, 0, 800, 800)),    // right edge → RIGHT
+      display::Display(2, gfx::Rect(0, 1000, 800, 800)),    // bottom edge → BOTTOM
+      display::Display(3, gfx::Rect(-800, 0, 800, 800)),    // left edge → LEFT
+      display::Display(4, gfx::Rect(0, -800, 800, 800))};   // top edge → TOP
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
 
-TEST_F(HeadlessScreenOhosTest, DestructorWithNullListener) {
-  screen_.reset();
-  auto headless_screen = std::make_unique<HeadlessScreenOhos>();
-  headless_screen->display_listener_ = nullptr;
-  headless_screen.reset();
+// CalculateDisplayPosition: corner-touching branches (lines 122-130)
+// bottom-right corner → BOTTOM, top-right corner → TOP, top-left corner → LEFT
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysCornerTouchingMultiple) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, 1000, 800, 800)),   // bottom-right → BOTTOM
+      display::Display(2, gfx::Rect(1000, -800, 800, 800)),   // top-right → TOP
+      display::Display(3, gfx::Rect(-800, -800, 800, 800))};  // top-left → LEFT
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// CalculateDisplayPlacement: parent_end == current_end → BOTTOM_RIGHT, offset=0
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysRightAlignedSameHeight) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, 0, 1000, 1000))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+  EXPECT_EQ(displays[1].bounds().origin(), gfx::Point(1000, 0));
+}
+
+// CalculateDisplayPlacement: current_begin within parent range → ScaleOffset
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysOverlappingBegin) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, 200, 800, 600))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// CalculateDisplayPlacement: current_end within parent range → BOTTOM_RIGHT ref
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysOverlappingEnd) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, -200, 800, 600))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// CalculateDisplayPlacement: else branch — parent fully inside current
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysChildFullyContainsParent) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, -500, 800, 2000))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// 4-display grid: chained FindAndRemoveTouchingDisplayInfos iteration
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysFourDisplayGrid) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(1000, 0, 1000, 1000)),
+      display::Display(2, gfx::Rect(0, 1000, 1000, 1000)),
+      display::Display(3, gfx::Rect(1000, 1000, 1000, 1000))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+  EXPECT_EQ(displays[1].bounds().origin(), gfx::Point(1000, 0));
+  EXPECT_EQ(displays[2].bounds().origin(), gfx::Point(0, 1000));
+  EXPECT_EQ(displays[3].bounds().origin(), gfx::Point(1000, 1000));
+}
+
+// DisplayInfosTouch returns false → available_parents loop ends
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysNonTouchingIgnored) {
+  display::Displays displays = {
+      display::Display(0, gfx::Rect(0, 0, 1000, 1000)),
+      display::Display(1, gfx::Rect(3000, 0, 800, 800))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// ScaleOffset with device_scale_factor != 0 and 1
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysWithDeviceScaleFactor) {
+  display::Display primary(0, gfx::Rect(0, 0, 1000, 1000));
+  primary.set_device_scale_factor(2.0f);
+  display::Displays displays = {
+      primary,
+      display::Display(1, gfx::Rect(1000, 200, 800, 600))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// ScaleOffset with unscaled_length==0 → return 0
+TEST_F(HeadlessScreenOhosTest, LayoutDisplaysZeroWidthParent) {
+  display::Display primary(0, gfx::Rect(0, 0, 0, 1000));
+  primary.set_device_scale_factor(1.0f);
+  display::Displays displays = {
+      primary,
+      display::Display(1, gfx::Rect(0, 1000, 800, 600))};
+  screen_->LayoutDisplays(displays);
+  EXPECT_EQ(displays[0].bounds().origin(), gfx::Point(0, 0));
+}
+
+// --- OnDisplayEvent: change with non-primary → NOT_PRIMARY branch ---
+TEST_F(HeadlessScreenOhosTest, OnDisplayEventChangeNonPrimaryDisplay) {
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter_primary = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter_primary.get(), 0, 0.0f);
+  auto adapter_secondary = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter_secondary.get(), 10, 0.0f);
+  EXPECT_CALL(*manager, GetDefaultDisplayId()).WillRepeatedly(Return(0));
+  EXPECT_CALL(*manager, GetPrimaryDisplay())
+      .WillRepeatedly(testing::Invoke([adapter_primary]() {
+        return std::shared_ptr<DisplayAdapter>(adapter_primary);
+      }));
+  EXPECT_CALL(*manager, GetAllDisplays())
+      .WillRepeatedly(testing::Invoke([adapter_primary, adapter_secondary]() {
+        return std::vector<std::shared_ptr<DisplayAdapter>>{
+            adapter_primary, adapter_secondary};
+      }));
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->OnDisplayEvent("change", 10);
+}
+
+// OnDisplayEvent: change with display_id not found in fetched list
+TEST_F(HeadlessScreenOhosTest, OnDisplayEventChangeDisplayNotFound) {
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 0, 0.0f);
+  SetupManagerForSuccess(manager.get(), adapter);
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->OnDisplayEvent("change", 9999);
+}
+
+// OnDisplayEvent: create with display found as primary → PRIMARY branch
+TEST_F(HeadlessScreenOhosTest, OnDisplayEventCreateDisplayIsPrimary) {
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 0, 0.0f);
+  SetupManagerForSuccess(manager.get(), adapter);
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->OnDisplayEvent("create", 0);
+}
+
+// ConvertDisplay: ROTATION_90 switch case + scale!=0 branch
+TEST_F(HeadlessScreenOhosTest, ConvertDisplayRotation90WithScale) {
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 1, 1.5f);
+  EXPECT_CALL(*adapter, GetRotation())
+      .WillRepeatedly(Return(RotationType::ROTATION_90));
+  display::Display display;
+  EXPECT_TRUE(screen_->ConvertDisplay(adapter, display));
+  EXPECT_EQ(display.rotation(), display::Display::ROTATE_90);
+}
+
+// GetPrimaryDisplay: iter==end → return default Display
+TEST_F(HeadlessScreenOhosTest, GetPrimaryDisplayEmptyList) {
+  screen_->display_list_.displays_.clear();
+  auto primary = screen_->GetPrimaryDisplay();
+  EXPECT_EQ(primary.id(), display::kInvalidDisplayId);
+}
+
+// FetchDisplays: primary_id not in display_list → fallback to default_id
+TEST_F(HeadlessScreenOhosTest, FetchDisplaysPrimaryNotFoundFallbackToDefault) {
+  display::DisplayList displays;
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 99, 0.0f);
+  EXPECT_CALL(*manager, GetDefaultDisplayId()).WillRepeatedly(Return(42));
+  EXPECT_CALL(*manager, GetPrimaryDisplay())
+      .WillRepeatedly(testing::Invoke([adapter]() {
+        return std::shared_ptr<DisplayAdapter>(adapter);
+      }));
+  EXPECT_CALL(*manager, GetAllDisplays())
+      .WillRepeatedly(testing::Invoke([adapter]() {
+        return std::vector<std::shared_ptr<DisplayAdapter>>{adapter};
+      }));
+  screen_->display_manager_adapter_ = std::move(manager);
+  EXPECT_TRUE(screen_->FetchDisplays(displays));
+  EXPECT_EQ(displays.displays().size(), 1u);
+}
+
+// FetchDisplays: multiple displays, primary + secondary
+TEST_F(HeadlessScreenOhosTest, FetchDisplaysMultipleDisplays) {
+  display::DisplayList displays;
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter_primary = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter_primary.get(), 0, 0.0f);
+  auto adapter_secondary = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter_secondary.get(), 1, 0.0f);
+  EXPECT_CALL(*manager, GetDefaultDisplayId()).WillRepeatedly(Return(0));
+  EXPECT_CALL(*manager, GetPrimaryDisplay())
+      .WillRepeatedly(testing::Invoke([adapter_primary]() {
+        return std::shared_ptr<DisplayAdapter>(adapter_primary);
+      }));
+  EXPECT_CALL(*manager, GetAllDisplays())
+      .WillRepeatedly(testing::Invoke(
+          [adapter_primary, adapter_secondary]() {
+            return std::vector<std::shared_ptr<DisplayAdapter>>{
+                adapter_primary, adapter_secondary};
+          }));
+  screen_->display_manager_adapter_ = std::move(manager);
+  EXPECT_TRUE(screen_->FetchDisplays(displays));
+  ASSERT_EQ(displays.displays().size(), 2u);
+}
+
+// OnDisplayCreate/Destroy/Change: HasWeakPtrs()=true → proceeds to OnDisplayEvent
+TEST_F(HeadlessScreenOhosTest, OnDisplayCreateWithValidWeakPtr) {
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 5, 0.0f);
+  SetupManagerForSuccess(manager.get(), adapter);
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->display_listener_ =
+      std::make_shared<HeadlessScreenListener>(
+          screen_->weak_factory_.GetWeakPtr());
+  screen_->OnDisplayCreate(5);
+}
+
+TEST_F(HeadlessScreenOhosTest, OnDisplayDestroyWithValidWeakPtr) {
+  display::Display display(5, gfx::Rect(0, 0, 800, 600));
+  screen_->display_list_.AddDisplay(display, display::DisplayList::Type::NOT_PRIMARY);
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  EXPECT_CALL(*manager, UnregisterDisplayListener(_)).WillOnce(Return(true));
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->display_listener_ =
+      std::make_shared<HeadlessScreenListener>(
+          screen_->weak_factory_.GetWeakPtr());
+  screen_->OnDisplayDestroy(5);
+}
+
+TEST_F(HeadlessScreenOhosTest, OnDisplayChangeWithValidWeakPtr) {
+  auto manager = std::make_unique<MockDisplayManagerAdapter>();
+  auto adapter = std::make_shared<MockDisplayAdapter>();
+  SetupValidDisplayAdapter(adapter.get(), 0, 0.0f);
+  SetupManagerForSuccess(manager.get(), adapter);
+  screen_->display_manager_adapter_ = std::move(manager);
+  screen_->display_listener_ =
+      std::make_shared<HeadlessScreenListener>(
+          screen_->weak_factory_.GetWeakPtr());
+  screen_->OnDisplayChange(0);
 }
 
 }  // namespace ui

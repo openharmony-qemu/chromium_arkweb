@@ -130,7 +130,7 @@ class RenderWidgetHostImplExtTest : public testing::Test  {
     host_->SetView(mock_view_.get());
 
     mock_delegate_view_ = std::make_unique<MockRenderViewHostDelegateView>();
-    
+
     EXPECT_CALL(delegate_, GetDelegateView())
         .WillRepeatedly(Return(mock_delegate_view_.get()));
   }
@@ -321,6 +321,23 @@ TEST_F(RenderWidgetHostImplExtTest, SendCurrentLanguage_NoView) {
   std::string language = "en-US";
   host_->SetView(nullptr);
   ASSERT_NO_FATAL_FAILURE(host_->SendCurrentLanguage(language));
+}
+
+// blink_frame_widget_ is not bound in the unit-test harness, so the else
+// branch (log warning) of ReSendCurrentLanguage is taken.
+TEST_F(RenderWidgetHostImplExtTest, ReSendCurrentLanguage_NoFrameWidget) {
+  ASSERT_NO_FATAL_FAILURE(host_->ReSendCurrentLanguage());
+}
+
+// Covers the GetRenderInputRouter() non-null branch of SetFocusWebId.
+TEST_F(RenderWidgetHostImplExtTest, SetFocusWebId) {
+  ASSERT_NO_FATAL_FAILURE(host_->SetFocusWebId(1));
+}
+
+// Covers the GetRenderInputRouter() non-null branch of SetScrollable.
+TEST_F(RenderWidgetHostImplExtTest, SetScrollable) {
+  ASSERT_NO_FATAL_FAILURE(host_->SetScrollable(true));
+  ASSERT_NO_FATAL_FAILURE(host_->SetScrollable(false));
 }
 
 }  // namespace

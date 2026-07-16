@@ -18,6 +18,7 @@
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/frame/web_frame_widget_impl_ext.h"
 #undef private
 #include "arkweb/chromium_ext/third_party/blink/renderer/platform/widget/widget_base_utils.h"
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_sys_info_util_ext.h"
 #include "arkweb/ohos_nweb/include/nweb_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -106,6 +107,9 @@ class WebFrameWidgetImplExtSimTest : public SimTest {
   }
 
   void SetUp() override {
+    base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+    auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+    EXPECT_CALL(sys_info_utils_mock, IsMobileDevice()).WillRepeatedly(testing::Return(true));
     SimTest::SetUp();
     WebView().MainFrameViewWidget()->Resize(gfx::Size(800, 600));
     SimRequest request("https://example.com/test.html", "text/html");
@@ -130,6 +134,10 @@ class WebFrameWidgetImplExtSimTest : public SimTest {
     )HTML");
     Compositor().BeginFrame();
   }
+
+  void TearDown() override {
+        base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+    }
 };
 
 TEST_F(WebFrameWidgetImplExtSimTest, SetZoomLevel_WithWidgetBase) {
@@ -336,6 +344,90 @@ TEST_F(WebFrameWidgetImplExtSimTest, SetOverscrollMode) {
   MockMainFrameWidget()->SetOverscrollMode(1);
 }
 
+// GetWordSelection with null text: covers text.IsNull() true branch (line 307).
+TEST_F(WebFrameWidgetImplExtSimTest, GetWordSelection_NullText)
+{
+    String null_text;
+    Vector<int8_t> selection = MockMainFrameWidget()->GetWordSelection(null_text, 0);
+    ASSERT_EQ(selection.size(), 2u);
+    EXPECT_EQ(selection[0], -1);
+    EXPECT_EQ(selection[1], -1);
+}
+
+// ParseLanguage with widget_base_ nulled: covers the
+// !widget_base_ || !widget_input_handler_manager() true branch (line 540).
+TEST_F(WebFrameWidgetImplExtSimTest, ParseLanguage_WithoutWidgetBase)
+{
+    auto widget_base = std::move(MockMainFrameWidget()->widget_base_);
+    SetWidgetBaseForTesting(nullptr);
+    EXPECT_FALSE(MockMainFrameWidget()->widget_base_);
+    MockMainFrameWidget()->ParseLanguage();
+    SetWidgetBaseForTesting(std::move(widget_base));
+}
+
+// IsElementExist: covers the entire untested IsElementExist function (lines
+// 109-135) including local_root_/document null checks, XPath evaluation, and
+// node found / not found branches.
+TEST_F(WebFrameWidgetImplExtSimTest, IsElementExist_ElementFound)
+{
+    bool result = MockMainFrameWidget()->IsElementExist("//input[@id='input1']");
+    EXPECT_TRUE(result);
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest, IsElementExist_ElementNotFound)
+{
+    bool result = MockMainFrameWidget()->IsElementExist("//input[@id='nonexistent']");
+    EXPECT_FALSE(result);
+}
+
+// OnOverScrollOffsetChanged: covers the untested function (lines 253-258).
+TEST_F(WebFrameWidgetImplExtSimTest, OnOverScrollOffsetChanged)
+{
+    MockMainFrameWidget()->OnOverScrollOffsetChanged(10.0f, 20.0f);
+}
+
+// GetFoldStatus: covers the return branch (already exercised but explicit
+// assertion adds value).
+TEST_F(WebFrameWidgetImplExtSimTest, GetFoldStatus)
+{
+    EXPECT_EQ(MockMainFrameWidget()->GetFoldStatus(), 0u);
+}
+
+// OnFoldStatusChanged: covers the untested setter (line 331).
+TEST_F(WebFrameWidgetImplExtSimTest, OnFoldStatusChanged)
+{
+    MockMainFrameWidget()->OnFoldStatusChanged(1);
+}
+
+// NotifyOverlayStateChanged: covers the untested function (line 335).
+TEST_F(WebFrameWidgetImplExtSimTest, NotifyOverlayStateChanged)
+{
+    MockMainFrameWidget()->get_rect_callback_ =
+        base::BindRepeating([](gfx::RectF &rect) { rect = gfx::RectF(10, 10, 100, 100); });
+    MockMainFrameWidget()->NotifyOverlayStateChanged();
+}
+
+// GetImageRect with callback: covers the untested function (line 348).
+TEST_F(WebFrameWidgetImplExtSimTest, GetImageRect_WithCallback)
+{
+    MockMainFrameWidget()->get_rect_callback_ =
+        base::BindRepeating([](gfx::RectF &rect) { rect = gfx::RectF(10, 10, 100, 100); });
+    gfx::Rect result_rect;
+    MockMainFrameWidget()->GetImageRect(
+        base::BindOnce([](gfx::Rect *out, const gfx::Rect &rect) { *out = rect; }, &result_rect));
+}
+
+// SetPinchSmoothMode: covers the untested function (line 433).
+TEST_F(WebFrameWidgetImplExtSimTest, SetPinchSmoothMode_Enable)
+{
+    MockMainFrameWidget()->SetPinchSmoothMode(true);
+}
+
+TEST_F(WebFrameWidgetImplExtSimTest, SetPinchSmoothMode_Disable)
+{
+    MockMainFrameWidget()->SetPinchSmoothMode(false);
+}
+
 TEST_F(WebFrameWidgetImplExtSimTest, SelectRangeV2) {
   MockMainFrameWidget()->SelectRangeV2(gfx::Point(10, 10), false);
 }
@@ -442,7 +534,7 @@ TEST_F(WebFrameWidgetImplExtSimTest, NotifySelectionRangeEmptyTest) {
     auto* iframe_element = To<HTMLIFrameElement>(
         GetDocument().getElementById(AtomicString("child")));
     LocalFrame* child_local_frame = To<LocalFrame>(iframe_element->ContentFrame());
-    WebLocalFrameImpl* child_web_frame = 
+    WebLocalFrameImpl* child_web_frame =
         WebLocalFrameImpl::FromFrame(child_local_frame);
     iframe_element->remove();
     EXPECT_TRUE(child_web_frame->Client() == nullptr);
