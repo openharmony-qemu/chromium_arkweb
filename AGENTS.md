@@ -44,12 +44,14 @@
 
 | 场景 | 先读 |
 |---|---|
-| 顶层目录职责、模块边界、术语约定 | `docs/knowledge/module-map.md` |
-| Chromium 扩展组织、源码注册、特性开关 | `docs/knowledge/chromium-ext-architecture.md` |
-| 构建入口、GN args、`BUILDFLAG` 链路 | `docs/knowledge/build-system.md` |
-| WebView/glue/NWeb/CEF 接口边界 | `docs/knowledge/interface-boundary.md` |
-| OHOS 系统服务适配、mock/stub | `docs/knowledge/ohos-adapter-ndk.md` |
-| Chromium 补丁、生成代码、UT/fuzzer | `docs/knowledge/patch-and-test-workflow.md` |
+| 顶层目录职责、模块边界、术语约定 | [`docs/knowledge/module-map.md`](docs/knowledge/module-map.md) |
+| Chromium 扩展组织、源码注册、特性开关 | [`docs/knowledge/chromium-ext-architecture.md`](docs/knowledge/chromium-ext-architecture.md) |
+| 构建入口、GN args、`BUILDFLAG` 链路 | [`docs/knowledge/build-system.md`](docs/knowledge/build-system.md) |
+| WebView/glue/NWeb/CEF 接口边界 | [`docs/knowledge/interface-boundary.md`](docs/knowledge/interface-boundary.md) |
+| OHOS 系统服务适配、mock/stub | [`docs/knowledge/ohos-adapter-ndk.md`](docs/knowledge/ohos-adapter-ndk.md) |
+| Chromium 补丁、生成代码、UT/fuzzer | [`docs/knowledge/patch-and-test-workflow.md`](docs/knowledge/patch-and-test-workflow.md) |
+| 键盘事件 / 文本输入 / IME / `event.key` / `kArkWebImeProcessKeyDomKeyFix` | [`docs/knowledge/input-event-pipeline.md`](docs/knowledge/input-event-pipeline.md) |
+| 跨异步任务的数据生产-消费时序（剪贴板图片粘贴、文件下载、媒体编码等） | [`docs/knowledge/async-data-timing.md`](docs/knowledge/async-data-timing.md) |
 
 ## 核心规则
 
