@@ -34,10 +34,16 @@ namespace content {
 NativeTextureWrapperImpl::NativeTextureWrapperImpl(
     bool enable_texture_copy,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     scoped_refptr<NativeTextureFactory> factory,
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner)
     : enable_texture_copy_(enable_texture_copy),
       texture_owner_mode_(texture_owner_mode),
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      is_custom_media_player_(is_custom_media_player),
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       factory_(factory),
       main_task_runner_(main_task_runner) {}
 
@@ -56,10 +62,17 @@ NativeTextureWrapperImpl::~NativeTextureWrapperImpl() {
 media::ScopedNativeTextureWrapper NativeTextureWrapperImpl::Create(
     bool enable_texture_copy,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     scoped_refptr<NativeTextureFactory> factory,
     scoped_refptr<base::SingleThreadTaskRunner> main_task_runner) {
   return media::ScopedNativeTextureWrapper(new NativeTextureWrapperImpl(
-      enable_texture_copy, texture_owner_mode, factory, main_task_runner));
+      enable_texture_copy, texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      factory, main_task_runner));
 }
 
 scoped_refptr<media::VideoFrame> NativeTextureWrapperImpl::GetCurrentFrame() {
@@ -190,7 +203,11 @@ void NativeTextureWrapperImpl::InitializeOnMainThread(
     return;
   }
 
-  native_texture_proxy_ = factory_->CreateProxy(texture_owner_mode_);
+  native_texture_proxy_ = factory_->CreateProxy(texture_owner_mode_
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      , is_custom_media_player_
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      );
   if (!native_texture_proxy_) {
     std::move(init_cb).Run(false);
     return;

@@ -80,11 +80,19 @@ protected:
 TEST_F(GpuChannelExtOHOSTest, test001) {
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver;
     int32_t result = gpu_channel_ext_->CreateNativeTexture(
-        validNativeId, gl::ohos::TextureOwnerMode::kNativeImageTexture, std::move(receiver));
+        validNativeId, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+        false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+        std::move(receiver));
     EXPECT_NE(result, -1);
 
     result = gpu_channel_ext_->CreateNativeTexture(
-        validNativeId, gl::ohos::TextureOwnerMode::kNativeImageTexture, std::move(receiver));
+        validNativeId, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+        false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+        std::move(receiver));
     EXPECT_EQ(result, -1);
 }
 
@@ -100,6 +108,9 @@ TEST_F(GpuChannelExtOHOSTest, test003) {
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver;
     scoped_refptr<StreamTexture> StreamTexture = StreamTexture::Create(
         channel, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+        false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
         std::move(receiver));
     EXPECT_NE(StreamTexture, nullptr);
     gpu_channel_ext_->native_textures_[validNativeId] = StreamTexture;
@@ -114,6 +125,9 @@ TEST_F(GpuChannelExtOHOSTest, test004) {
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver;
     scoped_refptr<StreamTexture> StreamTexture = StreamTexture::Create(
         channel, 1, gl::ohos::TextureOwnerMode::kNativeImageTexture,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+        false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
         std::move(receiver));
     EXPECT_NE(StreamTexture, nullptr);
     gpu_channel_ext_->native_textures_[validNativeId] = StreamTexture;

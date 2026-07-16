@@ -67,6 +67,9 @@ GpuChannelExt::~GpuChannelExt() {
 int32_t GpuChannelExt::CreateNativeTexture(
     int32_t native_id,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver) {
   auto found = native_textures_.find(native_id);
   if (found != native_textures_.end()) {
@@ -75,7 +78,11 @@ int32_t GpuChannelExt::CreateNativeTexture(
     return -1;
   }
   scoped_refptr<StreamTexture> native_texture = StreamTexture::Create(
-      static_cast<GpuChannel*>(this), native_id, texture_owner_mode, std::move(receiver));
+      static_cast<GpuChannel*>(this), native_id, texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      std::move(receiver));
 
   if (!native_texture) {
     return -1;
