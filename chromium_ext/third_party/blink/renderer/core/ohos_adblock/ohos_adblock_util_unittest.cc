@@ -31,10 +31,24 @@
 #include "third_party/blink/renderer/core/html/html_collection.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_sys_info_util_ext.h"
 
 namespace blink {
 
-class OhosAdblockUtilTest : public EditingTestBase {};
+class OhosAdblockUtilTest : public EditingTestBase {
+ protected:
+  void SetUp() override {
+    base::ohos::SysInfoUtilsMock::mockIsMobileDevice = true;
+    auto& sys_info_utils_mock = base::ohos::SysInfoUtilsMock::GetInstance();
+    EXPECT_CALL(sys_info_utils_mock, IsMobileDevice())
+        .WillRepeatedly(testing::Return(true));
+    EditingTestBase::SetUp();
+  }
+  void TearDown() override {
+    base::ohos::SysInfoUtilsMock::mockIsMobileDevice = false;
+    EditingTestBase::TearDown();
+  }
+};
 
 TEST_F(OhosAdblockUtilTest, IsValidTarget_001) {
   const char* body_content =
@@ -677,4 +691,36 @@ TEST_F(OhosAdblockUtilTest, GetDomPathStep_OptimizedNoIdNoSpecialName) {
   EXPECT_FALSE(result.first.empty());
   EXPECT_FALSE(result.second);
 }
+
+// Covers line 37 `[- +]`: context->parentNode() is null (detached node).
+// A node created but never attached to the document has no parent.
+TEST_F(OhosAdblockUtilTest, IsValidTarget_DetachedNode) {
+  auto* detached = MakeGarbageCollected<HTMLDivElement>(GetDocument());
+  EXPECT_EQ(detached->parentNode(), nullptr);
+  auto result = IsValidTarget(detached, 0, 0, 10, 10);
+  EXPECT_FALSE(result);
+}
+
+// Covers line 64 `[- +]`: sibling has BOTH OffsetHeight > 0 AND OffsetWidth > 0.
+// Existing tests only have inline siblings (height 0) or siblings with one
+// dimension forced to 0. A block sibling with explicit dimensions triggers
+// the `return false` at line 65.
+TEST_F(OhosAdblockUtilTest, IsValidTarget_VisibleBlockSibling) {
+  SetBodyContent(
+      "<div id=host>"
+      "<span id=one style='display:block;width:50px;height:50px;'>one</span>"
+      "<div id=two style='width:50px;height:50px;'>two</div>"
+      "</div>");
+  Node* one = GetDocument().getElementById(AtomicString("one"));
+  CHECK(one);
+  Element* target = To<Element>(one);
+  CHECK(target);
+  int top = target->OffsetTop();
+  int left = target->OffsetLeft();
+  int height = target->OffsetHeight();
+  int width = target->OffsetWidth();
+  auto result = IsValidTarget(one, top, left, width, height);
+  EXPECT_FALSE(result);
+}
+
 }  // namespace blink

@@ -227,6 +227,19 @@ class ArkWebRenderFrameImplTest : public RenderFrameImplTest {
   mojom::FrameHost* TestGetFrameHost() {
     return GetMainRenderFrame()->GetFrameHost();
   }
+#if BUILDFLAG(ARKWEB_ADBLOCK)
+  bool TestGetGlobalAdblockEnabled() {
+    return GetMainRenderFrame()->GetGlobalAdblockEnabled();
+  }
+  blink::WebNavigationControl* TestSetFrameNull() {
+    auto* old = GetMainRenderFrame()->frame_.get();
+    GetMainRenderFrame()->frame_ = nullptr;
+    return old;
+  }
+  void TestRestoreFrame(blink::WebNavigationControl* frame) {
+    GetMainRenderFrame()->frame_ = frame;
+  }
+#endif
 };
 
 TEST_F(ArkWebRenderFrameImplTest, RunScriptsAtHeadReady_WithContentClient) {
@@ -631,5 +644,19 @@ TEST_F(ArkWebRenderFrameImplTest, OnDocumentEndReady) {
   GetMainRenderFrame()->OnDocumentEndReady();
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_ADBLOCK)
+// Covers GetGlobalAdblockEnabled (line 78-80): currently 0 hits.
+// Uses a fixture helper to access the private method via friend access.
+TEST_F(ArkWebRenderFrameImplTest, GetGlobalAdblockEnabled) {
+  TestGetGlobalAdblockEnabled();
+}
+#endif
+
+// Covers ArkWebUserAgentOverride (line 45 `[+ -]`): null render_frame path.
+TEST_F(ArkWebRenderFrameImplTest, ArkWebUserAgentOverride_NullFrame) {
+  auto result = ArkWebUserAgentOverride(nullptr);
+  EXPECT_FALSE(result.has_value());
+}
 
 }  // namespace content
