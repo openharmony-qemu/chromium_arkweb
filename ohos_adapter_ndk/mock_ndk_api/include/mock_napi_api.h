@@ -53,6 +53,7 @@ public:
     MOCK_METHOD(napi_status, napi_create_function, 
                 (napi_env, const char*, size_t, napi_callback, void*, napi_value*));
     MOCK_METHOD(napi_status, napi_create_reference, (napi_env, napi_value, uint32_t, napi_ref*));
+    MOCK_METHOD(napi_status, napi_delete_reference, (napi_env, napi_ref));
     MOCK_METHOD(napi_status, napi_get_reference_value, (napi_env, napi_ref, napi_value*));
     MOCK_METHOD(napi_status, napi_wrap, 
                 (napi_env, napi_value, void*, napi_finalize, void*, napi_ref*));
@@ -111,6 +112,7 @@ extern "C" {
                                       napi_value value,
                                       uint32_t initial_refcount,
                                       napi_ref* result);
+    napi_status napi_delete_reference(napi_env env, napi_ref ref);
     napi_status napi_get_reference_value(napi_env env,
                                          napi_ref ref,
                                          napi_value* result);

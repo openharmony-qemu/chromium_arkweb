@@ -285,11 +285,19 @@ void ArktsTtsAdapter::EraseNweb(int nweb) {
   {
     std::lock_guard<std::mutex> lck(nwebsMtx_);
     text_.erase(nweb);
+    auto itRef = ttsRef_.find(nweb);
+    if (itRef != ttsRef_.end()) {
+      auto itEnv = nenv_.find(nweb);
+      if (itEnv != nenv_.end()) {
+        napi_delete_reference(itEnv->second, itRef->second);
+      }
+    }
     ttsRef_.erase(nweb);
     state_.erase(nweb);
     exit_.erase(nweb);
     nwebs_.erase(nweb);
     callback_.erase(nweb);
+    nenv_.erase(nweb);
   }
 }
 
@@ -408,8 +416,6 @@ void ArktsTtsAdapter::Callback(int nweb, TtsState state, bool status) {
 }
 
 void ArktsTtsAdapter::Process(int nweb, TtsState state) {
-  LOG(INFO) << "TTS NAPI process, nweb:" << nweb;
-
   napi_env env;
   napi_status ret = napi_create_ark_runtime(&env);
   if (ret != napi_ok) {
@@ -424,13 +430,19 @@ void ArktsTtsAdapter::Process(int nweb, TtsState state) {
     env = nullptr;
     return;
   }
+  LOG(INFO) << "TTS process nweb:" << nweb << " env:" << env;
   TransitionTo(nweb, TtsState::START);
   while (!IsExit(nweb)) {
     switch (GetState(nweb)) {
-      case TtsState::START:
-        CreateEngine(env, nweb);
-        TransitionTo(nweb, TtsState::WAIT_ENGINE_CALLBACK);
+      case TtsState::START: {
+        auto result = CreateEngine(env, nweb);
+        if (result == nullptr) {
+          Exit(nweb);
+        } else {
+          TransitionTo(nweb, TtsState::WAIT_ENGINE_CALLBACK);
+        }
         break;
+      }
       case TtsState::ENGINE_OK:
         TransitionTo(nweb, state);
         break;
@@ -497,14 +509,19 @@ std::string ArktsTtsAdapter::GetBundleName() {
   return bundleName;
 }
 
-void ArktsTtsAdapter::SetCurrentId(int nweb) {
+void ArktsTtsAdapter::SetCurrentId(napi_env env, int nweb) {
   std::lock_guard<std::mutex> lck(nwebsMtx_);
-  current_id_ = nweb;
+  nenv_[nweb] = env;
 }
 
-int ArktsTtsAdapter::GetCurrentId() {
+int ArktsTtsAdapter::GetCurrentId(napi_env env) {
   std::lock_guard<std::mutex> lck(nwebsMtx_);
-  return current_id_;
+  for (auto it = nenv_.begin(); it != nenv_.end(); it++) {
+    if (it->second == env) {
+      return it->first;
+    }
+  }
+  return -1;
 }
 
 napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
@@ -529,7 +546,6 @@ napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
   }
 
   napi_value ttsCreateEngine;
-  SetCurrentId(nweb);
   status = napi_create_function(env, "createEngine", NAPI_AUTO_LENGTH,
                        ArktsTtsAdapter::CreateEngineCallback, nullptr,
                        &ttsCreateEngine);
@@ -560,6 +576,7 @@ napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
   }
 
   napi_value argv[2] = {jsInitParamsInfo, ttsCreateEngine};
+  SetCurrentId(env, nweb);
   status = napi_call_function(env, NULL, ttsFuncCreateEngine, 2, argv, nullptr);
   if (status != napi_ok) {
     LOG(ERROR) << "TTS createEngine napi_call_function error ";
@@ -585,8 +602,13 @@ napi_value ArktsTtsAdapter::CreateEngineCallback(napi_env env,
     LOG(ERROR) << "TTS napi_create_reference error ";
     return nullptr;
   }
-  int nweb = ArktsTtsAdapter::GetInstance().GetCurrentId();
-  LOG(INFO) << "TTS engine callback nweb:" << nweb;
+  int nweb = ArktsTtsAdapter::GetInstance().GetCurrentId(env);
+  if (nweb < 0) {
+    napi_delete_reference(env, ttsEngineRef);
+    LOG(ERROR) << "TTS nweb is error:" << nweb << " env:" << env;
+    return nullptr;
+  }
+  LOG(INFO) << "TTS engine callback nweb:" << nweb << " env:" << env;
 
   ArktsTtsAdapter::GetInstance().SetRef(nweb, ttsEngineRef);
 
