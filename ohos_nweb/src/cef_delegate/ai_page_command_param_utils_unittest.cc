@@ -33,6 +33,17 @@ TEST(AIPageCommandParamUtilsTest, ResolveIdOrXPathTargetRejectsConflict) {
   EXPECT_EQ(ElementTargetType::kConflict, target.type);
 }
 
+TEST(AIPageCommandParamUtilsTest, ResolveElementTargetsRejectInvalidIdType) {
+  base::Value::Dict params;
+  params.Set("id", 42);
+
+  ElementTarget element_target = ResolveIdOrXPathTarget(params);
+  ElementTarget scroll_target = ResolveScrollTarget(params);
+
+  EXPECT_EQ(ElementTargetType::kInvalid, element_target.type);
+  EXPECT_EQ(ElementTargetType::kInvalid, scroll_target.type);
+}
+
 TEST(AIPageCommandParamUtilsTest, ResolveScrollTargetRejectsIdAndCoordinates) {
   base::Value::Dict params;
   params.Set("id", "frame|document|42");
@@ -73,6 +84,43 @@ TEST(AIPageCommandParamUtilsTest, BuildMouseEventParamsRejectsPenPointer) {
   EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, result.code);
 }
 
+TEST(AIPageCommandParamUtilsTest,
+     BuildMouseEventParamsRejectsInvalidRequiredFieldTypes) {
+  base::Value::Dict invalid_type_params;
+  invalid_type_params.Set("type", 1);
+  invalid_type_params.Set("x", 10);
+  invalid_type_params.Set("y", 20);
+
+  CdpParamsResult invalid_type_result =
+      BuildMouseEventParams(invalid_type_params);
+
+  EXPECT_FALSE(invalid_type_result.ok());
+  EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, invalid_type_result.code);
+  EXPECT_EQ("invalid param: type", invalid_type_result.message);
+
+  base::Value::Dict invalid_x_params;
+  invalid_x_params.Set("type", "mouseMoved");
+  invalid_x_params.Set("x", "bad");
+  invalid_x_params.Set("y", 20);
+
+  CdpParamsResult invalid_x_result = BuildMouseEventParams(invalid_x_params);
+
+  EXPECT_FALSE(invalid_x_result.ok());
+  EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, invalid_x_result.code);
+  EXPECT_EQ("invalid param: x", invalid_x_result.message);
+
+  base::Value::Dict invalid_y_params;
+  invalid_y_params.Set("type", "mouseMoved");
+  invalid_y_params.Set("x", 10);
+  invalid_y_params.Set("y", "bad");
+
+  CdpParamsResult invalid_y_result = BuildMouseEventParams(invalid_y_params);
+
+  EXPECT_FALSE(invalid_y_result.ok());
+  EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, invalid_y_result.code);
+  EXPECT_EQ("invalid param: y", invalid_y_result.message);
+}
+
 TEST(AIPageCommandParamUtilsTest, BuildKeyEventParamsRejectsInvalidType) {
   base::Value::Dict params;
   params.Set("type", "press");
@@ -81,6 +129,17 @@ TEST(AIPageCommandParamUtilsTest, BuildKeyEventParamsRejectsInvalidType) {
 
   EXPECT_FALSE(result.ok());
   EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, result.code);
+}
+
+TEST(AIPageCommandParamUtilsTest, BuildKeyEventParamsRejectsInvalidTypeField) {
+  base::Value::Dict params;
+  params.Set("type", 1);
+
+  CdpParamsResult result = BuildKeyEventParams(params);
+
+  EXPECT_FALSE(result.ok());
+  EXPECT_EQ(WebCommandErrorCode::PARAM_INVALID, result.code);
+  EXPECT_EQ("invalid param: type", result.message);
 }
 
 TEST(AIPageCommandParamUtilsTest, InputTypeSpec) {
