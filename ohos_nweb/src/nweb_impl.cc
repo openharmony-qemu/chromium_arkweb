@@ -8340,8 +8340,13 @@ void NWebImpl::SetProxyOverride(
     const bool& reverseBypass,
     std::shared_ptr<NWebProxyChangedCallback> callback) {
   std::vector<net::ProxyConfigServiceOHOS::ProxyOverrideRule> proxyRules;
-  size_t size = proxySchemeFilters.size();
   DCHECK(proxySchemeFilters.size() == proxyUrls.size());
+  if (proxySchemeFilters.size() != proxyUrls.size()) {
+    WVLOG_E("SetProxyOverride: proxySchemeFilters.size(%zu) != proxyUrls.size(%zu)",
+            proxySchemeFilters.size(), proxyUrls.size());
+    return;
+  }
+  size_t size = proxySchemeFilters.size();
   proxyRules.reserve(size);
   for (size_t i = 0; i < size; i++) {
     proxyRules.emplace_back(proxySchemeFilters[i], proxyUrls[i]);
