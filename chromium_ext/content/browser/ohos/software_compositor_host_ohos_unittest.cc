@@ -68,7 +68,6 @@ class SoftwareCompositorHostOhosTest : public RenderViewHostTestHarness {
 };
 
 TEST_F(SoftwareCompositorHostOhosTest, OnDrawSwCallbackWithFalseResult) {
-  testing::internal::CaptureStderr();
   CallbackTestResult test_result;
   host_->OnDrawSwCallback(CreateTestCallback(&test_result), "test_false", false);
   EXPECT_TRUE(test_result.callback_called);
@@ -76,10 +75,11 @@ TEST_F(SoftwareCompositorHostOhosTest, OnDrawSwCallbackWithFalseResult) {
 }
 
 TEST_F(SoftwareCompositorHostOhosTest, OnDrawSwCallbackWithTrueResult) {
+  testing::internal::CaptureStderr();
   CallbackTestResult test_result;
   host_->OnDrawSwCallback(CreateTestCallback(&test_result), "test_true", true);
-  EXPECT_TRUE(test_result.callback_called);
   std::string info_log = testing::internal::GetCapturedStderr();
+  EXPECT_TRUE(test_result.callback_called);
   EXPECT_TRUE(info_log.find("OnDrawSwCallback: shared memory is invalid!") != std::string::npos);
 }
 

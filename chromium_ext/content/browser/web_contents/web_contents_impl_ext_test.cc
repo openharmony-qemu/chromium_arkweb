@@ -2229,4 +2229,123 @@ TEST_F(WebContentsImplExtTest, RenderWidgetCreated001) {
     ExtendContent()->RenderWidgetCreated(rst->GetRenderWidgetHost());
   }
 }
+
+// ---------------------------------------------------------------------------
+// Additional branch-coverage tests.
+// Each test below targets a branch arm that was not covered according to the
+// Branch data column of web_contents_impl_ext.cc. Line numbers refer to
+// that coverage report.
+// ---------------------------------------------------------------------------
+
+// isSameUserAgent (cov lines 1089/1093): install a non-empty stored UA override
+// so that an empty incoming override diverges at both empty() checks.
+//   1085: stored ("current_ua") != incoming ("")  -> false, continue
+//   1089: !incoming.empty()                       -> false (short-circuit)
+//   1093: stored.empty()                          -> false
+//   -> returns false. Covers the two missing false arms.
+TEST_F(WebContentsImplExtTest, isSameUserAgent004) {
+  blink::UserAgentOverride current;
+  current.ua_string_override = "current_ua";
+  ExtendContent()->SetUserAgentOverride(current, /*override_in_new_tabs=*/false);
+
+  blink::UserAgentOverride ua_override;  // empty ua_string_override
+  auto result = ExtendContent()->isSameUserAgent(ua_override);
+  EXPECT_FALSE(result);
+}
+
+// isSameUserAgent (cov line 1090/1091): an override whose ua_string contains a
+// control char ('\n') is an invalid HTTP header value, so IsValidHeaderValue()
+// returns false and !IsValidHeaderValue() is true -> returns true.
+TEST_F(WebContentsImplExtTest, isSameUserAgent005) {
+  blink::UserAgentOverride ua_override;
+  ua_override.ua_string_override = std::string("invalid\nheader");
+  auto result = ExtendContent()->isSameUserAgent(ua_override);
+  EXPECT_TRUE(result);
+}
+
+#if BUILDFLAG(ARKWEB_READER_MODE)
+// EnableReaderMode (cov line 1416): prefs non-null and value changes
+// (default false != true) -> both && operands true, enter body.
+TEST_F(WebContentsImplExtTest, EnableReaderMode001) {
+  ExtendContent()->EnableReaderMode(true);
+}
+
+// EnableReaderMode: prefs non-null and value unchanged (false == default false)
+// -> second operand (is_reader_mode_enabled != enabled) is false.
+TEST_F(WebContentsImplExtTest, EnableReaderMode002) {
+  ExtendContent()->EnableReaderMode(false);
+}
+
+// EnableReaderMode: test flag forces GetMutableRendererPrefs() to return null
+// -> first operand (prefs != NULL) is false (short-circuit).
+TEST_F(WebContentsImplExtTest, EnableReaderMode003) {
+  ExtendContent()->SetTestFlag(true);
+  ExtendContent()->EnableReaderMode(true);
+}
+
+// OnDidMeaningfulLayout (cov line 1435): delegate present -> forward (true arm).
+TEST_F(WebContentsImplExtTest, OnDidMeaningfulLayout001) {
+  MockWebContentsDelegateExtended delegate_extend;
+  ExtendContent()->SetDelegate(&delegate_extend);
+  ExtendContent()->OnDidMeaningfulLayout("http://test.com");
+}
+
+// OnDidMeaningfulLayout: no delegate -> skip (false arm).
+TEST_F(WebContentsImplExtTest, OnDidMeaningfulLayout002) {
+  ExtendContent()->OnDidMeaningfulLayout("http://test.com");
+}
+#endif  // BUILDFLAG(ARKWEB_READER_MODE)
+
+// The next five tests cover the render_view_host_delegate_view_ == nullptr arm
+// of each delegate-view guard. By default the harness provides a non-null
+// delegate view, so the null arm is otherwise never taken.
+
+TEST_F(WebContentsImplExtTest, MouseSelectMenuShow003) {
+  UpdateDeleteView(nullptr);
+  ExtendContent()->MouseSelectMenuShow(true);
+}
+
+TEST_F(WebContentsImplExtTest, ChangeVisibilityOfQuickMenu003) {
+  UpdateDeleteView(nullptr);
+  ExtendContent()->ChangeVisibilityOfQuickMenu();
+}
+
+TEST_F(WebContentsImplExtTest, IsQuickMenuShow003) {
+  UpdateDeleteView(nullptr);
+  EXPECT_FALSE(ExtendContent()->IsQuickMenuShow());
+}
+
+TEST_F(WebContentsImplExtTest, CloseImageOverlaySelection003) {
+  UpdateDeleteView(nullptr);
+  ExtendContent()->CloseImageOverlaySelection();
+}
+
+TEST_F(WebContentsImplExtTest, OnOverlayZoomChanged003) {
+  UpdateDeleteView(nullptr);
+  ExtendContent()->OnOverlayZoomChanged();
+}
+
+// Commit a navigation so the primary main frame may be live, then look it up
+// by its own routing id. This targets the routing-id-match return path
+// (GetTargetFramesIncludingPending line ~482) and the IsRenderFrameLive() true
+// arm, which the no-navigation GetTargetFramesIncludingPending001 cannot reach.
+// The expectation tolerates both outcomes: if the harness marks the frame live
+// the call returns it, otherwise it returns nullptr.
+TEST_F(WebContentsImplExtTest, GetTargetFramesIncludingPending002) {
+  NavigateAndCommit(GURL("https://example.com"));
+  auto* main_rfh = main_test_rfh();
+  ASSERT_TRUE(main_rfh);
+  auto* result = ExtendContent()->GetTargetFramesIncludingPending(
+      main_rfh->GetRoutingID());
+  EXPECT_EQ(result, main_rfh->IsRenderFrameLive() ? main_rfh : nullptr);
+}
+
+// Commit a navigation so the primary frame may be live, then run the full
+// CollapseAllFramesSelection loop (rfh live -> render widget -> input handler
+// -> CollapseSelection). No assertion: exercises the live-frame path that
+// CollapseAllFramesSelection001 (no navigation) cannot reach.
+TEST_F(WebContentsImplExtTest, CollapseAllFramesSelectionAfterNavigation) {
+  NavigateAndCommit(GURL("https://example.com"));
+  ExtendContent()->CollapseAllFramesSelection();
+}
 }  // namespace content
