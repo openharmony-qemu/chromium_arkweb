@@ -97,7 +97,7 @@ base::TimeDelta LayerTreeHostImpl::ThrottleFrameEnd() {
 }
 
 void LayerTreeHostImpl::ThrottleFrameStart() {
-  if (!throttleFrameStarted_) {
+  if (!throttleFrameStarted_ && layer_tree_frame_sink_) {
     layer_tree_frame_sink_->UpdateThrottleMode(true);
     throttleFrameStarted_ = true;
   }
