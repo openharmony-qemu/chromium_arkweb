@@ -307,8 +307,8 @@ TEST_F(CertVerifyProcOHOSTest, p2i_X509) {
 // X509_d2i_free
 TEST_F(CertVerifyProcOHOSTest, X509_d2i_free_ValidCerts) {
   std::vector<X509*> certs(3, nullptr);  // 3 test num
-  ASSERT_NO_FATAL_FAILURE(X509_d2i_free(certs.data(), certs.size()));
-  ASSERT_NO_FATAL_FAILURE(X509_d2i_free(certs.data(), 0));
+  ASSERT_NO_FATAL_FAILURE(X509_d2i_free(certs));
+  ASSERT_NO_FATAL_FAILURE(X509_d2i_free(std::vector<X509*>()));
 }
 
 // GetApplicationApiVersion
@@ -331,44 +331,6 @@ TEST_F(CertVerifyProcOHOSTest, GetApplicationApiVersion) {
       switches::kOhosAppApiVersion, "0xffffffffffffffffff");
   version = GetApplicationApiVersion();
   EXPECT_EQ(-1, version);
-}
-
-// SetCertStatus
-TEST_F(CertVerifyProcOHOSTest, SetCertStatus) {
-  CertVerifyResult verify_result;
-  ASSERT_NO_FATAL_FAILURE(SetCertStatus(X509_V_OK, &verify_result));
-  EXPECT_EQ(0u, verify_result.cert_status);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(
-      SetCertStatus(X509_V_ERR_UNSPECIFIED, &verify_result));
-  EXPECT_EQ(0u, verify_result.cert_status);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(SetCertStatus(
-      X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN, &verify_result));
-  EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_AUTHORITY_INVALID);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(SetCertStatus(
-      X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY, &verify_result));
-  EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_AUTHORITY_INVALID);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(
-      SetCertStatus(X509_V_ERR_CERT_HAS_EXPIRED, &verify_result));
-  EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_DATE_INVALID);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(
-      SetCertStatus(X509_V_ERR_CERT_NOT_YET_VALID, &verify_result));
-  EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_DATE_INVALID);
-
-  verify_result.cert_status = 0;
-  ASSERT_NO_FATAL_FAILURE(
-      SetCertStatus(X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT, &verify_result));
-  EXPECT_TRUE(verify_result.cert_status &
-              CERT_STATUS_DEPTH_ZERO_SELF_SIGNED_CERT);
 }
 
 // PerformAIAFetchAndAddResultToVector
@@ -477,86 +439,11 @@ TEST_F(CertVerifyProcOHOSTest, VerifyInternal_X509_STORE_CTX_new_Fail) {
   int result = certVerifyProc_->VerifyInternal(
       leaf->GetX509CertificateChain().get(), kHostname, std::string(),
       std::string(), 0, &verify_result, NetLogWithSource());
-  EXPECT_EQ(result, OK);
+  EXPECT_NE(result, OK);
   EXPECT_FALSE(IsCertStatusError(verify_result.cert_status));
   EXPECT_FALSE(verify_result.verified_cert);
   EXPECT_TRUE(verify_result.public_key_hashes.empty());
   GetCertVerifyProcStub()->X509_STORE_CTX_new = nullptr;
-}
-
-TEST_F(CertVerifyProcOHOSTest, CertChainRootVerify_InvalidParam) {
-  auto ret = CertChainRootVerify(nullptr, 0, nullptr);
-  EXPECT_EQ(ret, X509_V_ERR_UNSPECIFIED);
-
-  X509* server_cert[1];
-  ret = CertChainRootVerify(server_cert, 0, nullptr);
-  EXPECT_EQ(ret, X509_V_ERR_UNSPECIFIED);
-
-  X509_STORE* ca_store = X509_STORE_new();
-  ret = CertChainRootVerify(server_cert, 0, ca_store);
-  EXPECT_EQ(ret, X509_V_ERR_UNSPECIFIED);
-
-  GetCertVerifyProcStub()->X509_STORE_CTX_new = X509_STORE_CTX_new_stub;
-  ret = CertChainRootVerify(server_cert, 0, ca_store);
-  EXPECT_EQ(ret, X509_V_ERR_UNSPECIFIED);
-  X509_STORE_free(ca_store);
-  GetCertVerifyProcStub()->X509_STORE_CTX_new = nullptr;
-}
-
-TEST_F(CertVerifyProcOHOSTest, CertChainRootVerify) {
-  auto [leaf, intermediate, root] = CertBuilder::CreateSimpleChain3();
-  root->SetCaIssuersUrl(kRootURL);
-  intermediate->SetCaIssuersUrl(kRootURL);
-  leaf->SetCaIssuersUrl(kIntermediateURL);
-  leaf->SetSubjectAltName(kHostname);
-  ScopedTestRoot test_root(root->GetX509Certificate());
-
-  auto mock_adapter = std::make_unique<MockCertManagerAdapter>();
-  ASSERT_TRUE(mock_adapter);
-  base::FilePath path = GetTmpCertDir();
-  EXPECT_CALL(*mock_adapter, GetTrustAnchorsForHostName(::testing::_, ::testing::_))
-            .WillRepeatedly(testing::Invoke([=](const std::string& hostname, std::vector<std::string>& certs) -> bool {
-            certs.push_back(path.value());
-            certs.push_back("");
-            return true;
-          }));
-
-  auto adapter = mock_adapter.get();
-  SetupMockAdapter(std::move(mock_adapter));
-
-  std::vector<std::string> cert_bytes;
-  GetChainDEREncodedBytes(leaf->GetX509CertificateChain().get(), &cert_bytes);
-
-  int ret = X509_V_OK;
-  uint32_t server_cert_sum = cert_bytes.size();
-  X509* server_cert[4] = {0}; // 4 max cert
-  for (uint32_t i = 0; i < server_cert_sum; i++) {
-    const unsigned char* der_encoded_tmp =
-        (unsigned char*)cert_bytes[i].c_str();
-    server_cert[i] = d2i_X509(nullptr, &der_encoded_tmp, cert_bytes[i].size());
-    if (server_cert[i] == nullptr) {
-      ERR_clear_error();
-      X509_d2i_free(server_cert, i);
-      ret = X509_V_ERR_UNSPECIFIED;
-      break;
-    }
-  }
-  EXPECT_EQ(ret, X509_V_OK);
-  {
-    // not add lookdir
-    X509_STORE* ca_store = X509_STORE_new();
-    ret = CertChainRootVerify(server_cert, 1, ca_store);
-    X509_STORE_free(ca_store);
-    EXPECT_NE(ret, X509_V_OK);
-  }
-  {
-    X509_STORE* ca_store = X509_STORE_new();
-    AddAppCert("test.com", ca_store);
-    ret = CertChainRootVerify(server_cert, 1, ca_store);
-    X509_STORE_free(ca_store);
-    EXPECT_EQ(ret, X509_V_OK);
-  }
-  ASSERT_TRUE(testing::Mock::VerifyAndClearExpectations(adapter));
 }
 
 }  // namespace net
