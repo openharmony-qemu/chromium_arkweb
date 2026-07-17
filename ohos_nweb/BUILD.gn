@@ -768,6 +768,8 @@ source_set("unittests") {
     "src/cef_delegate/ai_page_command_dispatcher_unittest.cc",
     "src/cef_delegate/ai_page_command_param_utils_unittest.cc",
     "src/cef_delegate/file_upload_observer_unittest.cc",
+    "src/cef_delegate/screenshot_capture_util_unittest.cc",
+    "src/cef_delegate/screenshot_observer_unittest.cc",
     "src/cef_delegate/nweb_access_request_delegate_unittest.cc",
     "src/cef_delegate/nweb_command_action_manager_impl_unittest.cc",
     "src/cef_delegate/nweb_delegate_unittest.cc",
