@@ -13,7 +13,10 @@
  * limitations under the License.
  */
 
-#include "content/browser/web_contents/web_contents_impl_utils.h"
+// Pre-include all transitive headers (especially those pulling <ranges>) so
+// their include guards are set BEFORE #define private public. Otherwise the
+// macro corrupts libc++ lazy_split_view.h forward declarations.
+#include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
@@ -26,6 +29,12 @@
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_base_ohos_api.h"
+
+// Now safe: all <ranges>-pulling headers have their guards set.
+#define private public
+#include "content/browser/web_contents/web_contents_impl_utils.h"
+#undef private
+
 namespace content {
 class WebContentsImplUtilsTest : public RenderViewHostImplTestHarness {
  public:
@@ -238,4 +247,69 @@ TEST_F(WebContentsImplUtilsTest, SetIsOfflineWebComponentInactiveVisible) {
 TEST_F(WebContentsImplUtilsTest, SetIsOfflineWebComponentInactiveHidden) {
   ASSERT_NO_FATAL_FAILURE(utils_->SetIsOfflineWebComponentInactive(Visibility::HIDDEN));
 }
+
+// Covers NotifyFocusStatus (line 184): is_delegated_enabled_ is false in the
+// unit-test environment → early return at line 186.
+TEST_F(WebContentsImplUtilsTest, NotifyFocusStatus_DelegatedDisabled) {
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyFocusStatus(true));
+}
+
+// Covers NotifyFocusStatus with is_delegated_enabled_ forced true:
+// - focused == is_focused_ (both false initially) → early return at line 191
+// - then focused=true (different) → sets is_focused_, reaches view check (line 196)
+TEST_F(WebContentsImplUtilsTest, NotifyFocusStatus_DelegatedEnabled) {
+  utils_->is_delegated_enabled_ = true;
+  // is_focused_ defaults to false; calling with false → same → early return
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyFocusStatus(false));
+  // calling with true → different → sets is_focused_=true, checks view
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyFocusStatus(true));
+  utils_->is_delegated_enabled_ = false;
+}
+
+// Covers NotifyScreenCountChanged (line 201): is_delegated_enabled_ is false →
+// early return at line 203.
+TEST_F(WebContentsImplUtilsTest, NotifyScreenCountChanged_DelegatedDisabled) {
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyScreenCountChanged(2));
+}
+
+// Covers NotifyScreenCountChanged with is_delegated_enabled_ forced true:
+// - screen_count == screen_count_ (both 0 initially) → early return at line 208
+// - screen_count=1 (different) → sets screen_count_, is_single_screen=true,
+//   is_single_screen_==is_single_screen (both false initially → true) → returns at 218
+TEST_F(WebContentsImplUtilsTest, NotifyScreenCountChanged_DelegatedEnabled_SameCount) {
+  utils_->is_delegated_enabled_ = true;
+  // screen_count_ defaults to 0; calling with 0 → same → early return
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyScreenCountChanged(0));
+  utils_->is_delegated_enabled_ = false;
+}
+
+TEST_F(WebContentsImplUtilsTest, NotifyScreenCountChanged_DelegatedEnabled_DiffCount) {
+  utils_->is_delegated_enabled_ = true;
+  // screen_count_ is 0; calling with 1 → different → sets screen_count_=1
+  // is_single_screen = (1==1) = true; is_single_screen_ (false) != true → continues
+  // → sets is_single_screen_=true, reaches view check (line 220)
+  ASSERT_NO_FATAL_FAILURE(utils_->NotifyScreenCountChanged(1));
+  utils_->is_delegated_enabled_ = false;
+}
+
+// Covers DiscardCompositingResources (line 225): exercises the view null check.
+TEST_F(WebContentsImplUtilsTest, DiscardCompositingResources) {
+  ASSERT_NO_FATAL_FAILURE(utils_->DiscardCompositingResources());
+}
+
+// Covers SetIsOfflineWebComponent (line 164): sets is_offline_component_ to true.
+// Then a subsequent SetIsOfflineWebComponentInactive(VISIBLE) exercises the
+// is_offline_component_ true branch + new_visibility == VISIBLE branch.
+TEST_F(WebContentsImplUtilsTest, SetIsOfflineWebComponent_ThenVisibleInactive) {
+  ASSERT_NO_FATAL_FAILURE(utils_->SetIsOfflineWebComponent());
+  ASSERT_NO_FATAL_FAILURE(utils_->SetIsOfflineWebComponentInactive(Visibility::VISIBLE));
+}
+
+// Covers SetIsOfflineWebComponent true
+// is_offline_component_ true + new_visibility != VISIBLE → else branch.
+TEST_F(WebContentsImplUtilsTest, SetIsOfflineWebComponent_ThenHiddenInactive) {
+  ASSERT_NO_FATAL_FAILURE(utils_->SetIsOfflineWebComponent());
+  ASSERT_NO_FATAL_FAILURE(utils_->SetIsOfflineWebComponentInactive(Visibility::HIDDEN));
+}
+
 }  // namespace content

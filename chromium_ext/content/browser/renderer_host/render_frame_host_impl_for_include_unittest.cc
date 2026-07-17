@@ -172,6 +172,17 @@ TEST_F(RenderFrameHostImplForIncludeTest, UpdateAdBlockEnabledToRender_SiteAdblo
   ASSERT_NO_FATAL_FAILURE(rfh->UpdateAdBlockEnabledToRender(site_adblock_enabled));
 }
 
+// A child (non-main) frame exercises the early-return branch of
+// UpdateAdBlockEnabledToRender before it touches the speculative/current frame
+// hosts, covering the (IsMainFrame() == false) true branch that the main-frame
+// cases above cannot reach.
+TEST_F(RenderFrameHostImplForIncludeTest, UpdateAdBlockEnabledToRender_SubFrame) {
+  auto* child_frame = main_test_rfh()->AppendChild("child");
+  bool site_adblock_enabled = true;
+  ASSERT_NO_FATAL_FAILURE(
+      child_frame->UpdateAdBlockEnabledToRender(site_adblock_enabled));
+}
+
 TEST_F(RenderFrameHostImplForIncludeTest, MouseSelectMenuShow_WithDelegate) {
   RenderFrameHostImpl* rfh = main_test_rfh();
   ASSERT_NO_FATAL_FAILURE(rfh->MouseSelectMenuShow(true));
@@ -309,6 +320,24 @@ TEST_F(RenderFrameHostImplForIncludeTest, GetWorldId_IncrementalNames) {
   EXPECT_EQ(world_id3, world_id2 + 1);
 }
 
+// Insert world names in reverse-alphabetical order so the std::map (key-sorted)
+// max-value loop in GetWorldId sees a non-monotonic value, covering the
+// (pair.second > maxValue) false branch.
+TEST_F(RenderFrameHostImplForIncludeTest, GetWorldId_NonMonotonicOrder) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  int32_t id_z = 0;
+  int32_t id_y = 0;
+  int32_t id_x = 0;
+  EXPECT_TRUE(rfh->GetWorldId("zzz", &id_z));
+  EXPECT_TRUE(rfh->GetWorldId("yyy", &id_y));
+  // Third insert runs the max-value loop; "zzz" sorts after "yyy" but holds a
+  // smaller value -> the (pair.second > maxValue) false branch is taken.
+  EXPECT_TRUE(rfh->GetWorldId("xxx", &id_x));
+  EXPECT_EQ(id_z, 10001);
+  EXPECT_EQ(id_y, 10002);
+  EXPECT_EQ(id_x, 10003);  // max(10001, 10002) + 1
+}
+
 TEST_F(RenderFrameHostImplForIncludeTest, ExecuteJavaScriptInFrames_WithWorldName) {
   const std::string world_name = "test_world";
   int32_t world_id = 0;
@@ -390,6 +419,15 @@ TEST_F(RenderFrameHostImplForIncludeTest, OnDocumentEndReady) {
   ASSERT_NO_FATAL_FAILURE(rfh->OnDocumentEndReady());
 }
 
+// The main frame has no parent, so the existing case only covers the
+// (GetParent() == nullptr) false branch. A child frame has a non-null parent,
+// covering the true branch that populates frameInfo.parentId from the parent's
+// global id.
+TEST_F(RenderFrameHostImplForIncludeTest, OnDocumentEndReady_WithParent) {
+  auto* child_frame = main_test_rfh()->AppendChild("child");
+  ASSERT_NO_FATAL_FAILURE(child_frame->OnDocumentEndReady());
+}
+
 #if BUILDFLAG(ARKWEB_FLING)
 TEST_F(RenderFrameHostImplForIncludeTest, OnNestedScroll_BasicCall) {
   float delta_x = 10.0f;
@@ -428,6 +466,17 @@ TEST_F(RenderFrameHostImplForIncludeTest, HideQuickMenu_NoDelegate) {
 TEST_F(RenderFrameHostImplForIncludeTest, GetAllImage_WithFrame) {
   RenderFrameHostImpl* rfh = main_test_rfh();
   ASSERT_NO_FATAL_FAILURE(rfh->GetAllImage(1, "https://example.com/img.png", base::DoNothing()));
+}
+
+TEST_F(RenderFrameHostImplForIncludeTest, GetAllImage_NoFrame) {
+  RenderFrameHostImpl* rfh = main_test_rfh();
+  mojo::AssociatedRemote<mojom::Frame> unbound_frame;
+  SetFrame(unbound_frame, rfh);
+  // frame_ is now unbound -> GetAssociatedLocalFrame() is falsy -> early
+  // return (covers the false branch) without issuing the mojo call that hangs
+  // the unit-test harness when the frame is bound.
+  ASSERT_NO_FATAL_FAILURE(
+      rfh->GetAllImage(1, "https://example.com/img.png", base::DoNothing()));
 }
 
 TEST_F(RenderFrameHostImplForIncludeTest, GetImageByXPath_WithFrame) {

@@ -211,17 +211,49 @@ TEST_F(FrameWidgetInputHandlerImplTest, ShowFreeCopyMenu_WidgetNull_ReturnsEarly
 TEST_F(FrameWidgetInputHandlerImplTest, ShowFreeCopyMenu_WidgetValid_CallsHandler) {
   auto mock_widget = std::make_unique<MockWidgetBase>();
   auto mock_handler = std::make_unique<MockFrameWidgetInputHandler>();
-  
+
   ASSERT_NE(mock_widget->GetWeakPtr().get(), nullptr);
-  
+
   FrameWidgetInputHandlerImpl handler(mock_widget->GetWeakPtr(),
                                      mock_handler->GetWeakPtr(),
                                      nullptr);
-  
+
   handler.ShowFreeCopyMenu();
-  
+
   task_environment_->RunUntilIdle();
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_AI)
+// Covers OnDataDetectorSelectText (lines 57-72): currently 0 hits. Tests both
+// the null-widget early return (line 63-65) and the valid-widget proceed path.
+TEST_F(FrameWidgetInputHandlerImplTest, OnDataDetectorSelectText_WidgetNull_ReturnsEarly) {
+  base::WeakPtr<WidgetBase> null_widget;
+  auto mock_handler = std::make_unique<MockFrameWidgetInputHandler>();
+
+  FrameWidgetInputHandlerImpl handler(null_widget,
+                                     mock_handler->GetWeakPtr(),
+                                     nullptr);
+
+  handler.OnDataDetectorSelectText();
+
+  task_environment_->RunUntilIdle();
+}
+
+TEST_F(FrameWidgetInputHandlerImplTest, OnDataDetectorSelectText_WidgetValid_CallsHandler) {
+  auto mock_widget = std::make_unique<MockWidgetBase>();
+  auto mock_handler = std::make_unique<MockFrameWidgetInputHandler>();
+
+  ASSERT_NE(mock_widget->GetWeakPtr().get(), nullptr);
+
+  FrameWidgetInputHandlerImpl handler(mock_widget->GetWeakPtr(),
+                                     mock_handler->GetWeakPtr(),
+                                     nullptr);
+
+  handler.OnDataDetectorSelectText();
+
+  task_environment_->RunUntilIdle();
+}
+#endif  // BUILDFLAG(ARKWEB_AI)
 
 }  // namespace blink

@@ -406,6 +406,31 @@ TEST(StringMessageCodecExtTest, ReadInt32) {
     EXPECT_EQ(result, false);
 }
 
+// ReadInt32 with a multi-byte varint: covers ReadVarint's has_another_byte
+// true arm (line 176). zigzag(300)=600 requires a 2-byte varint [0xD8, 0x04].
+TEST(StringMessageCodecExtTest, ReadInt32MultiByteVarint) {
+    // zigzag(300) = 600 → varint bytes: 0xD8 (0x58 | 0x80), 0x04
+    std::vector<uint8_t> buffer = {0xD8, 0x04};
+    base::BufferIterator<const uint8_t> iter(buffer);
+    int32_t data;
+    auto result = ReadInt32(iter, data);
+    EXPECT_EQ(result, true);
+    EXPECT_EQ(data, 300);
+}
+
+// ReadInt32InArray with a multi-byte varint: covers ReadVarint's
+// has_another_byte true arm through the array element path.
+TEST(StringMessageCodecExtTest, ReadInt32InArrayMultiByteVarint) {
+    // varint [0xD8, 0x04] = 600, zigzag decode = 300
+    // followed by kEndDenseJSArray as the terminator
+    std::vector<uint8_t> buffer = {0xD8, 0x04, kEndDenseJSArray};
+    base::BufferIterator<const uint8_t> iter(buffer);
+    int32_t data;
+    auto result = ReadInt32InArray(iter, data);
+    EXPECT_EQ(result, true);
+    EXPECT_EQ(data, 300);
+}
+
 TEST(StringMessageCodecExtTest, ReadInt32InArray) {
     base::BufferIterator<const uint8_t> iterNull;
     int32_t data;

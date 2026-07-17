@@ -112,6 +112,37 @@ TEST_F(ArkWebRenderProcessHostImplExtTest, CancelChannelConnectedCheckTask_Callb
   EXPECT_TRUE(render_process_host_impl_ext_->channel_connected_check_callback_.IsCancelled());
 }
 
+// A second StartChannelConnectedCheckTask call sees a non-null, non-cancelled
+// callback, so the else-if evaluates IsCancelled()==false (no reset, no log).
+// Covers the is_null()==false and IsCancelled()==false branches of
+// StartChannelConnectedCheckTask.
+TEST_F(ArkWebRenderProcessHostImplExtTest, StartChannelConnectedCheckTask_SecondCallNotCancelled) {
+  render_process_host_impl_ext_->StartChannelConnectedCheckTask(render_process_host_impl_ext_.get());
+  ASSERT_FALSE(
+      render_process_host_impl_ext_->channel_connected_check_callback_.callback().is_null());
+
+  EXPECT_NO_FATAL_FAILURE(
+      render_process_host_impl_ext_->StartChannelConnectedCheckTask(render_process_host_impl_ext_.get()));
+}
+
+// Cancelling an already-cancelled callback hits the IsCancelled()==true early
+// return of CancelChannelConnectedCheckTask, and a Start afterwards (callback
+// non-null and cancelled) hits the IsCancelled()==true log arm of
+// StartChannelConnectedCheckTask. The pending delayed task is bound to a WeakPtr
+// and is cancelled, so it is a no-op on teardown.
+TEST_F(ArkWebRenderProcessHostImplExtTest, ChannelConnectedCheck_CancelledBranches) {
+  render_process_host_impl_ext_->StartChannelConnectedCheckTask(render_process_host_impl_ext_.get());
+  render_process_host_impl_ext_->CancelChannelConnectedCheckTask(render_process_host_impl_ext_.get());
+
+  // Callback is now non-null and cancelled -> IsCancelled()==true early return.
+  EXPECT_NO_FATAL_FAILURE(
+      render_process_host_impl_ext_->CancelChannelConnectedCheckTask(render_process_host_impl_ext_.get()));
+
+  // Callback still non-null and cancelled -> IsCancelled()==true log arm.
+  EXPECT_NO_FATAL_FAILURE(
+      render_process_host_impl_ext_->StartChannelConnectedCheckTask(render_process_host_impl_ext_.get()));
+}
+
 #endif
 
 TEST_F(ArkWebRenderProcessHostImplExtTest, OnThemeFontChange) {

@@ -28,12 +28,10 @@
 namespace blink {
 namespace {
 
-class MockLayoutNative : public LayoutImage {
- public:
-  explicit MockLayoutNative(Element* element) : LayoutImage(element) {}
-  MOCK_METHOD(HTMLPlugInElement*, PluginElement, (), (const));
-  const char* GetName() const override { return "MockLayoutNative"; }
-};
+// NOTE: LayoutNative is declared 'final' and its PluginElement() uses To<>
+// (a CHECK cast) — so PluginElement() can never return nullptr in practice.
+// The !PluginElement() branch at line 36 is therefore unreachable. We do not
+// test it.
 
 class TestNativeLoader : public NativeLoader {
  public:
@@ -42,10 +40,25 @@ class TestNativeLoader : public NativeLoader {
 
   cc::Layer* CcLayer() const { return cc_layer_; }
 
-  WebNativeBridge* GetWebNativeBridge() { return nullptr; }
+  WebNativeBridge* GetWebNativeBridge() { return bridge_; }
+  void SetWebNativeBridge(WebNativeBridge* b) { bridge_ = b; }
   String DebugName() const override { return "TestNativeLoader"; }
 
   cc::Layer* cc_layer_ = nullptr;
+  WebNativeBridge* bridge_ = nullptr;
+};
+
+// Minimal WebNativeBridge subclass that returns non-null so PaintReplaced
+// gets past the null-bridge check at line 38 and exercises the painting body.
+class FakeWebNativeBridge : public WebNativeBridge {
+ public:
+  void StartPipeline() override {}
+  void OnLayerRectChange(const gfx::Rect&) override {}
+  void OnLayerRectVisibilityChange(bool) override {}
+  void CleanupVisibilityForRemovedLayer(bool) override {}
+  gfx::Size NaturalSize() const override { return gfx::Size(); }
+  void SetStretchContentToFillBounds(bool) override {}
+  void UpdateDeviceScaleFactor(float) override {}
 };
 
 class TestHTMLPlugInElement : public HTMLPlugInElement {
@@ -200,5 +213,75 @@ TEST_F(NativePainterTest, NativePainterTest_005) {
   NativePainter painter(*layout_native_);
   painter.PaintReplaced(paint_info, PhysicalOffset());
 }
+
+// ===== Tests that exercise the painting body past the null checks =====
+// These tests set up a non-null WebNativeBridge so PaintReplaced proceeds past
+// line 38 into the actual painting logic.
+
+// GetWebNativeBridge() returns non-null but no CcLayer → covers:
+// - lines 42-60 (rect computation, SetImagePainted)
+// - line 76 paint_with_foreign_layer = true but CcLayer() is null → falls
+//   through to BoxDrawingRecorder + ImagePainter path (lines 96-104)
+TEST_F(NativePainterTest, PaintReplaced_WithBridge_NoLayer) {
+  FakeWebNativeBridge bridge;
+  native_loader_->SetWebNativeBridge(&bridge);
+  native_loader_->cc_layer_ = nullptr;
+
+  PaintController controller;
+  GraphicsContext context(controller);
+  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground, false);
+
+  NativePainter painter(*layout_native_);
+  painter.PaintReplaced(paint_info, PhysicalOffset());
+}
+
+// GetWebNativeBridge() returns non-null AND CcLayer() returns a real layer →
+// covers the foreign layer recording path (lines 79-93).
+TEST_F(NativePainterTest, PaintReplaced_WithBridge_WithLayer) {
+  FakeWebNativeBridge bridge;
+  native_loader_->SetWebNativeBridge(&bridge);
+  auto layer = cc::Layer::Create();
+  native_loader_->cc_layer_ = layer.get();
+
+  PaintController controller;
+  GraphicsContext context(controller);
+  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground, false);
+
+  NativePainter painter(*layout_native_);
+  painter.PaintReplaced(paint_info, PhysicalOffset());
+}
+
+// kSelectionDragImage phase with non-null bridge → covers line 76
+// paint_with_foreign_layer = false (phase != kForeground), falls through to
+// BoxDrawingRecorder + ImagePainter (lines 96-104).
+TEST_F(NativePainterTest, PaintReplaced_SelectionDragImage_WithBridge) {
+  FakeWebNativeBridge bridge;
+  native_loader_->SetWebNativeBridge(&bridge);
+
+  PaintController controller;
+  GraphicsContext context(controller);
+  PaintInfo paint_info(context, CullRect(),
+                       PaintPhase::kSelectionDragImage, false);
+
+  NativePainter painter(*layout_native_);
+  painter.PaintReplaced(paint_info, PhysicalOffset());
+}
+
+// kForeground with kOmitCompositingInfo → force_software_video_paint = true,
+// paint_with_foreign_layer = false, force_software_video_paint = true →
+// BoxDrawingRecorder without ImagePainter (line 99 false branch).
+TEST_F(NativePainterTest, PaintReplaced_Foreground_OmitCompositing_WithBridge) {
+  FakeWebNativeBridge bridge;
+  native_loader_->SetWebNativeBridge(&bridge);
+
+  PaintController controller;
+  GraphicsContext context(controller);
+  PaintInfo paint_info(context, CullRect(), PaintPhase::kForeground, true,
+                       PaintFlag::kOmitCompositingInfo);
+
+  NativePainter painter(*layout_native_);
+  painter.PaintReplaced(paint_info, PhysicalOffset());
+}
+
 }  // namespace
 }  // namespace blink
