@@ -7,7 +7,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <sstream>
-#include <string_view>
 #include "base/strings/string_number_conversions.h"
 #include "device/fido/attestation_statement.h"
 
@@ -15,7 +14,8 @@ using namespace testing;
 namespace device {
 
 std::string ToString(const char* c_str);
-std::string_view TruncateString(const char* s);
+std::string Mask(const Uint8Buff& buffer);
+std::string Mask(const char* s);
 template<>
 std::string Convert(const FIDO2_AuthenticatorTransportArray& transports);
 template<>
@@ -285,15 +285,33 @@ TEST_F(TypeConversionsTest, CharToStringTest_001)
     EXPECT_EQ(ret, "Hello World");
 }
 
-TEST_F(TypeConversionsTest, TruncateStringTest_001)
+TEST_F(TypeConversionsTest, MaskTest_001)
 {
+    // Mask(const char*) - nullptr returns empty
     const char* c_str1 = nullptr;
-    std::string_view ret = TruncateString(c_str1);
-    EXPECT_EQ(ret, "<null>");
-    const char* c_str2 = "Hello World";
-    ret = TruncateString(c_str2);
-    std::string_view val = "Hel";
-    EXPECT_EQ(ret, val);
+    std::string ret = Mask(c_str1);
+    EXPECT_TRUE(ret.empty());
+
+    // Mask(const char*) - empty string returns empty
+    const char* c_str2 = "";
+    ret = Mask(c_str2);
+    EXPECT_TRUE(ret.empty());
+
+    // Mask(const char*) - non-empty returns fixed mask
+    const char* c_str3 = "Hello World";
+    ret = Mask(c_str3);
+    EXPECT_EQ(ret, "*******");
+
+    // Mask(Uint8Buff) - zero length returns empty
+    Uint8Buff buffer = {0, nullptr};
+    ret = Mask(buffer);
+    EXPECT_TRUE(ret.empty());
+
+    // Mask(Uint8Buff) - non-zero length returns fixed mask
+    uint8_t data[10] = {0};
+    buffer = {10, data};
+    ret = Mask(buffer);
+    EXPECT_EQ(ret, "*******");
 }
 
 TEST_F(TypeConversionsTest, CredentialHintArrayToStringTest_001)
