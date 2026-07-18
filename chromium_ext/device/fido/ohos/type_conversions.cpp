@@ -303,6 +303,9 @@ FIDO2_CredentialMediationRequirement Convert(
 template<>
 std::string Convert(const Uint8Buff& buffer)
 {
+    if (buffer.val == nullptr || buffer.length == 0) {
+      return {};
+    }
     return base::HexEncode(buffer.val, buffer.length);
 }
 
@@ -334,11 +337,13 @@ std::string Convert(const FIDO2_AuthenticatorTransportArray& transports)
 {
     std::stringstream ss;
     ss << "[";
-    for (uint32_t i = 0; i < transports.transportNum; i++) {
-        if (i > 0) {
-            ss << ", ";
-        }
-        ss << static_cast<int>(transports.transports[i]);
+    if (transports.transports) {
+      for (uint32_t i = 0; i < transports.transportNum; i++) {
+          if (i > 0) {
+              ss << ", ";
+          }
+          ss << static_cast<int>(transports.transports[i]);
+      }
     }
     ss << "]";
     return ss.str();

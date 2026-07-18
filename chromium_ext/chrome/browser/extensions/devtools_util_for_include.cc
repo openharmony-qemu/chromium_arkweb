@@ -71,7 +71,7 @@ void OnRequestOpenDevTools(const scoped_refptr<content::DevToolsAgentHost>& host
     .type = GetTypeFromHost(host->GetType()),
     .source_id = host->GetURL().spec(),
     .target_id = host->GetId(),
-    .extension_id = extension->id(),
+    .extension_id = extension ? extension->id() : std::string(),
     .panel = ""
   };
 

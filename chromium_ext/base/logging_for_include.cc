@@ -50,6 +50,9 @@ void LogMessage::ArkWebLoggingSeverity(const std::string& str_newline) {
       priority_ = PRIORITY_INFO;
       break;
   }
+  if (!g_logger_callback) {
+    return;
+  }
   g_logger_callback(priority_, ohos_tag_, policy, str_newline);
 }
 #endif
