@@ -424,7 +424,7 @@ void ArkWebChromeContentRendererClientExt::TriggerElementHidingInFrame(base::Wea
   selectors =
       filter->GetElementHidingSelectors(document.Url(), !has_generichide);
 
-  if (!selectors->empty()) {
+  if (selectors && !selectors->empty()) {
     document.InsertStyleSheet(blink::WebString::FromUTF8(*selectors), nullptr,
                               blink::WebCssOrigin::kAuthor,
                               blink::BackForwardCacheAware::kAllow,
@@ -479,7 +479,7 @@ void ArkWebChromeContentRendererClientExt::TriggerUserElementHidingInFrame(
   base::TimeTicks start = base::TimeTicks::Now();
   std::unique_ptr<std::string> selectors;
   selectors = filter->GetElementHidingSelectors(document.Url(), true);
-  if (!selectors->empty()) {
+  if (selectors && !selectors->empty()) {
     document.InsertStyleSheet(blink::WebString::FromUTF8(*selectors), nullptr,
                               blink::WebCssOrigin::kAuthor,
                               blink::BackForwardCacheAware::kAllow,
