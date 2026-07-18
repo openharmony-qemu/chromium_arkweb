@@ -42,9 +42,14 @@ void* NWebNativeWindowTracker::GetNativeWindow(int32_t native_window_id, bool is
                << "Cann't get for native_window id = " << native_window_id;
     std::shared_ptr<content::RenderRemoteProxy> g_render_remote_proxy =
         std::make_shared<content::RenderRemoteProxy>();
-    if (g_browser_client_) {
+    std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> client;
+    {
+      base::AutoLock bc_lock(browser_client_lock_);
+      client = g_browser_client_;
+    }
+    if (client) {
       // call binder to get window from browser proc (sync call)
-      void *window = g_browser_client_->QueryRenderSurface(native_window_id);
+      void *window = client->QueryRenderSurface(native_window_id);
       if (window) {
         native_window_map_.emplace(native_window_id, std::move((void *)window));
         LOG(DEBUG) << "Add native window id = " << native_window_id;
@@ -75,10 +80,17 @@ void NWebNativeWindowTracker::DestroyNativeWindow(int32_t native_window_id) {
                << "Destroy native_window id = " << native_window_id;
   }
 
-  if (g_browser_client_) {
-    g_browser_client_->DestroyRenderSurface(native_window_id);
-    LOG(DEBUG) << __FUNCTION__
-               << "Destroy browser native_window id = " << native_window_id;
+  {
+    std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> client;
+    {
+      base::AutoLock bc_lock(browser_client_lock_);
+      client = g_browser_client_;
+    }
+    if (client) {
+      client->DestroyRenderSurface(native_window_id);
+      LOG(DEBUG) << __FUNCTION__
+                 << "Destroy browser native_window id = " << native_window_id;
+    }
   }
 }
 
@@ -91,4 +103,46 @@ bool NWebNativeWindowTracker::CheckNativeWindow(void* native_window)
         }
     }
     return false;
+}
+
+void NWebNativeWindowTracker::SetBrowserClient(
+    std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> client) {
+  base::AutoLock lock(browser_client_lock_);
+  g_browser_client_ = std::move(client);
+}
+
+std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter>
+NWebNativeWindowTracker::GetBrowserClient() const {
+  base::AutoLock lock(browser_client_lock_);
+  return g_browser_client_;
+}
+
+void NWebNativeWindowTracker::ReportThread(
+    OHOS::NWeb::ResSchedStatusAdapter status,
+    int32_t process_id,
+    int32_t thread_id,
+    OHOS::NWeb::ResSchedRoleAdapter role) {
+  std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> client;
+  {
+    base::AutoLock lock(browser_client_lock_);
+    client = g_browser_client_;
+  }
+  if (client) {
+    client->ReportThread(status, process_id, thread_id, role);
+  } else {
+    LOG(DEBUG) << __FUNCTION__ << " g_browser_client_ is null, skip ReportThread";
+  }
+}
+
+void NWebNativeWindowTracker::PassSurface(int64_t surface_id) {
+  std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> client;
+  {
+    base::AutoLock lock(browser_client_lock_);
+    client = g_browser_client_;
+  }
+  if (client) {
+    client->PassSurface(surface_id);
+  } else {
+    LOG(DEBUG) << __FUNCTION__ << " g_browser_client_ is null, skip PassSurface";
+  }
 }

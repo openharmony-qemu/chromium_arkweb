@@ -65,7 +65,7 @@ void CompositorFrameSinkImplUtil::ReportKeyThreadIdsUtils(const std::vector<int3
       kProcessType);
   if (type == kGpuProcess) {
     for (auto thread_id : thread_ids) {
-      NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+      NWebNativeWindowTracker::Get()->ReportThread(
           status, process_id, thread_id,
           ResSchedRoleAdapter::IMPORTANT_DISPLAY);
     }

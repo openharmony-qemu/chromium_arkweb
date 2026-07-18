@@ -41,7 +41,7 @@ class AafwkBrowserClientAdapterTest
 
     // Pointer needs to be cleared to prevent adding new members when calling
     // GetNativeWindow
-    NWebNativeWindowTracker::GetInstance()->g_browser_client_ = nullptr;
+    NWebNativeWindowTracker::GetInstance()->SetBrowserClient(nullptr);
   }
 
  private:
@@ -135,8 +135,8 @@ TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientNormalId) {
   auto nativeWindowTrackerPtr = NWebNativeWindowTracker::GetInstance();
   ASSERT_NE(nativeWindowTrackerPtr, nullptr);
 
-  nativeWindowTrackerPtr->g_browser_client_ =
-      std::make_shared<AafwkBrowserClientAdapterTest>();
+  nativeWindowTrackerPtr->SetBrowserClient(
+      std::make_shared<AafwkBrowserClientAdapterTest>());
   int32_t native_window_id = 100;
   void* nativeWindow =
       nativeWindowTrackerPtr->GetNativeWindow(native_window_id);
@@ -144,15 +144,15 @@ TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientNormalId) {
   // the window will be obtained from the browser process by calling the binder
   // (sync call)
   EXPECT_NE(nativeWindow, nullptr);
-  nativeWindowTrackerPtr->g_browser_client_ = nullptr;
+  nativeWindowTrackerPtr->SetBrowserClient(nullptr);
 }
 
 TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientExtremeId) {
   auto nativeWindowTrackerPtr = NWebNativeWindowTracker::GetInstance();
   ASSERT_NE(nativeWindowTrackerPtr, nullptr);
 
-  nativeWindowTrackerPtr->g_browser_client_ =
-      std::make_shared<AafwkBrowserClientAdapterTest>();
+  nativeWindowTrackerPtr->SetBrowserClient(
+      std::make_shared<AafwkBrowserClientAdapterTest>());
   int32_t native_window_id = -1;
   void* nativeWindow =
       nativeWindowTrackerPtr->GetNativeWindow(native_window_id);
@@ -160,15 +160,15 @@ TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientExtremeId) {
   // the window will be obtained from the browser process by calling the binder
   // (sync call)
   EXPECT_NE(nativeWindow, nullptr);
-  nativeWindowTrackerPtr->g_browser_client_ = nullptr;
+  nativeWindowTrackerPtr->SetBrowserClient(nullptr);
 }
 
 TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientZeroId) {
   auto nativeWindowTrackerPtr = NWebNativeWindowTracker::GetInstance();
   ASSERT_NE(nativeWindowTrackerPtr, nullptr);
 
-  nativeWindowTrackerPtr->g_browser_client_ =
-      std::make_shared<AafwkBrowserClientAdapterTest>();
+  nativeWindowTrackerPtr->SetBrowserClient(
+      std::make_shared<AafwkBrowserClientAdapterTest>());
   int32_t native_window_id = 0;
   void* nativeWindow =
       nativeWindowTrackerPtr->GetNativeWindow(native_window_id);
@@ -176,7 +176,7 @@ TEST_F(NWebNativeWindowTrackerTest, GetNativeWindow_HasBrowserClientZeroId) {
   // the window will be obtained from the browser process by calling the binder
   // (sync call)
   EXPECT_NE(nativeWindow, nullptr);
-  nativeWindowTrackerPtr->g_browser_client_ = nullptr;
+  nativeWindowTrackerPtr->SetBrowserClient(nullptr);
 }
 
 TEST_F(NWebNativeWindowTrackerTest, DestroyNativeWindow_NoAddNormalId) {
@@ -222,8 +222,8 @@ TEST_F(NWebNativeWindowTrackerTest,
   auto nativeWindowTrackerPtr = NWebNativeWindowTracker::GetInstance();
   ASSERT_NE(nativeWindowTrackerPtr, nullptr);
 
-  nativeWindowTrackerPtr->g_browser_client_ =
-      std::make_shared<AafwkBrowserClientAdapterTest>();
+  nativeWindowTrackerPtr->SetBrowserClient(
+      std::make_shared<AafwkBrowserClientAdapterTest>());
   int32_t native_window_id = 102;
   void* nativeWindow =
       nativeWindowTrackerPtr->GetNativeWindow(native_window_id);
@@ -238,8 +238,8 @@ TEST_F(NWebNativeWindowTrackerTest,
   auto nativeWindowTrackerPtr = NWebNativeWindowTracker::GetInstance();
   ASSERT_NE(nativeWindowTrackerPtr, nullptr);
 
-  nativeWindowTrackerPtr->g_browser_client_ =
-      std::make_shared<AafwkBrowserClientAdapterTest>();
+  nativeWindowTrackerPtr->SetBrowserClient(
+      std::make_shared<AafwkBrowserClientAdapterTest>());
   int32_t native_window_id = -2;
   void* nativeWindow =
       nativeWindowTrackerPtr->GetNativeWindow(native_window_id);

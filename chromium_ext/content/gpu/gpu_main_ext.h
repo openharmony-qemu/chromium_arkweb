@@ -43,7 +43,7 @@ void TryForReportThread() {
     auto type = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       switches::kProcessType);
     if (type == switches::kGpuProcess) {
-      NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+      NWebNativeWindowTracker::Get()->ReportThread(
         ResSchedStatusAdapter::THREAD_CREATED, base::GetCurrentProcId(),
         tid, ResSchedRoleAdapter::IMPORTANT_DISPLAY);
     } else {

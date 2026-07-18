@@ -24,7 +24,7 @@ void ReportThreadForInit(const std::unique_ptr<base::Thread>& thread)
   auto type = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       switches::kProcessType);
   if (type == switches::kGpuProcess) {
-    NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+    NWebNativeWindowTracker::Get()->ReportThread(
         ResSchedStatusAdapter::THREAD_CREATED, base::GetCurrentRealPid(),
         thread->GetThreadRealId().raw(), ResSchedRoleAdapter::IMPORTANT_DISPLAY);
   } else {
@@ -60,7 +60,7 @@ void VizCompositorThreadRunnerImplUtils::ReportThreadForDestroy(const std::uniqu
   auto type = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       switches::kProcessType);
   if (type == switches::kGpuProcess) {
-    NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+    NWebNativeWindowTracker::Get()->ReportThread(
         ResSchedStatusAdapter::THREAD_DESTROYED, base::GetCurrentRealPid(),
         thread->GetThreadRealId().raw(), ResSchedRoleAdapter::IMPORTANT_DISPLAY);
   } else {
