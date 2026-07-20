@@ -23,6 +23,12 @@
 #include "base/task/thread_pool.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
+#include "base/task/thread_pool.h"
+#endif
+
 namespace viz {
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
@@ -32,6 +38,35 @@ void GpuHostImpl::StartMonitor(int32_t nweb_id) {
 
 void GpuHostImpl::StopMonitor() {
   gpu_service_remote_->StopMonitor();
+}
+
+namespace {
+void ReportDynamicStasticToHiAppevent(
+    const OHOS::NWeb::HiAppeventAdapter::DynamicFrameDropInfo& info) {
+  OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetHiAppeventAdapterInstance()
+      .ReportDynamicStastic(OHOS::NWeb::HiAppeventAdapter::kDomain,
+                            OHOS::NWeb::HiAppeventAdapter::kEventName,
+                            OHOS::NWeb::HiAppeventAdapter::kEventTypeStatistic,
+                            info);
+}
+}  // namespace
+
+void GpuHostImpl::ReportDynamicFrameLoss(mojom::DynamicFrameDropDataPtr data) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!data) {
+    return;
+  }
+  // Defense-in-depth: filter below-threshold data from GPU process
+  if (data->max_app_frame_time < OHOS::NWeb::HiAppeventAdapter::kJankReportThreshold) {
+    return;
+  }
+  OHOS::NWeb::HiAppeventAdapter::DynamicFrameDropInfo info;
+  info.start_time = data->start_time;
+  info.duration = static_cast<int64_t>(data->duration);
+  info.max_app_frame_time = static_cast<int64_t>(data->max_app_frame_time);
+  info.web_id = data->web_id;
+  ReportDynamicStasticToHiAppevent(info);
 }
 #endif
 
