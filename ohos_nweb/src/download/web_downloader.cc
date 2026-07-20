@@ -173,6 +173,10 @@ NWebDownloadItemState WebDownload_GetItemStateByGuid(const std::string& guid) {
 
 NWebDownloadItemState WebDownload_GetItemStateByGuidV2(const char* guid) {
 #if BUILDFLAG(ARKWEB_EXT_DOWNLOAD)
+  if (!guid) {
+    WVLOG_E("WebDownload_GetItemStateByGuidV2 guid is nullptr");
+    return NWebDownloadItemState::MAX_DOWNLOAD_STATE;
+  }
   return OHOS::NWeb::NWebImpl::GetDownloadItemStateByGuid(std::string(guid));
 #else
   return NWebDownloadItemState::MAX_DOWNLOAD_STATE;
