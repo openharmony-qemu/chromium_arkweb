@@ -37,7 +37,6 @@ void* __real_malloc(size_t);
 namespace OHOS::NWeb {
 
 namespace {
-std::shared_ptr<NWebExtensionActionApiCallback> g_action_api_listener = nullptr;
 
 NWebExtensionActionIconColorType GetColorTypeFromSkBitmap(
     const SkBitmap& bitmap) {
@@ -187,21 +186,6 @@ NWebExtensionActionIconV2 CreateNWebIconFromImageSkiaRepsV2(
     actionIcon.bitmaps.emplace(scale, std::move(*bitmap));
   }
   return actionIcon;
-}
-
-// static
-void NWebExtensionActionCefDelegate::RegisterWebExtensionApiListener(
-    std::shared_ptr<NWebExtensionActionApiCallback> action_api_listener) {
-  LOG(INFO)
-      << "NWebExtensionActionCefDelegate::RegisterWebExtensionApiListener";
-  g_action_api_listener = action_api_listener;
-}
-
-// static
-void NWebExtensionActionCefDelegate::UnRegisterWebExtensionApiListener() {
-  LOG(INFO)
-      << "NWebExtensionActionCefDelegate::UnRegisterWebExtensionApiListener";
-  g_action_api_listener = nullptr;
 }
 
 // static
@@ -374,6 +358,8 @@ std::optional<NWebExtensionActionUserSettings>
 NWebExtensionActionCefDelegate::OnGetUserSettings(const std::string& extensionId) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   return nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnGetUserSettings(extensionId);
+#else
+  return std::nullopt;
 #endif
 }
 

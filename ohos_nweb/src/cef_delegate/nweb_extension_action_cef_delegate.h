@@ -39,9 +39,6 @@ NWebExtensionActionIconV2 CreateNWebIconFromImageSkiaRepsV2(
 
 class NWebExtensionActionCefDelegate {
  public:
-  static void RegisterWebExtensionApiListener(
-      std::shared_ptr<NWebExtensionActionApiCallback> action_api_listener);
-  static void UnRegisterWebExtensionApiListener();
   static NWebExtensionActionCefDelegate* GetInstance();
   static void WebExtensionActionClicked(std::string extension_id,
                                         const NWebExtensionTab* tab);
