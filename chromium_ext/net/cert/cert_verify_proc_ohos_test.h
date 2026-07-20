@@ -83,7 +83,7 @@ static const char kSelfSignedWithCommonNamePEM[] =
 void GetChainDEREncodedBytes(X509Certificate* cert,
                              std::vector<std::string>* chain_bytes);
 X509* p2i_X509(const char* pem);
-void X509_d2i_free(X509* server_cert[], uint32_t server_cert_sum);
+void X509_d2i_free(const std::vector<X509*>& server_cert);
 int32_t GetApplicationApiVersion();
 void AddAppCert(const std::string_view& hostname, X509_STORE* ca_store);
 int CertVerify(const std::vector<std::string>& cert_bytes,
@@ -106,9 +106,6 @@ int ConvertToParsedCertificates(const std::vector<std::string>& cert_bytes,
                                 bssl::CertErrors& errors,
                                 bssl::ParsedCertificateList& certs);
 base::FilePath GetTmpCertDir();
-int CertChainRootVerify(X509* server_cert[],
-                        int32_t index,
-                        X509_STORE* ca_store);
 }  // namespace net
 
 #endif
