@@ -645,6 +645,10 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::OnMediaCastEnter() {
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::
     OnNotifyMeidaCastUri(const std::string& media_uri) {
+    if (!media_web_contents_observer_) {
+      LOG(ERROR) << "OnNotifyMeidaCastUri, media_web_contents_observer_ is nullptr";
+      return;
+    }
     if (media_web_contents_observer_->session_controllers_manager()) {
       media_web_contents_observer_->session_controllers_manager()->OnNotifyMeidaCastUri(media_player_id_, media_uri);
     }
@@ -652,6 +656,10 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::HandleStopMediaCast() {
     LOG(INFO) << "MediaPlayerObserverHostImpl::HandleStopMediaCast";
+    if (!media_web_contents_observer_) {
+      LOG(ERROR) << "HandleStopMediaCast, media_web_contents_observer_ is nullptr";
+      return;
+    }
     if (media_web_contents_observer_->session_controllers_manager()) {
       media_web_contents_observer_->session_controllers_manager()->HandleStopMediaCast(media_player_id_);
     }
@@ -659,12 +667,20 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::HandleStopMediaCast(
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::UpdateRemotePlayState(bool is_playing) {
   LOG(INFO) << "MediaPlayerObserverHostImpl::UpdateRemotePlayState";
+  if (!media_web_contents_observer_) {
+    LOG(ERROR) << "UpdateRemotePlayState, media_web_contents_observer_ is nullptr";
+    return;
+  }
   if (media_web_contents_observer_->session_controllers_manager()) {
     media_web_contents_observer_->session_controllers_manager()->UpdateRemotePlayState(media_player_id_, is_playing);
   }
 }
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::UpdateRemotePlayPosition(int64_t position) {
   LOG(INFO) << "MediaPlayerObserverHostImpl::UpdateRemotePlayPosition";
+  if (!media_web_contents_observer_) {
+    LOG(ERROR) << "UpdateRemotePlayPosition, media_web_contents_observer_ is nullptr";
+    return;
+  }
   if (media_web_contents_observer_->session_controllers_manager()) {
     media_web_contents_observer_->session_controllers_manager()->UpdateRemotePlayPosition(media_player_id_, position);
   }
@@ -672,6 +688,10 @@ void MediaWebContentsObserver::MediaPlayerObserverHostImpl::UpdateRemotePlayPosi
 
 void MediaWebContentsObserver::MediaPlayerObserverHostImpl::SetPauseByAvcast(bool pause_avcast) {
     LOG(INFO) << "MediaPlayerObserverHostImpl::SetPauseByAvcast";
+    if (!media_web_contents_observer_) {
+      LOG(ERROR) << "SetPauseByAvcast, media_web_contents_observer_ is nullptr";
+      return;
+    }
     if (media_web_contents_observer_->session_controllers_manager()) {
       media_web_contents_observer_->session_controllers_manager()->SetPauseByAvcast(media_player_id_, pause_avcast);
     }
