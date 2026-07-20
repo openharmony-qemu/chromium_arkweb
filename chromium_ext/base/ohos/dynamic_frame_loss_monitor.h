@@ -17,9 +17,17 @@
 #define BASE_OHOS_DYNAMIC_FRAME_LOSS_MONITOR_H_
 
 #include <mutex>
+#include "base/functional/callback.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
 
 namespace base {
 namespace ohos {
+
+// Callback type for reporting HiAppEvent data externally (e.g., via IPC).
+// When set, ReportToHiAppEvent will call this callback instead of reporting
+// directly, allowing the caller to forward data to another process.
+using HiAppEventCallback =
+    base::RepeatingCallback<void(const OHOS::NWeb::HiAppeventAdapter::DynamicFrameDropInfo&)>;
 
 // Count the Frame Loss event when page is sliding
 class DynamicFrameLossMonitor {
@@ -37,11 +45,17 @@ class DynamicFrameLossMonitor {
   void OnSwapBuffer();
   void OnVsync();
 
+  void SetHiAppEventCallback(HiAppEventCallback callback);
+
  private:
   int64_t GetCurrentTimestampMS();
-  void ReportToHiSysEvent();
-  void ReportToHiAppEvent();
   void ResetStatus();
+  void InvokeHiAppEventCallback(
+      const OHOS::NWeb::HiAppeventAdapter::DynamicFrameDropInfo& drop_info,
+      const HiAppEventCallback& callback_copy);
+  void InvokeHiSysEventReport(int64_t start_time, int64_t duration,
+                               int32_t total_frames, int32_t missed_frames,
+                               int64_t max_frametime, int32_t max_seq_missed);
 
   std::mutex monitor_mutex_;
   bool is_monitoring_ = false;
@@ -74,6 +88,8 @@ class DynamicFrameLossMonitor {
 
   // the id fo current nweb
   int32_t current_nweb_id_ = 0;
+
+  HiAppEventCallback hiappevent_callback_;
 };
 }  // namespace ohos
 }  // namespace base

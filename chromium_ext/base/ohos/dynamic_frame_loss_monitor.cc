@@ -21,6 +21,7 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/task/thread_pool.h"
+#include "base/functional/callback.h"
 #include "base/trace_event/trace_event.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
@@ -30,19 +31,18 @@ using OHOS::NWeb::HiAppeventAdapter;
 namespace {
 const int kSuccessiveFrameLossThreshold = 1;
 const int kMicrosecondsPerMillisecond = 1000;
-const int jankReportThreshold = 50;
-constexpr char DOMAIN[] = "OS";
-constexpr char EVENT_NAME[] = "SCROLL_ARKWEB_FLING_JANK";
+
+void ReportDynamicStasticToHiAppevent(const std::string& domain,
+                                       const std::string& eventName,
+                                       int32_t eventType,
+                                       const HiAppeventAdapter::DynamicFrameDropInfo& dynamicFrameDropInfo) {
+  OhosAdapterHelper::GetInstance().GetHiAppeventAdapterInstance().
+      ReportDynamicStastic(domain, eventName, eventType, dynamicFrameDropInfo);
+}
 }  // namespace
 
 namespace base {
 namespace ohos {
-enum EventType {
-    FAULT = 1,
-    STATISTIC,
-    SECURITY,
-    BEHAVIOR
-};
 
 DynamicFrameLossMonitor& DynamicFrameLossMonitor::GetInstance() {
   static base::NoDestructor<DynamicFrameLossMonitor> instance;
@@ -59,15 +59,84 @@ void DynamicFrameLossMonitor::StartMonitor(int32_t nweb_id) {
   start_time_ = GetCurrentTimestampMS();
 }
 
-void DynamicFrameLossMonitor::StopMonitor() {
+void DynamicFrameLossMonitor::SetHiAppEventCallback(HiAppEventCallback callback) {
   std::unique_lock<std::mutex> lock(monitor_mutex_);
-  if (!is_monitoring_) {
-    return;
+  hiappevent_callback_ = std::move(callback);
+}
+
+void DynamicFrameLossMonitor::StopMonitor() {
+  HiAppeventAdapter::DynamicFrameDropInfo drop_info;
+  HiAppEventCallback callback_copy;
+  bool should_report_happevent = false;
+  bool should_report_hisysevent = false;
+  int64_t captured_start_time = 0;
+  int64_t captured_duration = 0;
+  int32_t hisys_total_frames = 0;
+  int32_t hisys_missed_frames = 0;
+  int64_t captured_max_frametime = 0;
+  int32_t hisys_max_seq_missed = 0;
+
+  {
+    std::unique_lock<std::mutex> lock(monitor_mutex_);
+    if (!is_monitoring_) { return; }
+    stop_time_ = GetCurrentTimestampMS();
+    captured_start_time = start_time_;
+    captured_duration = stop_time_ - start_time_;
+    captured_max_frametime = max_app_frametime_;
+    if (captured_max_frametime >= HiAppeventAdapter::kJankReportThreshold) {
+      should_report_happevent = true;
+      drop_info.start_time = captured_start_time;
+      drop_info.duration = captured_duration;
+      drop_info.max_app_frame_time = captured_max_frametime;
+      drop_info.web_id = current_nweb_id_;
+      callback_copy = hiappevent_callback_;
+    }
+    if (total_app_missed_frames_ > 0) {
+      should_report_hisysevent = true;
+      hisys_total_frames = total_app_frames_;
+      hisys_missed_frames = total_app_missed_frames_;
+      hisys_max_seq_missed = max_app_seq_missed_frames_;
+    }
+    ResetStatus();
   }
-  stop_time_ = GetCurrentTimestampMS();
-  ReportToHiAppEvent();
-  ReportToHiSysEvent();
-  ResetStatus();
+
+  if (should_report_happevent) {
+    InvokeHiAppEventCallback(drop_info, callback_copy);
+  }
+  if (should_report_hisysevent) {
+    InvokeHiSysEventReport(captured_start_time, captured_duration,
+        hisys_total_frames, hisys_missed_frames,
+        captured_max_frametime, hisys_max_seq_missed);
+  }
+}
+
+void DynamicFrameLossMonitor::InvokeHiAppEventCallback(
+    const HiAppeventAdapter::DynamicFrameDropInfo& drop_info,
+    const HiAppEventCallback& callback_copy) {
+  if (callback_copy) {
+    callback_copy.Run(drop_info);
+  } else {
+    ReportDynamicStasticToHiAppevent(HiAppeventAdapter::kDomain,
+        HiAppeventAdapter::kEventName, HiAppeventAdapter::kEventTypeStatistic, drop_info);
+  }
+}
+
+void DynamicFrameLossMonitor::InvokeHiSysEventReport(
+    int64_t start_time, int64_t duration,
+    int32_t total_frames, int32_t missed_frames,
+    int64_t max_frametime, int32_t max_seq_missed) {
+  LOG(DEBUG) << "StartTime: " << start_time
+             << ", Duration: " << duration
+             << ", MaxAppFrametime: " << max_frametime;
+  base::ThreadPool::PostTask(
+      FROM_HERE, {base::TaskPriority::LOWEST},
+      base::BindOnce(&ReportSlideJankStats, start_time, duration,
+                     total_frames, missed_frames, max_frametime,
+                     max_seq_missed));
+  TRACE_EVENT1("base", "WEBVIEW::DYNAMIC_FRAME_DROP_STATISTICS", "info",
+               "StartTime: " + std::to_string(start_time) +
+                   ", Duration: " + std::to_string(duration) +
+                   ", MaxAppFrametime: " + std::to_string(max_frametime));
 }
 
 void DynamicFrameLossMonitor::OnVsync() {
@@ -126,47 +195,6 @@ int64_t DynamicFrameLossMonitor::GetCurrentTimestampMS() {
          kMicrosecondsPerMillisecond;
 }
 
-void ReportDynamicStasticToHiAppevent(const std::string& domain, const std::string& eventName,
-    int32_t eventType, const HiAppeventAdapter::DynamicFrameDropInfo& dynamicFrameDropInfo) {
-  OhosAdapterHelper::GetInstance().GetHiAppeventAdapterInstance().
-        ReportDynamicStastic(domain, eventName, eventType, dynamicFrameDropInfo);
-}
-
-void DynamicFrameLossMonitor::ReportToHiAppEvent() {
-  if (max_app_frametime_ < jankReportThreshold) {
-    return;
-  }
-  HiAppeventAdapter::DynamicFrameDropInfo dynamicFrameDropInfo;
-  dynamicFrameDropInfo.start_time = start_time_;
-  dynamicFrameDropInfo.duration = stop_time_ - start_time_;
-  dynamicFrameDropInfo.max_app_frame_time = max_app_frametime_;
-  dynamicFrameDropInfo.web_id = current_nweb_id_;
-  base::ThreadPool::PostTask(
-      FROM_HERE, {base::TaskPriority::LOWEST},
-      base::BindOnce(&ReportDynamicStasticToHiAppevent,
-          DOMAIN, EVENT_NAME, EventType::STATISTIC, dynamicFrameDropInfo));
-  std::ostringstream log_stream;
-  log_stream << "StartTime: " << start_time_
-             << ", Duration: " << (stop_time_ - start_time_)
-             << ", MaxAppFrametime: " << max_app_frametime_;
-  LOG(DEBUG) << log_stream.str();
-}
-
-void DynamicFrameLossMonitor::ReportToHiSysEvent() {
-  if (total_app_missed_frames_ == 0) {
-    return;
-  }
-  base::ThreadPool::PostTask(
-      FROM_HERE, {base::TaskPriority::LOWEST},
-      base::BindOnce(&ReportSlideJankStats, start_time_,
-                     stop_time_ - start_time_, total_app_frames_,
-                     total_app_missed_frames_, max_app_frametime_,
-                     max_app_seq_missed_frames_));
-  TRACE_EVENT1("base", "WEBVIEW::DYNAMIC_FRAME_DROP_STATISTICS", "info",
-               "StartTime: " + std::to_string(start_time_) +
-                   ", Duration: " + std::to_string(stop_time_ - start_time_) +
-                   ", MaxAppFrametime: " + std::to_string(max_app_frametime_));
-}
 
 void DynamicFrameLossMonitor::ResetStatus() {
   is_monitoring_ = false;
@@ -185,6 +213,7 @@ void DynamicFrameLossMonitor::ResetStatus() {
   max_app_frametime_ = 0;
 
   cached_buffer_number_ = 0;
+  current_nweb_id_ = 0;
 }
 }  // namespace ohos
 }  // namespace base
