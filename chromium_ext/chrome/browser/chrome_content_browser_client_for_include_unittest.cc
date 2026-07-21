@@ -13,12 +13,17 @@
  * limitations under the License.
  */
 
-#include "content/public/test/mock_navigation_handle.h"
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "chrome/browser/chrome_content_browser_client.h"
-#include "content/test/test_render_view_host.h"
+#include "content/public/test/mock_navigation_handle.h"
 #include "content/test/test_render_frame_host.h"
+#include "content/test/test_render_view_host.h"
 
-class ChromeContentBrowserClientForIncludeTest : public content::RenderViewHostImplTestHarness {
+class ChromeContentBrowserClientForIncludeTest
+    : public content::RenderViewHostImplTestHarness {
  protected:
   void SetUp() override {
     content::RenderViewHostTestHarness::SetUp();
@@ -42,10 +47,10 @@ class ChromeContentBrowserClientForIncludeTest : public content::RenderViewHostI
                                     bool is_prerendering,
                                     ui::PageTransition transition,
                                     std::string* html) {
-    return client_->OverrideErrorPage(frame_tree_node_id, browser_initiated, gurl,
-                                      request_method, has_user_gesture, is_redirect,
-                                      is_outermost_main_frame, error_code, error_text,
-                                      is_prerendering, transition, html);
+    return client_->OverrideErrorPage(
+        frame_tree_node_id, browser_initiated, gurl, request_method,
+        has_user_gesture, is_redirect, is_outermost_main_frame, error_code,
+        error_text, is_prerendering, transition, html);
   }
 
   bool TestShouldOverrideUrlLoading(content::FrameTreeNodeId frame_tree_node_id,
@@ -58,17 +63,17 @@ class ChromeContentBrowserClientForIncludeTest : public content::RenderViewHostI
                                     bool is_prerendering,
                                     ui::PageTransition transition,
                                     bool* ignore_navigation) {
-    return client_->ShouldOverrideUrlLoading(frame_tree_node_id,
-                                            browser_initiated, gurl, request_method,
-                                            has_user_gesture, is_redirect,
-                                            is_outermost_main_frame, is_prerendering,
-                                            transition, ignore_navigation);
+    return client_->ShouldOverrideUrlLoading(
+        frame_tree_node_id, browser_initiated, gurl, request_method,
+        has_user_gesture, is_redirect, is_outermost_main_frame, is_prerendering,
+        transition, ignore_navigation);
   }
 
   std::unique_ptr<ChromeContentBrowserClient> client_;
 };
 
-TEST_F(ChromeContentBrowserClientForIncludeTest, OverrideErrorPage_WebContentsIsNull) {
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       OverrideErrorPage_WebContentsIsNull) {
   content::FrameTreeNodeId invalid_id;
   GURL test_url("https://example.com");
   std::string request_method = "GET";
@@ -82,16 +87,16 @@ TEST_F(ChromeContentBrowserClientForIncludeTest, OverrideErrorPage_WebContentsIs
   std::string html = "original_html";
 
   std::string result = TestOverrideErrorPage(
-      invalid_id, true, test_url, request_method, has_user_gesture,
-      is_redirect, is_outermost_main_frame, error_code, error_text,
-      is_prerendering, transition, &html);
+      invalid_id, true, test_url, request_method, has_user_gesture, is_redirect,
+      is_outermost_main_frame, error_code, error_text, is_prerendering,
+      transition, &html);
 
   EXPECT_EQ(result, "");
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading001) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
       main_rfh()->GetFrameTreeNodeId(),  // frame_tree_node_id
       false,                             // browser_initiated
@@ -103,155 +108,102 @@ TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading001) {
       false,                             // is_prerendering
       ui::PAGE_TRANSITION_LINK,          // transition
       &ignore_navigation);
-  
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading002) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      false,
-      GURL("chrome-extension://test/page.html"),
-      "GET",
-      true,
-      false,
-      true,
-      false,
-      ui::PAGE_TRANSITION_LINK,
-      &ignore_navigation);
-  
+      main_rfh()->GetFrameTreeNodeId(), false,
+      GURL("chrome-extension://test/page.html"), "GET", true, false, true,
+      false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading003) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      true,
-      GURL("https://example.com"),
-      "GET",
-      true,
-      false,
-      true,
-      false,
-      ui::PAGE_TRANSITION_LINK,
+      main_rfh()->GetFrameTreeNodeId(), true, GURL("https://example.com"),
+      "GET", true, false, true, false, ui::PAGE_TRANSITION_LINK,
       &ignore_navigation);
-  
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading004) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      content::FrameTreeNodeId(),
-      true,
-      GURL("https://example.com"),
-      "GET",
-      true,
-      true,
-      true,
-      false,
-      ui::PAGE_TRANSITION_LINK,
-      &ignore_navigation);
-  
+      content::FrameTreeNodeId(), true, GURL("https://example.com"), "GET",
+      true, true, true, false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
   EXPECT_TRUE(result);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading005) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      false,
-      GURL("https://example.com"),
-      "GET",
-      true,
-      false,
-      false,
-      false,
-      ui::PAGE_TRANSITION_LINK,
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("https://example.com"),
+      "GET", true, false, false, false, ui::PAGE_TRANSITION_LINK,
       &ignore_navigation);
-  
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading006) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      false,
-      GURL("about:blank"),
-      "GET",
-      true,
-      false,
-      false,
-      false,
-      ui::PAGE_TRANSITION_LINK,
-      &ignore_navigation);
-  
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("about:blank"), "GET", true,
+      false, false, false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading007) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      false,
-      GURL("uuid-in-package:example"),
-      "GET",
-      true,
-      false,
-      false,
-      false,
-      ui::PAGE_TRANSITION_LINK,
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("uuid-in-package:example"),
+      "GET", true, false, false, false, ui::PAGE_TRANSITION_LINK,
       &ignore_navigation);
-  
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading008) {
   std::vector<ui::PageTransition> transitions = {
-    ui::PAGE_TRANSITION_LINK,
-    ui::PAGE_TRANSITION_TYPED,
-    ui::PAGE_TRANSITION_AUTO_BOOKMARK,
-    ui::PAGE_TRANSITION_AUTO_SUBFRAME,
-    ui::PAGE_TRANSITION_MANUAL_SUBFRAME,
-    ui::PAGE_TRANSITION_GENERATED,
-    ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
-    ui::PAGE_TRANSITION_FORM_SUBMIT,
-    ui::PAGE_TRANSITION_RELOAD,
-    ui::PAGE_TRANSITION_KEYWORD,
-    ui::PAGE_TRANSITION_KEYWORD_GENERATED
-  };
-  
+      ui::PAGE_TRANSITION_LINK,
+      ui::PAGE_TRANSITION_TYPED,
+      ui::PAGE_TRANSITION_AUTO_BOOKMARK,
+      ui::PAGE_TRANSITION_AUTO_SUBFRAME,
+      ui::PAGE_TRANSITION_MANUAL_SUBFRAME,
+      ui::PAGE_TRANSITION_GENERATED,
+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
+      ui::PAGE_TRANSITION_FORM_SUBMIT,
+      ui::PAGE_TRANSITION_RELOAD,
+      ui::PAGE_TRANSITION_KEYWORD,
+      ui::PAGE_TRANSITION_KEYWORD_GENERATED};
+
   for (auto transition : transitions) {
     bool ignore_navigation = true;
-    
+
     bool result = TestShouldOverrideUrlLoading(
-        content::FrameTreeNodeId(),
-        false,
-        GURL("https://example.com"),
-        "GET",
-        true,
-        false,
-        true,
-        false,
-        transition,
-        &ignore_navigation);
+        content::FrameTreeNodeId(), false, GURL("https://example.com"), "GET",
+        true, false, true, false, transition, &ignore_navigation);
     EXPECT_TRUE(result);
-    
+
     if (transition & ui::PAGE_TRANSITION_FORWARD_BACK) {
       EXPECT_FALSE(ignore_navigation);
     }
@@ -259,25 +211,18 @@ TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading008) {
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading009) {
-  std::vector<std::string> methods = {"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"};
-  
+  std::vector<std::string> methods = {"GET",  "POST",    "PUT",  "DELETE",
+                                      "HEAD", "OPTIONS", "PATCH"};
+
   for (const auto& method : methods) {
     bool ignore_navigation = true;
-    
+
     bool result = TestShouldOverrideUrlLoading(
-        content::FrameTreeNodeId(),
-        false,
-        GURL("https://example.com"),
-        method,
-        true,
-        false,
-        true,
-        false,
-        ui::PAGE_TRANSITION_LINK,
-        &ignore_navigation);
-    
+        content::FrameTreeNodeId(), false, GURL("https://example.com"), method,
+        true, false, true, false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
     EXPECT_TRUE(result);
-    
+
     if (method != "GET") {
       EXPECT_FALSE(ignore_navigation);
     }
@@ -286,38 +231,67 @@ TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading009) {
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading010) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      content::FrameTreeNodeId(),
-      false,
-      GURL("https://example.com"),
-      "GET",
-      true,
-      false,
-      true,
-      false,
-      ui::PAGE_TRANSITION_LINK,
-      &ignore_navigation);
-  
+      content::FrameTreeNodeId(), false, GURL("https://example.com"), "GET",
+      true, false, true, false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
 
 TEST_F(ChromeContentBrowserClientForIncludeTest, ShouldOverrideUrlLoading011) {
   bool ignore_navigation = true;
-  
+
   bool result = TestShouldOverrideUrlLoading(
-      main_rfh()->GetFrameTreeNodeId(),
-      false,
-      GURL("https://example.com"),
-      "GET",
-      true,
-      false,
-      true,
-      false,
-      ui::PAGE_TRANSITION_FORWARD_BACK,
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("https://example.com"),
+      "GET", true, false, true, false, ui::PAGE_TRANSITION_FORWARD_BACK,
       &ignore_navigation);
-  
+
   EXPECT_TRUE(result);
   EXPECT_FALSE(ignore_navigation);
 }
+
+// OverrideErrorPage with different error codes and invalid frame tree node
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       OverrideErrorPage_ConnectionReset) {
+  content::FrameTreeNodeId invalid_id;
+  GURL test_url("https://example.com");
+  std::string html = "original_html";
+
+  std::string result = TestOverrideErrorPage(
+      invalid_id, true, test_url, "GET", true, false, true, -102,
+      "Connection Reset", false, ui::PAGE_TRANSITION_LINK, &html);
+
+  EXPECT_EQ(result, "");
+  EXPECT_EQ(html, "original_html");
+}
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       OverrideErrorPage_NonMainFrame) {
+  content::FrameTreeNodeId invalid_id;
+  GURL test_url("https://example.com");
+  std::string html = "original_html";
+
+  std::string result = TestOverrideErrorPage(
+      invalid_id, false, test_url, "GET", false, true, false, -2, "Failed",
+      true, ui::PAGE_TRANSITION_AUTO_SUBFRAME, &html);
+
+  EXPECT_EQ(result, "");
+}
+
+#if BUILDFLAG(ARKWEB_ADBLOCK)
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       UpdateAdBlockEnabledForSite_ValidRfh) {
+  GURL test_url("https://example.com");
+  ASSERT_NO_FATAL_FAILURE(
+      client_->UpdateAdBlockEnabledForSite(main_rfh(), test_url));
+}
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       UpdateAdBlockEnabledForSite_EmptyUrl) {
+  GURL empty_url;
+  ASSERT_NO_FATAL_FAILURE(
+      client_->UpdateAdBlockEnabledForSite(main_rfh(), empty_url));
+}
+#endif
