@@ -35,5 +35,12 @@ public:
   }
   virtual size_t GetResponseDataBufferSize() { return 0; }
 #endif
+
+#if BUILDFLAG(ARKWEB_SCHEME_HANDLER)
+  virtual int GetCustomErrorCode()
+  {
+    return 0;
+  }
+#endif
 };
 #endif

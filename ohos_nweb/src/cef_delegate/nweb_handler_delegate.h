@@ -411,6 +411,7 @@ class NWebHandlerDelegate : public ArkWebClientExt,
                               bool is_main_frame,
                               bool has_user_gesture,
                               int error_code,
+                              int custom_error_code,
                               const CefString& error_text) override;
 
   void OnHttpError(CefRefPtr<CefRequest> request,

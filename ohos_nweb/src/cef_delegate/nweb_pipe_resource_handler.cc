@@ -160,11 +160,14 @@ void NWebPipeResourceHandler::GetResponseHeaders(
   LOG(DEBUG) << "scheme_handler get response headers url: "
              << url::LogUtils::ConvertUrlWithMask(response_->GetURL().ToString())
              << " status: " << response_->GetStatus()
-             << " error: " << response_->GetError();
+             << " error: " << response_->GetError()
+             << " custom error code: " << response_->GetCustomErrorCode();
   if (response_->GetURL().ToString() != "") {
     redirectUrl = response_->GetURL();
   }
-
+  if (response_->GetCustomErrorCode() != 0) {
+    custom_error_code_ = response_->GetCustomErrorCode();
+  }
   if (response_->GetError() != 0) {
     response->SetError(response_->GetError());
     response_length = 0;
@@ -199,7 +202,6 @@ void NWebPipeResourceHandler::DidReceiveResponse(
     LOG(ERROR) << "scheme_handler did receve response nullptr";
     return;
   }
-
   response_ = response;
   if (response_->GetMimeType().ToString() == "") {
     std::string name = "content-type";
@@ -314,7 +316,32 @@ void NWebPipeResourceHandler::DidFailWithError(int error_code, bool completeIfNo
   error_code_ = error_code;
   if (!response_ && completeIfNoResponse) {
     response_ = CefResponse::Create();
-    response_->SetError(static_cast<cef_errorcode_t>(ARKWEB_ERR_CONNECTION_FAILED));
+    response_->SetError(static_cast<cef_errorcode_t>(error_code));
+  }
+  if (response_ && response_ready_callback_) {
+    response_ready_callback_->Continue();
+    response_ready_callback_ = nullptr;
+  }
+  if (remain_read_) {
+    remain_read_ = false;
+    resource_ready_callback_->Continue(error_code);
+  }
+}
+
+void NWebPipeResourceHandler::DidFailWithErrorInfo(
+    int error_code, bool completeIfNoResponse, int custom_error_code) {
+  LOG(DEBUG) << "scheme_handler NWebPipeResourceHandler::DidFailWithErrorInfo error_code: " << error_code
+             << " completeIfNoResponse: " << completeIfNoResponse
+             << " custom_error_code: " << custom_error_code;
+  base::AutoLock scoped_lock_(lock_);
+  finished_ = true;
+  finished_with_error_ = true;
+  error_code_ = error_code;
+  custom_error_code_ = custom_error_code;
+  if (!response_ && completeIfNoResponse) {
+    response_ = CefResponse::Create();
+    response_->SetError(static_cast<cef_errorcode_t>(error_code));
+    response_->SetCustomErrorCode(custom_error_code);
   }
   if (response_ && response_ready_callback_) {
     response_ready_callback_->Continue();

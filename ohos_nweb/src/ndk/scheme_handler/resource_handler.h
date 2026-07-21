@@ -18,6 +18,7 @@
 
 #include "ohos_nweb/src/capi/arkweb_scheme_handler.h"
 #include "ohos_nweb/src/cef_delegate/nweb_pipe_resource_handler.h"
+#include "ohos_nweb/src/ndk/scheme_handler/error_info.h"
 #include "ohos_nweb/src/ndk/scheme_handler/response.h"
 
 struct ArkWeb_ResourceHandler_ {
@@ -32,6 +33,7 @@ struct ArkWeb_ResourceHandler_ {
   void DidReceiveData(const uint8_t* buffer, int64_t buf_len) const;
   void DidFinish() const;
   void DidFailWithError(ArkWeb_NetError error_code, bool completeIfNoResponse) const;
+  void DidFailWithErrorInfo(const ArkWeb_ErrorInfo* error_info) const;
 
   CefRefPtr<OHOS::NWeb::NWebPipeResourceHandler> pipe_resource_handler_;
 };

@@ -799,6 +799,46 @@ ARKWEB_EXPORT void OH_ArkWebResponse_GetHeaderByName(
   response->GetHeaderByName(name, value);
 }
 
+ARKWEB_EXPORT int32_t OH_ArkWebResponse_SetErrorInfo(ArkWeb_Response* response,
+                                                    ArkWeb_ErrorInfo* errorInfo) {
+  if (!response) {
+    LOG(ERROR) << "scheme_handler response is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  response->SetErrorInfo(errorInfo);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT ArkWeb_ErrorInfo* OH_ArkWebResponse_GetErrorInfo(const ArkWeb_Response* response) {
+  if (!response) {
+    LOG(ERROR) << "scheme_handler response is nullptr";
+    return nullptr;
+  }
+  return response->GetErrorInfo();
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebResponse_SetCustomErrorCode(ArkWeb_Response* response,
+                                                            int32_t customErrorCode) {
+  if (!response) {
+    LOG(ERROR) << "scheme_handler response is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  response->SetCustomErrorCode(customErrorCode);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebResponse_GetCustomErrorCode(const ArkWeb_Response* response) {
+  if (!response) {
+    LOG(ERROR) << "scheme_handler response is nullptr";
+    return 0;
+  }
+  return response->GetCustomErrorCode();
+}
+
 ARKWEB_EXPORT int32_t OH_ArkWebResourceHandler_Destroy(
     const ArkWeb_ResourceHandler* resource_handler) {
   if (!resource_handler) {
@@ -873,6 +913,95 @@ ARKWEB_EXPORT int32_t OH_ArkWebResourceHandler_DidFailWithErrorV2(
     return ARKWEB_INVALID_PARAM;
   }
   resource_handler->DidFailWithError(error_code, completeIfNoResponse);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT void OH_ArkWeb_CreateErrorInfo(ArkWeb_ErrorInfo** errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr.";
+    return;
+  }
+  *errorInfo = new (OHOS::NWeb::memalign_wrapper(alignof(ArkWeb_ErrorInfo),
+    sizeof(ArkWeb_ErrorInfo))) ArkWeb_ErrorInfo_();
+}
+
+ARKWEB_EXPORT void OH_ArkWeb_DestroyErrorInfo(ArkWeb_ErrorInfo* errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return;
+  }
+  delete errorInfo;
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebErrorInfo_SetCompleteIfNoResponse(
+    ArkWeb_ErrorInfo* errorInfo, bool completeIfNoResponse) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  errorInfo->SetCompleteIfNoResponse(completeIfNoResponse);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT bool OH_ArkWebErrorInfo_GetCompleteIfNoResponse(
+    const ArkWeb_ErrorInfo* errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return false;
+  }
+  return errorInfo->GetCompleteIfNoResponse();
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebErrorInfo_SetCustomErrorCode(
+    ArkWeb_ErrorInfo* errorInfo, int32_t customErrorCode) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  errorInfo->SetCustomErrorCode(customErrorCode);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebErrorInfo_GetCustomErrorCode(
+    const ArkWeb_ErrorInfo* errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return 0;
+  }
+  return errorInfo->GetCustomErrorCode();
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebErrorInfo_SetErrorCode(
+    ArkWeb_ErrorInfo* errorInfo, ArkWeb_NetError errorCode) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  errorInfo->SetErrorCode(errorCode);
+  return ARKWEB_NET_OK;
+}
+
+ARKWEB_EXPORT ArkWeb_NetError OH_ArkWebErrorInfo_GetErrorCode(
+    const ArkWeb_ErrorInfo* errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return ARKWEB_NET_OK;
+  }
+  return errorInfo->GetErrorCode();
+}
+
+ARKWEB_EXPORT int32_t OH_ArkWebResourceHandler_DidFailWithErrorInfo(
+    const ArkWeb_ResourceHandler* resource_handler,
+    const ArkWeb_ErrorInfo* error_info) {
+  if (!resource_handler) {
+    LOG(ERROR) << "scheme_handler resource handler is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  if (!error_info) {
+    LOG(ERROR) << "scheme_handler error_info is nullptr";
+    return ARKWEB_INVALID_PARAM;
+  }
+  resource_handler->DidFailWithErrorInfo(error_info);
   return ARKWEB_NET_OK;
 }
 

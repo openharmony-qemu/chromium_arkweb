@@ -85,3 +85,21 @@ void ArkWeb_ResourceHandler_::DidFailWithError(
  
   pipe_resource_handler_->DidFailWithError(error_code, completeIfNoResponse);
 }
+
+void ArkWeb_ResourceHandler_::DidFailWithErrorInfo(
+    const ArkWeb_ErrorInfo* error_info) const {
+  if (!pipe_resource_handler_) {
+    LOG(ERROR) << "scheme_handler pipe_resource_handler_ is nullptr.";
+    return;
+  }
+
+  if (!error_info) {
+    LOG(ERROR) << "scheme_handler error_info is nullptr.";
+    return;
+  }
+
+  pipe_resource_handler_->DidFailWithErrorInfo(
+      error_info->GetErrorCode(),
+      error_info->GetCompleteIfNoResponse(),
+      error_info->GetCustomErrorCode());
+}
