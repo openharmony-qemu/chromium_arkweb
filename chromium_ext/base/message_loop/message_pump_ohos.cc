@@ -137,11 +137,17 @@ MessagePumpForUI::MessagePumpForUI() {
 }
 
 MessagePumpForUI::~MessagePumpForUI() {
-  ohos_event_handler_adapter_->RemoveFileDescriptorListener(non_delayed_fd_);
-  ohos_event_handler_adapter_->RemoveFileDescriptorListener(delayed_fd_);
+  if (ohos_event_handler_adapter_) {
+    ohos_event_handler_adapter_->RemoveFileDescriptorListener(non_delayed_fd_);
+    ohos_event_handler_adapter_->RemoveFileDescriptorListener(delayed_fd_);
+  }
 
-  close(non_delayed_fd_);
-  close(delayed_fd_);
+  if (non_delayed_fd_ >= 0) {
+    close(non_delayed_fd_);
+  }
+  if (delayed_fd_ >= 0) {
+    close(delayed_fd_);
+  }
 }
 
 void MessagePumpForUI::OnDelayedLooperCallback() {
@@ -242,9 +248,13 @@ void MessagePumpForUI::Quit() {
 
   int64_t value;
   // Clear any pending timer.
-  read(delayed_fd_, &value, sizeof(value));
+  if (delayed_fd_ >= 0) {
+    read(delayed_fd_, &value, sizeof(value));
+  }
   // Clear the eventfd.
-  read(non_delayed_fd_, &value, sizeof(value));
+  if (non_delayed_fd_ >= 0) {
+    read(non_delayed_fd_, &value, sizeof(value));
+  }
 
   if (run_loop_) {
     run_loop_->AfterRun();

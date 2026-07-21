@@ -16,6 +16,7 @@
 #include "arkweb/chromium_ext/url/ohos/log_utils.h"
 #include "arkweb/build/features/features.h"
 #include "base/base_switches.h"
+#include "base/strings/string_number_conversions.h"
 #include "net/base/url_util.h"
 #if BUILDFLAG(ARKWEB_RECOURCE_SCHEME)
 #include "base/datashare_uri_utils.h"
@@ -40,7 +41,12 @@ int32_t GetApplicationApiVersion() {
   if (apiVersion.empty()) {
     return -1;
   }
-  return std::stoi(apiVersion);
+  int32_t apiVersionNumber;
+  if (!base::StringToInt(apiVersion, &apiVersionNumber)) {
+    LOG(ERROR) << "Invalid apiVersion: " << apiVersion;
+    return -1;
+  }
+  return apiVersionNumber;
 }
 
 class ResourceURLLoader : public network::mojom::URLLoader {

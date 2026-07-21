@@ -242,6 +242,9 @@ std::string CertificateManagerModel::ParsePfxGetCommonName(
   X509_NAME* subjectName = X509_get_subject_name(cert);
   int commonNameIndex =
       X509_NAME_get_index_by_NID(subjectName, NID_commonName, -1);
+  if (commonNameIndex == -1) {
+    return "";
+  }
   X509_NAME_ENTRY* commonNameEntry =
       X509_NAME_get_entry(subjectName, commonNameIndex);
   ASN1_STRING* commonNameASN1 = X509_NAME_ENTRY_get_data(commonNameEntry);
