@@ -18,6 +18,7 @@
 
 #include <mutex>
 
+#include "base/functional/callback.h"
 #include "base/values.h"
 #include "ohos_nweb/src/capi/nweb_extension_action_icon.h"
 #include "ohos_nweb/src/capi/nweb_extension_api_callback.h"
@@ -25,6 +26,8 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
+
+using ActionOpenPopupCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
 
 namespace extensions {
 class MockNWebExtensionActionCefDelegate;
@@ -47,6 +50,7 @@ class NWebExtensionActionCefDelegate {
   static void WebExtensionActionShowPopup(int tabId, std::string extensionId);
   static void WebExtensionSetPopupWindowId(int popupNwebId, int windowId);
   static void WebExtensionErasePopupWindowId(int popupNwebId);
+  static bool HasExtensionListener();
 
   void OnDisable(const std::string& extensionId,
                  std::optional<int>& tabId,
@@ -61,6 +65,16 @@ class NWebExtensionActionCefDelegate {
       const std::optional<NWebExtensionActionOpenPopupOptions>& options,
       std::optional<std::string> contextType = std::nullopt,
       std::optional<bool> includeIncognitoInfo = std::nullopt);
+
+  bool OnOpenPopupV3(
+      const std::string& extensionId,
+      const std::optional<NWebExtensionActionOpenPopupOptions>& options,
+      ActionOpenPopupCallback callback,
+      std::optional<std::string> contextType = std::nullopt,
+      std::optional<bool> includeIncognitoInfo = std::nullopt);
+
+  static void OpenPopupCallback(int request_id,
+                                const std::optional<std::string>& error);
   void OnSetTitle(const std::string& extensionId,
                   const NWebExtensionActionSetTitleDetails& details,
                   std::optional<std::string> contextType = std::nullopt,

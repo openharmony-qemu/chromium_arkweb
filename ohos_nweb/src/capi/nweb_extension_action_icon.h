@@ -117,10 +117,11 @@ struct NWebExtensionActionEnableOptionsV2 {
 };
 
 struct NWebExtensionActionOpenPopupOptionsV2 {
-  static constexpr int NUM_PROPERTIES = 3;
+  static constexpr int NUM_PROPERTIES = 4;
   std::optional<int32_t> windowId;
   std::optional<std::string> contextType;
   std::optional<bool> includeIncognitoInfo;
+  std::optional<int32_t> requestId;
 };
 
 struct NWebExtensionActionSetTitleDetailsV2 {

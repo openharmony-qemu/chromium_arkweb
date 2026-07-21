@@ -15,6 +15,8 @@
 
 #include "nweb_extension_action_cef_delegate.h"
 
+#include <map>
+
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "cef/libcef/browser/browser_host_base.h"
@@ -37,6 +39,8 @@ void* __real_malloc(size_t);
 namespace OHOS::NWeb {
 
 namespace {
+
+std::map<int, ActionOpenPopupCallback> g_action_open_popup_map_;
 
 NWebExtensionActionIconColorType GetColorTypeFromSkBitmap(
     const SkBitmap& bitmap) {
@@ -195,6 +199,16 @@ NWebExtensionActionCefDelegate* NWebExtensionActionCefDelegate::GetInstance() {
 }
 
 // static
+bool NWebExtensionActionCefDelegate::HasExtensionListener() {
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
+  return false;
+#else
+  return nweb_ex::NWebExtensionActionDelegateImpl::GetInstance()
+      .HasOpenPopupV3Callback();
+#endif
+}
+
+// static
 void NWebExtensionActionCefDelegate::WebExtensionActionPinnedStateChanged(
     std::string extensionId,
     bool isPinned) {
@@ -268,6 +282,40 @@ void NWebExtensionActionCefDelegate::OnOpenPopup(
   nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnOpenPopupV2(extensionId, optionsV2);
   return;
 #endif
+}
+
+NO_SANITIZE("cfi-icall")
+bool NWebExtensionActionCefDelegate::OnOpenPopupV3(
+    const std::string& extensionId,
+    const std::optional<NWebExtensionActionOpenPopupOptions>& options,
+    ActionOpenPopupCallback callback,
+    std::optional<std::string> contextType,
+    std::optional<bool> includeIncognitoInfo) {
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
+  return false;
+#else
+  static int request_id_v3 = 0;
+  request_id_v3++;
+  g_action_open_popup_map_[request_id_v3] = std::move(callback);
+  NWebExtensionActionOpenPopupOptionsV2 optionsV2 = {
+      options.has_value() ? options->windowId : std::nullopt, contextType,
+      includeIncognitoInfo, request_id_v3};
+  bool result = nweb_ex::NWebExtensionActionDelegateImpl::GetInstance().OnOpenPopupV3(
+      extensionId, optionsV2);
+  if (!result) {
+    g_action_open_popup_map_.erase(request_id_v3);
+  }
+  return result;
+#endif
+}
+
+void NWebExtensionActionCefDelegate::OpenPopupCallback(
+    int request_id,
+    const std::optional<std::string>& error) {
+  if (g_action_open_popup_map_.count(request_id)) {
+    std::move(g_action_open_popup_map_[request_id]).Run(error);
+    g_action_open_popup_map_.erase(request_id);
+  }
 }
 
 NO_SANITIZE("cfi-icall")
