@@ -127,10 +127,10 @@ class BASE_EXPORT MessagePumpForUI : public MessagePump {
   base::OnceClosure on_quit_callback_;
 
   // The file descriptor used to signal that non-delayed work is available.
-  int non_delayed_fd_;
+  int non_delayed_fd_ = -1;
 
   // The file descriptor used to signal that delayed work is available.
-  int delayed_fd_;
+  int delayed_fd_ = -1;
 
   std::unique_ptr<OHOS::NWeb::EventHandlerAdapter> ohos_event_handler_adapter_;
   std::shared_ptr<OHOS::NWeb::EventHandlerFDListenerAdapter> ohos_listener;
