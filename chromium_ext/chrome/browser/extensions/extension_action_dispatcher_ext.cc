@@ -60,7 +60,7 @@ void ExtensionActionInvokeActiveTab(
 void ExtensionActionDispatcher::DispatchExtensionActionClickedWithCustomArgs(
     content::BrowserContext* context,
     std::string extension_id,
-    const NWebExtensionTab* custom_tab) {
+    const NWebExtensionTabV2* custom_tab) {
   LOG(DEBUG) << "ExtensionActionAPI "
                 "DispatchExtensionActionClickedWithCustomArgs called";
   events::HistogramValue histogram_value = events::UNKNOWN;
@@ -99,17 +99,17 @@ void ExtensionActionDispatcher::DispatchExtensionActionClickedWithCustomArgs(
     return;
   }
   base::Value::List args;
-  GURL gurl(custom_tab->url.value_or(""));
+  GURL gurl(custom_tab->tab_v1.url.value_or(""));
   constexpr mojom::ContextType context_type =
       mojom::ContextType::kPrivilegedExtension;
   ExtensionTabUtil::ScrubTabBehavior scrub_tab_behavior =
-      ExtensionTabUtil::GetScrubTabBehaviorExt(extension, context_type, gurl, custom_tab->id.value_or(-1));
- 
-  NWebExtensionTab tab_t = *custom_tab;
+      ExtensionTabUtil::GetScrubTabBehaviorExt(extension, context_type, gurl, custom_tab->tab_v1.id.value_or(-1));
+
+  NWebExtensionTabV2 tab_t = *custom_tab;
   args.Append(GetTabValue(tab_t, scrub_tab_behavior));
 
-  if (custom_tab->id.has_value()) {
-    ExtensionActionInvokeActiveTab(context, custom_tab->id.value(), extension_id);
+  if (custom_tab->tab_v1.id.has_value()) {
+    ExtensionActionInvokeActiveTab(context, custom_tab->tab_v1.id.value(), extension_id);
   }
 
   DispatchEventToExtension(context,

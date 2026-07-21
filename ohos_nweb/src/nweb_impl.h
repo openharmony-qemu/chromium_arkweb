@@ -1103,7 +1103,7 @@ class NWebImpl : public NWeb {
   void WebExtensionTabUpdated(
       int tab_id,
       std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo,
-      std::unique_ptr<NWebExtensionTab> tab);
+      std::unique_ptr<NWebExtensionTabV2> tab);
   void WebExtensionTabAttached(int tab_id,
       std::unique_ptr<NWebExtensionTabAttachInfo> attachInfo);
   void WebExtensionTabDetached(int tab_id,

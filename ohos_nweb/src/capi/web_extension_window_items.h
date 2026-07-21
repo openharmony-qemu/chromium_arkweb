@@ -145,4 +145,11 @@ struct WebExtensionWindowRemoveInfoV2 {
   std::optional<bool> includeIncognitoInfo;
 };
 
+// V2 Window type with V2 tabs (supporting lastAccessed)
+// Contains a V1 Window (reuses its conversion functions) and V2 tabs override
+struct WebExtensionWindowV2 {
+  WebExtensionWindow window;
+  std::vector<NWebExtensionTabV2> tabs;  // V2 tabs override window.tabs
+};
+
 #endif  // OHOS_NWEB_SRC_WEB_EXTENSION_WINDOW_ITEMS_H_

@@ -991,7 +991,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               WebExtensionTabUpdated,
               (int tab_id,
                std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo,
-               std::unique_ptr<NWebExtensionTab> tab),
+               std::unique_ptr<NWebExtensionTabV2> tab),
               (override));
   MOCK_METHOD(void,
               WebExtensionTabAttached,
