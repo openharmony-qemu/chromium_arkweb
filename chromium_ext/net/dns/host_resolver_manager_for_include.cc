@@ -222,13 +222,10 @@ void HostResolverManager::GetLocalAddress(IPEndPoint* address) {
 
 void HostResolverManager::ReportSecureFallbackDnsResult(
     const std::optional<HostCache::Entry> insecure_results,
-    const HostResolverDnsTask::Results& secure_fallback_results,
+    const HostCache::Entry& secure_fallback_results,
     const std::string& host,
     const int index,
     const base::TimeDelta& duration) {
-  HostCache::Entry legacy_results(secure_fallback_results, base::Time::Now(),
-                          tick_clock_->NowTicks(),
-                          HostCache::Entry::SOURCE_DNS);
   std::string insecure_ip_info;
   std::string insecure_ip_info_mask;
   if (insecure_results && !insecure_results->ip_endpoints().empty()) {
@@ -241,11 +238,11 @@ void HostResolverManager::ReportSecureFallbackDnsResult(
   }
   std::string secure_ip_info;
   std::string secure_ip_info_mask;
-  if (legacy_results.error() == OK &&
-    !legacy_results.ip_endpoints().empty()) {
-    IPListToString(legacy_results.ip_endpoints(), secure_ip_info,
+  if (secure_fallback_results.error() == OK &&
+    !secure_fallback_results.ip_endpoints().empty()) {
+    IPListToString(secure_fallback_results.ip_endpoints(), secure_ip_info,
                    false);
-    IPListToString(legacy_results.ip_endpoints(), secure_ip_info_mask,
+    IPListToString(secure_fallback_results.ip_endpoints(), secure_ip_info_mask,
                    true);
    } else {
     secure_ip_info.append("[]");
@@ -271,7 +268,7 @@ void HostResolverManager::ReportSecureFallbackDnsResult(
   content.push_back(
       std::string(NetworkChangeNotifier::ConnectionTypeToString(type)));
   content.push_back(kResult);
-  content.push_back(base::NumberToString(legacy_results.error()));
+  content.push_back(base::NumberToString(secure_fallback_results.error()));
   content.push_back(kDuration);
   content.push_back(base::NumberToString(duration.InMilliseconds()));
   auto time_stamp =
@@ -289,7 +286,7 @@ void HostResolverManager::ReportSecureFallbackDnsResult(
        << ", udp_dns_ip_list=" << insecure_ip_info
        << ", ip_list=" << secure_ip_info << ", network_type="
        << std::string(NetworkChangeNotifier::ConnectionTypeToString(type))
-       << ", result=" << legacy_results.error()
+       << ", result=" << secure_fallback_results.error()
        << ", duration=" << duration.InMilliseconds()
        << ", time_stamp=" << time_stamp;
 
@@ -315,7 +312,7 @@ void HostResolverManager::ReportSecureFallbackDnsResult(
       << " networkType:" << NetworkChangeNotifier::ConnectionTypeToString(type)
       << " udpDnsIpList:" << insecure_ip_info_mask
       << " ipList:" << secure_ip_info_mask
-      << " result:" << legacy_results.error()
+      << " result:" << secure_fallback_results.error()
       << " duration:" << duration.InMilliseconds()
       << " timeStamp:" << time_stamp
       << " host:" << url::LogUtils::ConvertUrlWithMask(host);

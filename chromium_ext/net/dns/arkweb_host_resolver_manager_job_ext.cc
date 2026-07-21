@@ -86,7 +86,7 @@ bool ArkWebHostResolverManagerJobExt::CheckDnsFallBackTask(int net_error) {
 }
 
 void ArkWebHostResolverManagerJobExt::ReportDnsFallBackTaskResult(
-    HostResolverDnsTask::Results& results,
+    const HostCache::Entry& results,
     base::TimeDelta duration) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableNwebExHttpDnsFallback)) {
@@ -181,7 +181,8 @@ void ArkWebHostResolverManagerJobExt::MaybeModifyProcResolveResults(
     const std::string& host,
     bool secure_dns_fallback_available,
     int& net_error,
-    AddressList& out_addr_list) {
+    AddressList& out_addr_list,
+    std::vector<IPEndPoint>& truncation_results) {
   if (net_error != OK) {
     return;
   }
@@ -191,7 +192,7 @@ void ArkWebHostResolverManagerJobExt::MaybeModifyProcResolveResults(
   std::vector<IPEndPoint> addresses;
   bool need_to_replace_address = MaybeNeedToProcessAddressList(
       host, out_addr_list.endpoints(), secure_dns_fallback_available, addresses,
-      need_to_modify_resolve_result);
+      need_to_modify_resolve_result, truncation_results);
   if (!need_to_replace_address) {
     return;
   }

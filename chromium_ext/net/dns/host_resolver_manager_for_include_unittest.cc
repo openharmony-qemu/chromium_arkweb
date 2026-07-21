@@ -50,7 +50,7 @@ TEST_F(HostResolverManagerDnsTest, ReportSecureFallbackDnsResult001) {
                                             time);
 
     constexpr base::TimeDelta second = base::Seconds(100);
-    // resolver_->ReportSecureFallbackDnsResult(insecure_results, secure_fallback_results, "example.com", 0, second);
+    resolver_->ReportSecureFallbackDnsResult(insecure_results, secure_fallback_results, "example.com", 0, second);
     std::string log_output = testing::internal::GetCapturedStderr();
     EXPECT_EQ(log_output.find("udp_dns_ip_list=[]"), std::string::npos);
     EXPECT_EQ(log_output.find("ip_list=[]"), std::string::npos);
@@ -70,7 +70,7 @@ TEST_F(HostResolverManagerDnsTest, ReportSecureFallbackDnsResult002) {
                                             time);
 
     constexpr base::TimeDelta second = base::Seconds(100);
-    // resolver_->ReportSecureFallbackDnsResult(insecure_results, secure_fallback_results, "example.com", 0, second);
+    resolver_->ReportSecureFallbackDnsResult(insecure_results, secure_fallback_results, "example.com", 0, second);
     std::string log_output = testing::internal::GetCapturedStderr();
     EXPECT_EQ(log_output.find("udp_dns_ip_list=[]"), std::string::npos);
     EXPECT_EQ(log_output.find("ip_list=[]"), std::string::npos);
