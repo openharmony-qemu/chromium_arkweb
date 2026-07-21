@@ -33,61 +33,67 @@ void UpdateWithNWebExtensionTabInfo(api::tabs::Tab& tab) {
   if (!nweb_tab) {
     return;
   }
-  tab.active = nweb_tab->active;
-  if (nweb_tab->audible) {
-    tab.audible = nweb_tab->audible.value();
+  tab.active = nweb_tab->tab_v1.active;
+  if (nweb_tab->tab_v1.audible) {
+    tab.audible = nweb_tab->tab_v1.audible.value();
   }
-  tab.auto_discardable = nweb_tab->autoDiscardable;
-  tab.index = nweb_tab->index;
-  tab.group_id = nweb_tab->groupId;
-  tab.window_id = nweb_tab->windowId;
-  if (nweb_tab->openerTabId) {
-    tab.opener_tab_id = nweb_tab->openerTabId;
+  tab.auto_discardable = nweb_tab->tab_v1.autoDiscardable;
+  tab.index = nweb_tab->tab_v1.index;
+  tab.group_id = nweb_tab->tab_v1.groupId;
+  tab.window_id = nweb_tab->tab_v1.windowId;
+  if (nweb_tab->tab_v1.openerTabId) {
+    tab.opener_tab_id = nweb_tab->tab_v1.openerTabId;
   }
-  if (nweb_tab->lastAccessed) {
-    tab.last_accessed = nweb_tab->lastAccessed.value();
+  if (nweb_tab->last_accessed) {
+    tab.last_accessed = nweb_tab->last_accessed.value();
   }
-  tab.highlighted = nweb_tab->highlighted;
-  tab.pinned = nweb_tab->pinned;
-  tab.discarded = nweb_tab->discarded;
-  if (nweb_tab->mutedInfo) {
+  if (nweb_tab->frozen) {
+    tab.frozen = nweb_tab->frozen.value();
+  }
+  if (nweb_tab->split_view_id) {
+    tab.split_view_id = nweb_tab->split_view_id.value();
+  }
+  tab.highlighted = nweb_tab->tab_v1.highlighted;
+  tab.pinned = nweb_tab->tab_v1.pinned;
+  tab.discarded = nweb_tab->tab_v1.discarded;
+  if (nweb_tab->tab_v1.mutedInfo) {
     if (!tab.muted_info) {
       api::tabs::MutedInfo muted_info;
       tab.muted_info = std::move(muted_info);
     }
-    tab.muted_info->muted = nweb_tab->mutedInfo->muted;
-    if (nweb_tab->mutedInfo->extensionId) {
-      tab.muted_info->extension_id = nweb_tab->mutedInfo->extensionId.value();
+    tab.muted_info->muted = nweb_tab->tab_v1.mutedInfo->muted;
+    if (nweb_tab->tab_v1.mutedInfo->extensionId) {
+      tab.muted_info->extension_id = nweb_tab->tab_v1.mutedInfo->extensionId.value();
     }
-    if (nweb_tab->mutedInfo->reason) {
+    if (nweb_tab->tab_v1.mutedInfo->reason) {
       tab.muted_info->reason =
-          api::tabs::ParseMutedInfoReason(nweb_tab->mutedInfo->reason.value());
+          api::tabs::ParseMutedInfoReason(nweb_tab->tab_v1.mutedInfo->reason.value());
     }
   }
-  if (nweb_tab->url) {
-    tab.url = nweb_tab->url.value();
+  if (nweb_tab->tab_v1.url) {
+    tab.url = nweb_tab->tab_v1.url.value();
   }
-  if (nweb_tab->pendingUrl) {
-    tab.pending_url = nweb_tab->pendingUrl.value();
+  if (nweb_tab->tab_v1.pendingUrl) {
+    tab.pending_url = nweb_tab->tab_v1.pendingUrl.value();
   }
-  if (nweb_tab->title) {
-    tab.title = nweb_tab->title.value();
+  if (nweb_tab->tab_v1.title) {
+    tab.title = nweb_tab->tab_v1.title.value();
   }
-  if (nweb_tab->favIconUrl) {
-    tab.fav_icon_url = nweb_tab->favIconUrl.value();
+  if (nweb_tab->tab_v1.favIconUrl) {
+    tab.fav_icon_url = nweb_tab->tab_v1.favIconUrl.value();
   }
-  if (nweb_tab->status) {
-    tab.status = api::tabs::ParseTabStatus(nweb_tab->status.value());
+  if (nweb_tab->tab_v1.status) {
+    tab.status = api::tabs::ParseTabStatus(nweb_tab->tab_v1.status.value());
   }
-  tab.incognito = nweb_tab->incognito;
-  if (nweb_tab->sessionId) {
-    tab.session_id = nweb_tab->sessionId.value();
+  tab.incognito = nweb_tab->tab_v1.incognito;
+  if (nweb_tab->tab_v1.sessionId) {
+    tab.session_id = nweb_tab->tab_v1.sessionId.value();
   }
-  if (nweb_tab->width) {
-    tab.width = nweb_tab->width;
+  if (nweb_tab->tab_v1.width) {
+    tab.width = nweb_tab->tab_v1.width;
   }
-  if (nweb_tab->height) {
-    tab.height = nweb_tab->height;
+  if (nweb_tab->tab_v1.height) {
+    tab.height = nweb_tab->tab_v1.height;
   }
 }
 }  // namespace

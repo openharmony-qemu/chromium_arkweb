@@ -45,14 +45,14 @@ TEST_F(NWebExtensionSessionsHandlerDelegateTest, OnRecentlyClosedReceived001) {
   bool callback_called = false;
 
   auto test_lambda = [](
-      bool* cl_flag, 
+      bool* cl_flag,
       std::vector<NWebExtensionSession>& sessions,
       const std::optional<std::string>& error){
         *cl_flag = true;
       };
 
   base::RepeatingCallback<void(std::vector<NWebExtensionSession>&, const std::optional<std::string>&)>
-        test_callback = base::BindRepeating(test_lambda, base::Unretained(&callback_called));  
+        test_callback = base::BindRepeating(test_lambda, base::Unretained(&callback_called));
   g_get_recently_closed_callbacks_.emplace(test_request_id, test_callback);
 
   EXPECT_EQ(g_get_recently_closed_callbacks_.count(test_request_id), 1);
@@ -87,14 +87,14 @@ TEST_F(NWebExtensionSessionsHandlerDelegateTest, OnSessionRestored001) {
   bool callback_called = false;
 
   auto test_lambda = [](
-      bool* cl_flag, 
+      bool* cl_flag,
       std::optional<NWebExtensionSession>& sessions,
       const std::optional<std::string>& error){
         *cl_flag = true;
       };
 
   base::RepeatingCallback<void(std::optional<NWebExtensionSession>&, const std::optional<std::string>&)>
-        test_callback = base::BindRepeating(test_lambda, base::Unretained(&callback_called));  
+        test_callback = base::BindRepeating(test_lambda, base::Unretained(&callback_called));
   g_restore_callbacks_.emplace(test_request_id, test_callback);
 
   EXPECT_EQ(g_restore_callbacks_.count(test_request_id), 1);

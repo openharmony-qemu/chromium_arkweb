@@ -41,7 +41,7 @@ class NWebExtensionActionCefDelegate {
  public:
   static NWebExtensionActionCefDelegate* GetInstance();
   static void WebExtensionActionClicked(std::string extension_id,
-                                        const NWebExtensionTab* tab);
+                                        const NWebExtensionTabV2* tab);
   static void WebExtensionActionPinnedStateChanged(std::string extensionId,
                                                    bool isPinned);
   static void WebExtensionActionShowPopup(int tabId, std::string extensionId);

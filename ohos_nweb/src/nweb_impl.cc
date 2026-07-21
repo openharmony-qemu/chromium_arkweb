@@ -8004,7 +8004,7 @@ void NWebImpl::WebExtensionTabRemoved(int tab_id, bool isWindowClosing, int wind
 void NWebImpl::WebExtensionTabUpdated(
     int tab_id,
     std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo,
-    std::unique_ptr<NWebExtensionTab> tab) {
+    std::unique_ptr<NWebExtensionTabV2> tab) {
   if (nweb_delegate_ == nullptr) {
     return;
   }

@@ -205,7 +205,7 @@ void NWebExtensionActionCefDelegate::WebExtensionActionPinnedStateChanged(
 // static
 void NWebExtensionActionCefDelegate::WebExtensionActionClicked(
     std::string extension_id,
-    const NWebExtensionTab* tab) {
+    const NWebExtensionTabV2* tab) {
   AlloyBrowserHostImplExt::WebExtensionActionClicked(extension_id, tab);
 }
 

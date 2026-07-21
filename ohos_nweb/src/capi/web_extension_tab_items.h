@@ -260,6 +260,13 @@ struct NWebExtensionTab {
   int32_t windowId;
 };
 
+struct NWebExtensionTabV2 {
+  NWebExtensionTab tab_v1;
+  std::optional<int64_t> last_accessed;
+  std::optional<bool> frozen;
+  std::optional<int32_t> split_view_id;
+};
+
 struct NWebExtensionTabMovePropertiesV2 {
   NWebExtensionTabMoveProperties properties;
   std::optional<std::string> contextType;

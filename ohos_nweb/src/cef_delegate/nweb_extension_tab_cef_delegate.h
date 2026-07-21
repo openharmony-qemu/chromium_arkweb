@@ -23,16 +23,30 @@
 #include "ohos_nweb/src/capi/web_extension_tab_items.h"
 #include "ohos_nweb/src/capi/web_extension_window_items.h"
 
-using TabRemovedCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
+using TabRemovedCallback =
+    base::RepeatingCallback<void(const std::optional<std::string>&)>;
 using TabMovedCallback =
-  base::RepeatingCallback<void(const std::vector<NWebExtensionTab>&, const std::optional<std::string>&)>;
-using TabCreatedCallback = base::RepeatingCallback<void(const NWebExtensionTab&, const std::optional<std::string>&)>;
-using TabUpdatedCallback = base::RepeatingCallback<void(NWebExtensionTab&, const std::optional<std::string>&)>;
-using TabDiscardedCallback = base::RepeatingCallback<void(NWebExtensionTab&, const std::optional<std::string>&)>;
-using TabDuplicatedCallback = base::RepeatingCallback<void(NWebExtensionTab&, const std::optional<std::string>&)>;
-using TabGroupedCallback = base::RepeatingCallback<void(int, const std::optional<std::string>&)>;
-using TabUngroupedCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
-using TabHighlightedCallback = base::RepeatingCallback<void(WebExtensionWindow&, const std::optional<std::string>&)>;
+    base::RepeatingCallback<void(const std::vector<NWebExtensionTabV2>&,
+                                 const std::optional<std::string>&)>;
+using TabCreatedCallback =
+    base::RepeatingCallback<void(const NWebExtensionTabV2&,
+                                 const std::optional<std::string>&)>;
+using TabUpdatedCallback =
+    base::RepeatingCallback<void(NWebExtensionTabV2&,
+                                 const std::optional<std::string>&)>;
+using TabDiscardedCallback =
+    base::RepeatingCallback<void(NWebExtensionTabV2&,
+                                 const std::optional<std::string>&)>;
+using TabDuplicatedCallback =
+    base::RepeatingCallback<void(NWebExtensionTabV2&,
+                                 const std::optional<std::string>&)>;
+using TabGroupedCallback =
+    base::RepeatingCallback<void(int, const std::optional<std::string>&)>;
+using TabUngroupedCallback =
+    base::RepeatingCallback<void(const std::optional<std::string>&)>;
+using TabHighlightedCallback =
+    base::RepeatingCallback<void(WebExtensionWindowV2&,
+                                 const std::optional<std::string>&)>;
 
 namespace OHOS::NWeb {
 
@@ -41,13 +55,13 @@ class NWebExtensionTabCefDelegate {
   static bool HasExtensionListener();
 
   // chrome.tabs.get
-  static std::unique_ptr<NWebExtensionTab> GetTab(
+  static std::unique_ptr<NWebExtensionTabV2> GetTab(
       int tabId,
       std::optional<std::string> contextType = std::nullopt,
       std::optional<bool> includeIncognitoInfo = std::nullopt);
 
   // chrome.tabs.query
-  static std::vector<NWebExtensionTab> QueryTab(
+  static std::vector<NWebExtensionTabV2> QueryTab(
       NWebExtensionTabQueryInfoV2& queryInfo);
 
   // chrome.tabs.update
@@ -57,14 +71,14 @@ class NWebExtensionTabCefDelegate {
       TabUpdatedCallback callback);
 
   static void TabUpdateCallback(int request_id,
-      NWebExtensionTab& tab, const std::optional<std::string>& error);
+      NWebExtensionTabV2& tab, const std::optional<std::string>& error);
 
   // chrome.tabs.create
   static bool CreateTab(NWebTabCreateInfoV2& create_info,
                  TabCreatedCallback callback);
 
   static void TabCreateCallback(int request_id,
-      const NWebExtensionTab& tab, const std::optional<std::string>& error);
+      const NWebExtensionTabV2& tab, const std::optional<std::string>& error);
 
   // chrome.tabs.move
   static bool MoveTab(std::vector<int>& tab_ids,
@@ -73,7 +87,7 @@ class NWebExtensionTabCefDelegate {
 
   static void TabMoveCallback(
       int requestId,
-      const std::vector<NWebExtensionTab>& tabs,
+      const std::vector<NWebExtensionTabV2>& tabs,
       const std::optional<std::string>& error);
 
   // chrome.tabs.remove
@@ -90,7 +104,7 @@ class NWebExtensionTabCefDelegate {
                          TabDiscardedCallback callback);
 
   static void TabDiscardCallback(int request_id,
-      NWebExtensionTab& tab, const std::optional<std::string>& error);
+      NWebExtensionTabV2& tab, const std::optional<std::string>& error);
 
   // chrome.tabs.duplicate
   static bool DuplicateTab(int tab_id,
@@ -98,7 +112,7 @@ class NWebExtensionTabCefDelegate {
                            TabDuplicatedCallback callback);
 
   static void TabDuplicateCallback(int request_id,
-      NWebExtensionTab& tab, const std::optional<std::string>& error);
+      NWebExtensionTabV2& tab, const std::optional<std::string>& error);
 
   // chrome.tabs.group
   static bool GroupTab(NWebExtensionTabGroupOptions& options, TabGroupedCallback callback);
@@ -116,7 +130,7 @@ class NWebExtensionTabCefDelegate {
   static bool HighlightTab(NWebExtensionTabHighlightInfo& info, TabHighlightedCallback callback);
 
   static void TabHighlightCallback(int request_id,
-      WebExtensionWindow& window, const std::optional<std::string>& error);
+      WebExtensionWindowV2& window, const std::optional<std::string>& error);
 
   // like chrome::FindAnyBrowser, get an existing tab.
   static int GetAnyTab(NWebExtensionTabGetAnyTabParams& params);
@@ -125,7 +139,7 @@ class NWebExtensionTabCefDelegate {
   static void OnTabActivated(std::unique_ptr<NWebExtensionTabActiveInfo> activeInfo);
 
   // onCreated event
-  static void OnTabCreated(std::unique_ptr<NWebExtensionTab> tab);
+  static void OnTabCreated(std::unique_ptr<NWebExtensionTabV2> tab);
 
   // OnTabHighlighted event
   static void OnTabHighlighted(
