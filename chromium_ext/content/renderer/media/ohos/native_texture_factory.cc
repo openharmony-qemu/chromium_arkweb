@@ -159,7 +159,11 @@ NativeTextureFactory::NativeTextureFactory(
 NativeTextureFactory::~NativeTextureFactory() = default;
 
 ScopedNativeTextureProxy NativeTextureFactory::CreateProxy(
-    gl::ohos::TextureOwnerMode texture_owner_mode) {
+    gl::ohos::TextureOwnerMode texture_owner_mode
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    , bool is_custom_media_player
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+  ) {
   // Send a StreamTexture receiver down to the GPU process. This will be bound
   // to a concrete StreamTexture impl there.
   int32_t native_id = channel_->GenerateRouteID();
@@ -168,6 +172,9 @@ ScopedNativeTextureProxy NativeTextureFactory::CreateProxy(
   int32_t native_embed_id = -1;
   channel_->GetGpuChannel().CreateNativeTexture(
       native_id, (int32_t)texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       remote.InitWithNewEndpointAndPassReceiver(), &native_embed_id);
   if (native_embed_id == -1) {
     DLOG(ERROR) << "[NativeEmbed] Fail to create NativeTexture.";

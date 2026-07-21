@@ -54,6 +54,9 @@ class GpuChannelExt : public GpuChannel {
   int32_t CreateNativeTexture(
       int32_t native_id,
       gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver);
 
   // Called by StreamTexture to remove the GpuChannel's reference to the

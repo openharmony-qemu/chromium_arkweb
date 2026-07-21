@@ -170,7 +170,11 @@ blink::WebNativeBridge* ArkwebMediaFactoryExt::CreateWebNativeBridge(
           &NativeTextureWrapperImpl::Create,
           base::ohos::IsEmulator() ||
               base::SysInfo::IsLowEndDevice() /*enable_texture_copy*/,
-              texture_owner_mode, render_thread_->GetNativeTexureFactory(),
+              texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+              false,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+              render_thread_->GetNativeTexureFactory(),
               render_frame_->GetTaskRunner(blink::TaskType::kInternalMedia)));
   
     factory_selector->AddBaseFactory(media::RendererType::kNative, std::move(native_factory));

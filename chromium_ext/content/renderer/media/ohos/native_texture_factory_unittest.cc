@@ -105,7 +105,11 @@ class NativeTextureProxyTest : public testing::Test {
             }));
 
     proxy_ = textureFactory_->CreateProxy(
-        gl::ohos::TextureOwnerMode::kNativeImageTexture);
+        gl::ohos::TextureOwnerMode::kNativeImageTexture
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+        , false
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+        );
     EXPECT_NE(proxy_, nullptr);
   }
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
@@ -304,7 +308,11 @@ class NativeTextureFactoryTest : public testing::Test {
 };
 TEST_F(NativeTextureFactoryTest, CreateProxy001) {
   ASSERT_NE(textureFactory_, nullptr);
-  auto proxy = textureFactory_->CreateProxy(gl::ohos::TextureOwnerMode::kNone);
+  auto proxy = textureFactory_->CreateProxy(gl::ohos::TextureOwnerMode::kNone
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      , false
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      );
   EXPECT_EQ(proxy, nullptr);
 
   EXPECT_CALL(mock_gpu_channel_,
@@ -319,7 +327,11 @@ TEST_F(NativeTextureFactoryTest, CreateProxy001) {
           }));
 
   proxy = textureFactory_->CreateProxy(
-      gl::ohos::TextureOwnerMode::kNativeImageTexture);
+      gl::ohos::TextureOwnerMode::kNativeImageTexture
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      , false
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
+      );
   EXPECT_NE(proxy, nullptr);
 }
 
