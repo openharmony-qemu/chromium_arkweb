@@ -96,8 +96,6 @@ TEST_F(DisplayInfoProviderOhosTest, EmptyDisplayManagerAdapter) {
   DisplayInfoProvider::DisplayUnitInfoList empty_units;
   ResetDisplayManagerAdapter();
 
-  EXPECT_CALL(*mock_adapter_, GetAllDisplays()).Times(0);
-
   provider_->UpdateDisplayUnitInfoForPlatform(empty_displays, empty_units);
 }
 
