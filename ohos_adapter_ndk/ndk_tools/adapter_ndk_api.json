@@ -1231,5 +1231,33 @@
             ]
         },
         "includes": []
+    },
+    "cert_manager": {
+        "apiList": {
+            "14": [
+                "int32_t OH_CertManager_GetUkeyCertificate(const OH_CM_Blob *ukeyCertIndex, const OH_CM_UkeyInfo *ukeyInfo, OH_CM_CredentialDetailList *certificateList)",
+                "void OH_CertManager_FreeUkeyCertificate(OH_CM_CredentialDetailList *certificateList)"
+            ]
+        },
+        "includes": [
+            "device_certificate/certmanager/cm_native_type.h"
+        ]
+    },
+    "huks_external_crypto": {
+        "apiList": {
+            "14": [
+                "struct OH_Huks_Result OH_Huks_InitExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet)",
+                "struct OH_Huks_Result OH_Huks_AddExternalCryptoParams(OH_Huks_ExternalCryptoParamSet *paramSet, const OH_Huks_ExternalCryptoParam *params, uint32_t paramCnt)",
+                "struct OH_Huks_Result OH_Huks_BuildExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet)",
+                "void OH_Huks_FreeExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet)",
+                "struct OH_Huks_Result OH_Huks_OpenResource(const struct OH_Huks_Blob *resourceId, const OH_Huks_ExternalCryptoParamSet *paramSet)",
+                "struct OH_Huks_Result OH_Huks_CloseResource(const struct OH_Huks_Blob *resourceId, const OH_Huks_ExternalCryptoParamSet *paramSet)",
+                "struct OH_Huks_Result OH_Huks_GetUkeyPinAuthState(const struct OH_Huks_Blob *resourceId, const OH_Huks_ExternalCryptoParamSet *paramSet, OH_Huks_ExternalPinAuthState *authState)"
+            ]
+        },
+        "includes": [
+            "huks/native_huks_type.h",
+            "huks/native_huks_external_crypto_type.h"
+        ]
     }
 }

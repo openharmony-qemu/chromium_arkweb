@@ -21,95 +21,125 @@
 #include "base/test/task_environment.h"
 #include "build/buildflag.h"
 
-#include <dlfcn.h>
 #include <netdb.h>
 
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/net_connect_adapter.h"
 #include "net/dns/arkweb_address_info_ext.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "gtest/gtest.h"
 
-namespace net {
+using ::testing::_;
+using ::testing::Return;
 
-class MockAddrInfoForNetwork {
+namespace OHOS::NWeb {
+
+// ---------- Mock for NetConnectAdapter ----------
+class MockNetConnectAdapter : public NetConnectAdapter {
  public:
-  static MockAddrInfoForNetwork& getInstance() {
-    static MockAddrInfoForNetwork instance;
-    return instance;
-  }
-  MOCK_METHOD(OHGetAddrInfoForNetwork, GetOHGetAddrInfoForNetwork, (), ());
-  MOCK_METHOD(OHFreeDnsResult, GetOHFreeDnsResult, (), ());
+  MOCK_METHOD(int32_t, RegisterNetConnCallback, (std::shared_ptr<NetConnCallback> cb), (override));
+  MOCK_METHOD(int32_t, UnregisterNetConnCallback, (int32_t id), (override));
+  MOCK_METHOD(int32_t, GetDefaultNetConnect, (NetConnectType& type, NetConnectSubtype& netConnectSubtype), (override));
+  MOCK_METHOD(std::vector<std::string>, GetDnsServers, (), (override));
+  MOCK_METHOD(std::vector<std::string>, GetDnsServersByNetId, (int32_t netId), (override));
+  MOCK_METHOD(std::vector<std::string>, GetDnsServersForVpn, (), (override));
+  MOCK_METHOD(void, RegisterVpnListener, (std::shared_ptr<VpnListener>), (override));
+  MOCK_METHOD(void, UnRegisterVpnListener, (), (override));
+  MOCK_METHOD(std::vector<std::string>, GetNetAddrListByNetId, (int32_t netId), (override));
+  MOCK_METHOD(std::vector<std::string>, GetNetAddrListForVpn, (), (override));
+  MOCK_METHOD(bool,
+              NotifyNetworkServiceAuthRequired,
+              (std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback),
+              (override));
+  MOCK_METHOD(int,
+              GetAddrInfoForNetwork,
+              (char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network),
+              (override));
+  MOCK_METHOD(int, FreeDnsResult, (struct addrinfo* res), (override));
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-static int g_mock_flag = 0;
-OHGetAddrInfoForNetwork __real_GetOHGetAddrInfoForNetwork();
-OHGetAddrInfoForNetwork __wrap_GetOHGetAddrInfoForNetwork() {
-  if (g_mock_flag) {
-    return __real_GetOHGetAddrInfoForNetwork();
-  } else {
-    return MockAddrInfoForNetwork::getInstance().GetOHGetAddrInfoForNetwork();
-  }
-}
+// ---------- Mock for OhosAdapterHelper ----------
+class MockOhosAdapterHelper : public OhosAdapterHelper {
+ public:
+  MOCK_METHOD(std::unique_ptr<AafwkAppMgrClientAdapter>, CreateAafwkAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<PowerMgrClientAdapter>, CreatePowerMgrClientAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<DisplayManagerAdapter>, CreateDisplayMgrAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<BatteryMgrClientAdapter>, CreateBatteryClientAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<NetConnectAdapter>, CreateNetConnectAdapter, (), (override));
+  MOCK_METHOD(OhosWebDataBaseAdapter&, GetOhosWebDataBaseAdapterInstance, (), (override));
+  MOCK_METHOD(PasteBoardClientAdapter&, GetPasteBoard, (), (override));
+  MOCK_METHOD(std::unique_ptr<AudioRendererAdapter>, CreateAudioRendererAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<AudioCapturerAdapter>, CreateAudioCapturerAdapter, (), (override));
+  MOCK_METHOD(AudioSystemManagerAdapter&, GetAudioSystemManager, (), (override));
+  MOCK_METHOD(OhosWebPermissionDataBaseAdapter&, GetWebPermissionDataBaseInstance, (), (override));
+  MOCK_METHOD(std::unique_ptr<MMIAdapter>, CreateMMIAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<SocPerfClientAdapter>, CreateSocPerfClientAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<OhosResourceAdapter>, GetResourceAdapter, (const std::string& hapPath), (override));
+  MOCK_METHOD(SystemPropertiesAdapter&, GetSystemPropertiesInstance, (), (override));
+  MOCK_METHOD(VSyncAdapter&, GetVSyncAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<OhosInitWebAdapter>, GetInitWebAdapter, (), (override));
+  MOCK_METHOD(KeystoreAdapter&, GetKeystoreAdapterInstance, (), (override));
+  MOCK_METHOD(EnterpriseDeviceManagementAdapter&, GetEnterpriseDeviceManagementInstance, (), (override));
+  MOCK_METHOD(DatashareAdapter&, GetDatashareInstance, (), (override));
+  MOCK_METHOD(std::unique_ptr<IMFAdapter>, CreateIMFAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<CertManagerAdapter>, GetRootCertDataAdapter, (), (override));
+  MOCK_METHOD(AccessTokenAdapter&, GetAccessTokenAdapterInstance, (), (override));
+  MOCK_METHOD(std::unique_ptr<EventHandlerAdapter>, GetEventHandlerAdapter, (), (override));
+  MOCK_METHOD(PrintManagerAdapter&, GetPrintManagerInstance, (), (override));
+  MOCK_METHOD(std::unique_ptr<IConsumerSurfaceAdapter>, CreateConsumerSurfaceAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<PlayerAdapter>, CreatePlayerAdapter, (), (override));
+  MOCK_METHOD(WindowAdapter&, GetWindowAdapterInstance, (), (override));
+  MOCK_METHOD(HiSysEventAdapter&, GetHiSysEventAdapterInstance, (), (override));
+  MOCK_METHOD(HiTraceAdapter&, GetHiTraceAdapterInstance, (), (override));
+  MOCK_METHOD(NetProxyAdapter&, GetNetProxyInstance, (), (override));
+  MOCK_METHOD(CameraManagerAdapter&, GetCameraManagerAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<ScreenCaptureAdapter>, CreateScreenCaptureAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<DateTimeFormatAdapter>, CreateDateTimeFormatAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<MediaCodecDecoderAdapter>, CreateMediaCodecDecoderAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<NativeImageAdapter>, CreateNativeImageAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<MediaCodecAdapter>, CreateMediaCodecEncoderAdapter, (), (override));
+  MOCK_METHOD(MediaCodecListAdapter&, GetMediaCodecListAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<FlowbufferAdapter>, CreateFlowbufferAdapter, (), (override));
+  MOCK_METHOD(std::shared_ptr<MediaAVSessionAdapter>, CreateMediaAVSessionAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<OhosImageDecoderAdapter>, CreateOhosImageDecoderAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<SensorAdapter>, CreateSensorAdapter, (), (override));
+  MOCK_METHOD(void, SetArkWebCoreHapPathOverride, (const std::string& hapPath), (override));
+  MOCK_METHOD(OhosNativeBufferAdapter&, GetOhosNativeBufferAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<AudioCodecDecoderAdapter>, CreateAudioCodecDecoderAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<DrmAdapter>, CreateDrmAdapter, (), (override));
+  MOCK_METHOD(OhosDrawingTextFontAdapter&, GetOhosDrawingTextFontAdapter, (), (override));
+  MOCK_METHOD(OhosDrawingTextTypographyAdapter&, GetOhosDrawingTextTypographyAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<MigrationManagerAdapter>, CreateMigrationMgrAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<ScreenlockManagerAdapter>, CreateScreenlockManagerAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<CertManagerAdapter>, GetCertManagerAdapter, (), (override));
+  MOCK_METHOD(std::unique_ptr<NetConfigAdapter>, GetNetConfigAdapter, (), (override));
+  MOCK_METHOD(ColorPickerAdapter&, GetColorPickerAdapter, (), (override));
+  MOCK_METHOD(HiAppeventAdapter&, GetHiAppeventAdapterInstance, (), (override));
+  MOCK_METHOD(SurfaceControlAdapter&, GetSurfaceControlAdapter, (), (override));
+  MOCK_METHOD(SurfaceTransactionAdapter&, GetSurfaceTransactionAdapter, (), (override));
+};
 
-OHFreeDnsResult __real_GetOHFreeDnsResult();
-OHFreeDnsResult __wrap_GetOHFreeDnsResult() {
-  if (g_mock_flag) {
-    return __real_GetOHFreeDnsResult();
-  } else {
-    return MockAddrInfoForNetwork::getInstance().GetOHFreeDnsResult();
-  }
-}
-#ifdef __cplusplus
-}
-#endif
+} // namespace OHOS::NWeb
+
+namespace net {
 
 namespace ohos {
 
 class ArkWebAddressInfoExtTest : public ::testing::Test {
  protected:
-  MockAddrInfoForNetwork mock_addr_info;
+  void SetUp() override {
+    mock_helper_ = new OHOS::NWeb::MockOhosAdapterHelper();
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper_);
+  }
+  void TearDown() override {
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+    delete mock_helper_;
+    mock_helper_ = nullptr;
+  }
+  OHOS::NWeb::MockOhosAdapterHelper* mock_helper_ = nullptr;
 };
 
-TEST_F(ArkWebAddressInfoExtTest, TestGetOHGetAddrInfoForNetwork_Success) {
-  OHGetAddrInfoForNetwork mock_result =
-      [](char* host, char* serv, struct addrinfo* hints, struct addrinfo** res,
-         int32_t net_id) -> int32_t {};
-
-  EXPECT_CALL(mock_addr_info, GetOHGetAddrInfoForNetwork())
-      .WillOnce(testing::Return(mock_result));
-
-  OHGetAddrInfoForNetwork result = mock_addr_info.GetOHGetAddrInfoForNetwork();
-  EXPECT_EQ(result, mock_result);
-}
-
-TEST_F(ArkWebAddressInfoExtTest, TestGetOHGetAddrInfoForNetwork_Fail) {
-  EXPECT_CALL(mock_addr_info, GetOHGetAddrInfoForNetwork())
-      .WillOnce(testing::Return(nullptr));
-
-  OHGetAddrInfoForNetwork result = mock_addr_info.GetOHGetAddrInfoForNetwork();
-  EXPECT_EQ(result, nullptr);
-}
-
-TEST_F(ArkWebAddressInfoExtTest, TestGetOHFreeDnsResult_Success) {
-  OHFreeDnsResult mock_result = [](struct addrinfo* res) -> int32_t {};
-
-  EXPECT_CALL(mock_addr_info, GetOHFreeDnsResult())
-      .WillOnce(testing::Return(mock_result));
-
-  OHFreeDnsResult result = mock_addr_info.GetOHFreeDnsResult();
-  EXPECT_EQ(result, mock_result);
-}
-
-TEST_F(ArkWebAddressInfoExtTest, TestGetOHFreeDnsResult_Fail) {
-  EXPECT_CALL(mock_addr_info, GetOHFreeDnsResult())
-      .WillOnce(testing::Return(nullptr));
-
-  OHFreeDnsResult result = mock_addr_info.GetOHFreeDnsResult();
-  EXPECT_EQ(result, nullptr);
-}
-
+// Test case 1: Invalid network handle
 TEST_F(ArkWebAddressInfoExtTest, TestInvalidNetworkHandle) {
   struct addrinfo* result = nullptr;
   char host[] = "example.com";
@@ -122,10 +152,11 @@ TEST_F(ArkWebAddressInfoExtTest, TestInvalidNetworkHandle) {
   EXPECT_EQ(errno, EINVAL);
 }
 
-TEST_F(ArkWebAddressInfoExtTest, TestGetAddrInfoForNetworkIsNull) {
-  EXPECT_CALL(MockAddrInfoForNetwork::getInstance(),
-              GetOHGetAddrInfoForNetwork())
-      .WillOnce(testing::Return(nullptr));
+// Test case 2: CreateNetConnectAdapter returns nullptr
+TEST_F(ArkWebAddressInfoExtTest, TestCreateNetConnectAdapterNull) {
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(nullptr));
+
   struct addrinfo* result = nullptr;
   char host[] = "example.com";
   char serv[] = "http";
@@ -133,16 +164,78 @@ TEST_F(ArkWebAddressInfoExtTest, TestGetAddrInfoForNetworkIsNull) {
 
   int ret = ohos::GetAddrInfoForNetwork(host, serv, &hints, &result, 1);
   EXPECT_EQ(ret, EAI_SYSTEM);
+  EXPECT_EQ(errno, EINVAL);
+}
+
+// Test case 3: GetAddrInfoForNetwork success
+TEST_F(ArkWebAddressInfoExtTest, TestGetAddrInfoForNetworkSuccess) {
+  auto mock_adapter = std::make_unique<OHOS::NWeb::MockNetConnectAdapter>();
+  EXPECT_CALL(*mock_adapter, GetAddrInfoForNetwork(_, _, _, _, _))
+      .WillOnce(Return(0));
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(std::move(mock_adapter)));
+
+  struct addrinfo* result = nullptr;
+  char host[] = "example.com";
+  char serv[] = "http";
+  struct addrinfo hints = {};
+
+  int ret = ohos::GetAddrInfoForNetwork(host, serv, &hints, &result, 1);
+  EXPECT_EQ(ret, 0);
+}
+
+// Test case 4: GetAddrInfoForNetwork returns error from adapter
+TEST_F(ArkWebAddressInfoExtTest, TestGetAddrInfoForNetworkFail) {
+  auto mock_adapter = std::make_unique<OHOS::NWeb::MockNetConnectAdapter>();
+  EXPECT_CALL(*mock_adapter, GetAddrInfoForNetwork(_, _, _, _, _))
+      .WillOnce(Return(EAI_NONAME));
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(std::move(mock_adapter)));
+
+  struct addrinfo* result = nullptr;
+  char host[] = "nonexistent.example.com";
+  char serv[] = "http";
+  struct addrinfo hints = {};
+
+  int ret = ohos::GetAddrInfoForNetwork(host, serv, &hints, &result, 1);
+  EXPECT_EQ(ret, EAI_NONAME);
+}
+
+// Test case 5: FreeDnsResult with CreateNetConnectAdapter returns nullptr
+TEST_F(ArkWebAddressInfoExtTest, TestFreeDnsResultAdapterNull) {
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(nullptr));
+
+  struct addrinfo res = {};
+  int ret = ohos::FreeDnsResult(&res);
+  EXPECT_EQ(ret, EAI_SYSTEM);
   EXPECT_EQ(errno, ENOSYS);
 }
 
-TEST_F(ArkWebAddressInfoExtTest, TestFreeDnsResultNull) {
-  EXPECT_CALL(MockAddrInfoForNetwork::getInstance(), GetOHFreeDnsResult())
-      .WillOnce(testing::Return(nullptr));
-  std::shared_ptr<struct addrinfo> res = std::make_shared<struct addrinfo>();
-  int ret = ohos::FreeDnsResult(res.get());
-  EXPECT_EQ(ret, EAI_SYSTEM);
-  EXPECT_EQ(errno, ENOSYS);
+// Test case 6: FreeDnsResult success
+TEST_F(ArkWebAddressInfoExtTest, TestFreeDnsResultSuccess) {
+  auto mock_adapter = std::make_unique<OHOS::NWeb::MockNetConnectAdapter>();
+  EXPECT_CALL(*mock_adapter, FreeDnsResult(_))
+      .WillOnce(Return(0));
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(std::move(mock_adapter)));
+
+  struct addrinfo res = {};
+  int ret = ohos::FreeDnsResult(&res);
+  EXPECT_EQ(ret, 0);
+}
+
+// Test case 7: FreeDnsResult returns error from adapter
+TEST_F(ArkWebAddressInfoExtTest, TestFreeDnsResultFail) {
+  auto mock_adapter = std::make_unique<OHOS::NWeb::MockNetConnectAdapter>();
+  EXPECT_CALL(*mock_adapter, FreeDnsResult(_))
+      .WillOnce(Return(EAI_FAIL));
+  EXPECT_CALL(*mock_helper_, CreateNetConnectAdapter())
+      .WillOnce(Return(std::move(mock_adapter)));
+
+  struct addrinfo res = {};
+  int ret = ohos::FreeDnsResult(&res);
+  EXPECT_EQ(ret, EAI_FAIL);
 }
 
 }  // namespace ohos
