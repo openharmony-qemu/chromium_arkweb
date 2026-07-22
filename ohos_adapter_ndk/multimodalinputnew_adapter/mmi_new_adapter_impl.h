@@ -46,6 +46,10 @@ public:
 
     int32_t GetMaxTouchPoints() override;
 
+    // Not declared in MMIAdapter base class as this is specific to the NDK-based
+    // implementation. Follows the same pattern as GetDeviceAdapterListener()/GetType().
+    bool HasKeyboardAndMouse() const;
+
     std::shared_ptr<MMIListenerAdapter> GetDeviceAdapterListener();
 
     std::string GetType();

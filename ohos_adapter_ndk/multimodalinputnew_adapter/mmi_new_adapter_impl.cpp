@@ -165,4 +165,107 @@ int32_t MMINewAdapterImpl::GetMaxTouchPoints()
 {
     return 0;
 }
+
+namespace {
+constexpr int32_t INPUT_DEVICE_CAP_EV_KEY = 1 << 0;   // Keyboard/key events
+constexpr int32_t INPUT_DEVICE_CAP_EV_REL = 1 << 1;   // Relative coordinates (mouse)
+constexpr int32_t INPUT_DEVICE_CAP_EV_ABS = 1 << 2;   // Absolute coordinates (touchscreen)
+
+bool ClassifyInputDevice(int32_t deviceId, bool& isPointer, bool& isKeyboard)
+{
+    isPointer = false;
+    isKeyboard = false;
+
+    Input_DeviceInfo* deviceInfo = OH_Input_CreateDeviceInfo();
+    if (deviceInfo == nullptr) {
+        WVLOG_E("failed to create device info for deviceId=%{public}d", deviceId);
+        return false;
+    }
+    Input_Result result = OH_Input_GetDevice(deviceId, &deviceInfo);
+    if (result != INPUT_SUCCESS) {
+        WVLOG_W("failed to get device for deviceId=%{public}d, result=%{public}d",
+            deviceId, result);
+        OH_Input_DestroyDeviceInfo(&deviceInfo);
+        return false;
+    }
+
+    int32_t capabilities = -1;
+    result = OH_Input_GetCapabilities(deviceInfo, &capabilities);
+    if (result != INPUT_SUCCESS || capabilities < 0) {
+        WVLOG_W("OH_Input_GetCapabilities failed, deviceId=%{public}d, "
+            "result=%{public}d, capabilities=%{public}d", deviceId, result, capabilities);
+        OH_Input_DestroyDeviceInfo(&deviceInfo);
+        return false;
+    }
+
+    // A pointer device has either EV_REL (relative coordinates, e.g. mouse)
+    // or EV_ABS (absolute coordinates, e.g. touchscreen or BT mouse misreported
+    // by MMI). This may incorrectly include touchscreens and internal sensors
+    // as pointer devices; to be refined when input API exposes bus type information.
+    isPointer = (capabilities & INPUT_DEVICE_CAP_EV_REL) || (capabilities & INPUT_DEVICE_CAP_EV_ABS);
+
+    // Only alphabetic/digital/remote_control keyboards are valid for Pointer
+    // Lock exit (ESC key). Power keys and stylus are excluded.
+    int32_t keyboardType = 0;
+    if (capabilities & INPUT_DEVICE_CAP_EV_KEY) {
+        result = OH_Input_GetKeyboardType(deviceId, &keyboardType);
+        if (result != INPUT_SUCCESS) {
+            WVLOG_W("OH_Input_GetKeyboardType failed for deviceId=%{public}d, result=%{public}d, "
+                "treat as non-keyboard device", deviceId, result);
+        }
+        if (keyboardType == KEYBOARD_TYPE_ALPHABETIC ||
+            keyboardType == KEYBOARD_TYPE_DIGITAL ||
+            keyboardType == KEYBOARD_TYPE_REMOTE_CONTROL) {
+            isKeyboard = true;
+        }
+    }
+
+    OH_Input_DestroyDeviceInfo(&deviceInfo);
+    return true;
+}
+} // namespace
+
+bool MMINewAdapterImpl::HasKeyboardAndMouse() const
+{
+    const int32_t maxDeviceCount = 1024;
+    int32_t ids[maxDeviceCount] = { 0 };
+    int32_t outSize = 0;
+    Input_Result result = OH_Input_GetDeviceIds(ids, maxDeviceCount, &outSize);
+    if (result != INPUT_SUCCESS) {
+        WVLOG_W("OH_Input_GetDeviceIds failed, result=%{public}d", result);
+        return false;
+    }
+    if (outSize < 0 || outSize > maxDeviceCount) {
+        WVLOG_W("OH_Input_GetDeviceIds returned invalid outSize=%{public}d", outSize);
+        return false;
+    }
+
+    int32_t keyboardDeviceId = -1;
+    int32_t pointerDeviceId = -1;
+
+    for (int32_t i = 0; i < outSize; ++i) {
+        bool isPointer = false;
+        bool isKeyboard = false;
+        if (!ClassifyInputDevice(ids[i], isPointer, isKeyboard)) {
+            continue;
+        }
+
+        // Pointer Lock requires keyboard and pointer from DIFFERENT devices.
+        // A combined device (USB dongle) may set both IDs to the same deviceId;
+        // allow later devices to reassign when both slots point to the same device.
+        if (isPointer && (pointerDeviceId < 0 || pointerDeviceId == keyboardDeviceId)) {
+            pointerDeviceId = ids[i];
+        }
+        if (isKeyboard && (keyboardDeviceId < 0 || keyboardDeviceId == pointerDeviceId)) {
+            keyboardDeviceId = ids[i];
+        }
+        if (keyboardDeviceId >= 0 && pointerDeviceId >= 0 && keyboardDeviceId != pointerDeviceId) {
+            WVLOG_I("keyboard=%{public}d, pointer=%{public}d, allow",
+                keyboardDeviceId, pointerDeviceId);
+            return true;
+        }
+    }
+
+    return false;
+}
 } // namespace OHOS::NWeb
