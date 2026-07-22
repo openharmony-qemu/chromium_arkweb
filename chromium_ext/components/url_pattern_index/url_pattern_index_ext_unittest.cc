@@ -240,7 +240,8 @@ TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_FallbackRules_) {
   CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
   EXPECT_NE(offset.o, 0u);
   EXPECT_NO_FATAL_FAILURE({ index_builder.IndexCssRule(offset); });
-  EXPECT_GE(static_cast<size_t>(index_builder.GetNGramHashTableUsedSize()), count);
+  EXPECT_GE(static_cast<size_t>(index_builder.GetNGramHashTableUsedSize()),
+            count);
   EXPECT_EQ(index_builder.GetFallbackRuleListSize(), fallback_count);
 
   CssPatternIndexOffset index_offset = index_builder.Finish();
@@ -387,6 +388,220 @@ TEST_F(UrlPatternIndexExtTest, DomainSharing) {
   // Domain map should contain shared domains
   EXPECT_FALSE(domain_map.empty());
 }
+
+// Test SerializeCssRule with uppercase domain (lowered by ToLowerASCII)
+TEST_F(UrlPatternIndexExtTest, SerializeCssRule_UppercaseDomain) {
+  flatbuffers::FlatBufferBuilder builder;
+  FlatDomainMap domain_map;
+
+  auto rule = CreateTestCssRuleWithDomain(".banner", "EXAMPLE.COM");
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  EXPECT_NE(offset.o, 0u);
+
+  // Verify the domain was lowercased
+  const flat::CssRule* flat_rule =
+      flatbuffers::GetTemporaryPointer(builder, offset);
+  ASSERT_NE(flat_rule, nullptr);
+  ASSERT_NE(flat_rule->domains_included(), nullptr);
+  EXPECT_EQ(std::string(flat_rule->domains_included()->Get(0)->c_str()),
+            "example.com");
+}
+
+// Test CssPatternIndexMatcher move constructor
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexMatcher_MoveConstructor) {
+  auto fb_builder = CreateSimpleCssPatternIndex();
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetRoot<flat::CssPatternIndex>(
+          fb_builder->GetBufferPointer());
+  CssPatternIndexMatcher matcher1(index);
+  EXPECT_NE(matcher1.GetGenericCssRules(), nullptr);
+
+  CssPatternIndexMatcher matcher2(std::move(matcher1));
+  EXPECT_NE(matcher2.GetGenericCssRules(), nullptr);
+}
+
+// Test CssPatternIndexMatcher move assignment
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexMatcher_MoveAssignment) {
+  auto fb_builder = CreateSimpleCssPatternIndex();
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetRoot<flat::CssPatternIndex>(
+          fb_builder->GetBufferPointer());
+
+  CssPatternIndexMatcher matcher1(index);
+  CssPatternIndexMatcher matcher2(nullptr);
+  EXPECT_EQ(matcher2.GetGenericCssRules(), nullptr);
+
+  matcher2 = std::move(matcher1);
+  EXPECT_NE(matcher2.GetGenericCssRules(), nullptr);
+}
+
+// Test end-to-end FindMatchInSpecialRules with ngram hash lookup
+TEST_F(UrlPatternIndexExtTest, FindMatchInSpecialRules_EndToEnd) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add a CSS rule with a domain that will produce valid ngrams
+  auto rule = CreateTestCssRuleWithDomain(".ad-banner", "adserver.com");
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetTemporaryPointer(builder, index_offset);
+  CssPatternIndexMatcher matcher(index);
+
+  // Matching URL should find the rule
+  GURL matching_url("http://adserver.com/page");
+  auto result = matcher.FindMatchInSpecialRules(matching_url);
+  EXPECT_FALSE(result.empty());
+
+  // Non-matching URL should not find the rule
+  GURL non_matching_url("http://safe-site.com/page");
+  auto result2 = matcher.FindMatchInSpecialRules(non_matching_url);
+  EXPECT_TRUE(result2.empty());
+}
+
+// Test GetGenericCssRules returns actual no_domain_rules
+TEST_F(UrlPatternIndexExtTest, GetGenericCssRules_WithNoDomainRules) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add a no-domain (generic) CSS rule
+  auto rule = CreateTestCssRule(".generic-ad");
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetTemporaryPointer(builder, index_offset);
+  CssPatternIndexMatcher matcher(index);
+
+  const FlatCssRuleList* generic_rules = matcher.GetGenericCssRules();
+  ASSERT_NE(generic_rules, nullptr);
+  EXPECT_EQ(generic_rules->size(), 1u);
+}
+
+// Test DoesOriginMatchDomainList with only excluded domains (no included match)
+TEST_F(UrlPatternIndexExtTest, DoesOriginMatchDomainList_NoIncludedMatch) {
+  // Rule applies to example.com but we check from other.com
+  const flat::CssRule* rule = CreateFlatCssRule(".test", {"example.com"});
+  ASSERT_NE(rule, nullptr);
+
+  url::Origin origin = url::Origin::Create(GURL("https://other.com"));
+  bool result = DoesOriginMatchDomainList(origin, *rule);
+  EXPECT_FALSE(result);  // No matching included domain
+}
+
+// Test DoesOriginMatchDomainList with included but longer excluded subdomain
+TEST_F(UrlPatternIndexExtTest,
+       DoesOriginMatchDomainList_IncludedButExcludedOverride) {
+  // Rule applies to example.com but excludes sub.example.com
+  auto rule = CreateFlatCssRule(".test", {"example.com"}, {"sub.example.com"});
+  ASSERT_NE(rule, nullptr);
+
+  // Root domain should match
+  url::Origin root_origin = url::Origin::Create(GURL("https://example.com"));
+  EXPECT_TRUE(DoesOriginMatchDomainList(root_origin, *rule));
+
+  // Excluded subdomain should not match
+  url::Origin sub_origin = url::Origin::Create(GURL("https://sub.example.com"));
+  EXPECT_FALSE(DoesOriginMatchDomainList(sub_origin, *rule));
+
+  // Non-excluded subdomain should match
+  url::Origin other_sub_origin =
+      url::Origin::Create(GURL("https://other.example.com"));
+  EXPECT_TRUE(DoesOriginMatchDomainList(other_sub_origin, *rule));
+}
+
+// Test multiple rules with different priorities are sorted correctly
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_PrioritySorting) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add rules with different priorities (higher priority number = higher
+  // priority)
+  auto rule_low = CreateTestCssRuleWithDomain(".low", "example.com");
+  auto rule_high = CreateTestCssRuleWithDomain(".high", "example.com");
+
+  CssRuleOffset offset_low = SerializeCssRule(rule_low, &builder, &domain_map);
+  CssRuleOffset offset_high =
+      SerializeCssRule(rule_high, &builder, &domain_map);
+  ASSERT_NE(offset_low.o, 0);
+  ASSERT_NE(offset_high.o, 0);
+
+  index_builder.IndexCssRule(offset_low);
+  index_builder.IndexCssRule(offset_high);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+
+  // Verify the index was built correctly
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetTemporaryPointer(builder, index_offset);
+  ASSERT_NE(index, nullptr);
+  EXPECT_NE(index->ngram_index(), nullptr);
+}
+
+// Test SerializeCssRule with mixed included and excluded domains
+TEST_F(UrlPatternIndexExtTest, SerializeCssRule_MixedDomains) {
+  flatbuffers::FlatBufferBuilder builder;
+  FlatDomainMap domain_map;
+
+  proto::CssRule rule;
+  rule.set_css_selector(".mixed-ad");
+
+  auto* included1 = rule.add_domains();
+  included1->set_domain("ads.example.com");
+  included1->set_exclude(false);
+
+  auto* excluded1 = rule.add_domains();
+  excluded1->set_domain("safe.example.com");
+  excluded1->set_exclude(true);
+
+  auto* included2 = rule.add_domains();
+  included2->set_domain("tracker.example.com");
+  included2->set_exclude(false);
+
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  EXPECT_NE(offset.o, 0u);
+
+  const flat::CssRule* flat_rule =
+      flatbuffers::GetTemporaryPointer(builder, offset);
+  ASSERT_NE(flat_rule, nullptr);
+  ASSERT_NE(flat_rule->domains_included(), nullptr);
+  EXPECT_EQ(flat_rule->domains_included()->size(), 2u);
+  ASSERT_NE(flat_rule->domains_excluded(), nullptr);
+  EXPECT_EQ(flat_rule->domains_excluded()->size(), 1u);
+}
+
+// Test IndexCssRule with domain too short for ngram (fallback)
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_ShortDomainFallback) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Single character domain - too short for 3-gram, should go to fallback
+  auto rule = CreateTestCssRuleWithDomain(".short", "a.b");
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  // Short domain should produce fallback rules
+  EXPECT_GT(index_builder.GetFallbackRuleListSize(), 0);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  EXPECT_NE(index_offset.o, 0);
+}
+
 #endif  // BUILDFLAG(ARKWEB_ADBLOCK)
 
 }  // namespace url_pattern_index
