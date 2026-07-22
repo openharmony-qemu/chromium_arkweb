@@ -333,8 +333,12 @@ void NativeWebContentsObserver::OnNativeBridgeAdded(
     MediaPlayerId id) {
   auto observer_it = native_bridge_observer_hosts_.try_emplace(
       id, std::make_unique<NativeBridgeObserverHostImpl>(id, this));
-  observer_it.first->second->BindNativeBridgeObserverReceiver(
-      std::move(native_bridge_observer));
+  if (observer_it.second) {
+    observer_it.first->second->BindNativeBridgeObserverReceiver(
+        std::move(native_bridge_observer));
+  } else {
+    LOG(ERROR) << "OnNativeBridgeAdded duplicate bridge id, ignore.";
+  }
 }
 
 void NativeWebContentsObserver::NativeBridgeObserverHostImpl::
