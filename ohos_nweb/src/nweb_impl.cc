@@ -8844,7 +8844,9 @@ void NWebImpl::SetVisibility(bool isVisible) {
       .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_strategy", 0);
   if (invisible_throttle_strategy) {
     content::GpuProcessHost* host = content::GpuProcessHost::Get();
-    host->gpu_service()->SetWebComponentVisible(nweb_id_, isVisible);
+    if (host && host->gpu_service()) {
+      host->gpu_service()->SetWebComponentVisible(nweb_id_, isVisible);
+    }
   }
 #endif
   is_visible_ = isVisible;
@@ -9632,7 +9634,7 @@ bool NWebImpl::AIInputCommandAction(const std::string& json, std::shared_ptr<NWe
     method == "type"|| method == "send_keys") {
     if (ai_inputmethod_controller_) {
       std::string result = ai_inputmethod_controller_->ExecuteJsonAction(jsonDict);
-      if (method == "cursor_position" || callback) {
+      if (callback) {
         callback->OnReceiveValue(result);
       }
       return true;
