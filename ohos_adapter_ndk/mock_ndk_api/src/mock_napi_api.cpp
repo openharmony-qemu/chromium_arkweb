@@ -225,6 +225,15 @@ extern "C" {
       }
       return napi_generic_failure;
     }
+    napi_status napi_delete_reference(napi_env env, napi_ref ref) {
+      if (env == nullptr) {
+        return napi_invalid_arg;
+      }
+      if (g_MockNapiFunctions != nullptr) {
+        return g_MockNapiFunctions->napi_delete_reference(env, ref);
+      }
+      return napi_generic_failure;
+    }
     napi_status napi_get_reference_value(napi_env env,
                                          napi_ref ref,
                                          napi_value* result) {
