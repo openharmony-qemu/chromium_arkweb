@@ -65,6 +65,12 @@ NativeImageTextureOwner::NativeImageTextureOwner(
       texture_(std::move(texture)),
       task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {}
 
+NativeImageTextureOwner::NativeImageTextureOwner()
+    : base::RefCountedDeleteOnSequence<NativeImageTextureOwner>(
+          base::SingleThreadTaskRunner::GetCurrentDefault()),
+      binds_texture_on_update_(false),
+      task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {}
+
 NativeImageTextureOwner::~NativeImageTextureOwner() {
   bool have_context = true;
   absl::optional<ui::ScopedMakeCurrent> scoped_make_current;
@@ -78,7 +84,7 @@ NativeImageTextureOwner::~NativeImageTextureOwner() {
     }
     context_state_->RemoveContextLostObserver(this);
   }
-  if (!have_context) {
+  if (!have_context && texture_) {
     texture_->NotifyOnContextLost();
   }
 

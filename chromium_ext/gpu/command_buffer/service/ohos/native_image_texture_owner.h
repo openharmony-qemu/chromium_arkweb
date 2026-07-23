@@ -93,6 +93,7 @@ class GPU_GLES2_EXPORT NativeImageTextureOwner
  protected:
   friend class base::RefCountedDeleteOnSequence<NativeImageTextureOwner>;
   friend class base::DeleteHelper<NativeImageTextureOwner>;
+  friend class MockNativeImageTextureOwner;
 
   class ScopedRestoreTextureBinding {
    public:
@@ -120,6 +121,9 @@ class GPU_GLES2_EXPORT NativeImageTextureOwner
                                 std::unique_ptr<AbstractTextureOHOS> texture);
 
   const bool binds_texture_on_update_;
+
+  // To be used by MockNativeImageTextureOwner.
+  NativeImageTextureOwner();
 
   scoped_refptr<SharedContextState> context_state_;
   std::unique_ptr<AbstractTextureOHOS> texture_;

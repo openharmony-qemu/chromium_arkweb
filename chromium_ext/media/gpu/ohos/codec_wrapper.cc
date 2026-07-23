@@ -129,6 +129,22 @@ CodecOutputBuffer::CodecOutputBuffer(scoped_refptr<CodecWrapperImpl> codec,
 #endif // ARKWEB_VIDEO_ASSISTANT
       color_space_(color_space) {}
 
+#if BUILDFLAG(ARKWEB_UNITTESTS)
+// For testing.
+CodecOutputBuffer::CodecOutputBuffer(const gfx::Size& size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+                                     bool render_video_view,
+#endif // ARKWEB_VIDEO_ASSISTANT
+                                     const gfx::ColorSpace& color_space)
+    : codec_(nullptr),
+      id_(-1),
+      size_(size),
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      render_video_view_(render_video_view),
+#endif // ARKWEB_VIDEO_ASSISTANT
+      color_space_(color_space) {}
+#endif // ARKWEB_UNITTESTS
+
 CodecOutputBuffer::~CodecOutputBuffer() {
   if (!was_rendered_ && codec_) {
     codec_->ReleaseCodecOutputBuffer(id_, false);
@@ -137,7 +153,8 @@ CodecOutputBuffer::~CodecOutputBuffer() {
 
 bool CodecOutputBuffer::ReleaseToSurface() {
   was_rendered_ = true;
-  auto result = codec_->ReleaseCodecOutputBuffer(id_, true);
+  // |codec_| is only null in tests.
+  auto result = codec_ ? codec_->ReleaseCodecOutputBuffer(id_, true) : true;
   return result;
 }
 

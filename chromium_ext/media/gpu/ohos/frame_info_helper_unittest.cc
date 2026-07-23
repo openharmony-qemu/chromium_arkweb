@@ -9,7 +9,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for specific language governing permissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
@@ -21,15 +21,14 @@
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 
-#include "media/base/test_helpers.h"
+#include "gpu/command_buffer/service/ohos/mock_native_image_texture_owner.h"
+#include "gpu/command_buffer/service/ref_counted_lock_for_test.h"
 
 #define private public
 #include "media/gpu/ohos/codec_output_buffer_renderer.h"
 #include "media/gpu/ohos/codec_buffer_wait_coordinator.h"
 #include "media/gpu/ohos/codec_wrapper.h"
 #undef private
-
-#include "gpu/command_buffer/service/ohos/native_image_texture_owner.h"
 
 #include "media/gpu/ohos/frame_info_helper.h"
 
@@ -39,31 +38,36 @@ namespace {
 
 constexpr gfx::Size kTestVisibleSize(100, 100);
 constexpr gfx::Size kTestVisibleSize2(110, 110);
-constexpr gfx::Size kTestVisibleSize3(120, 120);
 constexpr gfx::Size kTestCodedSize(128, 128);
-constexpr gfx::Size kTestVisibleRectSize(100, 50);
 constexpr gfx::Rect kTestVisibleRect(0, 0, 100, 50);
 
 }  // namespace
 
+using testing::_;
+using testing::DoAll;
+using testing::Mock;
+using testing::NiceMock;
+using testing::Return;
+using testing::SetArgPointee;
+
 class FrameInfoHelperTest : public testing::Test {
  public:
-  FrameInfoHelperTest() : task_environment_() {}
+  FrameInfoHelperTest()
+      : drdc_lock_(base::MakeRefCounted<gpu::RefCountedLockForTest>()),
+        helper_(CreateHelper()) {}
 
-  void SetUp() override {
-    drdc_lock_ = base::MakeRefCounted<gpu::RefCountedLock>();
-    task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
+  std::unique_ptr<FrameInfoHelper> CreateHelper() {
+    auto task_runner = base::SequencedTaskRunner::GetCurrentDefault();
+    auto get_stub_cb =
+        base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; });
+    return FrameInfoHelper::Create(
+        std::move(task_runner), std::move(get_stub_cb), drdc_lock_);
   }
 
-  void TearDown() override {
-    task_runner_ = nullptr;
-    drdc_lock_ = nullptr;
-  }
-
-  // Helper method to call GetFrameInfo synchronously
+  // Synchronous helper to call GetFrameInfo and capture the result.
   void GetFrameInfo(
       std::unique_ptr<CodecOutputBufferRenderer> buffer_renderer,
-      FrameInfoHelper::FrameInfo* out_info) {
+      FrameInfoHelper::FrameInfo* out_info = nullptr) {
     bool called = false;
     FrameInfoHelper::FrameInfo local_info;
     auto callback = base::BindLambdaForTesting(
@@ -75,302 +79,369 @@ class FrameInfoHelperTest : public testing::Test {
     helper_->GetFrameInfo(std::move(buffer_renderer), callback);
     base::RunLoop().RunUntilIdle();
     ASSERT_TRUE(called);
+    last_frame_info_ = local_info;
     if (out_info) {
       *out_info = local_info;
     }
   }
 
+  // Create a CodecOutputBufferRenderer with the given size and optional
+  // texture_owner. If texture_owner is null, no CodecBufferWaitCoordinator
+  // is created (overlay case).
+  std::unique_ptr<CodecOutputBufferRenderer> CreateBufferRenderer(
+      gfx::Size size,
+      scoped_refptr<gpu::NativeImageTextureOwner> texture_owner) {
+    auto codec_buffer_wait_coordinator =
+        texture_owner
+            ? base::MakeRefCounted<CodecBufferWaitCoordinator>(
+                  texture_owner, drdc_lock_)
+            : nullptr;
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+    auto buffer = CodecOutputBuffer::CreateForTesting(
+        size, false /* render_video_view */, gfx::ColorSpace::CreateSRGB());
+#else
+    auto buffer = CodecOutputBuffer::CreateForTesting(
+        size, gfx::ColorSpace::CreateSRGB());
+#endif
+    auto buffer_renderer = std::make_unique<CodecOutputBufferRenderer>(
+        std::move(buffer), std::move(codec_buffer_wait_coordinator), drdc_lock_);
+    return buffer_renderer;
+  }
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+  // Create a CodecOutputBufferRenderer with RenderVideoView() returning true.
+  std::unique_ptr<CodecOutputBufferRenderer> CreateVideoViewBufferRenderer(
+      gfx::Size size,
+      scoped_refptr<gpu::NativeImageTextureOwner> texture_owner) {
+    auto codec_buffer_wait_coordinator =
+        texture_owner
+            ? base::MakeRefCounted<CodecBufferWaitCoordinator>(
+                  texture_owner, drdc_lock_)
+            : nullptr;
+    auto buffer = CodecOutputBuffer::CreateForTesting(
+        size, true /* render_video_view */, gfx::ColorSpace::CreateSRGB());
+    auto buffer_renderer = std::make_unique<CodecOutputBufferRenderer>(
+        std::move(buffer), std::move(codec_buffer_wait_coordinator), drdc_lock_);
+    return buffer_renderer;
+  }
+#endif // ARKWEB_VIDEO_ASSISTANT
+
+  // Invalidate the buffer renderer so that RenderToTextureOwnerFrontBuffer
+  // will fail. This simulates a render failure.
+  void FailNextRender(CodecOutputBufferRenderer* buffer_renderer) {
+    buffer_renderer->set_phase_for_testing(
+        CodecOutputBufferRenderer::Phase::kInvalidated);
+  }
+
   base::test::SingleThreadTaskEnvironment task_environment_;
 
-  std::unique_ptr<FrameInfoHelper> helper_;
   scoped_refptr<gpu::RefCountedLock> drdc_lock_;
-  scoped_refptr<base::SequencedTaskRunner> task_runner_;
+  std::unique_ptr<FrameInfoHelper> helper_;
+  FrameInfoHelper::FrameInfo last_frame_info_;
 };
 
 // ============================================================================
-// Priority 1 Tests - Critical Path Coverage
+// Branch 1: No buffer_renderer → empty FrameInfo
 // ============================================================================
 
-// Test Create With Valid Parameters
-TEST_F(FrameInfoHelperTest, CreateHelperWithValidParameters001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-  EXPECT_NE(helper_, nullptr);
+TEST_F(FrameInfoHelperTest, NoBufferRenderer) {
+  // If there is no buffer renderer we should get an empty FrameInfo.
+  FrameInfoHelper::FrameInfo info;
+  GetFrameInfo(nullptr, &info);
+  EXPECT_TRUE(info.coded_size.IsEmpty());
+  EXPECT_TRUE(info.visible_rect.IsEmpty());
+  EXPECT_FALSE(info.ycbcr_info.has_value());
 }
 
-// Test Create With Null Stub
-TEST_F(FrameInfoHelperTest, CreateHelperWithNullStub001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-  EXPECT_NE(helper_, nullptr);
+// ============================================================================
+// Branch 2: No texture_owner (Overlay) → visible size
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, Overlay) {
+  // In overlay case (no texture_owner), we always use visible size.
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, nullptr));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+  EXPECT_EQ(last_frame_info_.visible_rect, gfx::Rect(kTestVisibleSize));
 }
 
-// Test No Buffer Renderer
-TEST_F(FrameInfoHelperTest, GetFrameInfoWithNullBufferRenderer001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+// ============================================================================
+// Branch 2 (OH-specific): RenderVideoView() returns true → visible size
+// ============================================================================
 
-  FrameInfoHelper::FrameInfo result;
-  GetFrameInfo(nullptr, &result);
+TEST_F(FrameInfoHelperTest, RenderVideoView) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
 
-  // Expect default empty frame info
-  EXPECT_TRUE(result.coded_size.IsEmpty());
-  EXPECT_TRUE(result.visible_rect.IsEmpty());
-  EXPECT_FALSE(result.ycbcr_info.has_value());
+  // When RenderVideoView() is true, the helper should use visible size
+  // instead of going through the texture owner rendering path.
+  GetFrameInfo(CreateVideoViewBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+  EXPECT_EQ(last_frame_info_.visible_rect, gfx::Rect(kTestVisibleSize));
+}
+#endif // ARKWEB_VIDEO_ASSISTANT
+
+// ============================================================================
+// Branch 4 → OnFrameInfoReady: TextureOwner render success
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, TextureOwnerRenderSuccess) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
+
+  // Return CodedSize when GetCodedSizeAndVisibleRect is called.
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  // Make RunWhenBufferIsAvailable immediately run the callback.
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // Render should succeed and we should get coded_size from
+  // GetCodedSizeAndVisibleRect.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  EXPECT_CALL(*texture_owner, RunWhenBufferIsAvailable(_)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  EXPECT_EQ(last_frame_info_.visible_rect, kTestVisibleRect);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 }
 
-// Test: Cache Hit - Same Size Multiple Times
-TEST_F(FrameInfoHelperTest, CacheHitSameSize001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// Branch 4 → OnFrameInfoReady: Render failure → fallback to visible size
+// ============================================================================
 
-  // First request with null buffer - uses visible size
-  FrameInfoHelper::FrameInfo info1;
-  GetFrameInfo(nullptr, &info1);
-  EXPECT_EQ(info1.coded_size, gfx::Size());
-  EXPECT_EQ(info1.visible_rect, gfx::Rect());
+TEST_F(FrameInfoHelperTest, TextureOwnerRenderFailure) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
 
-  // Second request with same "size" (null buffer again)
-  // Should use to cached/default empty info
-  FrameInfoHelper::FrameInfo info2;
-  GetFrameInfo(nullptr, &info2);
-  EXPECT_EQ(info2.coded_size, gfx::Size());
-  EXPECT_EQ(info2.visible_rect, gfx::Rect());
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // Fail rendering by invalidating the buffer.
+  auto buffer = CreateBufferRenderer(kTestVisibleSize, texture_owner);
+  FailNextRender(buffer.get());
+
+  // GetCodedSizeAndVisibleRect should NOT be called since render failed.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+  EXPECT_CALL(*texture_owner, RunWhenBufferIsAvailable(_)).Times(1);
+  GetFrameInfo(std::move(buffer));
+  // Fallback to visible size.
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 }
 
-// Test: Cache Miss - Different Size
-TEST_F(FrameInfoHelperTest, CacheMissDifferentSize001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// Branch 3: Cache hit (same visible_size) → return cached frame_info
+// ============================================================================
 
-  // First request - sets visible_size to empty
-  FrameInfoHelper::FrameInfo info1;
-  GetFrameInfo(nullptr, &info1);
-  EXPECT_TRUE(info1.coded_size.IsEmpty());
+TEST_F(FrameInfoHelperTest, CacheHitSameSize) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
 
-  // Second request with null buffer
-  // Same size (empty), should use cached info
-  FrameInfoHelper::FrameInfo info2;
-  GetFrameInfo(nullptr, &info2);
-  EXPECT_TRUE(info2.coded_size.IsEmpty());
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // First request: render and get coded size.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Second request with same size: should use cached value.
+  // GetCodedSizeAndVisibleRect should NOT be called again.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 }
 
-// Test: Size Change - First Request With One Size, Second With Different
-TEST_F(FrameInfoHelperTest, SizeChangeBetweenRequests001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// Branch 4: Cache miss (different visible_size) → re-render
+// ============================================================================
 
-  // First request with size1
-  FrameInfoHelper::FrameInfo info1;
-  GetFrameInfo(nullptr, &info1);
+TEST_F(FrameInfoHelperTest, CacheMissDifferentSize) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
 
-  // Second request with different "size" (still null, so empty size)
-  // But since first was empty, this should also be empty
-  // This test verifies to size comparison logic
-  FrameInfoHelper::FrameInfo info2;
-  GetFrameInfo(nullptr, &info2);
-  EXPECT_EQ(info2.coded_size, info1.coded_size);
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // First request with size1.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Second request with different size: should re-render.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize2, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 }
 
-// Test Single Request
-TEST_F(FrameInfoHelperTest, SingleRequest001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// Switch between Overlay and TextureOwner
+// ============================================================================
 
-  bool callback_called = false;
-  helper_->GetFrameInfo(
-      nullptr,
-      base::BindLambdaForTesting(
-          [&](std::unique_ptr<CodecOutputBufferRenderer>,
-              FrameInfoHelper::FrameInfo) { callback_called = true; }));
+TEST_F(FrameInfoHelperTest, SwitchBetweenOverlayAndTextureOwner) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
 
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // Overlay case: visible size.
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, nullptr));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+
+  // Switch to TextureOwner: should render and get coded size.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Switch back to overlay: should fallback to visible size.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, nullptr));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Switch to TextureOwner with same size: should use cached value.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Switch to TextureOwner with different size: should re-render.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize2, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+}
+
+// ============================================================================
+// GetCodedSizeAndVisibleRect fails → fallback to visible size
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, FailedGetCodedSize) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
+
+  ON_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillByDefault([](base::OnceClosure cb) { std::move(cb).Run(); });
+
+  // Fail GetCodedSizeAndVisibleRect. GetFrameInfo should fallback to
+  // visible size.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillOnce(DoAll(SetArgPointee<1>(gfx::Size()), Return(false)));
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestVisibleSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // This time GetCodedSizeAndVisibleRect will succeed.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillOnce(DoAll(SetArgPointee<1>(kTestCodedSize),
+                      SetArgPointee<2>(kTestVisibleRect), Return(true)));
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+
+  // Subsequent same-size request should use cache.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+  GetFrameInfo(CreateBufferRenderer(kTestVisibleSize, texture_owner));
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
+}
+
+// ============================================================================
+// Buffer not available → RunWhenBufferIsAvailable deferred callback
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, TextureOwnerBufferNotAvailable) {
+  auto texture_owner =
+      base::MakeRefCounted<NiceMock<gpu::MockNativeImageTextureOwner>>();
+
+  ON_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _))
+      .WillByDefault(DoAll(SetArgPointee<1>(kTestCodedSize),
+                           SetArgPointee<2>(kTestVisibleRect), Return(true)));
+
+  // Save buffer available callback; we will run it manually.
+  base::OnceClosure buffer_available_cb;
+  EXPECT_CALL(*texture_owner, RunWhenBufferIsAvailable(_))
+      .WillOnce([&buffer_available_cb](base::OnceClosure cb) {
+        buffer_available_cb = std::move(cb);
+      });
+
+  // Verify that no GetCodedSizeAndVisibleRect will be called until buffer
+  // is available.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(0);
+
+  auto buffer_renderer = CreateBufferRenderer(kTestVisibleSize, texture_owner);
+  bool called = false;
+  auto callback = base::BindLambdaForTesting(
+      [&](std::unique_ptr<CodecOutputBufferRenderer> br,
+          FrameInfoHelper::FrameInfo info) {
+        called = true;
+        last_frame_info_ = info;
+      });
+  helper_->GetFrameInfo(std::move(buffer_renderer), callback);
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(callback_called);
-}
+  ASSERT_TRUE(buffer_available_cb);
+  ASSERT_FALSE(called);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 
-// Test Multiple Requests With Null Buffer Renderers
-TEST_F(FrameInfoHelperTest, MultipleRequestsWithNullBufferRenderers001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  int callback_count = 0;
-  for (int i = 0; i < 3; ++i) {
-    helper_->GetFrameInfo(
-        nullptr,
-        base::BindLambdaForTesting(
-            [&](std::unique_ptr<CodecOutputBufferRenderer>,
-                FrameInfoHelper::FrameInfo) { ++callback_count; }));
-  }
-
+  // When buffer is available, GetCodedSizeAndVisibleRect should be called.
+  EXPECT_CALL(*texture_owner, GetCodedSizeAndVisibleRect(_, _, _)).Times(1);
+  std::move(buffer_available_cb).Run();
   base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(callback_count, 3);
+  EXPECT_EQ(last_frame_info_.coded_size, kTestCodedSize);
+  ASSERT_TRUE(called);
+  Mock::VerifyAndClearExpectations(texture_owner.get());
 }
 
-// Test: Multiple Helpers
-TEST_F(FrameInfoHelperTest, MultipleHelpers001) {
-  auto helper1 = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// Create with valid parameters
+// ============================================================================
 
-  auto helper2 = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  EXPECT_NE(helper1, nullptr);
-  EXPECT_NE(helper2, nullptr);
-
-  bool callback1_called = false;
-  bool callback2_called = false;
-  FrameInfoHelper::FrameInfo info1;
-  FrameInfoHelper::FrameInfo info2;
-
-  helper1->GetFrameInfo(
-      nullptr,
-      base::BindLambdaForTesting(
-          [&](std::unique_ptr<CodecOutputBufferRenderer>,
-              FrameInfoHelper::FrameInfo info) {
-            callback1_called = true;
-            info1 = info;
-          }));
-
-  helper2->GetFrameInfo(
-      nullptr,
-      base::BindLambdaForTesting(
-          [&](std::unique_ptr<CodecOutputBufferRenderer>,
-              FrameInfoHelper::FrameInfo info) {
-            callback2_called = true;
-            info2 = info;
-          }));
-
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(callback1_called);
-  EXPECT_TRUE(callback2_called);
-  EXPECT_EQ(info1.coded_size, info2.coded_size);
+TEST_F(FrameInfoHelperTest, CreateHelperWithValidParameters) {
+  auto helper = CreateHelper();
+  EXPECT_NE(helper, nullptr);
 }
 
-// Test: Concurrent Requests to test thread safety
-TEST_F(FrameInfoHelperTest, ConcurrentRequests001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
+// ============================================================================
+// FrameInfo struct: default construction
+// ============================================================================
 
-  std::atomic<int> callback_count{0};
-
-  // Start multiple requests concurrently
-  for (int i = 0; i < 5; ++i) {
-    helper_->GetFrameInfo(
-        nullptr,
-        base::BindLambdaForTesting(
-            [&](std::unique_ptr<CodecOutputBufferRenderer>,
-                FrameInfoHelper::FrameInfo) { ++callback_count; }));
-  }
-
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(callback_count, 5);
-}
-
-// Test: Empty Size Then Non-Empty Size
-TEST_F(FrameInfoHelperTest, EmptySizeThenNonEmptySize001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  // First request with null buffer (empty size)
-  FrameInfoHelper::FrameInfo info1;
-  GetFrameInfo(nullptr, &info1);
-  EXPECT_TRUE(info1.coded_size.IsEmpty());
-
-  // Since we can't create buffers with different sizes,
-  // this test verifies to empty size path is working
-  // Second null request should use cached empty info
-  FrameInfoHelper::FrameInfo info2;
-  GetFrameInfo(nullptr, &info2);
-  EXPECT_EQ(info2.coded_size, info1.coded_size);
-}
-
-// Test: Request Queue Processing Order
-TEST_F(FrameInfoHelperTest, RequestQueueProcessingOrder001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  std::vector<FrameInfoHelper::FrameInfo> results;
-  std::atomic<int> completion_order{0};
-
-  // Submit 3 requests
-  for (int i = 0; i < 3; ++i) {
-    helper_->GetFrameInfo(
-        nullptr,
-        base::BindLambdaForTesting(
-            [&](std::unique_ptr<CodecOutputBufferRenderer>,
-                FrameInfoHelper::FrameInfo info) {
-              results.push_back(info);
-              completion_order.store(static_cast<int>(results.size()));
-            }));
-  }
-
-  base::RunLoop().RunUntilIdle();
-
-  // All requests should complete in order
-  EXPECT_EQ(static_cast<int>(results.size()), 3);
-  EXPECT_EQ(completion_order.load(), 3);
-}
-
-// Test: Callback Parameters Verification
-TEST_F(FrameInfoHelperTest, CallbackParametersVerification001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  bool callback_called = false;
-  const CodecOutputBufferRenderer* renderer_ptr = nullptr;
-
-  helper_->GetFrameInfo(
-      nullptr,
-      base::BindLambdaForTesting(
-          [&](std::unique_ptr<CodecOutputBufferRenderer> renderer,
-              FrameInfoHelper::FrameInfo info) {
-            callback_called = true;
-            renderer_ptr = renderer.get();  // Should be null for null buffer
-          }));
-
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(callback_called);
-  EXPECT_EQ(renderer_ptr, nullptr);
-}
-
-// Test: FrameInfo Default Construction
-TEST_F(FrameInfoHelperTest, FrameInfoDefaultConstruction001) {
+TEST_F(FrameInfoHelperTest, FrameInfoDefaultConstruction) {
   FrameInfoHelper::FrameInfo info;
   EXPECT_TRUE(info.coded_size.IsEmpty());
   EXPECT_TRUE(info.visible_rect.IsEmpty());
   EXPECT_FALSE(info.ycbcr_info.has_value());
 }
 
-// Test: FrameInfo Copy Constructor
-TEST_F(FrameInfoHelperTest, FrameInfoCopyConstruction001) {
+// ============================================================================
+// FrameInfo struct: copy construction
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, FrameInfoCopyConstruction) {
   FrameInfoHelper::FrameInfo source;
   source.coded_size = kTestCodedSize;
   source.visible_rect = kTestVisibleRect;
@@ -381,8 +452,11 @@ TEST_F(FrameInfoHelperTest, FrameInfoCopyConstruction001) {
   EXPECT_EQ(copy.ycbcr_info.has_value(), source.ycbcr_info.has_value());
 }
 
-// Test: FrameInfo Move Constructor
-TEST_F(FrameInfoHelperTest, FrameInfoMoveConstruction001) {
+// ============================================================================
+// FrameInfo struct: move construction
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, FrameInfoMoveConstruction) {
   FrameInfoHelper::FrameInfo source;
   source.coded_size = kTestCodedSize;
   source.visible_rect = kTestVisibleRect;
@@ -390,11 +464,13 @@ TEST_F(FrameInfoHelperTest, FrameInfoMoveConstruction001) {
   FrameInfoHelper::FrameInfo moved(std::move(source));
   EXPECT_EQ(moved.coded_size, kTestCodedSize);
   EXPECT_EQ(moved.visible_rect, kTestVisibleRect);
-  EXPECT_FALSE(moved.coded_size.IsEmpty());
 }
 
-// Test: FrameInfo Assignment Operator
-TEST_F(FrameInfoHelperTest, FrameInfoAssignmentOperator001) {
+// ============================================================================
+// FrameInfo struct: assignment operator
+// ============================================================================
+
+TEST_F(FrameInfoHelperTest, FrameInfoAssignmentOperator) {
   FrameInfoHelper::FrameInfo info1;
   FrameInfoHelper::FrameInfo info2;
 
@@ -407,58 +483,16 @@ TEST_F(FrameInfoHelperTest, FrameInfoAssignmentOperator001) {
   EXPECT_EQ(info2.visible_rect, kTestVisibleRect);
 }
 
-// Test: FrameInfo With YCbCr Info
-TEST_F(FrameInfoHelperTest, FrameInfoWithYCbCrInfo001) {
-  // Note: YCbCr info can only be obtained through texture owner path
-  // This test verifies the structure can hold YCbCr info
-  FrameInfoHelper::FrameInfo info;
+// ============================================================================
+// FrameInfo struct: YCbCr info can be set
+// ============================================================================
 
-  // Initially no YCbCr info
+TEST_F(FrameInfoHelperTest, FrameInfoWithYCbCrInfo) {
+  FrameInfoHelper::FrameInfo info;
   EXPECT_FALSE(info.ycbcr_info.has_value());
 
-  // Emulate YCbCr info being set (simulating texture owner path result)
   info.ycbcr_info = gpu::VulkanYCbCrInfo();
-
   EXPECT_TRUE(info.ycbcr_info.has_value());
-}
-
-// Test: Multiple Sequential Requests Same Size
-TEST_F(FrameInfoHelperTest, MultipleSequentialRequestsSameSize001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  std::vector<FrameInfoHelper::FrameInfo> results;
-
-  // Submit 5 sequential requests with same (empty) size
-  for (int i = 0; i < 5; ++i) {
-    FrameInfoHelper::FrameInfo info;
-    GetFrameInfo(nullptr, &info);
-    results.push_back(info);
-  }
-
-  // All should return empty frame info
-  for (const auto& info : results) {
-    EXPECT_TRUE(info.coded_size.IsEmpty());
-    EXPECT_TRUE(info.visible_rect.IsEmpty());
-  }
-}
-
-// Test: Multiple Sequential Requests Different Sizes
-TEST_F(FrameInfoHelperTest, MultipleSequentialRequestsDifferentSizes001) {
-  helper_ = FrameInfoHelper::Create(
-      task_runner_,
-      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; }),
-      drdc_lock_);
-
-  std::vector<gfx::Size> sizes = {kTestVisibleSize, kTestVisibleSize2, kTestVisibleSize3};
-
-  for (const auto& size : sizes) {
-    FrameInfoHelper::FrameInfo info;
-    GetFrameInfo(nullptr, &info);
-    EXPECT_TRUE(info.coded_size.IsEmpty());
-  }
 }
 
 }  // namespace media
