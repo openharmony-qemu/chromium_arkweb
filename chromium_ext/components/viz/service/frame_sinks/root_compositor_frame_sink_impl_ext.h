@@ -90,6 +90,9 @@ class RootCompositorFrameSinkImplExt : public RootCompositorFrameSinkImpl {
   void SetIsOfflineWebComponentInactive(bool is_inactive);
 #endif
 
+void DiscardCompositingResources();
+void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
   void UpdateVSyncFrequency(int frame_rate);
   void ResetVSyncFrequency();

@@ -156,6 +156,10 @@ class ArkOhosAdapterHelperWrapper : public NWeb::OhosAdapterHelper {
 
   NWeb::HiAppeventAdapter& GetHiAppeventAdapterInstance() override;
 
+  NWeb::SurfaceControlAdapter& GetSurfaceControlAdapter() override;
+
+  NWeb::SurfaceTransactionAdapter& GetSurfaceTransactionAdapter() override;
+
  private:
   ArkWebRefPtr<ArkOhosAdapterHelper> ctocpp_;
 };

@@ -45,6 +45,10 @@ class HwVideoNativeBufferImageBacking : public OhosVideoImageBacking,
   // SharedImageBacking implementation.
   size_t GetEstimatedSizeForMemoryDump() const override;
 
+  std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
+      SharedImageManager* manager,
+      MemoryTypeTracker* tracker) override;
+
  protected:
   std::unique_ptr<GLTextureImageRepresentation> ProduceGLTexture(
       SharedImageManager* manager,
@@ -85,6 +89,7 @@ class HwVideoNativeBufferImageBacking : public OhosVideoImageBacking,
   class GLTextureVideoImageRepresentation;
   class GLTexturePassthroughVideoImageRepresentation;
   class SkiaVkNBRepresentation;
+  class DelegateVideoImageRepresentation;
 
   gpu::ScopedNativeBufferHandle GetNativeBufferHandle() const ;
   std::unique_ptr<ContextLostObserverHelper> context_lost_helper_;

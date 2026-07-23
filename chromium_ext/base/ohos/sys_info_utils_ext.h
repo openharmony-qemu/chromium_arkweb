@@ -117,6 +117,8 @@ BASE_EXPORT const std::string GetProductModel();
 BASE_EXPORT const std::string GetOSDistVersion();
 
 #endif
+
+BASE_EXPORT bool IsDelegatedCompositingEnabledOhos();
 }  // namespace ohos
 }  // namespace base
 

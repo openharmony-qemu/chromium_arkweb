@@ -4,6 +4,7 @@
 
 #include "gpu/command_buffer/service/ohos/ohos_video_image_backing.h"
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/ohos/scoped_native_buffer_handle.h"
 #include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -21,6 +22,16 @@
 
 namespace gpu {
 
+gpu::SharedImageUsageSet GetOhosVideoUsage() {
+  gpu::SharedImageUsageSet usage = SHARED_IMAGE_USAGE_DISPLAY_READ |
+                                   SHARED_IMAGE_USAGE_GLES2_READ |
+                                   SHARED_IMAGE_USAGE_RASTER_COPY_SOURCE;
+  if (base::ohos::IsDelegatedCompositingEnabledOhos()) {
+    usage |= SHARED_IMAGE_USAGE_SCANOUT;
+  }
+  return usage;
+}
+
 //LCOV_EXCL_START
 OhosVideoImageBacking::OhosVideoImageBacking(const Mailbox& mailbox,
                                              const gfx::Size& size,
@@ -36,7 +47,7 @@ OhosVideoImageBacking::OhosVideoImageBacking(const Mailbox& mailbox,
           color_space,
           surface_origin,
           alpha_type,
-          (SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_RASTER_COPY_SOURCE),
+          GetOhosVideoUsage(),
           std::move(debug_label),
           viz::SinglePlaneFormat::kRGBA_8888.EstimatedSizeInBytes(size),
           is_thread_safe,

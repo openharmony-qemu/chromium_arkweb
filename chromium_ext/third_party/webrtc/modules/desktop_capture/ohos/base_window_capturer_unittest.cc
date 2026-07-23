@@ -31,6 +31,7 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_simple_task_runner.h"
 #include "media/audio/ohos/ohos_audio_capturer_source.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
 
 using namespace media;
 using namespace base;
@@ -332,6 +333,14 @@ class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
               (override));
   MOCK_METHOD(HiAppeventAdapter&,
               GetHiAppeventAdapterInstance,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceControlAdapter&,
+              GetSurfaceControlAdapter,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceTransactionAdapter&,
+              GetSurfaceTransactionAdapter,
               (),
               (override));
   static MockOhosAdapterHelper& GetInstance() {

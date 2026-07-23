@@ -49,6 +49,8 @@ public:
     int GetNativeWindowAbortBuffer(NWebNativeWindow window, OHNativeWindowBuffer *buffer);
 
     int GetNativeWindowQueueSize(NWebNativeWindow window);
+
+    void SetWindowNodeIdAndRSHandle(void* native_window, uint64_t node_id, uint64_t handle) override;
 };
 } // namespace OHOS::NWeb
 

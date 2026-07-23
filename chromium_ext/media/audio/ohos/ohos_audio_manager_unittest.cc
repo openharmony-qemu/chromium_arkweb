@@ -28,6 +28,7 @@
 #include "ohos_adapter_helper.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
 #define private public
 #define protected public
 #include "ohos_audio_manager.h"
@@ -204,6 +205,14 @@ class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
               (override));
   MOCK_METHOD(std::unique_ptr<ScreenlockManagerAdapter>,
               CreateScreenlockManagerAdapter,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceControlAdapter&,
+              GetSurfaceControlAdapter,
+              (),
+              (override));
+  MOCK_METHOD(SurfaceTransactionAdapter&,
+              GetSurfaceTransactionAdapter,
               (),
               (override));
   static MockOhosAdapterHelper& GetInstance() {

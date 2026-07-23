@@ -32,6 +32,8 @@ class NWebDefaultEngineInitArgsImpl : public NWebEngineInitArgs {
   bool GetIsMultiRendererProcess() override;
   bool GetIsEnhanceSurface() override;
   bool GetIsPopup() override;
+  uint64_t GetSurfaceNodeId() override { return 0; }
+  uint64_t GetSurfaceRSHandle() override { return 0; }
 
  private:
   std::string dump_path_ = "";

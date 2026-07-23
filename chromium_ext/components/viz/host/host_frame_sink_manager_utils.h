@@ -41,6 +41,10 @@ public:
     void SetIsOfflineWebComponentInactive(bool is_inactive, const FrameSinkId& frame_sink_id);
 #endif
 
+  void DiscardCompositingResources(const FrameSinkId& frame_sink_id);
+  void UpdateFocusAndScreenStatus(
+      bool is_focused, bool is_single_screen, const FrameSinkId& frame_sink_id);
+
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
     void UpdateVSyncFrequency(const FrameSinkId& frame_sink_id);
     void ResetVSyncFrequency(const FrameSinkId& frame_sink_id);

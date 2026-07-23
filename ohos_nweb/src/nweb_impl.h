@@ -1594,6 +1594,8 @@ void SetVisibility(bool isVisible) override;
 #endif
 
 
+  bool is_delegated_enabled_ = false;
+
   base::WeakPtrFactory<NWebImpl> weak_factory_{this};
 };
 }  // namespace OHOS::NWeb

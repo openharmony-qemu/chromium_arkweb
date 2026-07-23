@@ -113,6 +113,9 @@ class ArkwebDisplayUtils {
   void CleanBufferAfterSwapBuffer(bool delay_clean);
 #endif
 
+void DiscardCompositingResources();
+void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+
  private:
 #if BUILDFLAG(ARKWEB_UNITTESTS)
   friend class ArkwebDisplayUtilsTest;
