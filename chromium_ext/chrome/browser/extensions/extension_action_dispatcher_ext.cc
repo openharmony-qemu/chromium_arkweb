@@ -135,8 +135,12 @@ void ExtensionActionDispatcher::ClearAllValuesForTab(
   }
 
   content::BrowserContext* browser_context = web_contents->GetBrowserContext();
-  const ExtensionSet& enabled_extensions =
-      ExtensionRegistry::Get(browser_context_)->enabled_extensions();
+  ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context_);
+  if (!registry) {
+    LOG(ERROR) << "ClearAllValuesForTab registry is null";
+    return;
+  }
+  const ExtensionSet& enabled_extensions = registry->enabled_extensions();
   ExtensionActionManager* action_manager =
       ExtensionActionManager::Get(browser_context_);
 
