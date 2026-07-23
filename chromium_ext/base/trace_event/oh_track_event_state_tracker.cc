@@ -17,6 +17,7 @@
 
 #include <sstream>
 
+#include "base/check.h"
 #include "base/logging.h"
 #include "perfetto/ext/base/fnv_hash.h"
 #include "perfetto/tracing/internal/track_event_internal.h"
