@@ -13,44 +13,43 @@
  * limitations under the License.
  */
 
-#include "ohos_sdk/openharmony/native/llvm/bin/../include/libcxx-ohos/include/c++/v1/__ranges/lazy_split_view.h"
+#include "components/js_injection/browser/js_communication_host.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "components/js_injection/browser/js_communication_host.h"
+// clang-format off
 #define private public
 #include "components/js_injection/renderer/js_communication_utils.h"
 #include "arkweb/chromium_ext/components/js_injection/js_communication_host_utils.h"
 #undef private
+// clang-format on
 
 namespace js_injection {
 
 class JsCommunicationHostUtilsTest : public ::testing::Test {
-protected:
+ protected:
   void SetUp() override {}
   void TearDown() override {}
 };
 
 #if BUILDFLAG(ARKWEB_JS_ON_DOCUMENT_END)
-TEST_F(JsCommunicationHostUtilsTest, AddDocumentEndJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, AddDocumentEndJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
 
   std::u16string script = u"123";
   std::vector<std::string> allowed_origin_rules = {"0"};
-  JsCommunicationHost::AddScriptResult result = utils.AddDocumentEndJavaScript(script, allowed_origin_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddDocumentEndJavaScript(script, allowed_origin_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
-TEST_F(JsCommunicationHostUtilsTest, RemoveDocumentEndJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, RemoveDocumentEndJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   EXPECT_FALSE(utils.RemoveDocumentEndJavaScript(0));
 }
 
-TEST_F(JsCommunicationHostUtilsTest, RemoveDocumentEndJavaScript002)
-{
+TEST_F(JsCommunicationHostUtilsTest, RemoveDocumentEndJavaScript002) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   std::u16string str = u"1";
@@ -61,8 +60,8 @@ TEST_F(JsCommunicationHostUtilsTest, RemoveDocumentEndJavaScript002)
   EXPECT_FALSE(utils.RemoveDocumentEndJavaScript(1));
 }
 
-TEST_F(JsCommunicationHostUtilsTest, NotifyFrameForAllDocumentEndsJavaScripts001)
-{
+TEST_F(JsCommunicationHostUtilsTest,
+       NotifyFrameForAllDocumentEndsJavaScripts001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   utils.NotifyFrameForAllDocumentEndsJavaScripts(nullptr);
@@ -71,25 +70,23 @@ TEST_F(JsCommunicationHostUtilsTest, NotifyFrameForAllDocumentEndsJavaScripts001
 #endif
 
 #if BUILDFLAG(ARKWEB_JSPROXY)
-TEST_F(JsCommunicationHostUtilsTest, AddHeadReadyJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, AddHeadReadyJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0"};
-  JsCommunicationHost::AddScriptResult result = utils.AddHeadReadyJavaScript(script, rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddHeadReadyJavaScript(script, rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
-TEST_F(JsCommunicationHostUtilsTest, RemoveHeadReadyJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, RemoveHeadReadyJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   EXPECT_FALSE(utils.RemoveHeadReadyJavaScript(0));
 }
 
-TEST_F(JsCommunicationHostUtilsTest, RemoveHeadReadyJavaScript002)
-{
+TEST_F(JsCommunicationHostUtilsTest, RemoveHeadReadyJavaScript002) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
 
@@ -101,15 +98,29 @@ TEST_F(JsCommunicationHostUtilsTest, RemoveHeadReadyJavaScript002)
   EXPECT_FALSE(utils.RemoveHeadReadyJavaScript(1));
 }
 
-TEST_F(JsCommunicationHostUtilsTest, AddHeadReadyPendingJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, DocumentJavaScriptRegexRules_Constructor) {
+  std::u16string script = u"regex_script";
+  std::vector<std::pair<std::string, std::string>> regex_rules = {
+      {"host1", "pattern1"}, {"host2", "pattern2"}};
+  int32_t script_id = 99;
+  DocumentJavaScriptRegexRules regex_obj(script, regex_rules, script_id);
+  EXPECT_EQ(regex_obj.script_, script);
+  EXPECT_EQ(regex_obj.script_id_, script_id);
+  ASSERT_EQ(regex_obj.script_regex_rules_.size(), 2u);
+  EXPECT_EQ(regex_obj.script_regex_rules_[0].first, "host1");
+  EXPECT_EQ(regex_obj.script_regex_rules_[0].second, "pattern1");
+  EXPECT_EQ(regex_obj.script_regex_rules_[1].first, "host2");
+  EXPECT_EQ(regex_obj.script_regex_rules_[1].second, "pattern2");
+}
+
+TEST_F(JsCommunicationHostUtilsTest, AddHeadReadyPendingJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddHeadReadyPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddHeadReadyPendingJavaScript(script, rules, script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
@@ -119,20 +130,19 @@ TEST_F(JsCommunicationHostUtilsTest, AddHeadReadyPendingJavaScript002) {
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0", "1"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddHeadReadyPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddHeadReadyPendingJavaScript(script, rules, script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
-TEST_F(JsCommunicationHostUtilsTest, AddDocumentEndPendingJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, AddDocumentEndPendingJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddDocumentEndPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddDocumentEndPendingJavaScript(script, rules, script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
@@ -142,20 +152,20 @@ TEST_F(JsCommunicationHostUtilsTest, AddDocumentEndPendingJavaScript002) {
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0", "1"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddDocumentEndPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddDocumentEndPendingJavaScript(script, rules, script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
-TEST_F(JsCommunicationHostUtilsTest, AddDocumentStartPendingJavaScript001)
-{
+TEST_F(JsCommunicationHostUtilsTest, AddDocumentStartPendingJavaScript001) {
   JsCommunicationHost* host = nullptr;
   JsCommunicationHostUtils utils(host);
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddDocumentStartPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddDocumentStartPendingJavaScript(script, rules,
+                                              script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
 
@@ -165,9 +175,62 @@ TEST_F(JsCommunicationHostUtilsTest, AddDocumentStartPendingJavaScript002) {
   std::u16string script = u"123";
   std::vector<std::string> rules = {"0", "1"};
   std::vector<std::pair<std::string, std::string>> script_regex_rules;
-  JsCommunicationHost::AddScriptResult result = utils.AddDocumentStartPendingJavaScript(
-    script, rules, script_regex_rules);
+  JsCommunicationHost::AddScriptResult result =
+      utils.AddDocumentStartPendingJavaScript(script, rules,
+                                              script_regex_rules);
   EXPECT_FALSE(result.error_message->empty());
 }
-#endif
+
+TEST_F(JsCommunicationHostUtilsTest, ConvertToMojomScriptRegexRules_Basic) {
+  JsCommunicationHost* host = nullptr;
+  JsCommunicationHostUtils utils(host);
+
+  std::u16string script = u"test_script";
+  std::vector<std::pair<std::string, std::string>> regex_rules = {
+      {"example.com", "rule1"}, {"test.com", "rule2"}};
+  int32_t script_id = 42;
+  DocumentJavaScriptRegexRules regex_obj(script, regex_rules, script_id);
+
+  auto mojom_rules = utils.ConvertToMojomScriptRegexRules(&regex_obj);
+  ASSERT_TRUE(mojom_rules);
+  EXPECT_EQ(mojom_rules->script_id, script_id);
+  EXPECT_EQ(mojom_rules->script, script);
+  ASSERT_EQ(mojom_rules->script_regex_rules.size(), 2u);
+  EXPECT_EQ(mojom_rules->script_regex_rules[0]->second_level_domain,
+            u"example.com");
+  EXPECT_EQ(mojom_rules->script_regex_rules[0]->rule, u"rule1");
+  EXPECT_EQ(mojom_rules->script_regex_rules[1]->second_level_domain,
+            u"test.com");
+  EXPECT_EQ(mojom_rules->script_regex_rules[1]->rule, u"rule2");
 }
+
+TEST_F(JsCommunicationHostUtilsTest,
+       ConvertToMojomScriptRegexRules_EmptyRules) {
+  JsCommunicationHost* host = nullptr;
+  JsCommunicationHostUtils utils(host);
+
+  std::u16string script = u"test_script";
+  std::vector<std::pair<std::string, std::string>> regex_rules;
+  int32_t script_id = 1;
+  DocumentJavaScriptRegexRules regex_obj(script, regex_rules, script_id);
+
+  auto mojom_rules = utils.ConvertToMojomScriptRegexRules(&regex_obj);
+  ASSERT_TRUE(mojom_rules);
+  EXPECT_EQ(mojom_rules->script_id, script_id);
+  EXPECT_EQ(mojom_rules->script, script);
+  EXPECT_EQ(mojom_rules->script_regex_rules.size(), 0u);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_JS_ON_DOCUMENT_END)
+TEST_F(JsCommunicationHostUtilsTest, DocumentEndJavaScript_Constructor) {
+  std::u16string script = u"end_script";
+  OriginMatcher origin_matcher;
+  int32_t script_id = 100;
+  DocumentEndJavaScript doc_end_js(script, origin_matcher, script_id);
+  EXPECT_EQ(doc_end_js.script_, script);
+  EXPECT_EQ(doc_end_js.script_id_, script_id);
+}
+#endif
+
+}  // namespace js_injection
