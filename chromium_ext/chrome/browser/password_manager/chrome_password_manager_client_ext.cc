@@ -237,8 +237,14 @@ void ChromePasswordManagerClientExt::AutoFillWithIMFEvent(
     const std::string& content) {
   LOG(INFO) << "autofill with IMF event, flag=" << is_username
             << is_other_account << is_new_password;
+  content::WebContents* contents = web_contents();
+  if (!contents) {
+    LOG(ERROR) << "WebContents is nullptr";
+    return;
+  }
+
   auto* autofill_client =
-      autofill::OhAutofillClient::FromWebContents(web_contents());
+      autofill::OhAutofillClient::FromWebContents(contents);
   if (!autofill_client) {
     LOG(ERROR) << " autofill_client is nullptr";
     return;
@@ -432,9 +438,14 @@ void ChromePasswordManagerClientExt::OnRequestAutofill(
       << ", password.is_focus=" << password_data.is_focused
       << ", password.type=" << password_data.type
       << ", password.autocomplete_attr=" << password_data.autocomplete_attr;
+  content::WebContents* contents = web_contents();
+  if (!contents) {
+    LOG(ERROR) << "WebContents is nullptr";
+    return;
+  }
 
   auto* autofill_client =
-      autofill::OhAutofillClient::FromWebContents(web_contents());
+      autofill::OhAutofillClient::FromWebContents(contents);
   if (!autofill_client) {
     LOG(ERROR) << "autofill_client is nullptr";
     return;
@@ -488,8 +499,13 @@ void ChromePasswordManagerClientExt::PreSuppressKeyboardIfNeed(
     const autofill::mojom::OhosPasswordFormAutofillState state,
     const autofill::InputFillRequestData& username_data,
     const autofill::InputFillRequestData& password_data) {
+  content::WebContents* contents = web_contents();
+  if (!contents) {
+    LOG(ERROR) << "WebContents is nullptr";
+    return;
+  }
   auto* autofill_client =
-      autofill::OhAutofillClient::FromWebContents(web_contents());
+      autofill::OhAutofillClient::FromWebContents(contents);
   if (!autofill_client) {
     return;
   }
@@ -510,17 +526,17 @@ void ChromePasswordManagerClientExt::PreSuppressKeyboardIfNeed(
 
 bool ChromePasswordManagerClientExt::ArkPromptUserToSaveOrUpdatePassword(
     std::unique_ptr<password_manager::PasswordFormManagerForUI> form_to_save) {
-  
-  if (!web_contents()) {
+  content::WebContents* contents = web_contents();
+  if (!contents) {
     LOG(ERROR) << "web contents is nullptr, can't get autofill enable state.";
-  } else {
-    auto web_preference = web_contents()->GetOrCreateWebPreferences();
-    if (!web_preference.is_autofill_enabled) {
-      LOG(INFO) << "[PassWord Autofill] autofill interception successful.";
-      return false;
-    }
+    return false;
   }
- 
+  auto web_preference = contents->GetOrCreateWebPreferences();
+  if (!web_preference.is_autofill_enabled) {
+    LOG(INFO) << "[PassWord Autofill] autofill interception successful.";
+    return false;
+  }
+
   if (!form_to_save) {
     LOG(ERROR) << "form_to_save is nullptr";
     return false;
@@ -539,7 +555,7 @@ bool ChromePasswordManagerClientExt::ArkPromptUserToSaveOrUpdatePassword(
   }
 
   auto* autofill_client =
-      autofill::OhAutofillClient::FromWebContents(web_contents());
+      autofill::OhAutofillClient::FromWebContents(contents);
   if (!autofill_client) {
     LOG(ERROR) << "autofill_client is nullptr";
     return false;
