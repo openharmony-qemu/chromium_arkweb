@@ -15,10 +15,31 @@
 
 #include "vibration_manager_ohos.h"
 
+#include <limits>
+
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "arkweb/ohos_adapter_ndk/ohos_adapter_helper_ext.h"
 
 using namespace OHOS::NWeb;
+
+namespace {
+
+int32_t ClampVibrationDuration(int64_t milliseconds) {
+  if (milliseconds < 0) {
+    LOG(WARNING) << "VibrationManagerOhos: Negative duration ignored: " << milliseconds;
+    return 0;
+  }
+  
+  if (milliseconds > std::numeric_limits<int32_t>::max()) {
+    LOG(WARNING) << "VibrationManagerOhos: Duration too large, clamped to INT32_MAX: " << milliseconds;
+    return std::numeric_limits<int32_t>::max();
+  }
+  
+  return static_cast<int32_t>(milliseconds);
+}
+
+} // namespace
+
 namespace device {
 
 VibrationManagerOhos::VibrationManagerOhos(
@@ -34,7 +55,10 @@ void VibrationManagerOhos::PlatformVibrate(int64_t milliseconds) {
     return;
   }
 
-  int32_t ret = vibratorAdapter->Vibrate(static_cast<int32_t>(milliseconds));
+  int32_t safeDuration = ClampVibrationDuration(milliseconds);
+  
+  int32_t ret = vibratorAdapter->Vibrate(safeDuration);
+  
   if (ret != 0) {
     LOG(ERROR) << "VibrationManagerOhos: Vibrate failed with error code: " << ret;
   }

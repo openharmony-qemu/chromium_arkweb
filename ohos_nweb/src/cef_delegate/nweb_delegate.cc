@@ -996,6 +996,7 @@ bool NWebDelegate::Init(bool is_enhance_surface,
       display_manager_adapter_->RegisterDisplayListener(display_listener_);
   if (display_listener_id_ < 0) {
     LOG(ERROR) << "RegisterDisplayListener failed";
+    return false;
   }
 
   render_handler_ = NWebRenderHandler::Create();
