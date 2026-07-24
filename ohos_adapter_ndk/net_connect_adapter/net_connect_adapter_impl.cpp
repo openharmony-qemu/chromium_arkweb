@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <dlfcn.h>
+#include <netdb.h>
 
 #include "net_connect_utils.h"
 #include "net_capabilities_adapter_impl.h"
@@ -659,6 +660,17 @@ void NetConnectAdapterImpl::OnRunnableHttpProxyRefreshCallback(
         callback->OnRunnable(result == 0);
     }
     WVLOG_I("OnRunnableHttpProxyRefreshCallback success");
+}
+
+int NetConnectAdapterImpl::GetAddrInfoForNetwork(
+    char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network)
+{
+    return OH_NetConn_GetAddrInfo(host, serv, hints, res, network);
+}
+
+int NetConnectAdapterImpl::FreeDnsResult(struct addrinfo* res)
+{
+    return OH_NetConn_FreeDnsResult(res);
 }
 
 } // namespace OHOS::NWeb

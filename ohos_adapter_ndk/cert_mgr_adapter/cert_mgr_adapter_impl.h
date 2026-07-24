@@ -22,7 +22,7 @@
 namespace OHOS::NWeb {
 class CertManagerAdapterImpl final : public CertManagerAdapter {
 public:
-    CertManagerAdapterImpl();
+    CertManagerAdapterImpl() = default;
     ~CertManagerAdapterImpl() override = default;
 
     uint32_t GetCertMaxSize() override;
