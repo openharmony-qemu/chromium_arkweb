@@ -382,16 +382,20 @@ void MediaControlsImplUtils::MakeOpaqueExt() {
 #if BUILDFLAG(ARKWEB_MEDIA)
   if (media_controls_impl_ && media_controls_impl_->entered_fullscreen_title_display_ &&
       media_controls_impl_->MediaElement().IsFullscreen()) {
-    media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(true);
+    if (should_show_title_) {
+      media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(true);
+    }
   }
-#endif  // UILDFLAG(ARKWEB_MEDIA)
+#endif  // BUILDFLAG(ARKWEB_MEDIA)
 }
 
 void MediaControlsImplUtils::MakeTransparentExt() {
 #if BUILDFLAG(ARKWEB_MEDIA)
   if (media_controls_impl_ && media_controls_impl_->entered_fullscreen_title_display_ &&
       media_controls_impl_->MediaElement().IsFullscreen()) {
-    media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(false);
+    if (should_show_title_) {
+      media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(false);
+    }
   }
 #endif  // BUILDFLAG(ARKWEB_MEDIA)
 }
@@ -492,18 +496,29 @@ void MediaControlsImplUtils::OnSeekingExt() {
 void MediaControlsImplUtils::OnEnteredFullscreenSetIswanted() {
 #if BUILDFLAG(ARKWEB_MEDIA)
   if (media_controls_impl_ && media_controls_impl_->entered_fullscreen_panel_) {
-    media_controls_impl_->entered_fullscreen_panel_->ParserAppendChild(
-        media_controls_impl_->entered_fullscreen_title_display_);
-    media_controls_impl_->entered_fullscreen_panel_->SetIsWanted(true);    
+    should_show_title_ =
+        !media_controls_impl_->MediaElement().ControlsListInternal()->ShouldHideFullscreenTitle();
+    if (!should_show_title_) {
+      UseCounter::Count(media_controls_impl_->MediaElement().GetDocument(),
+          WebFeature::kHTMLMediaElementControlsListNoFullscreenTitle);
+    }
+    if (should_show_title_) {
+      media_controls_impl_->entered_fullscreen_panel_->ParserAppendChild(
+          media_controls_impl_->entered_fullscreen_title_display_);
+      media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(true);
+    }
+    media_controls_impl_->entered_fullscreen_panel_->SetIsWanted(true);
   }
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
-  if (!media_controls_impl_->MediaElement().ShouldShowControls()) {
+  if (media_controls_impl_ && media_controls_impl_->entered_fullscreen_panel_ &&
+      !media_controls_impl_->MediaElement().ShouldShowControls()) {
     media_controls_impl_->entered_fullscreen_panel_->SetIsWanted(false);
   }
 #endif // ARKWEB_VIDEO_ASSISTANT
   media_controls_impl_->SetClass("fullscreen", true);
 
-  if (!media_controls_impl_->IsVisible() && media_controls_impl_->entered_fullscreen_title_display_) {
+  if (should_show_title_ && !media_controls_impl_->IsVisible() &&
+      media_controls_impl_->entered_fullscreen_title_display_) {
     media_controls_impl_->entered_fullscreen_title_display_->SetIsWanted(false);
   }
 #endif  // BUILDFLAG(ARKWEB_MEDIA)
@@ -522,12 +537,15 @@ void MediaControlsImplUtils::OnEnteredFullscreenAddStyleElement() {
 void MediaControlsImplUtils::OnExitedFullscreenSetIswanted() {
 #if BUILDFLAG(ARKWEB_MEDIA)
   if (media_controls_impl_ && media_controls_impl_->entered_fullscreen_panel_) {
-    media_controls_impl_->entered_fullscreen_panel_->ParserRemoveChild(
-        *media_controls_impl_->entered_fullscreen_title_display_);
+    if (should_show_title_) {
+      media_controls_impl_->entered_fullscreen_panel_->ParserRemoveChild(
+          *media_controls_impl_->entered_fullscreen_title_display_);
+    }
     media_controls_impl_->entered_fullscreen_panel_->SetIsWanted(false);
 
     media_controls_impl_->SetClass("fullscreen", false);
   }
+  should_show_title_ = true;
 #endif  // BUILDFLAG(ARKWEB_MEDIA)
 }
 
