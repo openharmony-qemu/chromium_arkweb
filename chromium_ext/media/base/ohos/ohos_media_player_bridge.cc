@@ -88,6 +88,9 @@ int32_t OHOSMediaPlayerBridge::Initialize() {
               weak_factory_.GetWeakPtr()));
     }
   }
+  if (!player_) {
+    Prepare();
+  }
   return PLAYER_INIT_OK;
 }
 
@@ -314,6 +317,8 @@ void OHOSMediaPlayerBridge::StartInternal() {
 
 void OHOSMediaPlayerBridge::Pause() {
   if ((player_ &&
+       player_state_ !=
+           OHOS::NWeb::PlayerAdapter::PlayerStates::PLAYER_INITIALIZED &&
        player_state_ !=
            OHOS::NWeb::PlayerAdapter::PlayerStates::PLAYER_STARTED &&
        player_state_ !=
