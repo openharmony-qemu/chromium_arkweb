@@ -118,6 +118,7 @@ declare_args() {
   arkweb_network_conninfo = true
   arkweb_network_load = true
   arkweb_network_proxy = true
+  arkweb_network_proxy_auth_retry = true
   arkweb_network_base = true
   arkweb_network_service = true
   arkweb_network_dfx = true

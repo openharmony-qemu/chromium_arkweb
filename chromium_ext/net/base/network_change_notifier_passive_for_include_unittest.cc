@@ -89,6 +89,10 @@ class MockNetConnectAdapter : public NetConnectAdapter {
   void UnRegisterVpnListener() {}
   std::vector<std::string> GetNetAddrListByNetId(int32_t netId) override {}
   std::vector<std::string> GetNetAddrListForVpn() override {}
+  MOCK_METHOD(bool,
+              NotifyNetworkServiceAuthRequired,
+              (std::shared_ptr<NetGlobalHttpProxyRefreshCallback>),
+              (override));
 };
 }  // namespace OHOS::NWeb
 
