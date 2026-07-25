@@ -711,6 +711,12 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   std::shared_ptr<NWebAccessibilityNodeInfo>
   GetAccessibilityNodeInfoByFocusMove(int64_t accessibilityId,
                                       int32_t direction) override;
+  std::shared_ptr<NWebAccessibilityNodeInfo>
+  GetAccessibilityNodeInfoByParams(
+      int64_t accessibilityId,
+      int32_t direction,
+      int32_t elementType,
+      const std::map<std::string, std::string>& params) override;
   void RefreshAccessibilityManagerClickEvent() override;
   void SendAccessibilityHoverEvent(int x, int y, bool isHoverEnter) override;
 #endif

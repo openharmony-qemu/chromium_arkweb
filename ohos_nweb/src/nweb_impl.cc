@@ -6264,6 +6264,21 @@ NWebImpl::GetAccessibilityNodeInfoByFocusMove(int64_t accessibilityId,
   return nullptr;
 }
 
+std::shared_ptr<NWebAccessibilityNodeInfo>
+NWebImpl::GetAccessibilityNodeInfoByParams(
+    int64_t accessibilityId,
+    int32_t direction,
+    int32_t elementType,
+    const std::map<std::string, std::string>& params) {
+#if BUILDFLAG(ARKWEB_ACCESSIBILITY)
+  if (nweb_delegate_ != nullptr) {
+    return nweb_delegate_->GetAccessibilityNodeInfoByParams(
+        accessibilityId, direction, elementType, params);
+  }
+#endif
+  return nullptr;
+}
+
 void NWebImpl::SetAccessibilityState(bool state) {
 #if BUILDFLAG(ARKWEB_ACCESSIBILITY)
   if (nweb_delegate_ != nullptr) {

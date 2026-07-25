@@ -14,6 +14,7 @@
  */
 
 #include "nweb_delegate.h"
+#include <map>
 
 #include "arkweb/build/features/features.h"
 #include "nweb.h"
@@ -365,6 +366,17 @@ TEST_F(NWebDelegateTest, GetSelectInfo) {
   ASSERT_NE(nweb_delegate_, nullptr);
   std::string result = nweb_delegate_->GetSelectInfo();
   EXPECT_TRUE(result.empty());
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_ACCESSIBILITY)
+TEST_F(NWebDelegateTest, GetAccessibilityNodeInfoByParamsNodeNotFound) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  std::map<std::string, std::string> params;
+
+  EXPECT_EQ(nweb_delegate_->GetAccessibilityNodeInfoByParams(
+                1234567, 0x00000010, 2, params),
+            nullptr);
 }
 #endif
 

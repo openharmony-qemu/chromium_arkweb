@@ -99,6 +99,10 @@ class CONTENT_EXPORT BrowserAccessibilityOHOS : public BrowserAccessibility {
 
   BrowserAccessibilityOHOS* GetAccessibilityNodeByFocusMove(
       int32_t direction) const;
+  BrowserAccessibilityOHOS* GetAccessibilityNodeByParams(
+      int32_t direction,
+      int32_t element_type,
+      const std::map<std::string, std::string>& params) const;
 
   float RangeMin() const;
 
