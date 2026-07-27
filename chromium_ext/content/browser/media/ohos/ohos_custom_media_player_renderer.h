@@ -116,6 +116,8 @@ class CONTENT_EXPORT OHOSCustomMediaPlayerRenderer
 
   media::OHOSMediaResourceGetter* GetMediaResourceGetter() override;
 
+  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override { return nullptr; }
+
   void OnTimeUpdate(base::TimeDelta media_time);
   void OnBufferingStateChange(media::BufferingState state);
 

@@ -340,6 +340,10 @@ class NWebPreferenceDelegate : public NWebPreference {
   void PutWebMediaAVSessionEnabled(bool enable) override;
 #endif  // ARKWEB_MEDIA_AVSESSION
 
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+  void PutWebMediaNetworkProxyEnabled(bool enable) override;
+#endif  // ARKWEB_MEDIA_HLS
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
   bool GetCastEnabled();
 #endif  // ARKWEB_MEDIA_CAST

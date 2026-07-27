@@ -10,9 +10,11 @@
 #include "base/timer/timer.h"
 #include "base/unguessable_token.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "media/base/media_log.h"
 #include "media/base/media_resource.h"
+#include "media/base/ohos/devtools_network_event_sink.h"
 #include "media/base/ohos/ohos_media_player_bridge.h"
 #include "media/base/renderer.h"
 #include "media/base/renderer_client.h"
@@ -25,13 +27,16 @@
 #include "url/gurl.h"
 #include "arkweb/chromium_ext/media/base/media_player_url_params.h"
 
+#include "services/network/public/cpp/shared_url_loader_factory.h"
+
 namespace content {
 class WebContents;
 class OHOSMediaPlayerRendererWebContentsObserver;
 
 class CONTENT_EXPORT OHOSMediaPlayerRenderer
     : public media::Renderer,
-      public media::OHOSMediaPlayerBridge::Client {
+      public media::OHOSMediaPlayerBridge::Client,
+      public media::DevToolsNetworkEventSink {
  public:
   // Deprecated interfaces removed in Chromium 141
   using ClientExtension =
@@ -78,6 +83,8 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
                         int32_t visible_height,
                         int32_t format) override;
   media::OHOSMediaResourceGetter* GetMediaResourceGetter() override;
+  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
+  media::DevToolsNetworkEventSink* GetDevToolsNetworkEventSink() override;
   void OnMediaDurationChanged(base::TimeDelta duration) override;
   void OnPlaybackComplete() override;
   void OnError(int error) override;
@@ -114,6 +121,23 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
 
   void GetGrantMediaFileAccessDirs(std::vector<std::string>& grantMediaFileAccessDirs);
 
+  // media::DevToolsNetworkEventSink implementation. Each forwards to
+  // devtools_instrumentation's browser-process Network event emission
+  // (OnAuctionWorkletNetworkRequest*), surfacing the HLS proxy download in
+  // DevTools' Network panel. Called on the UI thread by the download manager.
+  void NotifyRequestWillBeSent(const std::string& request_id,
+                               const network::ResourceRequest& request) override;
+  void NotifyResponseReceived(const std::string& request_id,
+                              const GURL& url,
+                              const network::mojom::URLResponseHead& head) override;
+  void NotifyLoadingComplete(const std::string& request_id,
+                             int net_error_code,
+                             int64_t encoded_data_length) override;
+
+  // Resolves (once) the frame's FrameTreeNodeId + devtools loader id used by the
+  // Notify* methods above. Leaves devtools_frame_ok_=false if the frame is gone.
+  void EnsureDevToolsFrameResolved();
+
   mojo::Remote<ClientExtension> client_extension_;
 
   raw_ptr<media::RendererClient> renderer_client_ = nullptr;
@@ -135,6 +159,20 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
   int routing_id_;
 
   std::unique_ptr<media::OHOSMediaResourceGetter> media_resource_getter_;
+
+  // Lazily-created Chromium network stack factory for the HLS proxy download
+  // path. Frame-attributed (built via RenderFrameHostImpl + DevTools/embedder
+  // instrumentation, like downloads) so HLS segment requests are visible in
+  // DevTools' Network panel and interceptable via CDP. Falls back to the plain
+  // browser-partition factory when DevTools is not attached.
+  scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+
+  // Frame attribution cached once by EnsureDevToolsFrameResolved() for DevTools
+  // Network event emission.
+  FrameTreeNodeId devtools_frame_tree_node_id_;
+  std::string devtools_loader_id_;
+  bool devtools_frame_ok_ = false;
+  bool devtools_frame_resolved_ = false;
 
   bool web_contents_muted_;
   raw_ptr<OHOSMediaPlayerRendererWebContentsObserver> web_contents_observer_ = nullptr;
