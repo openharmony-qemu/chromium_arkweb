@@ -1623,6 +1623,13 @@ arkweb_content_browser_media_video_assistant = [
     "//arkweb/chromium_ext/content/browser/media/video_assistant/video_assistant.h",
 ]
 
+arkweb_components_safe_browsing_content_browser_sources = [
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.cc",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.h",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_threat_type.h",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_blocking_page_info.h",
+]
+
 arkweb_services_network_mojom_traits_sources = []
 arkweb_services_network_mojom_sources = []
 arkweb_net_for_ext_navigation_sources = []

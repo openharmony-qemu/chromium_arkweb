@@ -88,6 +88,10 @@ void NewEntrySetExtraHeaders(
                           ErrorPageReloadReason  reason) override;
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  NavigationEntry* GetPostCommitErrorReplacedEntry() override;
+#endif
+
 };
 
 }  // namespace content
