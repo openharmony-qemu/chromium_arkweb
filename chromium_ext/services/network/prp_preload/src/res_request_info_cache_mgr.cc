@@ -99,14 +99,14 @@ bool ResReqPreloadInfoListToJson(const std::string& page_origin,
   return need_store;
 }
 
-void ParseJson(base::Value& json_value,
+JSONParseResult ParseJson(base::Value& json_value,
     LinkedHashMap& prelaod_info_list,
     LinkedHashMap& preconnect_limit_info_list,
     int64_t& page_index)
 {
   base::Value::List::iterator it = json_value.GetList().begin();
   if (it == json_value.GetList().end()) {
-    return;
+    return JSONParseResult::VALUE_INVALID;
   }
   PRPPreloadMode mode =
     ohos_prp_preload::PRParallelPreloadMgr::GetInstance().GetPRParallelPreloadMode();
@@ -114,11 +114,11 @@ void ParseJson(base::Value& json_value,
   if (!DiskCacheInfoParser::GetRequestInfoTypeFromJson(*it, PARAM_REQUEST_INFO_TYPE, origin_info) ||
       (origin_info->type() != PRRequestInfoType::TYPE_PAGE_ORIGIN)) {
     LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList json parse request_info_type failed";
-    return;
+    return JSONParseResult::VALUE_PARESE_ERROR;
   }
   if (!DiskCacheInfoParser::GetPageIndexFromJson(*it, PARAM_PAGE_INDEX, origin_info)) {
     LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList json parse page_index failed";
-    return;
+    return JSONParseResult::VALUE_PARESE_ERROR;
   }
   page_index = origin_info->page_index() + 1;
   if (mode == PRPPreloadMode::PRELOAD &&
@@ -126,6 +126,7 @@ void ParseJson(base::Value& json_value,
     LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList json parse page_origin failed";
     mode = PRPPreloadMode::PRECONNECT;
   }
+  bool is_info_broken = false;
   prelaod_info_list.insert({origin_info->url().spec(), origin_info});
   for (base::Value::List::iterator json_item = it++; json_item != json_value.GetList().end(); ++json_item) {
     std::shared_ptr<PRRequestInfo> info = std::make_shared<PRRequestInfo>();
@@ -146,11 +147,23 @@ void ParseJson(base::Value& json_value,
     if (mode == PRPPreloadMode::PRELOAD && !DiskCacheInfoParser::ParseJsonForPreload(*json_item, info)) {
       continue;
     }
+    if (info->allow_credentials() && (info->load_flags() & net::LOAD_SHOULD_BYPASS_HSTS)) {
+      LOG(ERROR) << "PRPPreload.JsonToResReqPreloadInfoList info load_flags and credential not match";
+      is_info_broken = true;
+      break;
+    }
     prelaod_info_list.insert({info->url().spec(), info});
   }
+  if (is_info_broken) {
+    LOG(ERROR) << "PRPPreload.JsonToResReqPreloadInfoList info is broken";
+    prelaod_info_list.clear();
+    preconnect_limit_info_list.clear();
+    return JSONParseResult::VALUE_MATCHED_ERROR;
+  }
+  return JSONParseResult::SUCCEED;
 }
 
-void JsonToResReqPreloadInfoList(const std::string& content,
+JSONParseResult JsonToResReqPreloadInfoList(const std::string& content,
     LinkedHashMap& prelaod_info_list,
     LinkedHashMap& preconnect_limit_info_list,
     int64_t& page_index)
@@ -159,16 +172,17 @@ void JsonToResReqPreloadInfoList(const std::string& content,
   if (content.empty()) {
     prelaod_info_list.clear();
     preconnect_limit_info_list.clear();
-    return;
+    return JSONParseResult::VALUE_INVALID;
   }
   absl::optional<base::Value> json_value = base::JSONReader::Read(
       content, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!json_value || !json_value->is_list()) {
     LOG(WARNING) << "PRPPreload.JsonToResReqPreloadInfoList failed";
-    return;
+    return JSONParseResult::VALUE_INVALID;
   }
-  ParseJson(json_value.value(), prelaod_info_list, preconnect_limit_info_list, page_index);
+  auto ret = ParseJson(json_value.value(), prelaod_info_list, preconnect_limit_info_list, page_index);
   LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList size:" << prelaod_info_list.size();
+  return ret;
 }
 
 ResReqInfoCacheMgr::ResReqInfoCacheMgr(const std::string& url,
@@ -313,7 +327,12 @@ void ResReqInfoCacheMgr::OnEntryLoadedCallback(const std::string& entry_content)
   if (load_preload_info_list_.size() > 0 || !is_start_) {
     return;
   }
-  JsonToResReqPreloadInfoList(entry_content, load_preload_info_list_, load_preconnect_limit_list_, page_index_);
+  auto parse_result  = JsonToResReqPreloadInfoList(entry_content, load_preload_info_list_,
+    load_preconnect_limit_list_, page_index_);
+  if (parse_result  == JSONParseResult::VALUE_MATCHED_ERROR) {
+    disk_cache_->ClearDiskCache();
+  }
+
   int64_t load_page_index = page_index_ - 1;
   std::string page_seq_num = (load_page_index == 1) ? (std::to_string(load_page_index) + ", ") :
     (std::to_string(load_page_index - 1) + ", " + std::to_string(load_page_index) + ", ");

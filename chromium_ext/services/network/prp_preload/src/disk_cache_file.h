@@ -92,6 +92,8 @@ class DiskCacheFile : public base::RefCountedThreadSafe<DiskCacheFile> {
 
   void StoreInfoAsync(const std::string& entry_content);
   void LoadInfoAsync();
+  void ClearDiskCache();
+
  private:
   friend class base::RefCountedThreadSafe<DiskCacheFile>;
   friend class DiskCacheEntry;
