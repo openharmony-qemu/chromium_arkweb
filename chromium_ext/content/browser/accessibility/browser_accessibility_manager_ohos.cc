@@ -12,6 +12,18 @@
 #include "ui/gfx/geometry/point_conversions.h"
 
 namespace ui {
+namespace {
+
+bool AccessibilityEmbeddedObjectPredicate(BrowserAccessibility*,
+                                          BrowserAccessibility* node) {
+  if (!node) {
+    return false;
+  }
+  return node->GetRole() == ax::mojom::Role::kEmbeddedObject;
+}
+
+}  // namespace
+
 constexpr int64_t kInvalidAccessibilityId = -1;
 constexpr int64_t kArkWebId = 0;
 constexpr int64_t kRootAccessibilityId = 1;
@@ -485,6 +497,10 @@ int64_t BrowserAccessibilityManagerOHOS::FindElementType(
   tree_search.SetCanWrapToLastElement(can_wrap);
   tree_search.SetOnscreenOnly(false);
   tree_search.AddPredicate(predicate);
+  // Embedded objects can be nested in the ArkUI node tree. When searching by type
+  // (e.g., link, heading), also match EmbeddedObjects so the upstream can locate
+  // the embedded object first and then query inside it.
+  tree_search.AddPredicate(AccessibilityEmbeddedObjectPredicate);
 
   if (tree_search.CountMatches() == 0) {
     return 0;
@@ -521,6 +537,7 @@ void BrowserAccessibilityManagerOHOS::InitSearchKeyToPredicateMapIfNeeded()
   AddToPredicateMap("CHECKBOX", AccessibilityCheckboxPredicate);
   AddToPredicateMap("COMBOBOX", AccessibilityComboboxPredicate);
   AddToPredicateMap("CONTROL", AccessibilityControlPredicate);
+  AddToPredicateMap("EMBEDOBJECT", AccessibilityEmbeddedObjectPredicate);
   AddToPredicateMap("FOCUSABLE", AccessibilityFocusablePredicate);
   AddToPredicateMap("FRAME", AccessibilityFramePredicate);
   AddToPredicateMap("GRAPHIC", AccessibilityGraphicPredicate);
