@@ -64,6 +64,21 @@ class MEDIA_GPU_EXPORT CodecOutputBuffer {
 #endif // ARKWEB_VIDEO_ASSISTANT
                     const gfx::ColorSpace& color_space);
 
+#if BUILDFLAG(ARKWEB_UNITTESTS)
+  // For testing, since CodecWrapperImpl isn't available.  Uses nullptr.
+  CodecOutputBuffer(const gfx::Size& size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+                    bool render_video_view,
+#endif // ARKWEB_VIDEO_ASSISTANT
+                    const gfx::ColorSpace& color_space);
+
+  template <typename... Args>
+  static std::unique_ptr<CodecOutputBuffer> CreateForTesting(Args&&... args) {
+    return std::unique_ptr<CodecOutputBuffer>(
+        new CodecOutputBuffer(std::forward<Args>(args)...));
+  }
+#endif // ARKWEB_UNITTESTS
+
   scoped_refptr<CodecWrapperImpl> codec_;
   int64_t id_;
   bool was_rendered_ = false;
