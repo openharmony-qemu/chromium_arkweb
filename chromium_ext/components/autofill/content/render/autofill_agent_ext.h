@@ -72,18 +72,21 @@ class AutofillAgentExt : public AutofillAgent {
   }
 #endif
 #if BUILDFLAG(ARKWEB_AUTOFILL)
-  void OhAutoFillFormControlElementClicked(const blink::WebNode& node);
+  void OhAutoFillEditableElementClicked(const blink::WebNode& node);
   bool OhAutoFillDidChangeScrollOffset();
   void OnAutofillFocusedElementChanged(
       const blink::WebElement& new_focused_element);
-  bool MaybeStartAutofillPositionRequestContext(
+  bool MaybeDeferFocusedElementRequest(
       bool focused_node_was_last_clicked,
       bool restart_if_sent);
+  bool MaybeDeferPositionRequest(
+      const blink::WebElement& focused_element,
+      bool focused_node_was_last_clicked);
   void OnAutofillMainFrameViewportRectangleChanged(
       const gfx::Rect& main_frame_viewport_rect);
-  bool OnFocusedInputPositionMaybeChanged();
-  void ClearAutofillPositionRequestContext();
-  void ResetAutofillPositionRequestContext();
+  bool OnFocusedElementPositionMaybeChanged();
+  void ClearPositionRequestState();
+  void ResetPositionRequestState();
   bool FillFieldWithValue(FieldRendererId field_id,
                           const std::u16string& value);
   void SetIsNeedToCreatedPopup(bool is_need_to_created_popup) {
@@ -96,14 +99,14 @@ class AutofillAgentExt : public AutofillAgent {
     created_popup_time_ = created_popup_time;
   }
 
-  enum class AutofillPositionRequestState {
+  enum class PositionRequestState {
     kIdle,
     kWaitingForPositionChange,
     kWaitingForStablePosition,
     kRequestDispatched,
   };
 
-  struct AutofillPositionSnapshot {
+  struct PositionSnapshot {
     gfx::Rect field_bounds;
     gfx::Rect view_rect;
     gfx::Rect window_rect;
@@ -111,30 +114,42 @@ class AutofillAgentExt : public AutofillAgent {
   };
 
   bool IsAutofillPositionRequestPending() const;
-  bool IsSameAutofillViewport(const AutofillPositionSnapshot& lhs,
-                              const AutofillPositionSnapshot& rhs) const;
-  bool GetCurrentFocusedInput(blink::WebInputElement& input_element);
-  bool GetAutofillPositionSnapshot(const blink::WebInputElement& input_element,
-                                   AutofillPositionSnapshot& snapshot);
-  bool StartAutofillPositionRequestContext(
-      const blink::WebInputElement& input_element);
-  void ScheduleAutofillPositionCheck();
-  void RunAutofillPositionCheck(uint32_t generation);
+  bool IsSameViewportGeometry(const PositionSnapshot& lhs,
+                              const PositionSnapshot& rhs) const;
+  bool IsPositionTrackingElement(
+      const blink::WebElement& element) const;
+  bool IsPasswordAutofillElement(const blink::WebElement& element);
+  bool GetCurrentFocusedElement(blink::WebElement& element);
+  bool TryDeferPositionRequest(
+      const blink::WebElement& element,
+      bool restart_if_sent);
+  bool CapturePositionSnapshot(
+      const blink::WebElement& element,
+      PositionSnapshot& snapshot);
+  bool StartPositionTracking(
+      const blink::WebElement& element);
+  void SchedulePositionCheck();
+  void RunPositionCheck(uint32_t generation);
 
   base::OneShotTimer autofill_scroll_timer_;
   base::OneShotTimer autofill_position_check_timer_;
-  FieldRendererId autofill_position_field_id_;
-  AutofillPositionSnapshot autofill_position_snapshot_;
-  std::optional<AutofillPositionSnapshot>
-      last_stable_autofill_position_snapshot_;
+  FieldRendererId position_field_id_;
+  PositionSnapshot position_snapshot_;
+  std::optional<PositionSnapshot>
+      last_stable_position_snapshot_;
   std::optional<gfx::Rect> main_frame_viewport_rect_;
-  AutofillPositionRequestState autofill_position_request_state_ =
-      AutofillPositionRequestState::kIdle;
-  uint32_t autofill_position_generation_ = 0;
-  int autofill_position_stable_check_count_ = 0;
+  PositionRequestState position_request_state_ =
+      PositionRequestState::kIdle;
+  uint32_t position_generation_ = 0;
+  int position_stable_check_count_ = 0;
+  bool is_dispatching_position_request_ = false;
   bool is_need_to_created_popup_ = false;
   base::TimeTicks created_popup_time_ = base::TimeTicks::Now();
 
+protected:
+  void OnDestruct() override;
+
+private:
   base::WeakPtrFactory<AutofillAgentExt> ext_weak_ptr_factory_{this};
 #endif
 };
