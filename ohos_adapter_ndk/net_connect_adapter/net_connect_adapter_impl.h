@@ -57,11 +57,6 @@ public:
 
     bool NotifyNetworkServiceAuthRequired(std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback) override;
 
-    int GetAddrInfoForNetwork(
-        char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network) override;
-
-    int FreeDnsResult(struct addrinfo* res) override;
-
     static void OnReceiveEvent(const CommonEvent_RcvData *data);
 
 private:

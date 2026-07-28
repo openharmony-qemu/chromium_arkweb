@@ -107,11 +107,6 @@ class MockNetConnectAdapter : public NetConnectAdapter {
               NotifyNetworkServiceAuthRequired,
               (std::shared_ptr<NetGlobalHttpProxyRefreshCallback>),
               (override));
-  MOCK_METHOD(int,
-              GetAddrInfoForNetwork,
-              (char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network),
-              (override));
-  MOCK_METHOD(int, FreeDnsResult, (struct addrinfo* res), (override));
 };
 }  // namespace OHOS::NWeb
 
