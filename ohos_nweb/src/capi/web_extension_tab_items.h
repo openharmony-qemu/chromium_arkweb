@@ -194,6 +194,7 @@ struct NWebExtensionTabUpdatePropertiesV2 {
   NWebExtensionTabUpdateProperties updateProperties;
   std::optional<std::string> contextType;
   std::optional<bool> includeIncognitoInfo;
+  std::optional<int32_t> agentProcessing;
 };
 
 struct NWebExtensionTabContextInfo {
@@ -265,6 +266,7 @@ struct NWebExtensionTabV2 {
   std::optional<int64_t> last_accessed;
   std::optional<bool> frozen;
   std::optional<int32_t> split_view_id;
+  std::optional<int32_t> agentProcessing;
 };
 
 struct NWebExtensionTabMovePropertiesV2 {
@@ -277,6 +279,7 @@ struct NWebExtensionTabQueryInfoV2 {
   NWebExtensionTabQueryInfo query;
   std::optional<std::string> contextType;
   std::optional<bool> includeIncognitoInfo;
+  std::optional<int32_t> agentProcessing;
 };
 
 struct NWebExtensionTabGetParams {
