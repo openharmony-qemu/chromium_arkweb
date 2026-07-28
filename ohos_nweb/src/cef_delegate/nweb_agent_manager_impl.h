@@ -35,6 +35,7 @@ public:
     bool IsAgentEnabled() override;
 
     void SetContentChangeDetectionConfig(int32_t min_report_time, float text_content_ratio) override;
+    void SetDomExtractionConfig(bool reportDomTree) override;
     void SetAgentNeedHighlight(bool enabled) override;
     void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback) override;
 private:
