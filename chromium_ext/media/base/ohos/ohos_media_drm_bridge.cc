@@ -1116,6 +1116,11 @@ void OHOSMediaDrmBridge::OnSessionKeysChange(
       std::string key_id = keyIdArray[i];
       uint32_t status = statusArray[i];
 
+      if (status > static_cast<uint32_t>(KeyStatus::KEY_STATUS_USABLE_IN_FUTURE)) {
+        LOG(WARNING) << "[DRM] OnSessionKeysChange: invalid key status " << status;
+        continue;
+      }
+
       CdmKeyInformation::KeyStatus key_status =
           ConvertKeyStatus(static_cast<KeyStatus>(status), is_key_release);
       cdm_keys_info.push_back(std::make_unique<CdmKeyInformation>(
@@ -1157,6 +1162,10 @@ void OHOSMediaDrmBridge::OnMediaLicenseReady(bool success) {
   }
   if (!media_crypto_and_license_ready_cb_) {
     LOG(INFO) << "[DRM]" << __func__ << ", cb not set.";
+    return;
+  }
+  if (!ohos_media_key_session_) {
+    LOG(INFO) << "[DRM]" << __func__ << ", key session not ready.";
     return;
   }
   LOG(INFO) << "[DRM]" << __func__ << ", session:" << ohos_media_key_session_;
@@ -1208,7 +1217,9 @@ OHOSMediaDrmBridge::SecurityLevel OHOSMediaDrmBridge::GetSecurityLevel() {
       SecurityLevel::SECURITY_LEVEL_DEFAULT;
   if (ohos_drm_adapter_) {
     int32_t level = ohos_drm_adapter_->GetSecurityLevel();
-    securityLevel = static_cast<OHOSMediaDrmBridge::SecurityLevel>(level);
+    if (level >= SECURITY_LEVEL_DEFAULT && level <= SECURITY_LEVEL_3) {
+      securityLevel = static_cast<OHOSMediaDrmBridge::SecurityLevel>(level);
+    }
   }
   return securityLevel;
 }

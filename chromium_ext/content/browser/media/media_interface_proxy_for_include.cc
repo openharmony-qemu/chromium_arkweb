@@ -53,6 +53,10 @@ void MediaInterfaceProxy::CreateCustomMediaPlayerRenderer(
     const media::MediaPlayerUrlParams& params) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
+  if (!render_frame_host().GetProcess()) {
+    return;
+  }
+
   media::MojoRendererService::Create(
       nullptr,
       std::make_unique<OHOSCustomMediaPlayerRenderer>(

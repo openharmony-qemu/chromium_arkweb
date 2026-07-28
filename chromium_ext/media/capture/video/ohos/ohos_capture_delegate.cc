@@ -154,6 +154,14 @@ void OHOSCaptureDelegate::OnBufferAvailable(
   }
   int32_t rotation = roration_info->GetRotation();
   if (client_ != nullptr) {
+    uint8_t* buffer_addr = buffer->GetBufferAddr();
+    if (buffer_addr == nullptr) {
+      LOG(ERROR) << "OnBufferAvailable buffer_addr is nullptr";
+      if (surface->ReleaseBuffer(std::move(buffer), -1) != kSuccessReturnValue) {
+        LOG(DEBUG) << "OnBufferAvailable ReleaseBuffer failed";
+      }
+      return;
+    }
 #if !defined(RK3568_CAPTURE) && BUILDFLAG(ARKWEB_WEBRTC)
     capture_format_.stride =
         ConvertToPixel(buffer->GetStride(), capture_format_.pixel_format);
