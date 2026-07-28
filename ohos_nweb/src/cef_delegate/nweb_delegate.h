@@ -1016,6 +1016,8 @@ void AbortDistill() override;
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   void SetErrorPageEnabled(bool enable) override;
   bool GetErrorPageEnabled() override;
+  void SetErrorPageEnabled(bool enable, bool includeSubframe) override;
+  bool GetSubframeErrorPageEnabled() override;
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)

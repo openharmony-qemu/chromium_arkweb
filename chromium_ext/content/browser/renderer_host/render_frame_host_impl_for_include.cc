@@ -404,8 +404,10 @@ void RenderFrameHostImpl::CommitFailedNavigation(
   }
 
   FrameTreeNode* tree_node = frame_tree_node();
+  const auto& web_prefs = GetOrCreateWebPreferences();
 
-  if (GetOrCreateWebPreferences().error_page_enabled && tree_node->IsMainFrame()) {
+  if (web_prefs.error_page_enabled &&
+      (tree_node->IsMainFrame() || web_prefs.subframe_error_page_enabled)) {
     GetContentClient()->browser()->OverrideErrorPage(
       navigation_request->frame_tree_node()->frame_tree_node_id(),
       commit_params->is_browser_initiated,

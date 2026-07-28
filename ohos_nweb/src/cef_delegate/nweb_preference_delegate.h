@@ -357,6 +357,8 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   bool ErrorPageEnabled();
   void PutErrorPageEnabled(bool enable);
+  bool SubframeErrorPageEnabled();
+  void PutSubframeErrorPageEnabled(bool enable);
 #endif
 
  private:
@@ -397,6 +399,7 @@ class NWebPreferenceDelegate : public NWebPreference {
   bool raw_file_access_from_file_urls_{false};
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   bool error_page_enabled_{false};
+  bool subframe_error_page_enabled_{false};
 #endif
 #if BUILDFLAG(ARKWEB_DARKMODE)
   bool force_dark_mode_enabled_{false};

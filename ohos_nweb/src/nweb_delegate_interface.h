@@ -1035,6 +1035,8 @@ class NWebDelegateInterface
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   virtual void SetErrorPageEnabled(bool enable) = 0;
   virtual bool GetErrorPageEnabled() = 0;
+  virtual void SetErrorPageEnabled(bool enable, bool includeSubframe) = 0;
+  virtual bool GetSubframeErrorPageEnabled() = 0;
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
