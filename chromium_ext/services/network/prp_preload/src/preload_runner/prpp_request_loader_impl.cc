@@ -61,6 +61,11 @@ bool PRPPRequestLoaderImpl::Init(const net::IsolationInfo& isolation_info)
     return false;
   }
   real_load_flags_ = prpp_req_info_->load_flags();
+  // if real_load_flags_ contains net::LOAD_SHOULD_BYPASS_HSTS and allow_credentials is true, stop preloading.
+  if (prpp_req_info_->allow_credentials() && (real_load_flags_ & net::LOAD_SHOULD_BYPASS_HSTS)) {
+    LOG(INFO) << "PRPPreload.PRPPRequestLoaderImpl::Init, info is not matched";
+    return false;
+  }
   InitAndStartUrlRequest(prpp_req_info_, isolation_info);
   return true;
 }
@@ -73,6 +78,10 @@ void PRPPRequestLoaderImpl::InitAndStartUrlRequest(const std::shared_ptr<PRReque
   }
   if (!url_request_context_.get()) {
     LOG(WARNING) << "PRPPreload.PRPPRequestLoaderImpl::InitAndStartUrlRequest, invalid args";
+    return;
+  }
+  if (info->allow_credentials() && (real_load_flags_ & net::LOAD_SHOULD_BYPASS_HSTS)) {
+    LOG(INFO) << "PRPPreload.PRPPRequestLoaderImpl::InitAndStartUrlRequest, error info";
     return;
   }
   url_request_ = url_request_context_.get()->CreateRequestForPrpp(GURL(sub_url_),

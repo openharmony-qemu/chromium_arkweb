@@ -323,4 +323,14 @@ void DiskCacheFile::RunLoadTask(bool clear)
   }
 }
 
+void DiskCacheFile::ClearDiskCache()
+{
+  if (!disk_cache_backend_factory_) {
+    LOG(ERROR) << "PRPPreload.DiskCacheFile::ClearDiskCache disk_cache_backend_factory_ is null";
+    return;
+  }
+  disk_cache_backend_factory_->RemoveCache(base::Time(), base::Time::Max());
+  LOG(INFO) << "PRPPreload.DiskCacheFile::ClearDiskCache end";
+}
+
 }  // namespace ohos_prp_preload
