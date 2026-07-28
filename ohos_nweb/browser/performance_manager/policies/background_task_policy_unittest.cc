@@ -251,6 +251,33 @@ TEST(BackgroundTaskPolicyTEST, OnBeforePageNodeRemoved) {
     background_task_policy->OnBeforePageNodeRemoved(nullptr);
 }
 
+TEST(BackgroundTaskPolicyTEST, OnBeforePageNodeRemoved002) {
+    auto background_task_policy = std::make_shared<BackgroundTaskPolicy>();
+    PageNodeMock page_node_mock;
+    page_node_mock.SetIsVisible(true);
+    background_task_policy->visible_page_num_ = 1;
+    background_task_policy->OnBeforePageNodeRemoved(&page_node_mock);
+    EXPECT_EQ(background_task_policy->visible_page_num_, 0);
+}
+
+TEST(BackgroundTaskPolicyTEST, OnBeforePageNodeRemoved003) {
+    auto background_task_policy = std::make_shared<BackgroundTaskPolicy>();
+    PageNodeMock page_node_mock;
+    page_node_mock.SetIsVisible(false);
+    background_task_policy->visible_page_num_ = 1;
+    background_task_policy->OnBeforePageNodeRemoved(&page_node_mock);
+    EXPECT_EQ(background_task_policy->visible_page_num_, 1);
+}
+
+TEST(BackgroundTaskPolicyTEST, OnBeforePageNodeRemoved004) {
+    auto background_task_policy = std::make_shared<BackgroundTaskPolicy>();
+    PageNodeMock page_node_mock;
+    page_node_mock.SetIsVisible(true);
+    background_task_policy->visible_page_num_ = 0;
+    background_task_policy->OnBeforePageNodeRemoved(&page_node_mock);
+    EXPECT_EQ(background_task_policy->visible_page_num_, 0);
+}
+
 TEST(BackgroundTaskPolicyTEST, OnIsVisibleChanged001) {
     auto background_task_policy = std::make_shared<BackgroundTaskPolicy>();
     background_task_policy->OnIsVisibleChanged(nullptr);
