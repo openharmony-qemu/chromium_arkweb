@@ -6664,6 +6664,19 @@ void NWebImpl::UpdateBrowserControlsHeight(int height, bool animate) {
   }
   nweb_delegate_->UpdateBrowserControlsHeight(height, animate);
 }
+
+void NWebImpl::SetBrowserControlsParams(float top_controls_height,
+                                        float top_controls_min_height,
+                                        float bottom_controls_height,
+                                        float bottom_controls_min_height) {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SetBrowserControlsParams(
+      top_controls_height, top_controls_min_height, bottom_controls_height,
+      bottom_controls_min_height);
+}
 #endif
 
 bool NWebImpl::GetIsEditTextType() {

@@ -880,8 +880,9 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   // #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
   void OnTopControlsChanged(float top_controls_offset,
                             float top_content_offset) override;
+  void OnBottomControlsChanged(float bottom_controls_offset,
+                               float bottom_content_offset) override;
   int OnGetTopControlsHeight() override;
-  bool DoBrowserControlsShrinkRendererSize() override;
   // #endif
 
   // save ark js function for window.open
@@ -1332,7 +1333,6 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool on_load_start_notified_ = false;
-  float top_content_offset_ = 0;
 #endif  // ARKWEB_NWEB_EX
 #if BUILDFLAG(ARKWEB_PAGE_UP_DOWN)
   float scale_ = 100.0;

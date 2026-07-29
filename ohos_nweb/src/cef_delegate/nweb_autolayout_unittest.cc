@@ -303,8 +303,8 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool Discard() override { return false; }
   bool Restore() override { return false; }
   void SetBrowserZoomLevel(double) override {}
-  int GetTopControlsOffset() override { return 0; }
-  int GetShrinkViewportHeight() override { return 0; }
+  float GetTopControlsOffset() override { return 0; }
+  float GetShrinkViewportHeight() override { return 0; }
   void SetPrintBackground(bool) override {}
   bool GetPrintBackground() override { return false; }
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
@@ -379,6 +379,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void PasswordSuggestionSelected(int) override {}
   void UpdateBrowserControlsState(int, int, bool) override {}
   void UpdateBrowserControlsHeight(int, bool) override {}
+  void SetBrowserControlsParams(float, float, float, float) override {}
   void PrefetchPage(const OHOS::NWeb::PrefetchOptions&) override {}
   void ReloadOriginalUrl() override {}
   bool CanStoreWebArchive() override { return false; }

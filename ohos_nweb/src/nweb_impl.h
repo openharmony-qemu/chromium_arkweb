@@ -932,6 +932,10 @@ class NWebImpl : public NWeb {
                                   int current,
                                   bool animate) const;
   void UpdateBrowserControlsHeight(int height, bool animate);
+  void SetBrowserControlsParams(float top_controls_height,
+                                float top_controls_min_height,
+                                float bottom_controls_height,
+                                float bottom_controls_min_height);
 #endif
 
 #if BUILDFLAG(ARKWEB_EX_REFRESH_IFRAME)

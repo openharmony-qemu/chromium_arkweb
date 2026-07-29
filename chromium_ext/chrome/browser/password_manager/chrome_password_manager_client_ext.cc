@@ -97,7 +97,7 @@ std::optional<std::string> ChromePasswordManagerClientExt::PasswordFormToJsonFor
   }
 
   float ratio = browser->GetHost()->GetVirtualPixelRatio();
-  int32_t viewport_height = browser->GetHost()->GetShrinkViewportHeight();
+  float viewport_height = browser->GetHost()->GetShrinkViewportHeight();
   gfx::Rect offset =
       content::WebContents::FromRenderFrameHost(rfh)->GetContainerBounds();
 

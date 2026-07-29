@@ -613,6 +613,10 @@ class NWebDelegateInterface
                                           int current,
                                           bool animate) const = 0;
   virtual void UpdateBrowserControlsHeight(int height, bool animate) = 0;
+  virtual void SetBrowserControlsParams(float top_controls_height,
+                                        float top_controls_min_height,
+                                        float bottom_controls_height,
+                                        float bottom_controls_min_height) = 0;
 #endif
 
 #if BUILDFLAG(ARKWEB_POST_URL)
