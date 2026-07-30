@@ -31,6 +31,7 @@
 #undef private
 #include "ohos_nweb/src/capi/arkweb_model.h"
 #include "ohos_nweb/src/ndk/arkweb_native_object.h"
+#include "third_party/bounds_checking_function/include/securec.h"
 
 using ::testing::_;
 using ::testing::IsNull;
@@ -320,7 +321,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_Refresh_003) {
 TEST_F(ArkWebModelTest, OH_ArkWeb_OnControllerAttached_001) {
   OH_ArkWeb_OnControllerAttached("webTag", nullptr, nullptr);
   const char* web_tag = nullptr;
-  OH_ArkWeb_OnControllerAttached(web_tag, [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnControllerAttached(
+      web_tag, [](const char*, void*) {}, nullptr);
   EXPECT_EQ(OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag(web_tag),
             nullptr);
 }
@@ -333,7 +335,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_OnControllerAttached_002) {
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
       OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
-  OH_ArkWeb_OnControllerAttached("webTag", [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnControllerAttached(
+      "webTag", [](const char*, void*) {}, nullptr);
   EXPECT_NE(web_obj_ptr, nullptr);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
@@ -342,7 +345,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_OnControllerAttached_002) {
 TEST_F(ArkWebModelTest, OH_ArkWeb_OnPageBegin_001) {
   OH_ArkWeb_OnPageBegin("webTag", nullptr, nullptr);
   const char* web_tag = nullptr;
-  OH_ArkWeb_OnPageBegin(web_tag, [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnPageBegin(
+      web_tag, [](const char*, void*) {}, nullptr);
   EXPECT_EQ(OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag(web_tag),
             nullptr);
 }
@@ -355,7 +359,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_OnPageBegin_002) {
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
       OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
-  OH_ArkWeb_OnPageBegin("webTag", [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnPageBegin(
+      "webTag", [](const char*, void*) {}, nullptr);
   EXPECT_NE(web_obj_ptr, nullptr);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
@@ -364,7 +369,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_OnPageBegin_002) {
 TEST_F(ArkWebModelTest, OH_ArkWeb_OnPageEnd_001) {
   OH_ArkWeb_OnPageEnd("webTag", nullptr, nullptr);
   const char* web_tag = nullptr;
-  OH_ArkWeb_OnPageEnd(web_tag, [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnPageEnd(
+      web_tag, [](const char*, void*) {}, nullptr);
   EXPECT_EQ(OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag(web_tag),
             nullptr);
 }
@@ -377,7 +383,8 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_OnPageEnd_002) {
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
       OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
-  OH_ArkWeb_OnPageEnd("webTag", [](const char*, void*) {}, nullptr);
+  OH_ArkWeb_OnPageEnd(
+      "webTag", [](const char*, void*) {}, nullptr);
   EXPECT_NE(OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag"),
             nullptr);
   web_obj->SetDestroyCallback([]() {});
@@ -585,8 +592,10 @@ class MockNWebImpl : public OHOS::NWeb::NWebImpl {
 TEST_F(ArkWebModelTest, CreateWebMessagePortsInternal_005) {
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<MockNWebImpl> mock_nweb = std::make_shared<MockNWebImpl>(1);
-  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl = std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
-  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts()).WillOnce(Return(std::vector<std::string>()));
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
+  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts())
+      .WillOnce(Return(std::vector<std::string>()));
 
   nweb_impl->AddNWebToMap(1, nweb_impl);
   web_obj->BindWebTagToWebInstance(1, "webTag");
@@ -605,8 +614,10 @@ TEST_F(ArkWebModelTest, CreateWebMessagePortsInternal_005) {
 TEST_F(ArkWebModelTest, CreateWebMessagePortsInternal_006) {
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<MockNWebImpl> mock_nweb = std::make_shared<MockNWebImpl>(1);
-  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl = std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
-  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts()).WillOnce(Return(std::vector<std::string>{"webTag6"}));
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
+  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts())
+      .WillOnce(Return(std::vector<std::string>{"webTag6"}));
 
   nweb_impl->AddNWebToMap(6, nweb_impl);
   web_obj->BindWebTagToWebInstance(6, "webTag");
@@ -676,8 +687,10 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_CreateWebMessagePorts_001) {
 TEST_F(ArkWebModelTest, OH_ArkWeb_CreateWebMessagePorts_002) {
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<MockNWebImpl> mock_nweb = std::make_shared<MockNWebImpl>(1);
-  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl = std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
-  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts()).WillOnce(Return(std::vector<std::string>{"webTag6"}));
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
+  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts())
+      .WillOnce(Return(std::vector<std::string>{"webTag6"}));
   nweb_impl->AddNWebToMap(6, nweb_impl);
   web_obj->BindWebTagToWebInstance(6, "webTag6");
   auto web_obj_ptr =
@@ -695,8 +708,10 @@ TEST_F(ArkWebModelTest, OH_ArkWeb_CreateWebMessagePorts_002) {
 TEST_F(ArkWebModelTest, OH_ArkWeb_CreateWebMessagePorts_003) {
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag6");
   std::shared_ptr<MockNWebImpl> mock_nweb = std::make_shared<MockNWebImpl>(1);
-  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl = std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
-  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts()).WillOnce(Return(std::vector<std::string>{"webTag6"}));
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::static_pointer_cast<OHOS::NWeb::NWebImpl>(mock_nweb);
+  EXPECT_CALL(*mock_nweb, CreateWebMessagePorts())
+      .WillOnce(Return(std::vector<std::string>{"webTag6"}));
   nweb_impl->AddNWebToMap(6, nweb_impl);
   web_obj->BindWebTagToWebInstance(6, "webTag6");
   auto web_obj_ptr =
@@ -1288,19 +1303,21 @@ TEST_F(ArkWebModelTest, OH_CookieManager_FetchCookieSync_001) {
 class MockNWebCookieManagerDelegate
     : public OHOS::NWeb::NWebCookieManagerDelegate {
  public:
-  std::string ReturnCookieWithHttpOnly(const std::string& url,
-                                       bool& is_valid,
-                                       bool incognito_mode,
-                                       bool includeHttpOnly,
-                                       bool include_partitioned_cookies) override {
+  std::string ReturnCookieWithHttpOnly(
+      const std::string& url,
+      bool& is_valid,
+      bool incognito_mode,
+      bool includeHttpOnly,
+      bool include_partitioned_cookies) override {
     is_valid = false;
     return "";
   }
-  void ReturnCookieWithHttpOnly(const std::string& url,
-                                bool incognito_mode,
-                                bool include_http_only,
-                                bool include_partitioned_cookies,
-                                std::shared_ptr<OHOS::NWeb::NWebStringValueCallback> callback) override {
+  void ReturnCookieWithHttpOnly(
+      const std::string& url,
+      bool incognito_mode,
+      bool include_http_only,
+      bool include_partitioned_cookies,
+      std::shared_ptr<OHOS::NWeb::NWebStringValueCallback> callback) override {
     if (callback != nullptr) {
       callback->OnReceiveValue(std::to_string(OHOS::NWeb::NWEB_INVALID_URL));
     }
@@ -1344,9 +1361,9 @@ TEST_F(ArkWebModelTest, OH_CookieManager_FetchCookieSync_003) {
 TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_001) {
   auto cookie_manager = nullptr;
   char* cookie_value = nullptr;
-  EXPECT_EQ(
-      OH_ArkWebCookieManager_FetchCookieSync("test", false, false, false, &cookie_value),
-      ARKWEB_SUCCESS);
+  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("test", false, false, false,
+                                                   &cookie_value),
+            ARKWEB_SUCCESS);
 }
 
 TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_002) {
@@ -1354,8 +1371,8 @@ TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_002) {
       std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
           OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
   cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
-  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false, false,
-                                                    false, nullptr),
+  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false,
+                                                   false, false, nullptr),
             ARKWEB_INVALID_PARAM);
 }
 
@@ -1365,13 +1382,13 @@ TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_003) {
           OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
   cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
   char* cookie_value = nullptr;
-  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false, false,
-                                                    false, &cookie_value),
+  EXPECT_EQ(OH_ArkWebCookieManager_FetchCookieSync("http://example.com", false,
+                                                   false, false, &cookie_value),
             ARKWEB_INVALID_URL);
 }
 
-static void MockCookieFetchCallback(ArkWeb_ErrorCode errorCode, char* cookieValue)
-{
+static void MockCookieFetchCallback(ArkWeb_ErrorCode errorCode,
+                                    char* cookieValue) {
   if (cookieValue != nullptr) {
     free(cookieValue);
   }
@@ -1379,7 +1396,8 @@ static void MockCookieFetchCallback(ArkWeb_ErrorCode errorCode, char* cookieValu
 
 TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieAsync_001) {
   auto cookie_manager = nullptr;
-  OH_ArkWebCookieManager_FetchCookieAsync("test", false, false, false, MockCookieFetchCallback);
+  OH_ArkWebCookieManager_FetchCookieAsync("test", false, false, false,
+                                          MockCookieFetchCallback);
 }
 
 TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieAsync_002) {
@@ -1781,8 +1799,8 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_LoadData_002) {
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
       OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
-  ArkWeb_ErrorCode result = OH_NativeArkWeb_LoadData(
-      "webTag", "data", "text/html", "UTF-8", "", "");
+  ArkWeb_ErrorCode result =
+      OH_NativeArkWeb_LoadData("webTag", "data", "text/html", "UTF-8", "", "");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INIT_ERROR);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
@@ -1799,8 +1817,8 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_LoadData_003) {
   auto web_obj_ptr =
       OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
   web_obj_ptr->SetWebWeakPtr(nweb_impl);
-  ArkWeb_ErrorCode result = OH_NativeArkWeb_LoadData(
-      "webTag", "data", "text/html", "UTF-8", "", "");
+  ArkWeb_ErrorCode result =
+      OH_NativeArkWeb_LoadData("webTag", "data", "text/html", "UTF-8", "", "");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_SUCCESS);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
@@ -1866,22 +1884,22 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_LoadData_007) {
                                "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", nullptr, nullptr, "UTF-8",
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", nullptr, "text/html", nullptr,
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", nullptr, "text/html", "UTF-8",
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", "data", nullptr, nullptr,
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", "data", nullptr, "UTF-8",
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
   result = OH_NativeArkWeb_LoadData("validTag", "data", "text/html", nullptr,
-                               "http://example.com", "http://example.com");
+                                    "http://example.com", "http://example.com");
   EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
 }
 
@@ -2036,14 +2054,13 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_SetBlanklessLoadingParams_001) {
   param.enable = true;
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
-    std::make_shared<OHOS::NWeb::NWebImpl>(1);
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
   nweb_impl->AddNWebToMap(1, nweb_impl);
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
-    OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
   web_obj_ptr->SetWebWeakPtr(nweb_impl);
-  auto result =
-    OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
+  auto result = OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
   EXPECT_EQ(result,
             ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_SIGNIFICANT_CHANGE);
   web_obj->SetDestroyCallback([]() {});
@@ -2057,14 +2074,13 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_SetBlanklessLoadingParams_002) {
   param.enable = false;
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
-    std::make_shared<OHOS::NWeb::NWebImpl>(1);
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
   nweb_impl->AddNWebToMap(1, nweb_impl);
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
-    OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
   web_obj_ptr->SetWebWeakPtr(nweb_impl);
-  auto result =
-    OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
+  auto result = OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
   EXPECT_EQ(result,
             ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_SIGNIFICANT_CHANGE);
   web_obj->SetDestroyCallback([]() {});
@@ -2078,16 +2094,16 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_SetBlanklessLoadingParams_003) {
   param.enable = true;
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
-    std::make_shared<OHOS::NWeb::NWebImpl>(1);
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
   nweb_impl->AddNWebToMap(1, nweb_impl);
   web_obj->BindWebTagToWebInstance(1, "webTag");
   auto web_obj_ptr =
-    OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
   web_obj_ptr->SetWebWeakPtr(nweb_impl);
-  auto result =
-    OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
-  EXPECT_EQ(result,
-            ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_CONTROLLER_NOT_INITED);
+  auto result = OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
+  EXPECT_EQ(
+      result,
+      ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_CONTROLLER_NOT_INITED);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
 }
@@ -2099,13 +2115,204 @@ TEST_F(ArkWebModelTest, OH_NativeArkWeb_SetBlanklessLoadingParams_004) {
   param.enable = true;
   auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
   std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
-    std::make_shared<OHOS::NWeb::NWebImpl>(1);
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
   nweb_impl->AddNWebToMap(1, nweb_impl);
   web_obj->BindWebTagToWebInstance(1, "webTag");
-  auto result =
-    OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
-  EXPECT_EQ(result,
-            ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_CONTROLLER_NOT_INITED);
+  auto result = OH_NativeArkWeb_SetBlanklessLoadingParams(webTag, key, param);
+  EXPECT_EQ(
+      result,
+      ArkWeb_BlanklessErrorCode::ARKWEB_BLANKLESS_ERR_CONTROLLER_NOT_INITED);
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest, OH_WebMessage_SetData_StringType) {
+  ArkWeb_WebMessagePtr message = new ArkWeb_WebMessage;
+  message->webMessageType = ArkWeb_WebMessageType::ARKWEB_STRING;
+  char data[] = "hello";
+  size_t dataLength = 10;
+  OH_WebMessage_SetData(message, data, dataLength);
+  EXPECT_NE(message->data, nullptr);
+  EXPECT_EQ(message->dataLength, 5u);
+  delete[] reinterpret_cast<char*>(message->data);
+  delete message;
+}
+
+TEST_F(ArkWebModelTest, OH_WebMessage_PostMessage_UnsupportedType) {
+  auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "webTag");
+  auto web_obj_ptr =
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+  auto port = std::make_unique<ArkWeb_WebMessagePort>();
+  auto message = std::make_unique<ArkWeb_WebMessage>();
+  port->portHandle = const_cast<char*>("portHandle");
+  auto data_ptr = std::make_unique<char[]>(10);
+  message->data = data_ptr.get();
+  message->webMessageType = ArkWeb_WebMessageType::ARKWEB_NONE;
+  ArkWeb_ErrorCode result =
+      OH_WebMessage_PostMessage(port.get(), "webTag", message.get());
+  EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest, OH_WebMessage_PostMessage_NullPortHandle) {
+  auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "webTag");
+  auto web_obj_ptr =
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+  auto port = std::make_unique<ArkWeb_WebMessagePort>();
+  auto message = std::make_unique<ArkWeb_WebMessage>();
+  port->portHandle = nullptr;
+  auto data_ptr = std::make_unique<char[]>(10);
+  message->data = data_ptr.get();
+  message->webMessageType = ArkWeb_WebMessageType::ARKWEB_STRING;
+  ArkWeb_ErrorCode result =
+      OH_WebMessage_PostMessage(port.get(), "webTag", message.get());
+  EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest, OH_WebMessage_PostMessage_NullMessageData) {
+  auto web_obj = std::make_shared<OHOS::NWeb::ArkWebNativeObject>("webTag");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "webTag");
+  auto web_obj_ptr =
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("webTag");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+  auto port = std::make_unique<ArkWeb_WebMessagePort>();
+  auto message = std::make_unique<ArkWeb_WebMessage>();
+  port->portHandle = const_cast<char*>("portHandle");
+  message->data = nullptr;
+  message->webMessageType = ArkWeb_WebMessageType::ARKWEB_STRING;
+  ArkWeb_ErrorCode result =
+      OH_WebMessage_PostMessage(port.get(), "webTag", message.get());
+  EXPECT_EQ(result, ArkWeb_ErrorCode::ARKWEB_INVALID_PARAM);
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest, OH_JavaScript_CreateJavaScriptValue_StringType) {
+  char data[] = "test_string";
+  size_t dataLength = strlen(data);
+  ArkWeb_JavaScriptValuePtr result = OH_JavaScript_CreateJavaScriptValue(
+      ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_STRING, data, dataLength);
+  ASSERT_NE(result, nullptr);
+  EXPECT_EQ(result->type, ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_STRING);
+  EXPECT_EQ(result->dataLength, dataLength);
+  EXPECT_STREQ(reinterpret_cast<char*>(result->data), "test_string");
+  delete[] reinterpret_cast<char*>(result->data);
+  delete result;
+}
+
+TEST_F(ArkWebModelTest, OH_ArkWebCookieManager_FetchCookieSync_NullUrl) {
+  auto cookie_manager =
+      std::static_pointer_cast<OHOS::NWeb::NWebCookieManagerImpl>(
+          OHOS::NWeb::NWebEngine::GetInstance()->GetCookieManager());
+  cookie_manager->delegate_ = std::make_shared<MockNWebCookieManagerDelegate>();
+  char* cookie_value = nullptr;
+  ArkWeb_ErrorCode result = OH_ArkWebCookieManager_FetchCookieSync(
+      nullptr, false, false, false, &cookie_value);
+  EXPECT_EQ(result, ARKWEB_INVALID_URL);
+}
+
+TEST_F(ArkWebModelTest,
+       OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy_009_WithMethod) {
+  const char* webTag = "test_async_method";
+  auto web_obj =
+      std::make_shared<OHOS::NWeb::ArkWebNativeObject>("test_async_method");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "test_async_method");
+  auto web_obj_ptr = OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag(
+      "test_async_method");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+
+  ArkWeb_ProxyMethodWithResult method;
+  (void)memset_s(&method, sizeof(ArkWeb_ProxyMethodWithResult), 0,
+                 sizeof(ArkWeb_ProxyMethodWithResult));
+  method.methodName = "testMethod";
+  method.callback =
+      [](const char* tag, const ArkWeb_JavaScriptBridgeData* dataArray,
+         size_t arraySize,
+         void* userData) -> ArkWeb_JavaScriptValuePtr { return nullptr; };
+  method.userData = nullptr;
+  ArkWeb_ProxyObjectWithResult proxyObject;
+  proxyObject.objName = "testObj";
+  proxyObject.methodList = &method;
+  proxyObject.size = 1;
+
+  OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy(webTag, &proxyObject,
+                                                     nullptr);
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest,
+       OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy_010_WithPermission) {
+  const char* webTag = "test_async_perm";
+  auto web_obj =
+      std::make_shared<OHOS::NWeb::ArkWebNativeObject>("test_async_perm");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "test_async_perm");
+  auto web_obj_ptr =
+      OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag("test_async_perm");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+
+  ArkWeb_ProxyMethodWithResult method;
+  (void)memset_s(&method, sizeof(ArkWeb_ProxyMethodWithResult), 0,
+                 sizeof(ArkWeb_ProxyMethodWithResult));
+  method.methodName = "testMethod";
+  method.callback =
+      [](const char* tag, const ArkWeb_JavaScriptBridgeData* dataArray,
+         size_t arraySize,
+         void* userData) -> ArkWeb_JavaScriptValuePtr { return nullptr; };
+  method.userData = nullptr;
+  ArkWeb_ProxyObjectWithResult proxyObject;
+  proxyObject.objName = "testObj";
+  proxyObject.methodList = &method;
+  proxyObject.size = 1;
+
+  OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy(webTag, &proxyObject,
+                                                     "test_permission");
+  web_obj->SetDestroyCallback([]() {});
+  web_obj->FireDestroyCallback();
+}
+
+TEST_F(ArkWebModelTest,
+       OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy_011_NullMethodList) {
+  const char* webTag = "test_async_nullmethod";
+  auto web_obj =
+      std::make_shared<OHOS::NWeb::ArkWebNativeObject>("test_async_nullmethod");
+  std::shared_ptr<OHOS::NWeb::NWebImpl> nweb_impl =
+      std::make_shared<OHOS::NWeb::NWebImpl>(1);
+  nweb_impl->AddNWebToMap(1, nweb_impl);
+  web_obj->BindWebTagToWebInstance(1, "test_async_nullmethod");
+  auto web_obj_ptr = OHOS::NWeb::ArkWebNativeObject::GetWebInstanceByWebTag(
+      "test_async_nullmethod");
+  web_obj_ptr->SetWebWeakPtr(nweb_impl);
+
+  ArkWeb_ProxyObjectWithResult proxyObject;
+  proxyObject.objName = "testObj";
+  proxyObject.methodList = nullptr;
+  proxyObject.size = 1;
+
+  OH_NativeArkWeb_RegisterAsyncThreadJavaScriptProxy(webTag, &proxyObject,
+                                                     nullptr);
   web_obj->SetDestroyCallback([]() {});
   web_obj->FireDestroyCallback();
 }
