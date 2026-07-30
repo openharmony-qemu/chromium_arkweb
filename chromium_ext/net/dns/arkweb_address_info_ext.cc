@@ -28,17 +28,50 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+#include <dlfcn.h>
 #include <netdb.h>
 
 #include "base/files/file.h"
 #include "base/native_library.h"
 #include "net/base/network_handle.h"
 #include "arkweb/chromium_ext/net/dns/arkweb_address_info_ext.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #endif
 
 namespace net {
+
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+using OHGetAddrInfoForNetwork = int32_t (*)(char* host,
+                                            char* serv,
+                                            struct addrinfo* hints,
+                                            struct addrinfo** res,
+                                            int32_t net_id);
+
+using OHFreeDnsResult = int32_t (*)(struct addrinfo* res);
+
+OHGetAddrInfoForNetwork GetOHGetAddrInfoForNetwork() {
+#if defined(ARKWEB_ARM64)
+  base::FilePath file("/system/lib64/ndk/libnet_connection.so");
+#else
+  base::FilePath file("/system/lib/ndk/libnet_connection.so");
+#endif
+  void* dl = dlopen(file.value().c_str(), RTLD_NOW);
+  return dl == nullptr ? nullptr
+                       : reinterpret_cast<OHGetAddrInfoForNetwork>(
+                             dlsym(dl, "OH_NetConn_GetAddrInfo"));
+}
+
+OHFreeDnsResult GetOHFreeDnsResult() {
+#if defined(ARKWEB_ARM64)
+  base::FilePath file("/system/lib64/ndk/libnet_connection.so");
+#else
+  base::FilePath file("/system/lib/ndk/libnet_connection.so");
+#endif
+  void* dl = dlopen(file.value().c_str(), RTLD_NOW);
+  return dl == nullptr ? nullptr
+                       : reinterpret_cast<OHFreeDnsResult>(
+                             dlsym(dl, "OH_NetConn_FreeDnsResult"));
+}
+
 namespace ohos {
 
 NO_SANITIZE("cfi-icall")
@@ -52,27 +85,24 @@ int GetAddrInfoForNetwork(char* host,
     return EAI_SYSTEM;
   }
 
-  std::unique_ptr<OHOS::NWeb::NetConnectAdapter> net_connect_adapter =
-      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateNetConnectAdapter();
-  if (!net_connect_adapter) {
-    LOG(ERROR) << "net_connect_adapter is nullptr";
-    errno = EINVAL;
-    return EAI_SYSTEM;
-  }
-
-  return net_connect_adapter->GetAddrInfoForNetwork(host, serv, hints, res, network);
-}
-
-NO_SANITIZE("cfi-icall") int FreeDnsResult(struct addrinfo* res) {
-  std::unique_ptr<OHOS::NWeb::NetConnectAdapter> net_connect_adapter =
-      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateNetConnectAdapter();
-  if (!net_connect_adapter) {
-    LOG(ERROR) << "net_connect_adapter is nullptr";
+  static OHGetAddrInfoForNetwork get_addrinfo_for_network =
+      GetOHGetAddrInfoForNetwork();
+  if (!get_addrinfo_for_network) {
     errno = ENOSYS;
     return EAI_SYSTEM;
   }
 
-  return net_connect_adapter->FreeDnsResult(res);
+  return get_addrinfo_for_network(host, serv, hints, res, network);
+}
+
+NO_SANITIZE("cfi-icall") int FreeDnsResult(struct addrinfo* res) {
+  static OHFreeDnsResult free_dns_result = GetOHFreeDnsResult();
+  if (!free_dns_result) {
+    errno = ENOSYS;
+    return EAI_SYSTEM;
+  }
+
+  return free_dns_result(res);
 }
 
 }  // namespace ohos

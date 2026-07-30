@@ -26,7 +26,7 @@
 #include <huks/native_huks_api.h>
 #include <huks/native_huks_external_crypto_api.h>
 #include <huks/native_huks_param.h>
-#include <device_certificate/certmanager/cm_native_api.h>
+#include <certificate_manager/cm_native_api.h>
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 
 using namespace testing;
@@ -38,7 +38,6 @@ using ::testing::Return;
 using ::testing::SetArgPointee;
 
 namespace OHOS::NWeb {
-// ---------- Mock for NetStack APIs (GetTrustAnchorsForHostName, GetPinSetForHostName) ----------
 class MockNetStack {
  public:
   MOCK_METHOD(int32_t,
@@ -83,165 +82,15 @@ int32_t OH_NetStack_GetPinSetForHostName(
 }
 } // extern "C"
 
-// ---------- Mock for Huks APIs ----------
-class MockHuks {
- public:
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_InitParamSet, (OH_Huks_ParamSet **paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_AddParams, (OH_Huks_ParamSet *paramSet,
-                                                    const OH_Huks_Param *params,
-                                                    uint32_t paramCount));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_BuildParamSet, (OH_Huks_ParamSet **paramSet));
-  MOCK_METHOD(void, OH_Huks_FreeParamSet, (OH_Huks_ParamSet **paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_InitSession, (const OH_Huks_Blob* keyAlias,
-                                                      const OH_Huks_ParamSet* paramSet,
-                                                      OH_Huks_Blob* handle,
-                                                      OH_Huks_Blob* token));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_FinishSession, (const OH_Huks_Blob* handle,
-                                                        const OH_Huks_ParamSet* paramSet,
-                                                        const OH_Huks_Blob* inData,
-                                                        OH_Huks_Blob* outData));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_InitExternalCryptoParamSet, (OH_Huks_ExternalCryptoParamSet **paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_AddExternalCryptoParams, (OH_Huks_ExternalCryptoParamSet *paramSet,
-                                                                  const OH_Huks_ExternalCryptoParam *params,
-                                                                  uint32_t paramCnt));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_BuildExternalCryptoParamSet, (OH_Huks_ExternalCryptoParamSet **paramSet));
-  MOCK_METHOD(void, OH_Huks_FreeExternalCryptoParamSet, (OH_Huks_ExternalCryptoParamSet **paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_OpenResource, (const struct OH_Huks_Blob *resourceId,
-                                                        const OH_Huks_ExternalCryptoParamSet *paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_CloseResource, (const struct OH_Huks_Blob *resourceId,
-                                                         const OH_Huks_ExternalCryptoParamSet *paramSet));
-  MOCK_METHOD(OH_Huks_Result, OH_Huks_GetUkeyPinAuthState, (const struct OH_Huks_Blob *resourceId,
-                                                               const OH_Huks_ExternalCryptoParamSet *paramSet,
-                                                               OH_Huks_ExternalPinAuthState *authState));
-};
-
-MockHuks* g_mockHuks = nullptr;
-
-extern "C" {
-OH_Huks_Result OH_Huks_InitParamSet(OH_Huks_ParamSet **paramSet) {
-  return g_mockHuks->OH_Huks_InitParamSet(paramSet);
-}
-
-OH_Huks_Result OH_Huks_AddParams(OH_Huks_ParamSet* paramSet, const OH_Huks_Param* params, uint32_t paramCount) {
-  return g_mockHuks->OH_Huks_AddParams(paramSet, params, paramCount);
-}
-
-OH_Huks_Result OH_Huks_BuildParamSet(OH_Huks_ParamSet **paramSet) {
-  return g_mockHuks->OH_Huks_BuildParamSet(paramSet);
-}
-
-void OH_Huks_FreeParamSet(OH_Huks_ParamSet **paramSet) {
-  g_mockHuks->OH_Huks_FreeParamSet(paramSet);
-}
-
-OH_Huks_Result OH_Huks_InitSession(const OH_Huks_Blob* keyAlias,
-                                   const OH_Huks_ParamSet* paramSet,
-                                   OH_Huks_Blob* handle,
-                                   OH_Huks_Blob* token) {
-  return g_mockHuks->OH_Huks_InitSession(keyAlias, paramSet, handle, token);
-}
-
-OH_Huks_Result OH_Huks_FinishSession(const OH_Huks_Blob* handle,
-                                     const OH_Huks_ParamSet* paramSet,
-                                     const OH_Huks_Blob* inData,
-                                     OH_Huks_Blob* outData) {
-  return g_mockHuks->OH_Huks_FinishSession(handle, paramSet, inData, outData);
-}
-
-OH_Huks_Result OH_Huks_InitExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet) {
-  return g_mockHuks->OH_Huks_InitExternalCryptoParamSet(paramSet);
-}
-
-OH_Huks_Result OH_Huks_AddExternalCryptoParams(OH_Huks_ExternalCryptoParamSet *paramSet,
-                                                const OH_Huks_ExternalCryptoParam *params,
-                                                uint32_t paramCnt) {
-  return g_mockHuks->OH_Huks_AddExternalCryptoParams(paramSet, params, paramCnt);
-}
-
-OH_Huks_Result OH_Huks_BuildExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet) {
-  return g_mockHuks->OH_Huks_BuildExternalCryptoParamSet(paramSet);
-}
-
-void OH_Huks_FreeExternalCryptoParamSet(OH_Huks_ExternalCryptoParamSet **paramSet) {
-  g_mockHuks->OH_Huks_FreeExternalCryptoParamSet(paramSet);
-}
-
-OH_Huks_Result OH_Huks_OpenResource(const struct OH_Huks_Blob *resourceId,
-                                     const OH_Huks_ExternalCryptoParamSet *paramSet) {
-  return g_mockHuks->OH_Huks_OpenResource(resourceId, paramSet);
-}
-
-OH_Huks_Result OH_Huks_CloseResource(const struct OH_Huks_Blob *resourceId,
-                                      const OH_Huks_ExternalCryptoParamSet *paramSet) {
-  return g_mockHuks->OH_Huks_CloseResource(resourceId, paramSet);
-}
-
-OH_Huks_Result OH_Huks_GetUkeyPinAuthState(const struct OH_Huks_Blob *resourceId,
-                                            const OH_Huks_ExternalCryptoParamSet *paramSet,
-                                            OH_Huks_ExternalPinAuthState *authState) {
-  return g_mockHuks->OH_Huks_GetUkeyPinAuthState(resourceId, paramSet, authState);
-}
-} // extern "C"
-
-// ---------- Mock for CertManager APIs ----------
-class MockCertManager {
- public:
-  MOCK_METHOD(int32_t, OH_CertManager_GetUkeyCertificate, (const OH_CM_Blob *ukeyCertIndex,
-                                                             const OH_CM_UkeyInfo *ukeyInfo,
-                                                             OH_CM_CredentialDetailList *certificateList));
-  MOCK_METHOD(void, OH_CertManager_FreeUkeyCertificate, (OH_CM_CredentialDetailList *certificateList));
-};
-
-MockCertManager* g_mockCertManager = nullptr;
-
-extern "C" {
-int32_t OH_CertManager_GetUkeyCertificate(const OH_CM_Blob *ukeyCertIndex,
-                                           const OH_CM_UkeyInfo *ukeyInfo,
-                                           OH_CM_CredentialDetailList *certificateList) {
-  return g_mockCertManager->OH_CertManager_GetUkeyCertificate(ukeyCertIndex, ukeyInfo, certificateList);
-}
-
-void OH_CertManager_FreeUkeyCertificate(OH_CM_CredentialDetailList *certificateList) {
-  g_mockCertManager->OH_CertManager_FreeUkeyCertificate(certificateList);
-}
-} // extern "C"
-
-namespace cert_mgr_adapter_impl_test {
-    struct HuksSignatureSpec {
-        uint32_t algorithm;
-        uint32_t padding;
-        uint32_t digest;
-    };
-
-    OH_Huks_Result InitParamSet(struct OH_Huks_ParamSet** paramSet,
-                                const struct OH_Huks_Param* params,
-                                uint32_t paramCount);
-    OH_Huks_Result InitExtParamSet(OH_Huks_ExternalCryptoParamSet** paramSet,
-                                const OH_Huks_ExternalCryptoParam* params,
-                                uint32_t paramCount);
-    bool GetHuksSignatureSpec(uint16_t algorithm, HuksSignatureSpec& result);
-} // namespace cert_mgr_adapter_impl_test
-
-// ---------- Unified Test fixture ----------
 class CertManagerAdapterImplTest : public testing::Test {
  public:
-  void SetUp() override {
-    g_mockNetStack = new MockNetStack();
-    g_mockHuks = new MockHuks();
-    g_mockCertManager = new MockCertManager();
-  }
+  void SetUp() override { g_mockNetStack = new MockNetStack(); }
   void TearDown() override {
     delete g_mockNetStack;
     g_mockNetStack = nullptr;
-    delete g_mockHuks;
-    g_mockHuks = nullptr;
-    delete g_mockCertManager;
-    g_mockCertManager = nullptr;
   }
   CertManagerAdapterImpl adapter;
 };
-
-// ==================== GetTrustAnchorsForHostName tests ====================
 
 // Test case 1: Success case with certificates returned
 TEST_F(CertManagerAdapterImplTest, GetTrustAnchorsForHostName001) {
@@ -316,7 +165,8 @@ TEST_F(CertManagerAdapterImplTest, GetTrustAnchorsForHostName003) {
   EXPECT_TRUE(actual_certs.empty());
 }
 
-// Test case 4: Memory management test - ensure destruction is called even on failure
+// Test case 4: Memory management test - ensure destruction is called even on
+// failure
 TEST_F(CertManagerAdapterImplTest, GetTrustAnchorsForHostName004) {
   const string hostname = "test.com";
 
@@ -350,8 +200,6 @@ TEST_F(CertManagerAdapterImplTest, GetTrustAnchorsForHostName004) {
   delete[] mock_certs.content[1];
   delete[] mock_certs.content;
 }
-
-// ==================== GetPinSetForHostName tests ====================
 
 // Test case 1: Success case with multiple pins
 TEST_F(CertManagerAdapterImplTest, GetPinSetForHostName001) {
@@ -519,656 +367,1041 @@ TEST_F(CertManagerAdapterImplTest, GetPinSetForHostName008) {
   EXPECT_THAT(actual_pins, ElementsAre("pin1", "pin2"));
 }
 
-// ==================== InitParamSet tests ====================
+class MockHuks {
+public:
+    MOCK_METHOD(OH_Huks_Result, OH_Huks_InitParamSet, (OH_Huks_ParamSet **paramSet));
+    MOCK_METHOD(OH_Huks_Result, OH_Huks_AddParams, (OH_Huks_ParamSet *paramSet, 
+                                                    const OH_Huks_Param *params, 
+                                                    uint32_t paramCount));
+    MOCK_METHOD(OH_Huks_Result, OH_Huks_BuildParamSet, (OH_Huks_ParamSet **paramSet));
+    MOCK_METHOD(void, OH_Huks_FreeParamSet, (OH_Huks_ParamSet **paramSet));
+    MOCK_METHOD(OH_Huks_Result, OH_Huks_InitSession, (const OH_Huks_Blob* keyAlias,
+                                                      const OH_Huks_ParamSet* paramSet,
+                                                      OH_Huks_Blob* handle,
+                                                      OH_Huks_Blob* token));
+    MOCK_METHOD(OH_Huks_Result, OH_Huks_FinishSession, (const OH_Huks_Blob* handle,
+                                                        const OH_Huks_ParamSet* paramSet,
+                                                        const OH_Huks_Blob* inData,
+                                                        OH_Huks_Blob* outData));
+};
 
-TEST_F(CertManagerAdapterImplTest, InitParamSet_001) {
-  OH_Huks_ParamSet* paramSet = nullptr;
-  OH_Huks_Param params[2] = {
-      {.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA},
-      {.tag = OH_HUKS_TAG_KEY_SIZE, .uint32Param = 2048}
-  };
-  uint32_t paramCount = 2;
+MockHuks* g_mockHuks = nullptr;
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(0);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_SUCCESS);
+extern "C" {
+OH_Huks_Result OH_Huks_InitParamSet(OH_Huks_ParamSet **paramSet) {
+    return g_mockHuks->OH_Huks_InitParamSet(paramSet);
 }
 
-TEST_F(CertManagerAdapterImplTest, InitParamSet_002) {
-  OH_Huks_ParamSet* paramSet = nullptr;
-  OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(0);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+OH_Huks_Result OH_Huks_AddParams(OH_Huks_ParamSet* paramSet,
+                                 const OH_Huks_Param* params,
+                                 uint32_t paramCount) {
+    return g_mockHuks->OH_Huks_AddParams(paramSet, params, paramCount);
 }
 
-TEST_F(CertManagerAdapterImplTest, InitParamSet_003) {
-  OH_Huks_ParamSet* paramSet = nullptr;
-  OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_))
-      .WillOnce(::testing::Return());
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_)).Times(0);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+OH_Huks_Result OH_Huks_BuildParamSet(OH_Huks_ParamSet **paramSet) {
+    return g_mockHuks->OH_Huks_BuildParamSet(paramSet);
 }
 
-TEST_F(CertManagerAdapterImplTest, InitParamSet_004) {
-  OH_Huks_ParamSet* paramSet = nullptr;
-  OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_))
-      .WillOnce(::testing::Return());
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+void OH_Huks_FreeParamSet(OH_Huks_ParamSet **paramSet) {
+    g_mockHuks->OH_Huks_FreeParamSet(paramSet);
 }
 
-// ==================== InitExtParamSet tests ====================
-
-TEST_F(CertManagerAdapterImplTest, InitExtParamSet_001) {
-  OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
-  OH_Huks_ExternalCryptoParam params[1];
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(0);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+OH_Huks_Result OH_Huks_InitSession(const OH_Huks_Blob* keyAlias,
+                                   const OH_Huks_ParamSet* paramSet,
+                                   OH_Huks_Blob* handle,
+                                   OH_Huks_Blob* token) {
+    return g_mockHuks->OH_Huks_InitSession(keyAlias, paramSet, handle, token);
 }
 
-TEST_F(CertManagerAdapterImplTest, InitExtParamSet_002) {
-  OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
-  OH_Huks_ExternalCryptoParam params[1];
-  uint32_t paramCount = 1;
+OH_Huks_Result OH_Huks_FinishSession(const OH_Huks_Blob* handle,
+                                     const OH_Huks_ParamSet* paramSet,
+                                     const OH_Huks_Blob* inData,
+                                     OH_Huks_Blob* outData) {
+    return g_mockHuks->OH_Huks_FinishSession(handle, paramSet, inData, outData);
+}
+} // extern "C"
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_)).Times(0);
+namespace cert_mgr_adapter_impl_test {
+    struct HuksSignatureSpec {
+        uint32_t algorithm;
+        uint32_t padding;
+        uint32_t digest;
+    };
 
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+    using OHHuksInitExternalCryptoParamSet = struct OH_Huks_Result (*)(OH_Huks_ExternalCryptoParamSet **paramSet);
+    using OHHuksAddExternalCryptoParams = struct OH_Huks_Result (*)(OH_Huks_ExternalCryptoParamSet *paramSet,
+        const OH_Huks_ExternalCryptoParam *params, uint32_t paramCnt);
+    using OHHuksBuildExternalCryptoParamSet = struct OH_Huks_Result (*)(OH_Huks_ExternalCryptoParamSet **paramSet);
+    using OHHuksFreeExternalCryptoParamSet = void (*)(OH_Huks_ExternalCryptoParamSet **paramSet);
+    using OHCertManagerGetUkeyCertificate = int32_t (*)(const OH_CM_Blob *ukeyCertIndex,
+        const OH_CM_UkeyInfo *ukeyInfo, OH_CM_CredentialDetailList *certificateList);
+    using OHCertManagerFreeUkeyCertificate = void (*)(OH_CM_CredentialDetailList *certificateList);
+    using OHHuksOpenResource = struct OH_Huks_Result (*)(const struct OH_Huks_Blob *resourceId,
+                                                         const OH_Huks_ExternalCryptoParamSet *paramSet);
+    using OHHuksCloseResource = struct OH_Huks_Result (*)(const struct OH_Huks_Blob *resourceId,
+                                                          const OH_Huks_ExternalCryptoParamSet *paramSet);
+    using OHHuksGetUkeyPinAuthState = struct OH_Huks_Result (*)(const struct OH_Huks_Blob *resourceId,
+                                                                const OH_Huks_ExternalCryptoParamSet *paramSet,
+                                                                OH_Huks_ExternalPinAuthState *authState);
+
+    OHCertManagerGetUkeyCertificate GetCertManagerGetUkeyCertificate();
+    OHCertManagerFreeUkeyCertificate GetCertManagerFreeUkeyCertificate();
+    OHHuksInitExternalCryptoParamSet GetHuksInitExternalCryptoParamSet();
+    OHHuksAddExternalCryptoParams GetHuksAddExternalCryptoParams();
+    OHHuksBuildExternalCryptoParamSet GetHuksBuildExternalCryptoParamSet();
+    OHHuksFreeExternalCryptoParamSet GetHuksFreeExternalCryptoParamSet();
+    OHHuksOpenResource GetHuksOpenResource();
+    OHHuksCloseResource GetHuksCloseResource();
+    OHHuksGetUkeyPinAuthState GetHuksGetUkeyPinAuthState();
+
+    void SetCertManagerGetUkeyCertificate(OHCertManagerGetUkeyCertificate func);
+    void SetCertManagerFreeUkeyCertificate(OHCertManagerFreeUkeyCertificate func);
+    void SetHuksInitExternalCryptoParamSet(OHHuksInitExternalCryptoParamSet func);
+    void SetHuksAddExternalCryptoParams(OHHuksAddExternalCryptoParams func);
+    void SetHuksBuildExternalCryptoParamSet(OHHuksBuildExternalCryptoParamSet func);
+    void SetHuksFreeExternalCryptoParamSet(OHHuksFreeExternalCryptoParamSet func);
+    void SetHuksOpenResource(OHHuksOpenResource func);
+    void SetHuksCloseResource(OHHuksCloseResource func);
+    void SetHuksGetUkeyPinAuthState(OHHuksGetUkeyPinAuthState func);
+
+    OH_Huks_Result InitParamSet(struct OH_Huks_ParamSet** paramSet,
+                                const struct OH_Huks_Param* params,
+                                uint32_t paramCount);
+    OH_Huks_Result InitExtParamSet(OH_Huks_ExternalCryptoParamSet** paramSet,
+                                const OH_Huks_ExternalCryptoParam* params,
+                                uint32_t paramCount);
+    bool GetHuksSignatureSpec(uint16_t algorithm, HuksSignatureSpec& result);
+} // namespace cert_mgr_adapter_impl_test
+
+namespace {
+    int g_initCallCount = 0;
+    int g_addCallCount = 0;
+    int g_buildCallCount = 0;
+    int g_freeCallCount = 0;
+    OH_Huks_Result g_nextInitResult = {OH_HUKS_SUCCESS};
+    OH_Huks_Result g_nextAddResult = {OH_HUKS_SUCCESS};
+    OH_Huks_Result g_nextBuildResult = {OH_HUKS_SUCCESS};
+    OH_Huks_Result g_nextHuksOpenResourceResult = {OH_HUKS_SUCCESS};
+    OH_Huks_Result g_nextHuksCloseResourceResult = {OH_HUKS_SUCCESS};
+    OH_Huks_Result g_nextHuksGetUkeyPinAuthStateResult = {OH_HUKS_SUCCESS};
+
+    int g_getUkeyCertCallCount = 0;
+    int g_freeUkeyCertCallCount = 0;
+    int32_t g_nextGetUkeyCertResult = OH_CM_SUCCESS;
+    bool g_shouldMockMemcpyFailure = false;
+    bool g_mockEmptyCredList = false;
+    bool g_mockNullCred = false;
+    bool g_mockZeroSize = false;
+    bool g_mockNullData = false;
+    int g_huksOpenResourceCallCount = 0;
+    int g_huksCloseResourceCallCount = 0;
+    int g_huksGetUkeyPinAuthStateCallCount = 0;
+    
+    void ResetTestState() {
+        g_initCallCount = 0;
+        g_addCallCount = 0;
+        g_buildCallCount = 0;
+        g_freeCallCount = 0;
+        g_nextInitResult.errorCode = OH_HUKS_SUCCESS;
+        g_nextAddResult.errorCode = OH_HUKS_SUCCESS;
+        g_nextBuildResult.errorCode = OH_HUKS_SUCCESS;
+        g_nextHuksOpenResourceResult.errorCode = OH_HUKS_SUCCESS;
+        g_nextHuksCloseResourceResult.errorCode = OH_HUKS_SUCCESS;
+        g_nextHuksGetUkeyPinAuthStateResult.errorCode = OH_HUKS_SUCCESS;
+
+        g_getUkeyCertCallCount = 0;
+        g_freeUkeyCertCallCount = 0;
+        g_nextGetUkeyCertResult = OH_CM_SUCCESS;
+        g_shouldMockMemcpyFailure = false;
+        g_mockEmptyCredList = false;
+        g_mockNullCred = false;
+        g_mockZeroSize = false;
+        g_mockNullData = false;
+        g_huksOpenResourceCallCount = 0;
+        g_huksCloseResourceCallCount = 0;
+        g_huksGetUkeyPinAuthStateCallCount = 0;
+    }
 }
 
-TEST_F(CertManagerAdapterImplTest, InitExtParamSet_003) {
-  OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
-  OH_Huks_ExternalCryptoParam params[1];
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+OH_Huks_Result MockInitSuccess(OH_Huks_ExternalCryptoParamSet**) {
+    g_initCallCount++;
+    return g_nextInitResult;
 }
 
-TEST_F(CertManagerAdapterImplTest, InitExtParamSet_004) {
-  OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
-  OH_Huks_ExternalCryptoParam params[1];
-  uint32_t paramCount = 1;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(0);
-
-  OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
-  EXPECT_EQ(result.errorCode, OH_HUKS_SUCCESS);
+OH_Huks_Result MockAddSuccess(OH_Huks_ExternalCryptoParamSet*, const OH_Huks_ExternalCryptoParam*, uint32_t) {
+    g_addCallCount++;
+    return g_nextAddResult;
 }
 
-// ==================== GetHuksSignatureSpec tests ====================
-
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_001) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA256, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
+OH_Huks_Result MockBuildSuccess(OH_Huks_ExternalCryptoParamSet**) {
+    g_buildCallCount++;
+    return g_nextBuildResult;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_002) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA384, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
+void MockFreeSuccess(OH_Huks_ExternalCryptoParamSet**) {
+    g_freeCallCount++;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_003) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA512, result);
+namespace TestData {
+    static uint8_t dummyCertData[100];
 
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
+    static OH_CM_Credential validCredential = {
+        1, "test_type", "test_alias", "test_key_uri",
+        1, 1, {100, dummyCertData}, OH_CM_CERT_PURPOSE_SIGN};
+
+    static OH_CM_Credential zeroSizeCredential = {
+        1, "test_type", "test_alias", "test_key_uri",
+        1, 1, {0, dummyCertData}, OH_CM_CERT_PURPOSE_SIGN};
+
+    static OH_CM_Credential nullDataCredential = {
+        1, "test_type", "test_alias", "test_key_uri",
+        1, 1, {100, nullptr}, OH_CM_CERT_PURPOSE_SIGN};
+
+    static OH_CM_Credential validCredArray[1] = {validCredential};
+    static OH_CM_Credential zeroSizeCredArray[1] = {zeroSizeCredential};
+    static OH_CM_Credential nullDataCredArray[1] = {nullDataCredential};
+
+    static OH_CM_CredentialDetailList validCredList = {1, validCredArray};
+    static OH_CM_CredentialDetailList zeroSizeCredList = {1, zeroSizeCredArray};
+    static OH_CM_CredentialDetailList nullDataCredList = {1, nullDataCredArray};
+    static OH_CM_CredentialDetailList emptyCredList = {0, nullptr};
+    static OH_CM_CredentialDetailList nullCredList = {1, nullptr};
+}  // namespace TestData
+
+int32_t MockGetUkeyCertificate(const OH_CM_Blob*,
+                               const OH_CM_UkeyInfo*,
+                               OH_CM_CredentialDetailList* certificateList) {
+    g_getUkeyCertCallCount++;
+    
+    if (g_nextGetUkeyCertResult != OH_CM_SUCCESS) {
+        return g_nextGetUkeyCertResult;
+    }
+    
+    if (certificateList != nullptr) {
+        if (g_mockEmptyCredList) {
+            *certificateList = TestData::emptyCredList;
+        } else if (g_mockNullCred) {
+            *certificateList = TestData::nullCredList;
+        } else if (g_mockZeroSize) {
+            *certificateList = TestData::zeroSizeCredList;
+        } else if (g_mockNullData) {
+            *certificateList = TestData::nullDataCredList;
+        } else {
+            *certificateList = TestData::validCredList;
+        }
+    }
+    
+    return OH_CM_SUCCESS;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_004) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA256, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
+void MockFreeUkeyCertificate(OH_CM_CredentialDetailList *) {
+    g_freeUkeyCertCallCount++;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_005) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA384, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
+OH_Huks_Result MockHuksOpenResource(const OH_Huks_Blob *, const OH_Huks_ExternalCryptoParamSet *) {
+    g_huksOpenResourceCallCount++;
+    return g_nextHuksOpenResourceResult;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_006) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA512, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
+OH_Huks_Result MockHuksCloseResource(const OH_Huks_Blob *, const OH_Huks_ExternalCryptoParamSet *) {
+    g_huksCloseResourceCallCount++;
+    return g_nextHuksCloseResourceResult;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_007) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP256R1_SHA256, result);
-
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
+OH_Huks_Result MockHuksGetUkeyPinAuthState(const OH_Huks_Blob*,
+                                           const OH_Huks_ExternalCryptoParamSet*,
+                                           OH_Huks_ExternalPinAuthState*) {
+    g_huksGetUkeyPinAuthStateCallCount++;
+    return g_nextHuksGetUkeyPinAuthStateResult;
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_008) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP384R1_SHA384, result);
+class CertMgrAdapterImplTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        g_mockHuks = &mockHuks_;
 
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
+        ResetTestState();
+        originalInit = cert_mgr_adapter_impl_test::GetHuksInitExternalCryptoParamSet();
+        originalAdd = cert_mgr_adapter_impl_test::GetHuksAddExternalCryptoParams();
+        originalBuild = cert_mgr_adapter_impl_test::GetHuksBuildExternalCryptoParamSet();
+        originalFree = cert_mgr_adapter_impl_test::GetHuksFreeExternalCryptoParamSet();
+        originalGetUkeyCert = cert_mgr_adapter_impl_test::GetCertManagerGetUkeyCertificate();
+        originalFreeUkeyCert = cert_mgr_adapter_impl_test::GetCertManagerFreeUkeyCertificate();
+        originalHuksOpenResource = cert_mgr_adapter_impl_test::GetHuksOpenResource();
+        originalHuksCloseResource = cert_mgr_adapter_impl_test::GetHuksCloseResource();
+        originalHuksGetUkeyPinAuthState = cert_mgr_adapter_impl_test::GetHuksGetUkeyPinAuthState();
+    }
+
+    void TearDown() override {
+        g_mockHuks = nullptr;
+
+        cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(originalInit);
+        cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(originalAdd);
+        cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(originalBuild);
+        cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(originalFree);
+        cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(originalGetUkeyCert);
+        cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(originalFreeUkeyCert);
+        cert_mgr_adapter_impl_test::SetHuksOpenResource(originalHuksOpenResource);
+        cert_mgr_adapter_impl_test::SetHuksCloseResource(originalHuksCloseResource);
+        cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(originalHuksGetUkeyPinAuthState);
+    }
+
+    void SetAllFunctionsToValid() {
+        cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(MockInitSuccess);
+        cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(MockAddSuccess);
+        cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(MockBuildSuccess);
+        cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    }
+
+    MockHuks mockHuks_;
+
+private:
+    cert_mgr_adapter_impl_test::OHHuksInitExternalCryptoParamSet originalInit = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksAddExternalCryptoParams originalAdd = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksBuildExternalCryptoParamSet originalBuild = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksFreeExternalCryptoParamSet originalFree = nullptr;
+    cert_mgr_adapter_impl_test::OHCertManagerGetUkeyCertificate originalGetUkeyCert = nullptr;
+    cert_mgr_adapter_impl_test::OHCertManagerFreeUkeyCertificate originalFreeUkeyCert = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksOpenResource originalHuksOpenResource = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksCloseResource originalHuksCloseResource = nullptr;
+    cert_mgr_adapter_impl_test::OHHuksGetUkeyPinAuthState originalHuksGetUkeyPinAuthState =nullptr;
+};
+
+TEST_F(CertMgrAdapterImplTest, InitParamSet_001) {
+    OH_Huks_ParamSet* paramSet = nullptr;
+    OH_Huks_Param params[2] = {
+        {.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA},
+        {.tag = OH_HUKS_TAG_KEY_SIZE, .uint32Param = 2048}
+    };
+    uint32_t paramCount = 2;
+
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(0);
+
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, OH_HUKS_SUCCESS);
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_009) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP521R1_SHA512, result);
+TEST_F(CertMgrAdapterImplTest, InitParamSet_002) {
+    OH_Huks_ParamSet* paramSet = nullptr;
+    OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
+    uint32_t paramCount = 1;
 
-  EXPECT_TRUE(success);
-  EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
-  EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
-  EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_)).Times(0);
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(0);
+
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
 }
 
-TEST_F(CertManagerAdapterImplTest, GetHuksSignatureSpec_010) {
-  cert_mgr_adapter_impl_test::HuksSignatureSpec result;
-  bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(0xFFFF, result);
-  EXPECT_FALSE(success);
+TEST_F(CertMgrAdapterImplTest, InitParamSet_003) {
+    OH_Huks_ParamSet* paramSet = nullptr;
+    OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
+    uint32_t paramCount = 1;
+
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_))
+        .WillOnce(::testing::Return());
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_)).Times(0);
+
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
 }
 
-// ==================== GetUkeyCert tests ====================
+TEST_F(CertMgrAdapterImplTest, InitParamSet_004) {
+    OH_Huks_ParamSet* paramSet = nullptr;
+    OH_Huks_Param params[1] = {{.tag = OH_HUKS_TAG_ALGORITHM, .uint32Param = OH_HUKS_ALG_RSA}};
+    uint32_t paramCount = 1;
 
-// Test case 1: GetUkeyCertificate returns failure
-TEST_F(CertManagerAdapterImplTest, GetUkeyCert_001) {
-  const string identity = "test_identity";
-  uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
-  uint32_t certDataLen = 0;
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, paramCount))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_))
+        .WillOnce(::testing::Return());
 
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_GetUkeyCertificate(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(-1));
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_FreeUkeyCertificate(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
-  EXPECT_EQ(result, -1);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
 }
 
-// Test case 2: GetUkeyCertificate returns success with empty credential list
-TEST_F(CertManagerAdapterImplTest, GetUkeyCert_002) {
-  const string identity = "test_identity";
-  uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
-  uint32_t certDataLen = 0;
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_001) {
+    cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(MockAddSuccess);
+    cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(MockBuildSuccess);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  OH_CM_CredentialDetailList emptyCredList = {0, nullptr};
-
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_GetUkeyCertificate(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(emptyCredList), ::testing::Return(OH_CM_SUCCESS)));
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_FreeUkeyCertificate(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
-  EXPECT_EQ(result, OH_CM_SUCCESS);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 0);
+    EXPECT_EQ(g_addCallCount, 0);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// Test case 3: GetUkeyCertificate returns success with null credential pointer
-TEST_F(CertManagerAdapterImplTest, GetUkeyCert_003) {
-  const string identity = "test_identity";
-  uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
-  uint32_t certDataLen = 0;
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_002) {
+    cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(MockInitSuccess);
+    cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(MockBuildSuccess);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  static OH_CM_Credential nullDataCredArray[1] = {
-      {1, "test_type", "test_alias", "test_key_uri", 1, 1, {100, nullptr}, OH_CM_CERT_PURPOSE_SIGN}
-  };
-  OH_CM_CredentialDetailList nullDataCredList = {1, nullDataCredArray};
-
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_GetUkeyCertificate(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(nullDataCredList), ::testing::Return(OH_CM_SUCCESS)));
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_FreeUkeyCertificate(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
-  EXPECT_EQ(result, OH_CM_SUCCESS);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 0);
+    EXPECT_EQ(g_addCallCount, 0);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// Test case 4: GetUkeyCertificate returns success with zero-size credential data
-TEST_F(CertManagerAdapterImplTest, GetUkeyCert_004) {
-  const string identity = "test_identity";
-  uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
-  uint32_t certDataLen = 0;
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_003) {
+    cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(MockInitSuccess);
+    cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(MockAddSuccess);
+    cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  static uint8_t dummyData[100];
-  static OH_CM_Credential zeroSizeCredArray[1] = {
-      {1, "test_type", "test_alias", "test_key_uri", 1, 1, {0, dummyData}, OH_CM_CERT_PURPOSE_SIGN}
-  };
-  OH_CM_CredentialDetailList zeroSizeCredList = {1, zeroSizeCredArray};
-
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_GetUkeyCertificate(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(zeroSizeCredList), ::testing::Return(OH_CM_SUCCESS)));
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_FreeUkeyCertificate(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
-  EXPECT_EQ(result, OH_CM_SUCCESS);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 0);
+    EXPECT_EQ(g_addCallCount, 0);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// Test case 5: GetUkeyCertificate success with valid credential data
-TEST_F(CertManagerAdapterImplTest, GetUkeyCert_005) {
-  const string identity = "test_identity";
-  uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
-  uint32_t certDataLen = 0;
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_004) {
+    cert_mgr_adapter_impl_test::SetHuksInitExternalCryptoParamSet(MockInitSuccess);
+    cert_mgr_adapter_impl_test::SetHuksAddExternalCryptoParams(MockAddSuccess);
+    cert_mgr_adapter_impl_test::SetHuksBuildExternalCryptoParamSet(MockBuildSuccess);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(nullptr);
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  static uint8_t dummyCertData[100];
-  memset_s(dummyCertData, sizeof(dummyCertData), 'A', sizeof(dummyCertData));
-  static OH_CM_Credential validCredArray[1] = {
-      {1, "test_type", "test_alias", "test_key_uri", 1, 1, {100, dummyCertData}, OH_CM_CERT_PURPOSE_SIGN}
-  };
-  OH_CM_CredentialDetailList validCredList = {1, validCredArray};
-
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_GetUkeyCertificate(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(validCredList), ::testing::Return(OH_CM_SUCCESS)));
-  EXPECT_CALL(*g_mockCertManager, OH_CertManager_FreeUkeyCertificate(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
-  EXPECT_EQ(result, OH_CM_SUCCESS);
-  EXPECT_EQ(certDataLen, 100u);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 0);
+    EXPECT_EQ(g_addCallCount, 0);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// ==================== OpenUKeyRemoteHandle tests ====================
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_005) {
+    SetAllFunctionsToValid();
+    g_nextInitResult.errorCode = -1;
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-// Test case 1: InitExtParamSet fails
-TEST_F(CertManagerAdapterImplTest, OpenUKeyRemoteHandle_001) {
-  const string identity = "test_identity";
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_OpenResource(::testing::_, ::testing::_)).Times(0);
-
-  int32_t result = adapter.OpenUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 1);
+    EXPECT_EQ(g_addCallCount, 0);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// Test case 2: OpenResource returns failure (not KEY_ALREADY_EXIST)
-TEST_F(CertManagerAdapterImplTest, OpenUKeyRemoteHandle_002) {
-  const string identity = "test_identity";
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_006) {
+    SetAllFunctionsToValid();
+    g_nextAddResult.errorCode = -1;
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_OpenResource(::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.OpenUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 1);
+    EXPECT_EQ(g_addCallCount, 1);
+    EXPECT_EQ(g_buildCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 1);
 }
 
-// Test case 3: OpenResource returns KEY_ALREADY_EXIST (treated as success)
-TEST_F(CertManagerAdapterImplTest, OpenUKeyRemoteHandle_003) {
-  const string identity = "test_identity";
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_007) {
+    SetAllFunctionsToValid();
+    g_nextBuildResult.errorCode = -1;
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_OpenResource(::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_KEY_ALREADY_EXIST, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.OpenUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, -1);
+    EXPECT_EQ(g_initCallCount, 1);
+    EXPECT_EQ(g_addCallCount, 1);
+    EXPECT_EQ(g_buildCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
 }
 
-// Test case 4: Full success path
-TEST_F(CertManagerAdapterImplTest, OpenUKeyRemoteHandle_004) {
-  const string identity = "test_identity";
+TEST_F(CertMgrAdapterImplTest, InitExtParamSet_008) {
+    SetAllFunctionsToValid();
+    
+    OH_Huks_ExternalCryptoParamSet* paramSet = nullptr;
+    OH_Huks_ExternalCryptoParam params[1];
+    uint32_t paramCount = 1;
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_OpenResource(::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.OpenUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
+    OH_Huks_Result result = cert_mgr_adapter_impl_test::InitExtParamSet(&paramSet, params, paramCount);
+    EXPECT_EQ(result.errorCode, OH_HUKS_SUCCESS);
+    EXPECT_EQ(g_initCallCount, 1);
+    EXPECT_EQ(g_addCallCount, 1);
+    EXPECT_EQ(g_buildCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 0);
 }
 
-// ==================== CloseUKeyRemoteHandle tests ====================
-
-// Test case 1: InitExtParamSet fails
-TEST_F(CertManagerAdapterImplTest, CloseUKeyRemoteHandle_001) {
-  const string identity = "test_identity";
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_CloseResource(::testing::_, ::testing::_)).Times(0);
-
-  int32_t result = adapter.CloseUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_001) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA256, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
 }
 
-// Test case 2: CloseResource returns failure
-TEST_F(CertManagerAdapterImplTest, CloseUKeyRemoteHandle_002) {
-  const string identity = "test_identity";
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_CloseResource(::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.CloseUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_002) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA384, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
 }
 
-// Test case 3: Full success path
-TEST_F(CertManagerAdapterImplTest, CloseUKeyRemoteHandle_003) {
-  const string identity = "test_identity";
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_CloseResource(::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.CloseUKeyRemoteHandle(identity);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_003) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PKCS1_SHA512, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PKCS1_V1_5);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
 }
 
-// ==================== GetUkeyPinAuthState tests ====================
-
-// Test case 1: InitExtParamSet fails
-TEST_F(CertManagerAdapterImplTest, GetUkeyPinAuthState_001) {
-  const string identity = "test_identity";
-  bool state = true;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_GetUkeyPinAuthState(::testing::_, ::testing::_, ::testing::_)).Times(0);
-
-  int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_004) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA256, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
 }
 
-// Test case 2: GetUkeyPinAuthState returns failure
-TEST_F(CertManagerAdapterImplTest, GetUkeyPinAuthState_002) {
-  const string identity = "test_identity";
-  bool state = true;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_GetUkeyPinAuthState(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_005) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA384, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
 }
 
-// Test case 3: GetUkeyPinAuthState success with PIN_AUTH_SUCCEEDED
-TEST_F(CertManagerAdapterImplTest, GetUkeyPinAuthState_003) {
-  const string identity = "test_identity";
-  bool state = false;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_GetUkeyPinAuthState(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(OH_HUKS_EXT_CRYPTO_PIN_AUTH_SUCCEEDED),
-                      ::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0})));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
-  EXPECT_TRUE(state);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_006) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_RSA_PSS_RSAE_SHA512, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_RSA);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_PSS);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
 }
 
-// Test case 4: GetUkeyPinAuthState success with PIN_NO_AUTH
-TEST_F(CertManagerAdapterImplTest, GetUkeyPinAuthState_004) {
-  const string identity = "test_identity";
-  bool state = true;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddExternalCryptoParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildExternalCryptoParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_GetUkeyPinAuthState(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(DoAll(SetArgPointee<2>(OH_HUKS_EXT_CRYPTO_PIN_NO_AUTH),
-                      ::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0})));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeExternalCryptoParamSet(::testing::_)).Times(1);
-
-  int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
-  EXPECT_FALSE(state);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_007) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP256R1_SHA256, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA256);
 }
 
-// ==================== SignUsingHuks tests ====================
-
-// Test case 1: Unsupported algorithm
-TEST_F(CertManagerAdapterImplTest, SignUsingHuks_001) {
-  const string identity = "test_identity";
-  uint8_t certData[100] = {0};
-  uint32_t certDataLen = 100;
-  uint8_t signData[128] = {0};
-  uint32_t signDataLen = 128;
-  uint16_t algorithm = 0xFFFF;
-  uint32_t keySize = 2048;
-
-  int32_t result =
-      adapter.SignUsingHuks(identity, certData, certDataLen, signData,
-                            &signDataLen, algorithm, keySize);
-  EXPECT_EQ(result, -1);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_008) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP384R1_SHA384, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA384);
 }
 
-// Test case 2: InitParamSet fails
-TEST_F(CertManagerAdapterImplTest, SignUsingHuks_002) {
-  const string identity = "test_identity";
-  uint8_t certData[100] = {0};
-  uint32_t certDataLen = 100;
-  uint8_t signData[128] = {0};
-  uint32_t signDataLen = 128;
-  uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
-  uint32_t keySize = 2048;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_)).Times(0);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(0);
-  int32_t result =
-      adapter.SignUsingHuks(identity, certData, certDataLen, signData,
-                            &signDataLen, algorithm, keySize);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_009) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(SSL_SIGN_ECDSA_SECP521R1_SHA512, result);
+    
+    EXPECT_TRUE(success);
+    EXPECT_EQ(result.algorithm, OH_HUKS_ALG_ECC);
+    EXPECT_EQ(result.padding, OH_HUKS_PADDING_NONE);
+    EXPECT_EQ(result.digest, OH_HUKS_DIGEST_SHA512);
 }
 
-// Test case 3: InitSession fails
-TEST_F(CertManagerAdapterImplTest, SignUsingHuks_003) {
-  const string identity = "test_identity";
-  uint8_t certData[100] = {0};
-  uint32_t certDataLen = 100;
-  uint8_t signData[128] = {0};
-  uint32_t signDataLen = 128;
-  uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
-  uint32_t keySize = 2048;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(1);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  int32_t result =
-      adapter.SignUsingHuks(identity, certData, certDataLen, signData,
-                            &signDataLen, algorithm, keySize);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+TEST_F(CertMgrAdapterImplTest, GetHuksSignatureSpec_010) {
+    cert_mgr_adapter_impl_test::HuksSignatureSpec result;
+    bool success = cert_mgr_adapter_impl_test::GetHuksSignatureSpec(0xFFFF, result);
+    EXPECT_FALSE(success);
 }
 
-// Test case 4: FinishSession fails
-TEST_F(CertManagerAdapterImplTest, SignUsingHuks_004) {
-  const string identity = "test_identity";
-  uint8_t certData[100] = {0};
-  uint32_t certDataLen = 100;
-  uint8_t signData[128] = {0};
-  uint32_t signDataLen = 128;
-  uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
-  uint32_t keySize = 2048;
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_001) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
 
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(1);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FinishSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
-  int32_t result =
-      adapter.SignUsingHuks(identity, certData, certDataLen, signData,
-                            &signDataLen, algorithm, keySize);
-  EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(nullptr);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_getUkeyCertCallCount, 0);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 0);
 }
 
-// Test case 5: Full success path
-TEST_F(CertManagerAdapterImplTest, SignUsingHuks_005) {
-  const string identity = "test_identity";
-  uint8_t certData[100] = {0};
-  uint32_t certDataLen = 100;
-  uint8_t signData[128] = {0};
-  uint32_t signDataLen = 128;
-  uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
-  uint32_t keySize = 2048;
-
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_BuildParamSet(::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FreeParamSet(::testing::_)).Times(1);
-  EXPECT_CALL(*g_mockHuks, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  EXPECT_CALL(*g_mockHuks, OH_Huks_FinishSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
-      .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
-  int32_t result =
-      adapter.SignUsingHuks(identity, certData, certDataLen, signData,
-                            &signDataLen, algorithm, keySize);
-  EXPECT_EQ(result, OH_HUKS_SUCCESS);
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_002) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(nullptr);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_getUkeyCertCallCount, 0);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 0);
 }
 
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_003) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    g_nextGetUkeyCertResult = -1;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_004) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    g_mockEmptyCredList = true;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, OH_CM_SUCCESS);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_005) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    g_mockNullCred = true;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, OH_CM_SUCCESS);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_006) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    g_mockZeroSize = true;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, OH_CM_SUCCESS);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_007) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    g_mockNullData = true;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, OH_CM_SUCCESS);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyCert_008) {
+    cert_mgr_adapter_impl_test::SetCertManagerGetUkeyCertificate(MockGetUkeyCertificate);
+    cert_mgr_adapter_impl_test::SetCertManagerFreeUkeyCertificate(MockFreeUkeyCertificate);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[OH_CM_MAX_LEN_CERTIFICATE_CHAIN];
+    uint32_t certDataLen = 0;
+    
+    int32_t result = adapter.GetUkeyCert(identity, certData, &certDataLen);
+    EXPECT_EQ(result, OH_CM_SUCCESS);
+    EXPECT_EQ(g_getUkeyCertCallCount, 1);
+    EXPECT_EQ(g_freeUkeyCertCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, OpenUKeyRemoteHandle_001) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    cert_mgr_adapter_impl_test::SetHuksOpenResource(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    int32_t result = adapter.OpenUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksOpenResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, OpenUKeyRemoteHandle_002) {
+    cert_mgr_adapter_impl_test::SetHuksOpenResource(MockHuksOpenResource);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(nullptr);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.OpenUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksOpenResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, OpenUKeyRemoteHandle_003) {
+    cert_mgr_adapter_impl_test::SetHuksOpenResource(MockHuksOpenResource);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.OpenUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksOpenResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, OpenUKeyRemoteHandle_004) {
+    cert_mgr_adapter_impl_test::SetHuksOpenResource(MockHuksOpenResource);
+    SetAllFunctionsToValid();
+    g_nextHuksOpenResourceResult.errorCode = -1;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.OpenUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksOpenResourceCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, OpenUKeyRemoteHandle_005) {
+    cert_mgr_adapter_impl_test::SetHuksOpenResource(MockHuksOpenResource);
+    SetAllFunctionsToValid();
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.OpenUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, OH_HUKS_SUCCESS);
+    EXPECT_EQ(g_huksOpenResourceCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, CloseUKeyRemoteHandle_001) {
+    cert_mgr_adapter_impl_test::SetHuksCloseResource(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.CloseUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksCloseResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, CloseUKeyRemoteHandle_002) {
+    cert_mgr_adapter_impl_test::SetHuksCloseResource(MockHuksCloseResource);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(nullptr);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.CloseUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksCloseResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, CloseUKeyRemoteHandle_003) {
+    cert_mgr_adapter_impl_test::SetHuksCloseResource(MockHuksCloseResource);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.CloseUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksCloseResourceCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, CloseUKeyRemoteHandle_004) {
+    cert_mgr_adapter_impl_test::SetHuksCloseResource(MockHuksCloseResource);
+    SetAllFunctionsToValid();
+    g_nextHuksCloseResourceResult.errorCode = -1;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.CloseUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksCloseResourceCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, CloseUKeyRemoteHandle_005) {
+    cert_mgr_adapter_impl_test::SetHuksCloseResource(MockHuksCloseResource);
+    SetAllFunctionsToValid();
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    
+    int32_t result = adapter.CloseUKeyRemoteHandle(identity);
+    EXPECT_EQ(result, OH_HUKS_SUCCESS);
+    EXPECT_EQ(g_huksCloseResourceCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyPinAuthState_001) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    bool state = true;
+    cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(nullptr);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksGetUkeyPinAuthStateCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyPinAuthState_002) {
+    cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(MockHuksGetUkeyPinAuthState);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(nullptr);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    bool state = true;
+    int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
+    
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksGetUkeyPinAuthStateCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyPinAuthState_003) {
+    cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(MockHuksGetUkeyPinAuthState);
+    cert_mgr_adapter_impl_test::SetHuksFreeExternalCryptoParamSet(MockFreeSuccess);
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    bool state = true;
+    int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
+    
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksGetUkeyPinAuthStateCallCount, 0);
+    EXPECT_EQ(g_freeCallCount, 0);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyPinAuthState_004) {
+    cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(MockHuksGetUkeyPinAuthState);
+    SetAllFunctionsToValid();
+    g_nextHuksGetUkeyPinAuthStateResult.errorCode = -1;
+    
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    bool state = true;
+    int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
+    
+    EXPECT_EQ(result, -1);
+    EXPECT_EQ(g_huksGetUkeyPinAuthStateCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, GetUkeyPinAuthState_005) {
+    cert_mgr_adapter_impl_test::SetHuksGetUkeyPinAuthState(MockHuksGetUkeyPinAuthState);
+    SetAllFunctionsToValid();
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    bool state = true;
+    int32_t result = adapter.GetUkeyPinAuthState(identity, &state);
+    
+    EXPECT_EQ(result, OH_HUKS_SUCCESS);
+    EXPECT_EQ(g_huksGetUkeyPinAuthStateCallCount, 1);
+    EXPECT_EQ(g_freeCallCount, 1);
+}
+
+TEST_F(CertMgrAdapterImplTest, SignUsingHuks_001) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[100] = {0};
+    uint32_t certDataLen = 100;
+    uint8_t signData[128] = {0};
+    uint32_t signDataLen = 128;
+    uint16_t algorithm = 0xFFFF;
+    uint32_t keySize = 2048;
+
+    int32_t result =
+        adapter.SignUsingHuks(identity, certData, certDataLen, signData,
+                              &signDataLen, algorithm, keySize);
+    EXPECT_EQ(result, -1);
+}
+
+TEST_F(CertMgrAdapterImplTest, SignUsingHuks_002) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[100] = {0};
+    uint32_t certDataLen = 100;
+    uint8_t signData[128] = {0};
+    uint32_t signDataLen = 128;
+    uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
+    uint32_t keySize = 2048;
+    
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_)).Times(0);
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_)).Times(0);
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(0);
+    int32_t result =
+        adapter.SignUsingHuks(identity, certData, certDataLen, signData,
+                              &signDataLen, algorithm, keySize);
+    EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+}
+
+TEST_F(CertMgrAdapterImplTest, SignUsingHuks_003) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[100] = {0};
+    uint32_t certDataLen = 100;
+    uint8_t signData[128] = {0};
+    uint32_t signDataLen = 128;
+    uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
+    uint32_t keySize = 2048;
+    
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(1);
+    EXPECT_CALL(mockHuks_, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    int32_t result =
+        adapter.SignUsingHuks(identity, certData, certDataLen, signData,
+                              &signDataLen, algorithm, keySize);
+    EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+}
+
+TEST_F(CertMgrAdapterImplTest, SignUsingHuks_004) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[100] = {0};
+    uint32_t certDataLen = 100;
+    uint8_t signData[128] = {0};
+    uint32_t signDataLen = 128;
+    uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
+    uint32_t keySize = 2048;
+    
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(1);
+    EXPECT_CALL(mockHuks_, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FinishSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT, 0}));
+    int32_t result =
+        adapter.SignUsingHuks(identity, certData, certDataLen, signData,
+                              &signDataLen, algorithm, keySize);
+    EXPECT_EQ(result, OH_HUKS_ERR_CODE_ILLEGAL_ARGUMENT);
+}
+
+TEST_F(CertMgrAdapterImplTest, SignUsingHuks_005) {
+    CertManagerAdapterImpl adapter;
+    std::string identity = "test_identity";
+    uint8_t certData[100] = {0};
+    uint32_t certDataLen = 100;
+    uint8_t signData[128] = {0};
+    uint32_t signDataLen = 128;
+    uint16_t algorithm = SSL_SIGN_RSA_PKCS1_SHA256;
+    uint32_t keySize = 2048;
+    
+    EXPECT_CALL(mockHuks_, OH_Huks_InitParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_AddParams(::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_BuildParamSet(::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FreeParamSet(::testing::_)).Times(1);
+    EXPECT_CALL(mockHuks_, OH_Huks_InitSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    EXPECT_CALL(mockHuks_, OH_Huks_FinishSession(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(OH_Huks_Result{OH_HUKS_SUCCESS, 0}));
+    int32_t result =
+        adapter.SignUsingHuks(identity, certData, certDataLen, signData,
+                              &signDataLen, algorithm, keySize);
+    EXPECT_EQ(result, OH_HUKS_SUCCESS);
+}
 } // namespace OHOS::NWeb

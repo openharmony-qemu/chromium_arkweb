@@ -16,7 +16,6 @@
 #ifndef NET_CONNECT_ADAPTER_H
 #define NET_CONNECT_ADAPTER_H
 
-#include <netdb.h>
 #include <memory>
 #include <vector>
 #include <string>
@@ -152,11 +151,6 @@ public:
     virtual std::vector<std::string> GetNetAddrListForVpn() = 0;
 
     virtual bool NotifyNetworkServiceAuthRequired(std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback) = 0;
-
-    virtual int GetAddrInfoForNetwork(
-        char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network) = 0;
-
-    virtual int FreeDnsResult(struct addrinfo* res) = 0;
 };
 
 } // namespace OHOS::NWeb

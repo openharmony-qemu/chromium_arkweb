@@ -299,11 +299,6 @@ public:
               NotifyNetworkServiceAuthRequired,
               (std::shared_ptr<NetGlobalHttpProxyRefreshCallback> callback),
               (override));
-  MOCK_METHOD(int,
-              GetAddrInfoForNetwork,
-              (char* host, char* serv, struct addrinfo* hints, struct addrinfo** res, int32_t network),
-              (override));
-  MOCK_METHOD(int, FreeDnsResult, (struct addrinfo* res), (override));
 };
 
 #if BUILDFLAG(ARKWEB_COOKIE)
