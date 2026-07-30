@@ -552,7 +552,8 @@ OHTrackEventStateTracker::MapPhaseToHiTraceType(
     case 's':
     case 't':
     case 'f':
-      result = { true, HiTraceEventType::FLOW, "Interceptor: FLOW event" };
+      result = { false, HiTraceEventType::UNSUPPORTED,
+                 "Interceptor: FLOW event not supported, Reduce the number of instructions" };
       break;
     case 'M':
       result = { false, HiTraceEventType::UNSUPPORTED, "Skip: METADATA not supported" };
