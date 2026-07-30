@@ -539,4 +539,160 @@ TEST_F(PolicyChangedEventCallbackTest, OnPolicyChangedImpl_002) {
   TmpOnPolicyChangedImpl();
   EXPECT_FALSE(IsLoader());
 }
+
+// Test ParsePolicy with non-dict top-level JSON
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_NonDictTopLevel) {
+  const std::string json = R"(["array", "value"])";
+  EXPECT_TRUE(ParsePolicy(json));
+  PolicyMap& policy_map =
+      bundle_->Get(PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()));
+  EXPECT_TRUE(policy_map.empty());
+}
+
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_IntegerTopLevel) {
+  const std::string json = "42";
+  EXPECT_TRUE(ParsePolicy(json));
+  PolicyMap& policy_map =
+      bundle_->Get(PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()));
+  EXPECT_TRUE(policy_map.empty());
+}
+
+// Test ParsePolicy with other supported keys
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_OriginAgentClusterDefaultEnabled) {
+  const std::string json = R"({
+    "OriginAgentClusterDefaultEnabled": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": true
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  EXPECT_TRUE(PolicyExists("OriginAgentClusterDefaultEnabled"));
+  EXPECT_TRUE(GetPolicyValue<bool>("OriginAgentClusterDefaultEnabled"));
+}
+
+TEST_F(PolicyLoaderOhosTest,
+       ParsePolicy_LegacySameSiteCookieBehaviorEnabledForDomainList) {
+  const std::string json = R"({
+    "LegacySameSiteCookieBehaviorEnabledForDomainList": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": ["example.com", "test.org"]
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  EXPECT_TRUE(PolicyExists("LegacySameSiteCookieBehaviorEnabledForDomainList"));
+  auto list = GetPolicyValue<base::Value::List>(
+      "LegacySameSiteCookieBehaviorEnabledForDomainList");
+  EXPECT_EQ(2u, list.size());
+}
+
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_ExtensionInstallAllowlist) {
+  const std::string json = R"({
+    "ExtensionInstallAllowlist": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": ["ext1", "ext2"]
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  EXPECT_TRUE(PolicyExists("ExtensionInstallAllowlist"));
+  auto list = GetPolicyValue<base::Value::List>("ExtensionInstallAllowlist");
+  EXPECT_EQ(2u, list.size());
+}
+
+// Test ParsePolicy with empty dict
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_EmptyDict) {
+  const std::string json = "{}";
+  EXPECT_TRUE(ParsePolicy(json));
+  PolicyMap& policy_map =
+      bundle_->Get(PolicyNamespace(POLICY_DOMAIN_CHROME, std::string()));
+  EXPECT_TRUE(policy_map.empty());
+}
+
+// Test ParsePolicy with value of unsupported type (dict value)
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_DictValueUnsupported) {
+  const std::string json = R"({
+    "InsecurePrivateNetworkRequestsAllowed": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": {"nested": "dict"}
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  // Dict value type falls into default case, policy is not set
+  EXPECT_FALSE(PolicyExists("InsecurePrivateNetworkRequestsAllowed"));
+}
+
+// Test ParsePolicy with value of binary/none type (default branch)
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_NullValueUnsupported) {
+  const std::string json = R"({
+    "InsecurePrivateNetworkRequestsAllowed": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": null
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  // null value type falls into default case
+  EXPECT_FALSE(PolicyExists("InsecurePrivateNetworkRequestsAllowed"));
+}
+
+// Test ParseExtensionsPolicy with multiple extensions
+TEST_F(PolicyLoaderOhosTest, ParseExtensionsPolicy_MultipleExtensions) {
+  ::base::Value::Dict policy_dict1;
+  policy_dict1.Set("policy1", "value1");
+
+  ::base::Value::Dict policy_dict2;
+  policy_dict2.Set("policy2", "value2");
+
+  ::base::Value::Dict items_dict;
+  items_dict.Set("ext1", ::base::Value(std::move(policy_dict1)));
+  items_dict.Set("ext2", ::base::Value(std::move(policy_dict2)));
+
+  ::base::Value::Dict extensions_dict;
+  extensions_dict.Set("extensions", ::base::Value(std::move(items_dict)));
+
+  ::base::Value policies = ::base::Value(std::move(extensions_dict));
+  ParseExtensionsPolicy(policies);
+
+  EXPECT_TRUE(HasExtensionPolicy("ext1"));
+  EXPECT_TRUE(HasExtensionPolicy("ext2"));
+}
+
+// Test ParsePolicy with 3rdparty and supported keys combined
+TEST_F(PolicyLoaderOhosTest, ParsePolicy_3rdpartyAndSupportedKeys) {
+  const std::string json = R"({
+    "3rdparty": {
+      "extensions": {
+        "ext_id": {
+          "level": "mandatory",
+          "scope": "machine",
+          "source": "platform",
+          "value": "ext_value"
+        }
+      }
+    },
+    "InsecurePrivateNetworkRequestsAllowed": {
+      "level": "mandatory",
+      "scope": "machine",
+      "source": "platform",
+      "value": true
+    }
+  })";
+
+  EXPECT_TRUE(ParsePolicy(json));
+  EXPECT_TRUE(HasExtensionPolicy("ext_id"));
+  EXPECT_TRUE(PolicyExists("InsecurePrivateNetworkRequestsAllowed"));
+}
 }  // namespace policy
