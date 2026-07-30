@@ -389,15 +389,15 @@ void ArkwebDisplayUtils::DrawAndSwap(AggregatedRenderPass& last_render_pass,
        last_render_pass.output_rect.size() != current_surface_size &&
        last_render_pass.damage_rect == last_render_pass.output_rect &&
        !current_surface_size.IsEmpty())) {
-    LOG(INFO) << "resize_output_surface = " << current_surface_size.ToString();
-    LOG(INFO) << "output_rect = " << last_render_pass.output_rect.ToString();
+    LOG(DEBUG) << "resize_output_surface = " << current_surface_size.ToString();
+    LOG(DEBUG) << "output_rect = " << last_render_pass.output_rect.ToString();
 
     last_render_pass.output_rect.set_size(current_surface_size);
     last_render_pass.output_rect.set_y(draw_rect_.y());
     last_render_pass.output_rect.set_x(draw_rect_.x());
     last_render_pass.damage_rect = last_render_pass.output_rect;
     frame.surface_damage_rect_list_.push_back(last_render_pass.damage_rect);
-    LOG(INFO) << "output_rect modify = "
+    LOG(DEBUG) << "output_rect modify = "
               << last_render_pass.output_rect.ToString();
   }
 }
