@@ -376,6 +376,9 @@ std::atomic<bool> OHOS::NWeb::NWebImpl::should_lazy_init_web_engine_{false};
 bool OHOS::NWeb::NWebImpl::should_report_universal_access_blocked_ = true;
 #endif
 
+OnArkWebStaticRequestCloseBrowserFunc
+    OHOS::NWeb::NWebImpl::on_request_close_browser_callback_ = nullptr;
+
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
 #include "arkweb/chromium_ext/base/ohos/blankless/blankless_controller.h"
 #include "arkweb/chromium_ext/components/viz/host/blankless_data_controller.h"
@@ -9677,4 +9680,21 @@ void NWebImpl::ExecuteAIPageCommand(
   }
 
   nweb_delegate_->ExecuteAIPageCommand(command, callback);
+}
+
+NO_SANITIZE("cfi")
+void NWebImpl::SetOnRequestCloseBrowserCallback(
+    OnArkWebStaticRequestCloseBrowserFunc func) {
+  LOG(INFO) << " func:" << __FUNCTION__;
+  on_request_close_browser_callback_ = func;
+}
+
+NO_SANITIZE("cfi")
+void NWebImpl::OnRequestCloseBrowser() {
+  LOG(INFO) << " func:" << __FUNCTION__;
+  if (on_request_close_browser_callback_) {
+    on_request_close_browser_callback_();
+  } else {
+    LOG(ERROR) << " func:" << __FUNCTION__ << " callback is null.";
+  }
 }

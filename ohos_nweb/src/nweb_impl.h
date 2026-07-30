@@ -91,6 +91,8 @@ struct RunJavaScriptParam;
 #include "capi/nweb_request_open_dev_tools_callback.h"
 #endif // ARKWEB_DEVTOOLS
 
+#include "capi/nweb_request_close_browser_callback.h"
+
 namespace base {
   class RetainingOneShotTimer;
 }
@@ -1178,6 +1180,10 @@ class NWebImpl : public NWeb {
                                     const std::string& client_id);
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
 
+  static void SetOnRequestCloseBrowserCallback(
+      OnArkWebStaticRequestCloseBrowserFunc func);
+  static void OnRequestCloseBrowser();
+
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   void ViewSource();
   bool IsViewSourceEnabled();
@@ -1555,6 +1561,8 @@ void SetVisibility(bool isVisible) override;
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   static OnArkWebStaticRequestOpenDevToolsFunc on_request_open_dev_tools_callback_;
 #endif  // ARKWEB_DEVTOOLS
+
+  static OnArkWebStaticRequestCloseBrowserFunc on_request_close_browser_callback_;
 
   void RegisterNativeJavaScriptProxy(const std::string& objName,
                                      const std::vector<std::string>& methodName,
