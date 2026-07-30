@@ -30,9 +30,7 @@ class JsCommunicationUtilsTest : public ::testing::Test {
     js_communication_utils_ = std::make_unique<JsCommunicationUtils>(nullptr);
   }
 
-  void TearDown() override {
-    js_communication_utils_.reset();
-  }
+  void TearDown() override { js_communication_utils_.reset(); }
 
   mojom::DocumentEndJavaScriptPtr CreateEndScript(
       int32_t id,
@@ -169,8 +167,10 @@ TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtDocumentEnd_001) {
   auto existing_script = CreateEndScript(99, u"existing");
   js_communication_utils_->AddDocumentEndScript(existing_script);
   auto existing_regex = CreateRegexRules(99, u"existing");
-  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(existing_regex);
-  js_communication_utils_->end_scripts_regex_rules_.push_back(std::move(regex_obj));
+  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
+      existing_regex);
+  js_communication_utils_->end_scripts_regex_rules_.push_back(
+      std::move(regex_obj));
 
   ASSERT_EQ(js_communication_utils_->document_end_scripts_.size(), 1u);
   ASSERT_EQ(js_communication_utils_->end_scripts_regex_rules_.size(), 1u);
@@ -203,8 +203,10 @@ TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtHeadReady_001) {
   auto existing_script = CreateStartScript(99, u"existing");
   js_communication_utils_->AddHeadReadyScript(existing_script);
   auto existing_regex = CreateRegexRules(99, u"existing");
-  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(existing_regex);
-  js_communication_utils_->head_ready_regex_rules_.push_back(std::move(regex_obj));
+  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
+      existing_regex);
+  js_communication_utils_->head_ready_regex_rules_.push_back(
+      std::move(regex_obj));
 
   ASSERT_EQ(js_communication_utils_->head_ready_scripts_.size(), 1u);
   ASSERT_EQ(js_communication_utils_->head_ready_regex_rules_.size(), 1u);
@@ -233,7 +235,8 @@ TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtHeadReady_002) {
   EXPECT_TRUE(js_communication_utils_->swap_head_ready_regex_rules_.empty());
 }
 
-TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtDocumentStartRegexRules_001) {
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentStartRegexRules_001) {
   auto existing_regex = CreateRegexRules(99, u"existing", {{"old.com", ".*"}});
   auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
       existing_regex);
@@ -249,14 +252,240 @@ TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtDocumentStartRegexRul
   EXPECT_TRUE(js_communication_utils_->swap_start_scripts_regex_rules_.empty());
 }
 
-TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtDocumentStartRegexRules_002) {
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentStartRegexRules_002) {
   auto regex = CreateRegexRules(1, u"regex");
   js_communication_utils_->AddPendingJavascriptAtDocumentStartRegexRules(regex);
 
-  ASSERT_EQ(js_communication_utils_->swap_start_scripts_regex_rules_.size(), 1u);
+  ASSERT_EQ(js_communication_utils_->swap_start_scripts_regex_rules_.size(),
+            1u);
 
   js_communication_utils_->CommitPendingJavascriptsAtDocumentStartRegexRules();
 
   EXPECT_TRUE(js_communication_utils_->swap_start_scripts_regex_rules_.empty());
+}
+
+// Test CreateDocumentJavaScriptRegexRules directly
+TEST_F(JsCommunicationUtilsTest, CreateDocumentJavaScriptRegexRules_Basic) {
+  auto rules_ptr = CreateRegexRules(
+      42, u"test_script",
+      {{"example.com", ".*\\.js$"}, {"test.com", ".*\\.html$"}});
+  auto result =
+      js_communication_utils_->CreateDocumentJavaScriptRegexRules(rules_ptr);
+
+  ASSERT_TRUE(result);
+  EXPECT_EQ(result->script_id, 42);
+  EXPECT_EQ(result->script, blink::WebString::FromUTF16(u"test_script"));
+  ASSERT_EQ(result->script_regex_rules.size(), 2u);
+  EXPECT_EQ(result->script_regex_rules[0].second_level_domain, "example.com");
+  EXPECT_EQ(result->script_regex_rules[0].rule, ".*\\.js$");
+  EXPECT_EQ(result->script_regex_rules[1].second_level_domain, "test.com");
+  EXPECT_EQ(result->script_regex_rules[1].rule, ".*\\.html$");
+}
+
+TEST_F(JsCommunicationUtilsTest, CreateDocumentJavaScriptRegexRules_Empty) {
+  auto rules_ptr = CreateRegexRules(1, u"empty_script");
+  auto result =
+      js_communication_utils_->CreateDocumentJavaScriptRegexRules(rules_ptr);
+
+  ASSERT_TRUE(result);
+  EXPECT_EQ(result->script_id, 1);
+  EXPECT_EQ(result->script, blink::WebString::FromUTF16(u"empty_script"));
+  EXPECT_EQ(result->script_regex_rules.size(), 0u);
+}
+
+// Test AddDocumentEndScriptRegexRules directly
+TEST_F(JsCommunicationUtilsTest, AddDocumentEndScriptRegexRules) {
+  auto regex = CreateRegexRules(1, u"script1", {{"host1", "rule1"}});
+  js_communication_utils_->AddDocumentEndScriptRegexRules(regex);
+
+  ASSERT_EQ(js_communication_utils_->end_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_[0]->script_id, 1);
+}
+
+// Test AddHeadReadyScriptRegexRules directly
+TEST_F(JsCommunicationUtilsTest, AddHeadReadyScriptRegexRules) {
+  auto regex = CreateRegexRules(2, u"script2", {{"host2", "rule2"}});
+  js_communication_utils_->AddHeadReadyScriptRegexRules(regex);
+
+  ASSERT_EQ(js_communication_utils_->head_ready_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_[0]->script_id, 2);
+}
+
+// Test AddDocumentStartScriptRegexRules directly
+TEST_F(JsCommunicationUtilsTest, AddDocumentStartScriptRegexRules) {
+  auto regex = CreateRegexRules(3, u"script3", {{"host3", "rule3"}});
+  js_communication_utils_->AddDocumentStartScriptRegexRules(regex);
+
+  ASSERT_EQ(js_communication_utils_->start_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->start_scripts_regex_rules_[0]->script_id,
+            3);
+}
+
+// Test CommitPendingJavascriptsAtDocumentEnd with actual data movement
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentEnd_DataMove) {
+  auto script = CreateEndScript(1, u"pending_script");
+  auto regex = CreateRegexRules(1, u"pending_regex", {{"host.com", ".*"}});
+  js_communication_utils_->AddPendingJavascriptAtDocumentEnd(script, regex);
+
+  ASSERT_EQ(js_communication_utils_->swap_document_end_scripts_.size(), 1u);
+  ASSERT_EQ(js_communication_utils_->swap_end_scripts_regex_rules_.size(), 1u);
+  ASSERT_TRUE(js_communication_utils_->document_end_scripts_.empty());
+  ASSERT_TRUE(js_communication_utils_->end_scripts_regex_rules_.empty());
+
+  js_communication_utils_->CommitPendingJavascriptsAtDocumentEnd();
+
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_[0]->script_id, 1);
+  EXPECT_TRUE(js_communication_utils_->swap_document_end_scripts_.empty());
+  EXPECT_TRUE(js_communication_utils_->swap_end_scripts_regex_rules_.empty());
+}
+
+// Test CommitPendingJavascriptsAtHeadReady with actual data movement
+TEST_F(JsCommunicationUtilsTest, CommitPendingJavascriptsAtHeadReady_DataMove) {
+  auto script = CreateStartScript(2, u"pending_head_script");
+  auto regex =
+      CreateRegexRules(2, u"pending_head_regex", {{"host2.com", ".*"}});
+  js_communication_utils_->AddPendingJavascriptAtHeadReady(script, regex);
+
+  ASSERT_EQ(js_communication_utils_->swap_head_ready_scripts_.size(), 1u);
+  ASSERT_EQ(js_communication_utils_->swap_head_ready_regex_rules_.size(), 1u);
+
+  js_communication_utils_->CommitPendingJavascriptsAtHeadReady();
+
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[0]->script_id, 2);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_[0]->script_id, 2);
+  EXPECT_TRUE(js_communication_utils_->swap_head_ready_scripts_.empty());
+  EXPECT_TRUE(js_communication_utils_->swap_head_ready_regex_rules_.empty());
+}
+
+// Test CommitPendingJavascriptsAtDocumentStartRegexRules with data move
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentStartRegexRules_DataMove) {
+  auto regex = CreateRegexRules(3, u"start_regex", {{"host3.com", ".*\\.js$"}});
+  js_communication_utils_->AddPendingJavascriptAtDocumentStartRegexRules(regex);
+
+  ASSERT_EQ(js_communication_utils_->swap_start_scripts_regex_rules_.size(),
+            1u);
+  ASSERT_TRUE(js_communication_utils_->start_scripts_regex_rules_.empty());
+
+  js_communication_utils_->CommitPendingJavascriptsAtDocumentStartRegexRules();
+
+  EXPECT_EQ(js_communication_utils_->start_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->start_scripts_regex_rules_[0]->script_id,
+            3);
+  EXPECT_TRUE(js_communication_utils_->swap_start_scripts_regex_rules_.empty());
+}
+
+// Test MatchUrlRegex with more patterns
+TEST_F(JsCommunicationUtilsTest, MatchUrlRegex_MatchSuccess) {
+  EXPECT_TRUE(
+      MatchUrlRegex("http://example.com/path.js", "example\\.com.*\\.js$"));
+  EXPECT_TRUE(MatchUrlRegex("https://test.org/page", "test\\.org"));
+}
+
+TEST_F(JsCommunicationUtilsTest, MatchUrlRegex_PartialMatch) {
+  EXPECT_TRUE(MatchUrlRegex("http://example.com/path", "example"));
+  EXPECT_FALSE(MatchUrlRegex("http://other.com/path", "^example$"));
+}
+
+// Test CommitPendingJavascriptsAtDocumentEnd replaces existing scripts
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentEnd_ReplacesExisting) {
+  auto existing_script = CreateEndScript(99, u"old_script");
+  js_communication_utils_->AddDocumentEndScript(existing_script);
+  auto existing_regex = CreateRegexRules(99, u"old_regex");
+  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
+      existing_regex);
+  js_communication_utils_->end_scripts_regex_rules_.push_back(
+      std::move(regex_obj));
+
+  auto new_script = CreateEndScript(1, u"new_script");
+  auto new_regex = CreateRegexRules(1, u"new_regex");
+  js_communication_utils_->AddPendingJavascriptAtDocumentEnd(new_script,
+                                                             new_regex);
+
+  js_communication_utils_->CommitPendingJavascriptsAtDocumentEnd();
+
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_[0]->script_id, 1);
+}
+
+// Test CommitPendingJavascriptsAtHeadReady replaces existing scripts
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtHeadReady_ReplacesExisting) {
+  auto existing_script = CreateStartScript(99, u"old_head_script");
+  js_communication_utils_->AddHeadReadyScript(existing_script);
+  auto existing_regex = CreateRegexRules(99, u"old_head_regex");
+  auto regex_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
+      existing_regex);
+  js_communication_utils_->head_ready_regex_rules_.push_back(
+      std::move(regex_obj));
+
+  auto new_script = CreateStartScript(1, u"new_head_script");
+  auto new_regex = CreateRegexRules(1, u"new_head_regex");
+  js_communication_utils_->AddPendingJavascriptAtHeadReady(new_script,
+                                                           new_regex);
+
+  js_communication_utils_->CommitPendingJavascriptsAtHeadReady();
+
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_[0]->script_id, 1);
+}
+
+// Test CommitPendingJavascriptsAtDocumentStartRegexRules replaces existing
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentStartRegexRules_ReplacesExisting) {
+  auto existing_regex = CreateRegexRules(99, u"old_start", {{"old.com", ".*"}});
+  auto old_obj = js_communication_utils_->CreateDocumentJavaScriptRegexRules(
+      existing_regex);
+  js_communication_utils_->start_scripts_regex_rules_.push_back(
+      std::move(old_obj));
+
+  auto new_regex = CreateRegexRules(1, u"new_start", {{"new.com", ".*\\.js$"}});
+  js_communication_utils_->AddPendingJavascriptAtDocumentStartRegexRules(
+      new_regex);
+
+  js_communication_utils_->CommitPendingJavascriptsAtDocumentStartRegexRules();
+
+  EXPECT_EQ(js_communication_utils_->start_scripts_regex_rules_.size(), 1u);
+  EXPECT_EQ(js_communication_utils_->start_scripts_regex_rules_[0]->script_id,
+            1);
+}
+
+// Test AddDocumentEndScript with multiple scripts
+TEST_F(JsCommunicationUtilsTest, AddDocumentEndScript_Multiple) {
+  auto script1 = CreateEndScript(1, u"script1");
+  auto script2 = CreateEndScript(2, u"script2");
+  auto script3 = CreateEndScript(3, u"script3");
+  js_communication_utils_->AddDocumentEndScript(script1);
+  js_communication_utils_->AddDocumentEndScript(script2);
+  js_communication_utils_->AddDocumentEndScript(script3);
+
+  ASSERT_EQ(js_communication_utils_->document_end_scripts_.size(), 3u);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[1]->script_id, 2);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[2]->script_id, 3);
+}
+
+// Test AddHeadReadyScript with multiple scripts
+TEST_F(JsCommunicationUtilsTest, AddHeadReadyScript_Multiple) {
+  auto script1 = CreateStartScript(1, u"head1");
+  auto script2 = CreateStartScript(2, u"head2");
+  js_communication_utils_->AddHeadReadyScript(script1);
+  js_communication_utils_->AddHeadReadyScript(script2);
+
+  ASSERT_EQ(js_communication_utils_->head_ready_scripts_.size(), 2u);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[1]->script_id, 2);
 }
 }  // namespace js_injection
