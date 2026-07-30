@@ -449,11 +449,12 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_Normal
   ExecuteJavaScriptForTests(R"(document.getElementById('test').focus();)");
   blink::WebInputElement element = GetWebElementById("test").DynamicTo<blink::WebInputElement>();
   ASSERT_TRUE(element);
-  autofill_agent().AsAutofillAgentExt()->SetIsPopupCreatedByFocusChange(false);
  
   EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
   autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
-  EXPECT_TRUE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
+  EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->autofill_position_request_state_,
+      AutofillAgentExt::AutofillPositionRequestState::kWaitingForPositionChange);
+  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
 }
  
 TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_IsPasswordAutofill) {
@@ -488,7 +489,7 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_IsPass
   EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_, initial_popup_state);
 }
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_PopupCreatedByFocusChange) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_RepeatedWhileWaiting) {
   LoadHTML(R"(<body><form><input type="text" id="test"></form></body>)");
   FieldRendererId field_id = GetFieldRendererIdById("test");
   autofill_agent().TriggerSuggestions(
@@ -498,10 +499,11 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_PopupC
   ExecuteJavaScriptForTests(R"(document.getElementById('test').focus();)");
   blink::WebInputElement element = GetWebElementById("test").DynamicTo<blink::WebInputElement>();
   ASSERT_TRUE(element);
-  autofill_agent().AsAutofillAgentExt()->SetIsPopupCreatedByFocusChange(true);
  
   autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
-  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_popup_created_by_focus_change_);
+  EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->autofill_position_request_state_,
+      AutofillAgentExt::AutofillPositionRequestState::kWaitingForPositionChange);
+  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
 }
  
 // Priority 1: Test OhFormControlElementClicked() - All Branches
