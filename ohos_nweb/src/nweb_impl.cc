@@ -1129,8 +1129,8 @@ void HandleAdvancedSecurityMode(std::list<std::string>& web_engine_args) {
     WVLOG_I(
         "In advanced security mode, some HTML5 features will be unavailable, "
         "including "
-        "WebGL, PDF viewer, MathML, speech recognition, etc.");
-    web_engine_args.emplace_back("--js-flags=--jitless --wasm-jitless");
+        "WebAssembly, WebGL, PDF viewer, MathML, speech recognition, etc.");
+    web_engine_args.emplace_back("--js-flags=--jitless");
 
     if (ASHelper::Inst().IsSecFeatureEnabled(ASHelper::Feature::ENABLE_WEBGL)) {
       web_engine_args.emplace_back("--disable-webgl");
