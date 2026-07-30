@@ -22,6 +22,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -29,7 +30,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_simple_task_runner.h"
-#include "base/strings/string_number_conversions.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/subresource_filter/content/shared/browser/user_unindexed_ruleset_stream_generator.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
@@ -236,24 +236,16 @@ class UserRulesetServiceTest : public ::testing::Test {
     return background_task_runner_.get();
   }
 
-  PrefService* prefs() {
-    return &pref_service_;
-  }
-  UserRulesetService* service() {
-    return service_.get();
-  }
+  PrefService* prefs() { return &pref_service_; }
+  UserRulesetService* service() { return service_.get(); }
 
   MockUserRulesetPublisher* GetUserRulesetPublisher() {
     return static_cast<MockUserRulesetPublisher*>(service_->publisher_.get());
   }
 
-  base::FilePath GetTempDir() const {
-    return scoped_temp_dir_.GetPath();
-  }
+  base::FilePath GetTempDir() const { return scoped_temp_dir_.GetPath(); }
 
-  TestRulesetCreator* GetRulesetCreator() {
-    return &ruleset_creator_;
-  }
+  TestRulesetCreator* GetRulesetCreator() { return &ruleset_creator_; }
   const TestRulesetPair& GetRuleset(int index) const {
     return test_rulesets_[index];
   }
@@ -319,9 +311,7 @@ class UserRulesetServiceTest : public ::testing::Test {
   base::WeakPtr<UserRulesetServiceTest> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
-  UserIndexedRulesetVersion GetWriteResult() {
-    return write_callback_version_;
-  }
+  UserIndexedRulesetVersion GetWriteResult() { return write_callback_version_; }
 
   void UserRulesetServiceCreateTest() {
     base::test::ScopedFeatureList scoped_feature;
@@ -479,8 +469,8 @@ TEST_F(UserRulesetServiceTest, WriteRuleset) {
 
 TEST_F(UserRulesetServiceTest, WriteRuleset_InvalidPath) {
   // invalid indexed ruleset path
-  IndexAndWriteRulesetResult result = UserRulesetService::WriteRuleset(base::FilePath(), base::FilePath(),
-                                            base::span<const uint8_t>());
+  IndexAndWriteRulesetResult result = UserRulesetService::WriteRuleset(
+      base::FilePath(), base::FilePath(), base::span<const uint8_t>());
   EXPECT_EQ(result, IndexAndWriteRulesetResult::FAILED_REPLACE_FILE);
 
   // invalid license path
@@ -703,5 +693,149 @@ TEST_F(UserRulesetServiceTest, OnRulesetSet) {
       &MockClosureTarget::Call, base::Unretained(&publish_callback_target)));
   EXPECT_NO_FATAL_FAILURE(service()->OnRulesetSet(std::move(file)));
   ::testing::Mock::VerifyAndClearExpectations(&publish_callback_target);
+}
+
+// Test OnRulesetSet with invalid file: !file->IsValid() clears prefs
+TEST_F(UserRulesetServiceTest, OnRulesetSet_InvalidFile) {
+  // Open a non-existent file path to create an invalid RulesetFilePtr
+  RulesetFilePtr file(
+      new base::File(GetTempDir().AppendASCII("nonexistent_ruleset_data"),
+                     base::File::FLAG_OPEN | base::File::FLAG_READ),
+      base::OnTaskRunnerDeleter(GetBackgroudTaskRunner()));
+  ASSERT_FALSE(file->IsValid());
+
+  CreateUserRulesetService();
+  EXPECT_NE(service(), nullptr);
+
+  // Save a valid version to prefs first
+  UserIndexedRulesetVersion version("content_1.0", CurrentFormatVersion(),
+                                    kTestUserRulesetConfig.filter_tag);
+  version.SaveToPrefs(prefs());
+  UserIndexedRulesetVersion loaded(kTestUserRulesetConfig.filter_tag);
+  loaded.ReadFromPrefs(prefs());
+  EXPECT_TRUE(loaded.IsValid());
+
+  // OnRulesetSet with invalid file should clear prefs
+  EXPECT_NO_FATAL_FAILURE(service()->OnRulesetSet(std::move(file)));
+  RunAllUntilIdle();
+
+  loaded.ReadFromPrefs(prefs());
+  EXPECT_FALSE(loaded.IsValid());
+}
+
+// Test IndexAndWriteRuleset when sentinel file already exists:
+// Returns invalid version because indexing is skipped
+TEST_F(UserRulesetServiceTest, IndexAndWriteRuleset_SentinelFilePresent) {
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII(base::NumberToString(CurrentFormatVersion()));
+  ASSERT_TRUE(base::CreateDirectory(indexed_ruleset_base_dir));
+
+  UserUnindexedRulesetInfo unindexed_ruleset_info =
+      CreateTestUnindexedRuleset();
+
+  // Pre-create the version directory and sentinel file
+  UserIndexedRulesetVersion indexed_version(
+      unindexed_ruleset_info.content_version,
+      UserIndexedRulesetVersion::CurrentFormatVersion(),
+      kTestUserRulesetConfig.filter_tag);
+  base::FilePath version_dir =
+      UserIndexedRulesetLocator::GetSubdirectoryPathForVersion(
+          indexed_ruleset_base_dir, indexed_version);
+  ASSERT_TRUE(base::CreateDirectory(version_dir));
+
+  // Create sentinel file at the expected path
+  base::FilePath sentinel_path =
+      UserIndexedRulesetLocator::GetSentinelFilePath(version_dir);
+  ASSERT_TRUE(base::WriteFile(sentinel_path, std::string_view()));
+  ASSERT_TRUE(base::PathExists(sentinel_path));
+
+  // IndexAndWriteRuleset should return invalid version because sentinel exists
+  UserIndexedRulesetVersion result = UserRulesetService::IndexAndWriteRuleset(
+      kTestUserRulesetConfig, indexed_ruleset_base_dir, unindexed_ruleset_info);
+  EXPECT_EQ(result.filter_tag, kTestUserRulesetConfig.filter_tag);
+  EXPECT_FALSE(result.IsValid());
+}
+
+// Test IndexAndWriteRuleset when indexing fails (g_index_ruleset_func returns
+// false): Returns invalid version
+TEST_F(UserRulesetServiceTest, IndexAndWriteRuleset_IndexingFails) {
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII(base::NumberToString(CurrentFormatVersion()));
+  ASSERT_TRUE(base::CreateDirectory(indexed_ruleset_base_dir));
+
+  UserUnindexedRulesetInfo unindexed_ruleset_info =
+      CreateTestUnindexedRuleset();
+
+  // Save original function pointer and restore after test
+  auto original_func = UserRulesetService::g_index_ruleset_func;
+  UserRulesetService::g_index_ruleset_func =
+      [](const RulesetConfig& config,
+         UserUnindexedRulesetStreamGenerator* generator,
+         RulesetIndexer* indexer) { return false; };
+
+  UserIndexedRulesetVersion result = UserRulesetService::IndexAndWriteRuleset(
+      kTestUserRulesetConfig, indexed_ruleset_base_dir, unindexed_ruleset_info);
+
+  // Restore original function pointer
+  UserRulesetService::g_index_ruleset_func = original_func;
+
+  EXPECT_EQ(result.filter_tag, kTestUserRulesetConfig.filter_tag);
+  EXPECT_FALSE(result.IsValid());
+}
+
+// Test DeleteObsoleteRulesets invokes client callback when obsolete format dirs
+// exist
+TEST_F(UserRulesetServiceTest, DeleteObsoleteRulesets_ClientCallbackInvoked) {
+  // Use a counting mock client
+  class CountingMockClient : public UserRulesetServiceClient {
+   public:
+    int delete_count = 0;
+    void OnDeleteUserRulesetFile() override { delete_count++; }
+  };
+  auto client = std::make_unique<CountingMockClient>();
+  CountingMockClient* raw_client = client.get();
+
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII("indexed_ruleset_data_cb");
+  // Create an obsolete format directory (different from current format)
+  int obsolete_format = UserIndexedRulesetVersion::CurrentFormatVersion() + 1;
+  ASSERT_TRUE(base::CreateDirectory(
+      indexed_ruleset_base_dir
+          .AppendASCII(base::NumberToString(obsolete_format))
+          .AppendASCII("old_content")));
+  // Create current format directory (no obsolete)
+  ASSERT_TRUE(base::CreateDirectory(
+      indexed_ruleset_base_dir.AppendASCII(base::NumberToString(
+          UserIndexedRulesetVersion::CurrentFormatVersion()))));
+
+  UserIndexedRulesetVersion most_recent_version(
+      "content_1.0", CurrentFormatVersion(), kTestUserRulesetConfig.filter_tag);
+
+  // Call with non-null client
+  UserIndexedRulesetLocator::DeleteObsoleteRulesets(
+      indexed_ruleset_base_dir, base::FilePath(), raw_client,
+      most_recent_version);
+
+  // Client callback should have been invoked for obsolete format dir
+  EXPECT_EQ(raw_client->delete_count, 1);
+
+  // Call with null client - should not crash
+  UserIndexedRulesetLocator::DeleteObsoleteRulesets(
+      indexed_ruleset_base_dir, base::FilePath(), nullptr, most_recent_version);
+}
+
+// Test WriteRuleset FAILED_WRITING_LICENSE when license copy fails
+TEST_F(UserRulesetServiceTest, WriteRuleset_FailedWritingLicense) {
+  base::FilePath version_dir = GetValidIndexRulesetPath(0);
+
+  // Create a license file that is a directory (not a file), causing CopyFile to
+  // fail
+  base::FilePath license_dir = GetTempDir().AppendASCII("license_dir");
+  ASSERT_TRUE(base::CreateDirectory(license_dir));
+
+  IndexAndWriteRulesetResult result = UserRulesetService::WriteRuleset(
+      version_dir, license_dir,
+      base::span<const uint8_t>(GetValidIndexRulesetContent(0)));
+  EXPECT_EQ(result, IndexAndWriteRulesetResult::FAILED_WRITING_LICENSE);
 }
 }  // namespace subresource_filter
