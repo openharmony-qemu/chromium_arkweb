@@ -929,10 +929,7 @@ void NWebRenderHandler::OnVirtualKeyboardRequestedEx(
             << ", always_hide_ime = " << text_input_info.always_hide_ime;
 
   std::map<std::string, std::string> attributesMap;
-  for (const auto& item : attributes) {
-    LOG(DEBUG)
-        << "WebCustomKeyboard OnVirtualKeyboardRequested attributes, key = "
-        << item.first.ToString() << ", value = " << item.second.ToString();
+  for (const auto &item : attributes) {
     attributesMap.insert({item.first.ToString(), item.second.ToString()});
   }
 
@@ -1655,8 +1652,8 @@ void NWebRenderHandler::GetWordSelection(CefRefPtr<CefBrowser> browser,
                                          int8_t offset,
                                          CefPoint& select) {
   if (auto handler = handler_.lock()) {
-    LOG(DEBUG) << "NWebRenderHandler::GetWordSelection, text: "
-               << text.ToString() << ", offset: " << static_cast<int>(offset);
+    LOG(DEBUG) << "NWebRenderHandler::GetWordSelection, offset: "
+               << static_cast<int>(offset);
     std::vector<int8_t> vec =
         handler->GetWordSelection(text.ToString(), offset);
     if (vec.size() == kWordSelectionOffsetSize) {
