@@ -1387,7 +1387,8 @@ void InitialWebEngineArgs(
 
   std::string oemmode = OHOS::NWeb::OhosAdapterHelper::GetInstance()
                             .GetSystemPropertiesInstance().GetStringParameter("const.boot.oemmode", "");
-  LOG(INFO) << "const.boot.oemmode: " << oemmode;
+  // The OEM mode information is fixed and has only two values. 
+  LOG(DEBUG) << "const.boot.oemmode: " << oemmode;
   ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   base::FilePath ohos_command_line_file(
     FILE_PATH_LITERAL("/data/storage/el1/bundle/arkwebcore/libs/ohos-command-line"));
