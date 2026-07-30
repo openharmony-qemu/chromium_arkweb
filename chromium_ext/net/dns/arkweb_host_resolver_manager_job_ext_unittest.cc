@@ -17,10 +17,12 @@
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/test/task_environment.h"
+#include "net/base/ip_address.h"
 #include "net/base/net_errors.h"
 #include "net/proxy_resolution/proxy_config_service_fixed.h"
 #include "net/proxy_resolution/proxy_config_with_annotation.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+// clang-format off
 #define private public
 #define protected public
 #include "net/dns/host_resolver_manager_job.h"
@@ -28,6 +30,8 @@
 #include "arkweb/chromium_ext/net/dns/arkweb_host_resolver_manager_job_ext.h"
 #undef protected
 #undef private
+// clang-format on
+#include "arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.h"
 #include "net/dns/dns_test_util.h"
 #include "net/dns/host_resolver_manager.h"
 #include "net/dns/resolve_context.h"
@@ -307,6 +311,266 @@ TEST_F(ArkWebHostResolverManagerJobExtTest,
             net::HostResolverManager::DnsTransactionAddressFailedType::BOTH_OK);
   EXPECT_EQ(obj.resolved_result_for_ipv4_, 123);
   EXPECT_EQ(obj.resolved_result_for_ipv6_, 456);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest, InitReportInfoForDohFallback) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  obj.failed_transactions_type_ =
+      net::HostResolverManager::DnsTransactionAddressFailedType::BOTH_FAILED;
+  obj.resolved_result_for_ipv4_ = net::ERR_FAILED;
+  obj.resolved_result_for_ipv6_ = net::ERR_TIMED_OUT;
+
+  obj.InitReportInfoForDohFallback();
+
+  EXPECT_EQ(obj.failed_transactions_type_,
+            net::HostResolverManager::DnsTransactionAddressFailedType::BOTH_OK);
+  EXPECT_EQ(obj.resolved_result_for_ipv4_, 0);
+  EXPECT_EQ(obj.resolved_result_for_ipv6_, 0);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       CanUseSecureDnsFallback_NullResolver) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  EXPECT_FALSE(obj.CanUseSecureDnsFallback(resolve_context_.get()));
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       AsArkWebHostResolverManagerJobExt_ReturnsThis) {
+  ArkWebHostResolverManagerJobExt* raw_ptr = job_.get();
+  net::HostResolverManager::Job* base_ptr = raw_ptr;
+  EXPECT_EQ(base_ptr->AsArkWebHostResolverManagerJobExt(), raw_ptr);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       RecordIllegalIPAddrToLog_EmptyAddressList) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::AddressList empty_list;
+  obj.RecordIllegalIPAddrToLog("example.com", empty_list);
+  // No crash, early return on empty list.
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       RecordIllegalIPAddrToLog_NormalIPNoLog) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress(192, 168, 1, 1), 0)});
+  obj.RecordIllegalIPAddrToLog("example.com", addr_list);
+  // Normal IP, no illegal address, just runs without issue.
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       RecordIllegalIPAddrToLog_ZeroIPv4Logs) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+  obj.RecordIllegalIPAddrToLog("example.com", addr_list);
+  // 0.0.0.0 triggers LOG(INFO) about possibly illegal IP.
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       RecordIllegalIPAddrToLog_ZeroIPv6Logs) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress::IPv6AllZeros(), 0)});
+  obj.RecordIllegalIPAddrToLog("example.com", addr_list);
+  // :: triggers LOG(INFO) about possibly illegal IP.
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       RecordIllegalIPAddrToLog_MixedIPPartialLog) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress(192, 168, 1, 1), 0),
+       net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+  obj.RecordIllegalIPAddrToLog("example.com", addr_list);
+  // Only 0.0.0.0 triggers LOG, 192.168.1.1 does not.
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       MaybeModifyProcResolveResults_NetErrorNotOk) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  int net_error = net::ERR_NAME_NOT_RESOLVED;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress(192, 168, 1, 1), 0)});
+
+  std::vector<net::IPEndPoint> truncation_results;
+  obj.MaybeModifyProcResolveResults("example.com", false, net_error, addr_list,
+                                    truncation_results);
+  EXPECT_EQ(net_error, net::ERR_NAME_NOT_RESOLVED);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       MaybeModifyProcResolveResults_HostNotInSourceList) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::StoreSuspectIPListAndSourceHostList({"0.0.0.0"}, {"other.com"});
+
+  int net_error = net::OK;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+
+  std::vector<net::IPEndPoint> truncation_results;
+  obj.MaybeModifyProcResolveResults("example.com", false, net_error, addr_list,
+                                    truncation_results);
+  EXPECT_EQ(net_error, net::OK);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       MaybeModifyProcResolveResults_SuspectIPWithDohFallback) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::StoreSuspectIPListAndSourceHostList({"0.0.0.0"}, {"example.com"});
+
+  int net_error = net::OK;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+
+  std::vector<net::IPEndPoint> truncation_results;
+  obj.MaybeModifyProcResolveResults("example.com", true, net_error, addr_list,
+                                    truncation_results);
+  EXPECT_EQ(net_error, net::ERR_NAME_NOT_RESOLVED);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       MaybeModifyProcResolveResults_SuspectIPNoFallback) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::StoreSuspectIPListAndSourceHostList({"0.0.0.0"}, {"example.com"});
+
+  int net_error = net::OK;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+
+  std::vector<net::IPEndPoint> truncation_results;
+  obj.MaybeModifyProcResolveResults("example.com", false, net_error, addr_list,
+                                    truncation_results);
+  // All suspect, no fallback → original addresses restored
+  EXPECT_EQ(net_error, net::OK);
+  ASSERT_EQ(addr_list.endpoints().size(), 1u);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       MaybeModifyProcResolveResults_MixedSuspectAndNormalIP) {
+  ArkWebHostResolverManagerJobExt obj(
+      base::WeakPtr<net::HostResolverManager>(),
+      net::HostResolverManager::JobKey(
+          net::HostResolver::Host(
+              url::SchemeHostPort("https", "example.com", 443)),
+          resolve_context_.get()),
+      net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED, nullptr,
+      {}, net::DEFAULT_PRIORITY, net::NetLogWithSource(), nullptr,
+      net::HostResolver::HttpsSvcbOptions());
+
+  net::StoreSuspectIPListAndSourceHostList({"0.0.0.0"}, {"example.com"});
+
+  int net_error = net::OK;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress(192, 168, 1, 1), 0),
+       net::IPEndPoint(net::IPAddress::IPv4AllZeros(), 0)});
+
+  std::vector<net::IPEndPoint> truncation_results;
+  obj.MaybeModifyProcResolveResults("example.com", true, net_error, addr_list,
+                                    truncation_results);
+  // 192.168.1.1 is kept, 0.0.0.0 is filtered, non-empty result → OK
+  EXPECT_EQ(net_error, net::OK);
+  ASSERT_EQ(addr_list.endpoints().size(), 1u);
+  EXPECT_EQ(addr_list.endpoints()[0].address().ToString(), "192.168.1.1");
 }
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 
