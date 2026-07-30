@@ -14,11 +14,11 @@
  */
 
 #include "ohos_nweb/src/ndk/scheme_handler/resource_request.h"
-#include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
 
 #include <gmock/gmock.h>
 
 #include "gtest/gtest.h"
+#include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
 
 using namespace testing;
 
@@ -81,26 +81,31 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHttpBodyStream_WithNullCefRequest) {
   ArkWeb_HttpBodyStream* stream = nullptr;
   resource_request->GetHttpBodyStream(&stream);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_ResourceRequest_Test, GetHttpBodyStream_WithNullUploadStream) {
   testing::internal::CaptureStderr();
   auto mock_request = new MockCefRequest(nullptr);
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_HttpBodyStream* stream = nullptr;
 
   resource_request->GetHttpBodyStream(&stream);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler resource request donn't have upload stream."), std::string::npos);
+  EXPECT_NE(log_output.find(
+                "scheme_handler resource request donn't have upload stream."),
+            std::string::npos);
   mock_request->Release();
 }
 
 TEST_F(ArkWeb_ResourceRequest_Test, GetHttpBodyStream_NormalExecutionPath) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   resource_request->is_ets_ = false;
   ArkWeb_HttpBodyStream* stream = nullptr;
@@ -117,7 +122,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetMethod_WithNullCefRequest) {
   char* method = nullptr;
   resource_request->GetMethod(&method);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_ResourceRequest_Test, GetMethod_MemoryAllocationFailure) {
@@ -125,7 +131,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetMethod_MemoryAllocationFailure) {
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetMethodString("GET");
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* method = nullptr;
@@ -145,12 +152,14 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetMethod_Strcpy_Failure) {
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetMethodString("GET");
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* method = nullptr;
-  EXPECT_CALL(StrcpyMock::GetInstance(), strcpy_s(testing::_, testing::_, testing::_))
-             .WillRepeatedly(testing::Return(EINVAL));
+  EXPECT_CALL(StrcpyMock::GetInstance(),
+              strcpy_s(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(EINVAL));
   resource_request->GetMethod(&method);
 
   EXPECT_EQ(method, nullptr);
@@ -164,7 +173,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetUrl_NormalExecutionPath) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* url = nullptr;
@@ -183,12 +193,14 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetUrl_Strcpy_Failure) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* url = nullptr;
-  EXPECT_CALL(StrcpyMock::GetInstance(), strcpy_s(testing::_, testing::_, testing::_))
-             .WillRepeatedly(testing::Return(EINVAL));
+  EXPECT_CALL(StrcpyMock::GetInstance(),
+              strcpy_s(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(EINVAL));
   resource_request->GetUrl(&url);
   EXPECT_EQ(url, nullptr);
 
@@ -201,7 +213,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, IsRedirect_NormalExecutionPath) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   bool result = resource_request->IsRedirect();
@@ -215,7 +228,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, IsMainFrame_NormalExecutionPath_MainFrame) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   bool result = resource_request->IsMainFrame();
@@ -225,11 +239,13 @@ TEST_F(ArkWeb_ResourceRequest_Test, IsMainFrame_NormalExecutionPath_MainFrame) {
   mock_post_data_stream->Release();
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, HasUserGesture_NormalExecutionPath_WithGesture) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       HasUserGesture_NormalExecutionPath_WithGesture) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   bool result = resource_request->HasUserGesture();
@@ -243,7 +259,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetReferrer_NormalExecutionPath) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetReferrerString("https://example.com");
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* referrer = nullptr;
@@ -260,10 +277,12 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetReferrer_Strcpy_Failure) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetReferrerString("https://example.com");
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
-  EXPECT_CALL(StrcpyMock::GetInstance(), strcpy_s(testing::_, testing::_, testing::_))
-             .WillRepeatedly(testing::Return(EINVAL));
+  EXPECT_CALL(StrcpyMock::GetInstance(),
+              strcpy_s(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(EINVAL));
   char* referrer = nullptr;
   resource_request->GetReferrer(&referrer);
   EXPECT_EQ(referrer, nullptr);
@@ -281,12 +300,14 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetRequestResourceType_WithNullCefRequest) {
   EXPECT_EQ(result, -1);
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, GetRequestResourceType_NormalExecutionPath_MainFrame) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       GetRequestResourceType_NormalExecutionPath_MainFrame) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetResourceType(RT_MAIN_FRAME);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   int32_t result = resource_request->GetRequestResourceType();
@@ -304,13 +325,16 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetFrameUrl_WithNullCefRequest) {
   char* frame_url = nullptr;
   resource_request->GetFrameUrl(&frame_url);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."),
+            std::string::npos);
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, GetFrameUrl_NormalExecutionPath_EmptyFrameUrl) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       GetFrameUrl_NormalExecutionPath_EmptyFrameUrl) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* frame_url = nullptr;
@@ -326,12 +350,14 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetFrameUrl_Strcpy_Failure) {
   StrcpyMock::strcpyMock = true;
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
 
   char* frame_url = nullptr;
-  EXPECT_CALL(StrcpyMock::GetInstance(), strcpy_s(testing::_, testing::_, testing::_))
-             .WillRepeatedly(testing::Return(EINVAL));
+  EXPECT_CALL(StrcpyMock::GetInstance(),
+              strcpy_s(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(EINVAL));
   resource_request->GetFrameUrl(&frame_url);
   EXPECT_EQ(frame_url, nullptr);
 
@@ -340,22 +366,26 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetFrameUrl_Strcpy_Failure) {
   StrcpyMock::strcpyMock = false;
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithNullRequest) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       RequestHeaderList_Constructor_WithNullRequest) {
   ArkWeb_RequestHeaderList_ header_list(nullptr);
   EXPECT_EQ(header_list.GetSize(), 0);
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithNullCefRequest) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       RequestHeaderList_Constructor_WithNullCefRequest) {
   auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(nullptr);
   resource_request->cef_request = nullptr;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
   EXPECT_EQ(header_list.GetSize(), 0);
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithEmptyHeaderList) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       RequestHeaderList_Constructor_WithEmptyHeaderList) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
   EXPECT_EQ(header_list.GetSize(), 0);
@@ -366,8 +396,10 @@ TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithEmptyHeade
 TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithHeaders) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
-  mock_request->SetHeaderMap({{"Content-Type", "text/html"}, {"Accept", "*/*"}});
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  mock_request->SetHeaderMap(
+      {{"Content-Type", "text/html"}, {"Accept", "*/*"}});
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
   EXPECT_EQ(header_list.GetSize(), 2);
@@ -375,11 +407,13 @@ TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithHeaders) {
   mock_post_data_stream->Release();
 }
 
-TEST_F(ArkWeb_ResourceRequest_Test, RequestHeaderList_Constructor_WithSingleHeader) {
+TEST_F(ArkWeb_ResourceRequest_Test,
+       RequestHeaderList_Constructor_WithSingleHeader) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
   mock_request->SetHeaderMap({{"User-Agent", "TestAgent/1.0"}});
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
   EXPECT_EQ(header_list.GetSize(), 1);
@@ -392,7 +426,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_EmptyHeaderList) {
   auto mock_post_data_stream = new MockPostDataStream();
   auto mock_request = new MockCefRequest(mock_post_data_stream);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
 
@@ -400,7 +435,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_EmptyHeaderList) {
   char* value = nullptr;
   header_list.GetHeader(0, &key, &value);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler get header index is invalid "), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler get header index is invalid "),
+            std::string::npos);
   mock_request->Release();
   mock_post_data_stream->Release();
 }
@@ -412,7 +448,8 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_SingleHeader) {
   headers.insert(std::make_pair("User-Agent", "Test-Agent"));
   mock_request->SetHeaderMap(headers);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
 
@@ -441,14 +478,16 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_Strcpy_Failure) {
   headers.insert(std::make_pair("User-Agent", "Test-Agent"));
   mock_request->SetHeaderMap(headers);
 
-  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
   resource_request->cef_request = mock_request;
   ArkWeb_RequestHeaderList_ header_list(resource_request.get());
 
   char* key = nullptr;
   char* value = nullptr;
-  EXPECT_CALL(StrcpyMock::GetInstance(), strcpy_s(testing::_, testing::_, testing::_))
-             .WillRepeatedly(testing::Return(EINVAL));
+  EXPECT_CALL(StrcpyMock::GetInstance(),
+              strcpy_s(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(EINVAL));
   header_list.GetHeader(0, &key, &value);
 
   EXPECT_EQ(key, nullptr);
@@ -457,4 +496,98 @@ TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_Strcpy_Failure) {
   mock_request->Release();
   mock_post_data_stream->Release();
   StrcpyMock::strcpyMock = false;
+}
+
+// ===== Additional tests for uncovered branches =====
+
+TEST_F(ArkWeb_ResourceRequest_Test, IsMainFrame_NotMainFrame) {
+  auto mock_post_data_stream = new MockPostDataStream();
+  auto mock_request = new MockCefRequest(mock_post_data_stream);
+  static_cast<MockArkWebRequestImplExt*>(
+      mock_request->AsArkWebRequestExt().get())
+      ->SetMainFrame(false);
+
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  resource_request->cef_request = mock_request;
+
+  bool result = resource_request->IsMainFrame();
+  EXPECT_FALSE(result);
+
+  mock_request->Release();
+  mock_post_data_stream->Release();
+}
+
+TEST_F(ArkWeb_ResourceRequest_Test, HasUserGesture_WithGesture) {
+  auto mock_post_data_stream = new MockPostDataStream();
+  auto mock_request = new MockCefRequest(mock_post_data_stream);
+  static_cast<MockArkWebRequestImplExt*>(
+      mock_request->AsArkWebRequestExt().get())
+      ->SetUserGesture(true);
+
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  resource_request->cef_request = mock_request;
+
+  bool result = resource_request->HasUserGesture();
+  EXPECT_TRUE(result);
+
+  mock_request->Release();
+  mock_post_data_stream->Release();
+}
+
+TEST_F(ArkWeb_ResourceRequest_Test, GetFrameUrl_WithNonEmptyFrameUrl) {
+  auto mock_post_data_stream = new MockPostDataStream();
+  auto mock_request = new MockCefRequest(mock_post_data_stream);
+  static_cast<MockArkWebRequestImplExt*>(
+      mock_request->AsArkWebRequestExt().get())
+      ->SetFrameUrlString("https://child.example.com");
+
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  resource_request->cef_request = mock_request;
+
+  char* frame_url = nullptr;
+  resource_request->GetFrameUrl(&frame_url);
+  ASSERT_NE(frame_url, nullptr);
+  EXPECT_STREQ(frame_url, "https://child.example.com");
+  free(frame_url);
+
+  mock_request->Release();
+  mock_post_data_stream->Release();
+}
+
+TEST_F(ArkWeb_ResourceRequest_Test, GetHeader_NegativeIndex) {
+  testing::internal::CaptureStderr();
+  auto mock_post_data_stream = new MockPostDataStream();
+  auto mock_request = new MockCefRequest(mock_post_data_stream);
+  CefRequest::HeaderMap headers;
+  headers.insert(std::make_pair("User-Agent", "Test-Agent"));
+  mock_request->SetHeaderMap(headers);
+
+  auto resource_request =
+      std::make_shared<ArkWeb_ResourceRequest_>(mock_request);
+  resource_request->cef_request = mock_request;
+  ArkWeb_RequestHeaderList_ header_list(resource_request.get());
+
+  char* key = nullptr;
+  char* value = nullptr;
+  header_list.GetHeader(-1, &key, &value);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler get header index is invalid"),
+            std::string::npos);
+
+  mock_request->Release();
+  mock_post_data_stream->Release();
+}
+
+TEST_F(ArkWeb_ResourceRequest_Test, GetReferrer_WithNullCefRequest) {
+  testing::internal::CaptureStderr();
+  auto resource_request = std::make_shared<ArkWeb_ResourceRequest_>(nullptr);
+  resource_request->cef_request = nullptr;
+  char* referrer = nullptr;
+  resource_request->GetReferrer(&referrer);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr."),
+            std::string::npos);
 }

@@ -161,4 +161,32 @@ TEST_F(ArkWebNativeObjectTest, FireScrollCallback_002) {
   EXPECT_DOUBLE_EQ(expected_y, actual_y);
 }
 
+TEST_F(ArkWebNativeObjectTest, SetWebWeakPtr_NullPtr) {
+  std::shared_ptr<NWebImpl> null_impl = nullptr;
+  auto result = web_object_->SetWebWeakPtr(null_impl);
+  EXPECT_FALSE(result);
+}
+
+TEST_F(ArkWebNativeObjectTest, BindWebTagToWebInstance_NewWebTag) {
+  const char* new_tag = "new_test_tag_bind";
+  // First call creates a new entry in the map since tag doesn't exist
+  ArkWebNativeObject::BindWebTagToWebInstance(0, new_tag);
+  auto instance = ArkWebNativeObject::GetWebInstanceByWebTag(new_tag);
+  ASSERT_NE(instance, nullptr);
+  // Clean up: remove the entry
+  instance->SetDestroyCallback([]() {});
+  instance->FireDestroyCallback();
+}
+
+TEST_F(ArkWebNativeObjectTest, FireValidCallback_NullNWebWithCallback) {
+  // Set a valid callback but no nweb shared pointer
+  bool callback_executed = false;
+  web_object_->SetValidCallback([&]() { callback_executed = true; });
+  // Don't call SetWebWeakPtr, so nwebSharedPtr is null
+  auto result = web_object_->FireValidCallback();
+  // Callback should still be called even when nweb shared ptr is null
+  EXPECT_TRUE(callback_executed);
+  EXPECT_TRUE(result);
+}
+
 }  // namespace OHOS::NWeb

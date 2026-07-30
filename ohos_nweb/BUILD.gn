@@ -814,6 +814,7 @@ source_set("unittests") {
     "src/nweb_data_base_impl_unittest.cc",
     "browser/performance_manager/policies/ohos_bfcache_policy_unittest.cc",
     "browser/performance_manager/policies/background_task_policy_unittest.cc",
+    "src/nweb_permission_status_query_manager_unittest.cc",
     "src/nweb_resize_helper_unittests.cc",
     "src/video_assistant/nweb_media_player_controller_impl_unittest.cc",
     "src/nweb_engine_impl_unittest.cc",
