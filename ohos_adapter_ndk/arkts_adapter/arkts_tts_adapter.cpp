@@ -408,10 +408,16 @@ void ArktsTtsAdapter::Register(
 }
 
 void ArktsTtsAdapter::Callback(int nweb, TtsState state, bool status) {
-  std::lock_guard<std::mutex> lck(nwebsMtx_);
-  auto it = callback_.find(nweb);
-  if (it != callback_.end()) {
-    it->second(nweb, state, status);
+  std::function<void(int, TtsState, bool)> cb;
+  {
+    std::lock_guard<std::mutex> lck(nwebsMtx_);
+    auto it = callback_.find(nweb);
+    if (it != callback_.end()) {
+      cb = it->second;
+    }
+  }
+  if (cb) {
+    cb(nweb, state, status);
   }
 }
 
@@ -502,8 +508,8 @@ void ArktsTtsAdapter::Process(int nweb, TtsState state) {
 
 std::string ArktsTtsAdapter::GetBundleName() {
   auto module = OH_NativeBundle_GetMainElementName();
-  std::string bundleName = module.bundleName;
-  std::string moduleName = module.moduleName;
+  std::string bundleName = module.bundleName ? module.bundleName : "";
+  std::string moduleName = module.moduleName ? module.moduleName : "";
   bundleName += "/";
   bundleName += moduleName;
   return bundleName;
@@ -560,9 +566,10 @@ napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
   napi_value jsInitParamsInfo = nullptr;
 
   napi_create_object(env, &jsInitParamsInfo);
+  auto* ttsEngineParams = new TtsEngineParams(params_.language, params_.person, 1, extraParams);
   status = napi_wrap(
       env, jsInitParamsInfo,
-      new TtsEngineParams(params_.language, params_.person, 1, extraParams),
+      ttsEngineParams,
       [](napi_env /* env */, void* data, void* /* hint */) {
         if (data) {
           TtsEngineParams* ttsEngineParam = static_cast<TtsEngineParams*>(data);
@@ -572,6 +579,7 @@ napi_value ArktsTtsAdapter::CreateEngine(napi_env env, int nweb) {
       nullptr, nullptr);
   if (status != napi_ok) {
     LOG(ERROR) << "TTS napi wrap initparas error ";
+    delete ttsEngineParams;
     return nullptr;
   }
 
@@ -641,8 +649,9 @@ napi_value ArktsTtsAdapter::SetListener(napi_env env,
   }
   napi_value jsSpeakListener = nullptr;
   napi_create_object(env, &jsSpeakListener);
+  auto* ttsSpeakListener = new TtsSpeakListener();
   status = napi_wrap(
-      env, jsSpeakListener, new TtsSpeakListener(),
+      env, jsSpeakListener, ttsSpeakListener,
       [](napi_env /* env */, void* data, void* /* hint */) {
         if (data) {
           TtsSpeakListener* speakListener =
@@ -653,6 +662,7 @@ napi_value ArktsTtsAdapter::SetListener(napi_env env,
       nullptr, nullptr);
   if (status != napi_ok) {
     LOG(ERROR) << "TTS napi wrap speakListener error ";
+    delete ttsSpeakListener;
     return nullptr;
   }
   status = NapiSpeakListener::DefineProperties(env, &jsSpeakListener);
