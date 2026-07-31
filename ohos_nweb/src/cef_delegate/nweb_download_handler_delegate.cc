@@ -54,7 +54,7 @@ const std::string GetContentDisposition(
       return download_item->GetContentDisposition().ToString();
     }
 
-    net::HttpContentDisposition header(origin_content_disposition,
+    net::HttpContentDisposition header(std::string_view(origin_content_disposition),
                                        default_charset);
     std::string filename = header.filename();
     if (filename.empty()) {
@@ -236,7 +236,8 @@ std::string NWebDownloadHandlerDelegate::GenerateSuggestedFilename(
 
   // Trust content disposition header filename attribute.
   net::HttpContentDisposition content_disposition_header(
-      download_item->GetContentDisposition(), default_charset);
+      std::string_view(download_item->GetContentDisposition().ToString()),
+      default_charset);
   if (!content_disposition_header.filename().empty()) {
     return generated_filename.AsUTF8Unsafe();
   }
