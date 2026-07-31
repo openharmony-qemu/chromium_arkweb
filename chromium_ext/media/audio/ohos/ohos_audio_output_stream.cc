@@ -513,10 +513,20 @@ bool OHOSAudioOutputStream::InitRender() {
     LOG(ERROR) << "AudioStreamBuilder GenerateRenderer failed.";
     return false;
   }
+
+  if (isDuck_) {
+    LOG(INFO) << "short audio need duck";
+    OH_AudioSession_Strategy strategy;
+    strategy.concurrencyMode = OH_AudioSession_ConcurrencyMode::CONCURRENCY_DUCK_OTHERS;
+    OH_AudioRenderer_SetIndependentAudioSessionStrategy(audio_renderer_, &strategy,
+                                                        OH_AudioSession_BehaviorFlags::DEFAULT_BEHAVIOR);
+  }
+
   return true;
 }
 
 void OHOSAudioOutputStream::SetStreamUsage() {
+  isDuck_ = false;
   if (isCommunication_) {
     OH_AudioStreamBuilder_SetRendererInfo(audio_stream_builder_, AUDIOSTREAM_USAGE_VIDEO_COMMUNICATION);
     return;
@@ -532,7 +542,7 @@ void OHOSAudioOutputStream::SetStreamUsage() {
     } else if (audioSessionType == AudioSessionType::AUTO) {
       media::MediaContentType contentType = OHOSAudioFocusController::GetMediaContentType(parameters_);
       if (contentType == media::MediaContentType::kTransient) {
-        OH_AudioStreamBuilder_SetRendererInfo(audio_stream_builder_, AUDIOSTREAM_USAGE_NAVIGATION);
+        isDuck_ = true;
       }
     }
   }
