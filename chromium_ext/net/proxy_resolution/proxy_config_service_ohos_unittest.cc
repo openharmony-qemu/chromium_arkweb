@@ -75,23 +75,26 @@ class ProxyConfigServiceOHOSTest : public ::testing::Test {
           return std::string();
         }));
     service_->delegate_->has_proxy_override_ = true;
-    callback_ = NetProxyEventCallback::GetInstance();
   }
 
   void TearDown() {
     task_environment_.RunUntilIdle();
     service_.reset();
     delegate_.reset();
-    callback_.reset();
-    task_runner_ = nullptr;
+    task_runner_.reset();
   }
+
+  static void TearDownTestSuite() { callback_.reset(); }
 
   base::test::TaskEnvironment task_environment_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   std::shared_ptr<ProxyConfigServiceOHOS> service_;
   scoped_refptr<TestDelegate> delegate_;
-  std::shared_ptr<NetProxyEventCallback> callback_;
+  static std::shared_ptr<NetProxyEventCallback> callback_;
 };
+
+std::shared_ptr<NetProxyEventCallback> ProxyConfigServiceOHOSTest::callback_ =
+    NetProxyEventCallback::GetInstance();
 
 TEST_F(ProxyConfigServiceOHOSTest, ConvertStringToPort_001) {
   int output = 0;
@@ -764,4 +767,254 @@ TEST_F(ProxyConfigServiceOHOSTest, NetProxyEventCallback_Changed_001) {
   callback_->AddObserver(nullptr);
   callback_->Changed("example.com", 8080, "http://pac", {"*.example.com"});
 }
+
+// ---------- New test cases ----------
+
+TEST_F(ProxyConfigServiceOHOSTest, ConstructProxyServer_004) {
+  // HTTPS scheme with empty port should use default port 443
+  std::string valid_host = "proxy.example.com";
+  ProxyServer result =
+      ConstructProxyServer(ProxyServer::SCHEME_HTTPS, valid_host, "");
+  EXPECT_TRUE(result.is_valid());
+  EXPECT_EQ(result.scheme(), ProxyServer::SCHEME_HTTPS);
+  EXPECT_EQ(result.host_port_pair().port(), 443);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateStaticProxyConfig_005) {
+  // Host is non-empty but port is 0 => should create direct config
+  ProxyConfigWithAnnotation config;
+  CreateStaticProxyConfig("proxy.example.com", 0, "", {}, &config);
+  EXPECT_TRUE(config.value().proxy_rules().empty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateStaticProxyConfig_006) {
+  // Only exclusion entries with whitespace should be skipped
+  ProxyConfigWithAnnotation config;
+  CreateStaticProxyConfig("proxy.example.com", 8080, "",
+                          {"   ", "\t", "*.valid.com"}, &config);
+  const auto& rules = config.value().proxy_rules();
+  EXPECT_EQ(rules.bypass_rules.rules().size(), 1u);
+  EXPECT_TRUE(rules.bypass_rules.Matches(GURL("http://test.valid.com")));
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateOverrideProxyConfig_004) {
+  // Empty proxy rules with empty bypass should produce direct config
+  std::vector<ProxyConfigServiceOHOS::ProxyOverrideRule> proxy_rules;
+  std::vector<std::string> bypass_rules;
+  bool reverse_bypass = false;
+  ProxyConfigWithAnnotation config;
+  std::string result = CreateOverrideProxyConfig(proxy_rules, bypass_rules,
+                                                 reverse_bypass, &config);
+  EXPECT_TRUE(result.empty());
+  EXPECT_TRUE(config.value().proxy_rules().empty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateOverrideProxyConfig_005) {
+  // Fallback proxy only should simplify to PROXY_LIST type
+  std::vector<ProxyConfigServiceOHOS::ProxyOverrideRule> proxy_rules = {
+      {"*", "http://fallback-proxy.com:9090"}};
+  std::vector<std::string> bypass_rules = {"<local>"};
+  bool reverse_bypass = false;
+  ProxyConfigWithAnnotation config;
+  std::string result = CreateOverrideProxyConfig(proxy_rules, bypass_rules,
+                                                 reverse_bypass, &config);
+  EXPECT_TRUE(result.empty());
+  EXPECT_EQ(config.value().proxy_rules().type,
+            ProxyConfig::ProxyRules::Type::PROXY_LIST);
+  EXPECT_FALSE(config.value().proxy_rules().single_proxies.IsEmpty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_SetProxyOverride_003) {
+  // Successful override should set has_proxy_override_ to true
+  ASSERT_NE(delegate_, nullptr);
+  delegate_->SetHasProxyOverride(false);
+  std::vector<ProxyConfigServiceOHOS::ProxyOverrideRule> proxy_rules = {
+      {"http", "http://proxy.com:8080"}};
+  std::vector<std::string> bypass_rules;
+  bool callback_called = false;
+  base::OnceClosure callback = base::BindOnce(
+      [](bool* callback_called) { *callback_called = true; }, &callback_called);
+  std::string result = delegate_->SetProxyOverride(proxy_rules, bypass_rules,
+                                                   false, std::move(callback));
+  EXPECT_TRUE(result.empty());
+  EXPECT_TRUE(delegate_->GetHasProxyOverride());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_ProxySettingsChanged_003) {
+  // When has_proxy_override_ is false, ProxySettingsChanged should update
+  // config. Verify config is updated by checking GetLatestProxyConfig.
+  ASSERT_NE(delegate_, nullptr);
+  delegate_->SetHasProxyOverride(false);
+  delegate_->ProxySettingsChanged();
+  task_environment_.RunUntilIdle();
+  ProxyConfigWithAnnotation config;
+  auto result = delegate_->GetLatestProxyConfig(&config);
+  EXPECT_EQ(result, ProxyConfigService::CONFIG_VALID);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, GetProperty_005) {
+  // ftp.proxyHost and unknown property should return empty string
+  EXPECT_EQ(GetProperty("ftp.proxyHost"), "");
+  EXPECT_EQ(GetProperty("ftp.proxyPort"), "");
+  EXPECT_EQ(GetProperty("socksProxyHost"), "");
+  EXPECT_EQ(GetProperty("random.property"), "");
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, NetProxyEventCallback_Changed_002) {
+  // Changed with empty exclusion list should not crash
+  callback_->AddObserver(service_.get());
+  callback_->Changed("test.com", 9090, "", {});
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_RemoveObserver_001) {
+  // Add and remove observer, verify no crash
+  MockObserver observer;
+  delegate_->AddObserver(&observer);
+  delegate_->RemoveObserver(&observer);
+  // SetNewConfigInMainSequence should not notify removed observer
+  delegate_->TestSetNewConfigInMainSequence(
+      ProxyConfigWithAnnotation::CreateDirect());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_FetchInitialConfig_001) {
+  // Verify FetchInitialConfig posts task and updates proxy_config_
+  auto test_delegate = base::MakeRefCounted<TestDelegate>(
+      task_runner_,
+      base::BindRepeating([](const std::string& property) -> std::string {
+        if (property == "http.proxyHost") {
+          return "init-proxy.com";
+        }
+        if (property == "http.proxyPort") {
+          return "9999";
+        }
+        return std::string();
+      }));
+  test_delegate->FetchInitialConfig();
+  task_environment_.RunUntilIdle();
+  ProxyConfigWithAnnotation config;
+  auto result = test_delegate->GetLatestProxyConfig(&config);
+  EXPECT_EQ(result, ProxyConfigService::CONFIG_VALID);
+  EXPECT_FALSE(config.value().proxy_rules().proxies_for_http.IsEmpty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateOverrideProxyConfig_006) {
+  // reverse_bypass=true with valid bypass rules
+  std::vector<ProxyConfigServiceOHOS::ProxyOverrideRule> proxy_rules = {
+      {"http", "http://proxy.com:8080"}};
+  std::vector<std::string> bypass_rules = {"localhost"};
+  bool reverse_bypass = true;
+  ProxyConfigWithAnnotation config;
+  std::string result = CreateOverrideProxyConfig(proxy_rules, bypass_rules,
+                                                 reverse_bypass, &config);
+  EXPECT_TRUE(result.empty());
+  EXPECT_TRUE(config.value().proxy_rules().reverse_bypass);
+  EXPECT_EQ(config.value().proxy_rules().bypass_rules.rules().size(), 1u);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateStaticProxyConfig_007) {
+  // PAC URL with exclusion list - exclusion should not apply for PAC config
+  ProxyConfigWithAnnotation config;
+  CreateStaticProxyConfig("proxy.example.com", 8080, "http://pac.example.com",
+                          {"*.example.com"}, &config);
+  EXPECT_EQ(config.value().pac_url(), GURL("http://pac.example.com"));
+  // PAC config doesn't set bypass rules
+  EXPECT_TRUE(config.value().proxy_rules().bypass_rules.rules().empty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, CreateStaticProxyConfig_008) {
+  // Valid host and port with valid exclusion list
+  ProxyConfigWithAnnotation config;
+  CreateStaticProxyConfig("proxy.example.com", 3128, "",
+                          {"*.internal", "localhost"}, &config);
+  const auto& rules = config.value().proxy_rules();
+  EXPECT_EQ(rules.bypass_rules.rules().size(), 2u);
+  EXPECT_TRUE(rules.bypass_rules.Matches(GURL("http://server.internal")));
+  EXPECT_TRUE(rules.bypass_rules.Matches(GURL("http://localhost")));
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_SetExcludePacUrl_001) {
+  // Test ProxyConfigServiceOHOS::set_exclude_pac_url wrapper
+  ASSERT_NE(service_, nullptr);
+  service_->set_exclude_pac_url(true);
+  EXPECT_TRUE(service_->delegate_->exclude_pac_url_);
+  service_->set_exclude_pac_url(false);
+  EXPECT_FALSE(service_->delegate_->exclude_pac_url_);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_AddRemoveObserver_001) {
+  // Test ProxyConfigServiceOHOS::AddObserver and RemoveObserver wrappers
+  MockObserver observer;
+  service_->AddObserver(&observer);
+  service_->RemoveObserver(&observer);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_GetLatestProxyConfig_001) {
+  // Test ProxyConfigServiceOHOS::GetLatestProxyConfig wrapper
+  ProxyConfigWithAnnotation config;
+  auto result = service_->GetLatestProxyConfig(&config);
+  EXPECT_EQ(result, ProxyConfigService::CONFIG_VALID);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_ProxySettingsChangedTo_001) {
+  // Test ProxyConfigServiceOHOS::ProxySettingsChangedTo wrapper
+  service_->delegate_->has_proxy_override_ = false;
+  service_->ProxySettingsChangedTo("proxy.com", 8080, "", {});
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_ProxySettingsChanged_001) {
+  // Test ProxyConfigServiceOHOS::ProxySettingsChanged wrapper
+  service_->delegate_->has_proxy_override_ = false;
+  service_->ProxySettingsChanged();
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_SetProxyOverride_001) {
+  // Test ProxyConfigServiceOHOS::SetProxyOverride wrapper
+  std::vector<ProxyConfigServiceOHOS::ProxyOverrideRule> proxy_rules = {
+      {"http", "http://proxy.com:8080"}};
+  std::vector<std::string> bypass_rules;
+  bool callback_called = false;
+  base::OnceClosure callback = base::BindOnce(
+      [](bool* callback_called) { *callback_called = true; }, &callback_called);
+  std::string result = service_->SetProxyOverride(proxy_rules, bypass_rules,
+                                                  false, std::move(callback));
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_ClearProxyOverride_001) {
+  // Test ProxyConfigServiceOHOS::ClearProxyOverride wrapper
+  service_->delegate_->has_proxy_override_ = true;
+  bool callback_called = false;
+  base::OnceClosure callback = base::BindOnce(
+      [](bool* callback_called) { *callback_called = true; }, &callback_called);
+  service_->ClearProxyOverride(std::move(callback));
+  EXPECT_FALSE(service_->delegate_->has_proxy_override_);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, ConstructProxyServer_005) {
+  // SOCKS5 scheme with default port
+  std::string valid_host = "socks-proxy.example.com";
+  ProxyServer result =
+      ConstructProxyServer(ProxyServer::SCHEME_SOCKS5, valid_host, "");
+  EXPECT_TRUE(result.is_valid());
+  EXPECT_EQ(result.scheme(), ProxyServer::SCHEME_SOCKS5);
+  EXPECT_EQ(result.host_port_pair().port(), 1080);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, AddBypassRules_004) {
+  // Bypass rules with multiple comma-separated patterns
+  GetPropertyCallback get_property =
+      base::BindRepeating([](const std::string& property) -> std::string {
+        return "*.a.com,*.b.com,*.c.com";
+      });
+  net::ProxyHostMatchingRules bypass_rules;
+  AddBypassRules("http", get_property, &bypass_rules);
+  EXPECT_EQ(bypass_rules.rules().size(), 3u);
+  EXPECT_TRUE(bypass_rules.Matches(GURL("http://test.a.com")));
+  EXPECT_TRUE(bypass_rules.Matches(GURL("http://test.b.com")));
+  EXPECT_TRUE(bypass_rules.Matches(GURL("http://test.c.com")));
+}
+
 }  // namespace net
