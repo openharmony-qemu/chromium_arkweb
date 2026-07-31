@@ -255,6 +255,7 @@ declare_args() {
   arkweb_screen_offset = true
   arkweb_screen_size = true
   arkweb_canvas_commit = true
+  arkweb_clipped_image_scaling = !is_component_build
   arkweb_vsync_schedule = true
   arkweb_pip = !is_component_build
   arkweb_fullscreen_video_overlay = true
