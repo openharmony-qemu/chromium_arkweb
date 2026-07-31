@@ -14,6 +14,7 @@
  */
 #include "arkweb/chromium_ext/components/autofill/content/render/autofill_agent_ext.h"
 
+#include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "components/autofill/content/renderer/password_autofill_agent.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
@@ -127,26 +128,26 @@ void AutofillAgentExt::OhPreSuppressKeyboardIfNeed(const blink::WebNode& node) {
 #endif
 
 #if BUILDFLAG(ARKWEB_AUTOFILL)
-void AutofillAgentExt::OhAutoFillFormControlElementClicked(
+void AutofillAgentExt::OhAutoFillEditableElementClicked(
     const WebNode& node) {
-  WebInputElement input_element = node.DynamicTo<WebInputElement>();
-  if (input_element.IsNull() || !node.Focused()) {
+  WebElement element = node.DynamicTo<WebElement>();
+  if (!IsPositionTrackingElement(element)) {
+    element = node.RootEditableElement();
+  }
+  if (!IsPositionTrackingElement(element) || !element.Focused()) {
     return;
   }
-  auto is_password_autofill =
-      password_autofill_agent_->AsPasswordAutofillAgentExt()
-          ->IsPasswordAutofill(input_element);
-  if (is_password_autofill) {
+  if (IsPasswordAutofillElement(element)) {
     return;
   }
-  if (MaybeStartAutofillPositionRequestContext(
+  if (MaybeDeferFocusedElementRequest(
           /*focused_node_was_last_clicked=*/true,
           /*restart_if_sent=*/true)) {
     return;
   }
   HidePopup();
   const SynchronousFormCache form_cache;
-  HandleFocusChangeComplete(/*focused_node_was_last_clicked=*/node.Focused(), form_cache);
+  HandleFocusChangeComplete(/*focused_node_was_last_clicked=*/true, form_cache);
   is_need_to_created_popup_ = true;
   created_popup_time_ = base::TimeTicks::Now();
 }
@@ -156,23 +157,19 @@ void AutofillAgentExt::OhAutoFillFormControlElementClicked(
 // LCOV_EXCL_START
 bool AutofillAgentExt::OhAutoFillDidChangeScrollOffset() {
   if (IsAutofillPositionRequestPending()) {
-    OnFocusedInputPositionMaybeChanged();
+    OnFocusedElementPositionMaybeChanged();
     return true;
   }
 
-  WebFormControlElement last_queried_element = last_queried_element_.GetField();
+  WebElement last_queried_element = last_queried_element_.GetField();
   if (!last_queried_element) {
+    last_queried_element = last_queried_element_.GetContentEditable();
+  }
+  if (!IsPositionTrackingElement(last_queried_element)) {
     return false;
   }
-  const WebInputElement input_element =
-      last_queried_element.DynamicTo<WebInputElement>();
-  if (input_element.IsNull()) {
-    return false;
-  }
-  auto is_password_autofill =
-      password_autofill_agent_->AsPasswordAutofillAgentExt()
-          ->IsPasswordAutofill(input_element);
-  if (is_need_to_created_popup_ && !is_password_autofill &&
+  if (is_need_to_created_popup_ &&
+      !IsPasswordAutofillElement(last_queried_element) &&
       base::TimeTicks::Now() > created_popup_time_ &&
       base::TimeTicks::Now() <
           created_popup_time_ + kWaitTimeForScrollIntoViewMs) {
@@ -198,93 +195,145 @@ bool AutofillAgentExt::OhAutoFillDidChangeScrollOffset() {
 #endif
 
 #if BUILDFLAG(ARKWEB_AUTOFILL)
+void AutofillAgentExt::OnDestruct() {
+  ext_weak_ptr_factory_.InvalidateWeakPtrs();
+  AutofillAgent::OnDestruct();
+}
+
 void AutofillAgentExt::OnAutofillFocusedElementChanged(
     const WebElement& new_focused_element) {
-  if (autofill_position_request_state_ == AutofillPositionRequestState::kIdle) {
+  if (position_request_state_ == PositionRequestState::kIdle) {
     return;
   }
 
-  WebInputElement input_element =
-      new_focused_element.DynamicTo<WebInputElement>();
-  if (input_element.IsNull() || form_util::GetFieldRendererId(input_element) !=
-                                    autofill_position_field_id_) {
-    ClearAutofillPositionRequestContext();
+  if (!IsPositionTrackingElement(new_focused_element) ||
+      IsPasswordAutofillElement(new_focused_element) ||
+      form_util::GetFieldRendererId(new_focused_element) !=
+          position_field_id_) {
+    ClearPositionRequestState();
   }
 }
 
 bool AutofillAgentExt::IsAutofillPositionRequestPending() const {
-  return autofill_position_request_state_ ==
-             AutofillPositionRequestState::kWaitingForPositionChange ||
-         autofill_position_request_state_ ==
-             AutofillPositionRequestState::kWaitingForStablePosition;
+  return position_request_state_ ==
+             PositionRequestState::kWaitingForPositionChange ||
+         position_request_state_ ==
+             PositionRequestState::kWaitingForStablePosition;
 }
 
-bool AutofillAgentExt::IsSameAutofillViewport(
-    const AutofillPositionSnapshot& lhs,
-    const AutofillPositionSnapshot& rhs) const {
+bool AutofillAgentExt::IsSameViewportGeometry(
+    const PositionSnapshot& lhs,
+    const PositionSnapshot& rhs) const {
   return lhs.view_rect == rhs.view_rect && lhs.window_rect == rhs.window_rect &&
          lhs.main_frame_viewport_rect == rhs.main_frame_viewport_rect;
 }
 
-bool AutofillAgentExt::MaybeStartAutofillPositionRequestContext(
+bool AutofillAgentExt::IsPositionTrackingElement(
+    const WebElement& element) const {
+  if (element.IsNull()) {
+    return false;
+  }
+  WebFormControlElement form_control =
+      element.DynamicTo<WebFormControlElement>();
+  if (form_util::IsTextAreaElementOrTextInput(form_control)) {
+    return true;
+  }
+  return element.IsContentEditable() &&
+         !element.DynamicTo<WebFormElement>() &&
+         element == element.RootEditableElement();
+}
+
+bool AutofillAgentExt::IsPasswordAutofillElement(
+    const WebElement& element) {
+  if (element.IsNull()) {
+    return false;
+  }
+  WebInputElement input_element = element.DynamicTo<WebInputElement>();
+  return !input_element.IsNull() &&
+         password_autofill_agent_->AsPasswordAutofillAgentExt()
+             ->IsPasswordAutofill(input_element);
+}
+
+bool AutofillAgentExt::MaybeDeferFocusedElementRequest(
     bool focused_node_was_last_clicked,
     bool restart_if_sent) {
   if (!focused_node_was_last_clicked) {
     return false;
   }
 
-  WebInputElement input_element;
-  if (!GetCurrentFocusedInput(input_element) ||
-      password_autofill_agent_->AsPasswordAutofillAgentExt()
-          ->IsPasswordAutofill(input_element)) {
+  WebElement element;
+  if (!GetCurrentFocusedElement(element)) {
     return false;
   }
+  return TryDeferPositionRequest(element, restart_if_sent);
+}
 
-  const FieldRendererId field_id = form_util::GetFieldRendererId(input_element);
+bool AutofillAgentExt::TryDeferPositionRequest(
+    const WebElement& element,
+    bool restart_if_sent) {
+  if (!IsPositionTrackingElement(element)) {
+    return false;
+  }
+  if (IsPasswordAutofillElement(element)) {
+    return false;
+  }
+  const FieldRendererId field_id = form_util::GetFieldRendererId(element);
   if (field_id == FieldRendererId()) {
     return false;
   }
 
-  if (field_id == autofill_position_field_id_) {
+  if (field_id == position_field_id_) {
     if (IsAutofillPositionRequestPending()) {
       return true;
     }
-    if (autofill_position_request_state_ ==
-        AutofillPositionRequestState::kRequestDispatched) {
+    if (position_request_state_ ==
+        PositionRequestState::kRequestDispatched) {
       if (!restart_if_sent) {
         return true;
       }
       HidePopup();
     }
   } else {
-    ClearAutofillPositionRequestContext();
+    ClearPositionRequestState();
   }
 
-  if (StartAutofillPositionRequestContext(input_element)) {
+  if (StartPositionTracking(element)) {
     return true;
   }
 
   // The caller falls back to the original synchronous request.
-  autofill_position_field_id_ = field_id;
-  autofill_position_request_state_ =
-      AutofillPositionRequestState::kRequestDispatched;
+  position_field_id_ = field_id;
+  position_request_state_ =
+      PositionRequestState::kRequestDispatched;
   return false;
 }
 
-bool AutofillAgentExt::GetCurrentFocusedInput(WebInputElement& input_element) {
+bool AutofillAgentExt::MaybeDeferPositionRequest(
+    const WebElement& focused_element,
+    bool focused_node_was_last_clicked) {
+  if (is_dispatching_position_request_ ||
+      !focused_node_was_last_clicked) {
+    return false;
+  }
+
+  return TryDeferPositionRequest(focused_element,
+                                 /*restart_if_sent=*/false);
+}
+
+bool AutofillAgentExt::GetCurrentFocusedElement(WebElement& element) {
   WebDocument document = GetDocument();
   if (!document) {
     return false;
   }
-  input_element = document.FocusedElement().DynamicTo<WebInputElement>();
-  return !input_element.IsNull() && input_element.Focused();
+  element = document.FocusedElement();
+  return IsPositionTrackingElement(element);
 }
 
-bool AutofillAgentExt::GetAutofillPositionSnapshot(
-    const WebInputElement& input_element,
-    AutofillPositionSnapshot& snapshot) {
+bool AutofillAgentExt::CapturePositionSnapshot(
+    const WebElement& element,
+    PositionSnapshot& snapshot) {
   auto* render_frame = unsafe_render_frame();
-  if (input_element.IsNull() || !render_frame || !render_frame->GetWebFrame()) {
+  if (element.IsNull() || !render_frame || !render_frame->GetWebFrame()) {
     return false;
   }
   blink::WebLocalFrame* local_root = render_frame->GetWebFrame()->LocalRoot();
@@ -293,65 +342,58 @@ bool AutofillAgentExt::GetAutofillPositionSnapshot(
   if (!widget) {
     return false;
   }
-  snapshot.field_bounds = input_element.BoundsInWidget();
+  snapshot.field_bounds = element.BoundsInWidget();
   snapshot.view_rect = widget->ViewRect();
   snapshot.window_rect = widget->WindowRect();
   snapshot.main_frame_viewport_rect = main_frame_viewport_rect_;
   return true;
 }
 
-bool AutofillAgentExt::StartAutofillPositionRequestContext(
-    const WebInputElement& input_element) {
-  AutofillPositionSnapshot snapshot;
-  if (!GetAutofillPositionSnapshot(input_element, snapshot)) {
+bool AutofillAgentExt::StartPositionTracking(
+    const WebElement& element) {
+  PositionSnapshot snapshot;
+  if (!CapturePositionSnapshot(element, snapshot)) {
     LOG(WARNING) << "[Autofill] Failed to start position request, field_id="
-                 << form_util::GetFieldRendererId(input_element).value();
-    ClearAutofillPositionRequestContext();
+                 << form_util::GetFieldRendererId(element).value();
+    ClearPositionRequestState();
     return false;
   }
 
   autofill_scroll_timer_.Stop();
   is_need_to_created_popup_ = false;
-  autofill_position_field_id_ = form_util::GetFieldRendererId(input_element);
-  autofill_position_snapshot_ = snapshot;
-  autofill_position_stable_check_count_ = 0;
-  autofill_position_request_state_ =
-      last_stable_autofill_position_snapshot_ &&
-              IsSameAutofillViewport(snapshot,
-                                     *last_stable_autofill_position_snapshot_)
-          ? AutofillPositionRequestState::kWaitingForStablePosition
-          : AutofillPositionRequestState::kWaitingForPositionChange;
+  position_field_id_ = form_util::GetFieldRendererId(element);
+  position_snapshot_ = snapshot;
+  position_stable_check_count_ = 0;
+  position_request_state_ =
+      last_stable_position_snapshot_ &&
+              IsSameViewportGeometry(snapshot,
+                                     *last_stable_position_snapshot_)
+          ? PositionRequestState::kWaitingForStablePosition
+          : PositionRequestState::kWaitingForPositionChange;
   LOG(INFO) << "[Autofill] Position request started, field_id="
-            << autofill_position_field_id_.value() << ", state="
-            << (autofill_position_request_state_ ==
-                        AutofillPositionRequestState::kWaitingForStablePosition
+            << position_field_id_.value() << ", state="
+            << (position_request_state_ ==
+                        PositionRequestState::kWaitingForStablePosition
                     ? "waiting_for_stable"
-                    : "waiting_for_change")
-            << ", field_bounds=" << snapshot.field_bounds.ToString()
-            << ", view_rect=" << snapshot.view_rect.ToString()
-            << ", window_rect=" << snapshot.window_rect.ToString()
-            << ", main_frame_viewport_rect="
-            << (snapshot.main_frame_viewport_rect.has_value()
-                    ? snapshot.main_frame_viewport_rect->ToString()
-                    : "unset");
-  ScheduleAutofillPositionCheck();
+                    : "waiting_for_change");
+  SchedulePositionCheck();
   return true;
 }
 
-void AutofillAgentExt::ClearAutofillPositionRequestContext() {
+void AutofillAgentExt::ClearPositionRequestState() {
   autofill_scroll_timer_.Stop();
   autofill_position_check_timer_.Stop();
   is_need_to_created_popup_ = false;
-  autofill_position_field_id_ = FieldRendererId();
-  autofill_position_snapshot_ = AutofillPositionSnapshot();
-  autofill_position_stable_check_count_ = 0;
-  autofill_position_request_state_ = AutofillPositionRequestState::kIdle;
-  ++autofill_position_generation_;
+  position_field_id_ = FieldRendererId();
+  position_snapshot_ = PositionSnapshot();
+  position_stable_check_count_ = 0;
+  position_request_state_ = PositionRequestState::kIdle;
+  ++position_generation_;
 }
 
-void AutofillAgentExt::ResetAutofillPositionRequestContext() {
-  ClearAutofillPositionRequestContext();
-  last_stable_autofill_position_snapshot_.reset();
+void AutofillAgentExt::ResetPositionRequestState() {
+  ClearPositionRequestState();
+  last_stable_position_snapshot_.reset();
   main_frame_viewport_rect_.reset();
 }
 
@@ -362,51 +404,50 @@ void AutofillAgentExt::OnAutofillMainFrameViewportRectangleChanged(
     return;
   }
   main_frame_viewport_rect_ = main_frame_viewport_rect;
-  OnFocusedInputPositionMaybeChanged();
+  OnFocusedElementPositionMaybeChanged();
 }
 
-bool AutofillAgentExt::OnFocusedInputPositionMaybeChanged() {
+bool AutofillAgentExt::OnFocusedElementPositionMaybeChanged() {
   if (!IsAutofillPositionRequestPending()) {
     return false;
   }
 
-  WebInputElement input_element;
-  if (!GetCurrentFocusedInput(input_element) ||
-      form_util::GetFieldRendererId(input_element) !=
-          autofill_position_field_id_ ||
-      password_autofill_agent_->AsPasswordAutofillAgentExt()
-          ->IsPasswordAutofill(input_element)) {
-    ClearAutofillPositionRequestContext();
+  WebElement element;
+  if (!GetCurrentFocusedElement(element) ||
+      IsPasswordAutofillElement(element) ||
+      form_util::GetFieldRendererId(element) !=
+          position_field_id_) {
+    ClearPositionRequestState();
     return false;
   }
 
-  AutofillPositionSnapshot snapshot;
-  if (!GetAutofillPositionSnapshot(input_element, snapshot)) {
-    ClearAutofillPositionRequestContext();
+  PositionSnapshot snapshot;
+  if (!CapturePositionSnapshot(element, snapshot)) {
+    ClearPositionRequestState();
     return false;
   }
 
-  if (snapshot.field_bounds == autofill_position_snapshot_.field_bounds &&
-      snapshot.view_rect == autofill_position_snapshot_.view_rect &&
-      snapshot.window_rect == autofill_position_snapshot_.window_rect &&
+  if (snapshot.field_bounds == position_snapshot_.field_bounds &&
+      snapshot.view_rect == position_snapshot_.view_rect &&
+      snapshot.window_rect == position_snapshot_.window_rect &&
       snapshot.main_frame_viewport_rect ==
-          autofill_position_snapshot_.main_frame_viewport_rect) {
+          position_snapshot_.main_frame_viewport_rect) {
     return false;
   }
 
-  autofill_position_snapshot_ = snapshot;
-  autofill_position_stable_check_count_ = 0;
-  autofill_position_request_state_ =
-      AutofillPositionRequestState::kWaitingForStablePosition;
+  position_snapshot_ = snapshot;
+  position_stable_check_count_ = 0;
+  position_request_state_ =
+      PositionRequestState::kWaitingForStablePosition;
   if (!autofill_position_check_timer_.IsRunning()) {
-    ScheduleAutofillPositionCheck();
+    SchedulePositionCheck();
   }
   return true;
 }
 
-void AutofillAgentExt::ScheduleAutofillPositionCheck() {
-  ++autofill_position_generation_;
-  const uint32_t generation = autofill_position_generation_;
+void AutofillAgentExt::SchedulePositionCheck() {
+  ++position_generation_;
+  const uint32_t generation = position_generation_;
   autofill_position_check_timer_.Start(
       FROM_HERE, kAutofillPositionCheckInterval,
       base::BindOnce(
@@ -414,79 +455,73 @@ void AutofillAgentExt::ScheduleAutofillPositionCheck() {
             if (!self) {
               return;
             }
-            self->AsAutofillAgentExt()->RunAutofillPositionCheck(generation);
+            self->AsAutofillAgentExt()->RunPositionCheck(generation);
           },
           ext_weak_ptr_factory_.GetWeakPtr(), generation));
 }
 
-void AutofillAgentExt::RunAutofillPositionCheck(uint32_t generation) {
-  if (generation != autofill_position_generation_ ||
+void AutofillAgentExt::RunPositionCheck(uint32_t generation) {
+  if (generation != position_generation_ ||
       !IsAutofillPositionRequestPending()) {
     return;
   }
 
-  WebInputElement input_element;
-  if (!GetCurrentFocusedInput(input_element) ||
-      form_util::GetFieldRendererId(input_element) !=
-          autofill_position_field_id_ ||
-      password_autofill_agent_->AsPasswordAutofillAgentExt()
-          ->IsPasswordAutofill(input_element)) {
-    ClearAutofillPositionRequestContext();
+  WebElement element;
+  if (!GetCurrentFocusedElement(element) ||
+      IsPasswordAutofillElement(element) ||
+      form_util::GetFieldRendererId(element) !=
+          position_field_id_) {
+    ClearPositionRequestState();
     return;
   }
 
-  AutofillPositionSnapshot snapshot;
-  if (!GetAutofillPositionSnapshot(input_element, snapshot)) {
-    ClearAutofillPositionRequestContext();
+  PositionSnapshot snapshot;
+  if (!CapturePositionSnapshot(element, snapshot)) {
+    ClearPositionRequestState();
     return;
   }
 
-  if (snapshot.field_bounds != autofill_position_snapshot_.field_bounds ||
-      snapshot.view_rect != autofill_position_snapshot_.view_rect ||
-      snapshot.window_rect != autofill_position_snapshot_.window_rect ||
+  if (snapshot.field_bounds != position_snapshot_.field_bounds ||
+      snapshot.view_rect != position_snapshot_.view_rect ||
+      snapshot.window_rect != position_snapshot_.window_rect ||
       snapshot.main_frame_viewport_rect !=
-          autofill_position_snapshot_.main_frame_viewport_rect) {
-    autofill_position_snapshot_ = snapshot;
-    autofill_position_stable_check_count_ = 0;
-    autofill_position_request_state_ =
-        AutofillPositionRequestState::kWaitingForStablePosition;
-    ScheduleAutofillPositionCheck();
+          position_snapshot_.main_frame_viewport_rect) {
+    position_snapshot_ = snapshot;
+    position_stable_check_count_ = 0;
+    position_request_state_ =
+        PositionRequestState::kWaitingForStablePosition;
+    SchedulePositionCheck();
     return;
   }
 
-  ++autofill_position_stable_check_count_;
+  ++position_stable_check_count_;
   const int required_check_count =
-      autofill_position_request_state_ ==
-              AutofillPositionRequestState::kWaitingForPositionChange
+      position_request_state_ ==
+              PositionRequestState::kWaitingForPositionChange
           ? kAutofillPositionNoChangeCheckCount
           : kAutofillPositionStableCheckCount;
-  if (autofill_position_stable_check_count_ < required_check_count) {
-    ScheduleAutofillPositionCheck();
+  if (position_stable_check_count_ < required_check_count) {
+    SchedulePositionCheck();
     return;
   }
 
   const bool dispatched_without_position_change =
-      autofill_position_request_state_ ==
-          AutofillPositionRequestState::kWaitingForPositionChange;
-  autofill_position_request_state_ =
-      AutofillPositionRequestState::kRequestDispatched;
+      position_request_state_ ==
+          PositionRequestState::kWaitingForPositionChange;
+  position_request_state_ =
+      PositionRequestState::kRequestDispatched;
   autofill_position_check_timer_.Stop();
-  ++autofill_position_generation_;
+  ++position_generation_;
   is_need_to_created_popup_ = false;
-  last_stable_autofill_position_snapshot_ = snapshot;
+  last_stable_position_snapshot_ = snapshot;
   LOG(INFO) << "[Autofill] Position request dispatched, field_id="
-            << autofill_position_field_id_.value() << ", reason="
+            << position_field_id_.value() << ", reason="
             << (dispatched_without_position_change ? "no_change_stable"
                                                    : "position_stable")
-            << ", check_count=" << autofill_position_stable_check_count_
-            << ", field_bounds=" << snapshot.field_bounds.ToString()
-            << ", view_rect=" << snapshot.view_rect.ToString()
-            << ", window_rect=" << snapshot.window_rect.ToString()
-            << ", main_frame_viewport_rect="
-            << (snapshot.main_frame_viewport_rect.has_value()
-                    ? snapshot.main_frame_viewport_rect->ToString()
-                    : "unset");
+            << ", check_count=" << position_stable_check_count_;
   const SynchronousFormCache form_cache;
+  base::AutoReset<bool> dispatching_autofill_position_request(
+      &is_dispatching_position_request_, true);
   HandleFocusChangeComplete(/*focused_node_was_last_clicked=*/true, form_cache);
 }
 #endif
