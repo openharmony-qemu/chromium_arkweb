@@ -230,6 +230,18 @@ MediaInfo::Preload ConvertTo(uint32_t preload_type) {
   return MediaInfo::Preload::AUTO;
 }
 
+MediaInfo::SourceType ConvertToSourceType(uint32_t type) {
+  switch (type) {
+    case static_cast<uint32_t>(MediaInfo::SourceType::URL):
+      return MediaInfo::SourceType::URL;
+    case static_cast<uint32_t>(MediaInfo::SourceType::MSE):
+      return MediaInfo::SourceType::MSE;
+    default:
+      LOG(WARNING) << "ConvertToSourceType: unknown source type " << type;  
+      return MediaInfo::SourceType::URL;
+  }
+}
+
 }  // namespace
 
 #ifndef ARKWEB_TEST_INCLUDE
@@ -261,7 +273,7 @@ OHOSCustomMediaPlayerRenderer::~OHOSCustomMediaPlayerRenderer() {
   WebContentsImpl* web_contents_impl =
       static_cast<WebContentsImpl*>(web_contents());
   if (media_player_) {
-    if (web_contents_impl) {
+    if (web_contents_impl && web_contents_impl->AsWebContentsImplExt()) {
       web_contents_impl->AsWebContentsImplExt()->RemoveCustomMediaPlayer(
           media_player_id_, media_player_.get());
     }
@@ -324,7 +336,8 @@ void OHOSCustomMediaPlayerRenderer::GetCookies() {
   RenderProcessHost* host =
       RenderProcessHost::FromID(media_player_id_.frame_routing_id.child_id);
   if (!host) {
-    LOG(ERROR) << "GetCookies failed";
+    LOG(ERROR) << "GetCookies failed, no render process host";
+    std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
     return;
   }
 
@@ -394,8 +407,8 @@ void OHOSCustomMediaPlayerRenderer::CreateMediaPlayer() {
   WebContentsImpl* web_contents_impl =
       static_cast<WebContentsImpl*>(web_contents());
 
-  if (!web_contents_impl) {
-    LOG(ERROR) << "CreateMediaPlayer failed, no web_contents";
+  if (!web_contents_impl || !web_contents_impl->AsWebContentsImplExt()) {
+    LOG(ERROR) << "CreateMediaPlayer failed, web_contents or AsWebContentsImplExt is null";
     std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
     return;
   }
@@ -438,8 +451,7 @@ MediaInfo OHOSCustomMediaPlayerRenderer::BuildMediaInfo(
   media_info.media_src_list.reserve(source_infos_.size());
   for (const auto& info : source_infos_) {
     media_info.media_src_list.push_back(
-        {static_cast<MediaInfo::SourceType>(
-             media_url_params_->media_source_type_),
+        {ConvertToSourceType(media_url_params_->media_source_type_),
          info.media_source, info.media_format});
   }
   media_info.surface_info.id = surface_id_string;
@@ -478,14 +490,15 @@ void OHOSCustomMediaPlayerRenderer::Flush(base::OnceClosure flush_cb) {
 }
 
 void OHOSCustomMediaPlayerRenderer::StartPlayingFrom(base::TimeDelta time) {
-  if (media_player_) {
-    media_player_->Seek(time.InSecondsF());
-    if (!is_playing_) {
-      media_player_->Play();
-    }
+  if (!media_player_ || !renderer_client_) {
+    LOG(ERROR) << "StartPlayingFrom fail, no media_player or renderer_client";
+    return;
+  }
+  media_player_->Seek(time.InSecondsF());
+  if (!is_playing_) {
+    media_player_->Play();
   }
   is_playing_ = true;
-
   renderer_client_->OnBufferingStateChange(
       media::BUFFERING_HAVE_ENOUGH, media::BUFFERING_CHANGE_REASON_UNKNOWN);
 }
@@ -550,6 +563,10 @@ void OHOSCustomMediaPlayerRenderer::OnMediaDurationChanged(
 }
 
 void OHOSCustomMediaPlayerRenderer::OnPlaybackComplete() {
+  if (!renderer_client_) {
+    LOG(ERROR) << "OnPlaybackComplete fail, no renderer_client";
+    return;
+  }
   renderer_client_->OnEnded();
 }
 
@@ -564,6 +581,10 @@ void OHOSCustomMediaPlayerRenderer::OnError(int error) {
 
   LOG(ERROR) << __func__ << " Error: " << error;
   has_error_ = true;
+  if (!renderer_client_) {
+    LOG(ERROR) << "OnError fail, no renderer_client";
+    return;
+  }
   renderer_client_->OnError(media::PIPELINE_ERROR_EXTERNAL_RENDERER_FAILED);
 }
 
@@ -665,6 +686,10 @@ void OHOSCustomMediaPlayerRenderer::OnTimeUpdate(base::TimeDelta media_time) {
 
 void OHOSCustomMediaPlayerRenderer::OnBufferingStateChange(
     media::BufferingState state) {
+  if (!renderer_client_) {
+    LOG(ERROR) << "OnBufferingStateChange fail, no renderer_client";
+    return;
+  }
   renderer_client_->OnBufferingStateChange(
       state, media::BUFFERING_CHANGE_REASON_UNKNOWN);
 }
@@ -707,12 +732,15 @@ void OHOSCustomMediaPlayerRenderer::OnFullscreenChanged(bool fullscreen) {
   if (!web_contents_impl) {
     return;
   }
+  auto* ext = web_contents_impl->AsWebContentsImplExt();
+  if (!ext) {
+    LOG(ERROR) << "OnFullscreenChanged failed, AsWebContentsImplExt returned null";
+    return;
+  }
   if (fullscreen) {
-    web_contents_impl->AsWebContentsImplExt()->RequestEnterFullscreen(
-        media_player_id_);
+    ext->RequestEnterFullscreen(media_player_id_);
   } else {
-    web_contents_impl->AsWebContentsImplExt()->RequestExitFullscreen(
-        media_player_id_);
+    ext->RequestExitFullscreen(media_player_id_);
   }
 }
 
