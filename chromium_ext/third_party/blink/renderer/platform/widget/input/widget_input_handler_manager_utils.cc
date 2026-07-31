@@ -212,10 +212,12 @@ void WidgetInputHandlerManagerUtils::SetGestureEventResult(bool result,
 
 void WidgetInputHandlerManagerUtils::TouchHitTest(const WebPointerEvent& event,
                                              size_t fingerId) {
-  manager_->main_thread_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&WidgetBaseUtils::TouchHitTest,
-                                manager_->widget_->utils()->GetWeakPtr(), event,
-                                fingerId));
+  if (manager_ && manager_->widget_ && manager_->widget_->utils()) {
+    manager_->main_thread_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(&WidgetBaseUtils::TouchHitTest,
+                                  manager_->widget_->utils()->GetWeakPtr(), event,
+                                  fingerId));
+  }
 }
 
 void WidgetInputHandlerManagerUtils::NativeHitTestResult(bool isNative,
@@ -249,10 +251,12 @@ void WidgetInputHandlerManagerUtils::DidNativeEmbedMouseEvent(
     bool isHitNativeArea,
     float x,
     float y) {
-  manager_->main_thread_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&WidgetBaseUtils::DidNativeEmbedMouseEvent,
-                                manager_->widget_->utils()->GetWeakPtr(), type,
-                                modifiers, embedId, isHitNativeArea, x, y));
+  if (manager_ && manager_->widget_ && manager_->widget_->utils()) {
+    manager_->main_thread_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(&WidgetBaseUtils::DidNativeEmbedMouseEvent,
+                                  manager_->widget_->utils()->GetWeakPtr(), type,
+                                  modifiers, embedId, isHitNativeArea, x, y));
+  }
 }
 
 void WidgetInputHandlerManagerUtils::SetMouseEventResult(bool result, bool stopPropagation) {
@@ -263,10 +267,12 @@ void WidgetInputHandlerManagerUtils::SetMouseEventResult(bool result, bool stopP
 }
 
 void WidgetInputHandlerManagerUtils::MouseHitTest(const WebMouseEvent& event, int32_t button) {
-  manager_->main_thread_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&WidgetBaseUtils::MouseHitTest,
-                     manager_->widget_->utils()->GetWeakPtr(), event, button));
+  if (manager_ && manager_->widget_ && manager_->widget_->utils()) {
+    manager_->main_thread_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&WidgetBaseUtils::MouseHitTest,
+                       manager_->widget_->utils()->GetWeakPtr(), event, button));
+  }
 }
 
 void WidgetInputHandlerManagerUtils::NativeMouseHitTestResult(bool isNative, int layerId,
