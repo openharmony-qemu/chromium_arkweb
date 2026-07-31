@@ -80,4 +80,37 @@ TEST_F(FrameSelectionTest, InvalidateSelectionForDragTest) {
   Selection().AsFrameSelectionExt()->InvalidateSelectionForDrag();
 }
 
+TEST_F(FrameSelectionTest, IsPointInSelectionNoSelection) {
+  SetBodyContent("<div id=sample>0123456789</div>abc");
+  // No selection active — AbsoluteUnclippedBounds() returns empty rect,
+  // so Contains() returns false and IsPointInSelection returns false.
+  PhysicalOffset point(5, 5);
+  EXPECT_FALSE(Selection().AsFrameSelectionExt()->IsPointInSelection(point));
+}
+
+TEST_F(FrameSelectionTest, IsPointInSelectionPointInsideBounds) {
+  SetBodyContent("<div id=sample>01234567890123456789</div>");
+  // Select all to create a visible selection range.
+  Selection().SelectAll();
+  // Use a point near the top-left; it should be inside the selection bounds.
+  PhysicalOffset point(1, 1);
+  EXPECT_TRUE(Selection().AsFrameSelectionExt()->IsPointInSelection(point));
+}
+
+TEST_F(FrameSelectionTest, IsPointInSelectionPointOutsideBounds) {
+  SetBodyContent("<div id=sample>01234567890123456789</div>");
+  Selection().SelectAll();
+  // Use a very large offset that is definitely outside the selection bounds.
+  PhysicalOffset point(99999, 99999);
+  EXPECT_FALSE(Selection().AsFrameSelectionExt()->IsPointInSelection(point));
+}
+
+TEST_F(FrameSelectionTest, IsPointInSelectionPointAboveBounds) {
+  SetBodyContent("<div id=sample>01234567890123456789</div>");
+  Selection().SelectAll();
+  // Use a negative offset that is above/to the left of any selection.
+  PhysicalOffset point(-100, -100);
+  EXPECT_FALSE(Selection().AsFrameSelectionExt()->IsPointInSelection(point));
+}
+
 }  // namespace blink

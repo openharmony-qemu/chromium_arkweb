@@ -217,5 +217,23 @@ bool FrameSelectionExt::GetSelectionMarkMaxLengthOverflow() {
   is_max_length_overflow_ = false;
   return false;
 }
+
+#if BUILDFLAG(ARKWEB_MENU)
+bool FrameSelectionExt::IsPointInSelection(const PhysicalOffset &point) {
+  if (!frame_ || !frame_->View()) {
+    return true;
+  }
+  PhysicalRect selection_bounds_in_root_frame =
+      frame_->View()->ConvertToRootFrame(AbsoluteUnclippedBounds());
+  PhysicalOffset point_in_root_frame =
+      frame_->View()->ConvertToRootFrame(point);
+  if (!selection_bounds_in_root_frame.Contains(point_in_root_frame)) {
+    LOG(INFO) << "IsPointInSelection point is not in selection("
+              << selection_bounds_in_root_frame.ToString() << ")";
+    return false;
+  }
+  return true;
+}
+#endif
 // LCOV_EXCL_STOP
 }  // namespace blink
