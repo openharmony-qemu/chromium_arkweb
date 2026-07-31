@@ -95,7 +95,28 @@ void BackgroundTaskPolicy::OnPageNodeAdded(const PageNode* page_node) {
   MaybeChangeBackgroundTask(page_node);
 }
 
-void BackgroundTaskPolicy::OnBeforePageNodeRemoved(const PageNode* page_node) {}
+void BackgroundTaskPolicy::OnBeforePageNodeRemoved(const PageNode* page_node) {
+  if (page_node == nullptr) {
+    LOG(ERROR) << BG_TASK_TAG << " page_node is null";
+    return;
+  }
+
+  // Compensate the visible count for a page node that is removed while still
+  // visible (e.g. the Web component is destroyed without a prior hide event),
+  // otherwise visible_page_num_ would leak and never recover.
+  if (page_node->IsVisible()) {
+    visible_page_num_--;
+    if (visible_page_num_ < 0) {
+      visible_page_num_ = 0;
+    }
+  }
+
+  LOG(INFO) << BG_TASK_TAG << __FUNCTION__
+            << " page_node->IsVisible: "
+            << (page_node->IsVisible() ? "true" : "false")
+            << ", visible_page_num: " << visible_page_num_;
+  MaybeChangeBackgroundTask(page_node);
+}
 
 void BackgroundTaskPolicy::OnIsVisibleChanged(const PageNode* page_node) {
   if (page_node == nullptr) {
