@@ -45,6 +45,14 @@ struct FontGenericInfo {
   array<FontAdjustInfo> adjustInfoSet;
 };
 
+// Stylish font descriptor info for buildStyleNameToFamilyMap.
+// Replaces direct NDK calls (GetSystemFontFullNamesByType +
+// GetFontDescriptorByFullName) in the renderer process.
+struct FontStylishInfo {
+  string familyName;
+  string path;
+};
+
 struct FontConfigInfo {
   uint64 fontDirSize;
   uint64 fontGenericInfoSize;
@@ -62,4 +70,9 @@ struct FontConfigInfo {
 interface FontDataService {
   [Sync]
   GetFontConfigInfo() => (FontConfigInfo? result);
+
+  // Returns the list of stylish fonts (familyName + path) for the given
+  // fontType. fontType corresponds to ArkWeb_Drawing_SystemFontType enum.
+  [Sync]
+  GetStylishFontList(int32 fontType) => (array<FontStylishInfo>? result);
 };
