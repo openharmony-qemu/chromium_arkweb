@@ -63,6 +63,9 @@ public:
       mojo::PendingReceiver<mojom::FontDataService> receiver);
 
   void GetFontConfigInfo(GetFontConfigInfoCallback callback) override;
+
+  void GetStylishFontList(int32_t fontType,
+                          GetStylishFontListCallback callback) override;
 private:
 
   mojo::ReceiverSet<mojom::FontDataService> receivers_;
