@@ -3761,18 +3761,13 @@ void NWebDelegate::SendDragEvent(const DelegateDragEvent& dragEvent) const {
       LOG(INFO) << "DragDrop event SendDragEvent drop webId:"
                 << GetBrowser()->GetNWebId();
       if (render_handler_ && render_handler_->GetDragData()) {
-        auto drag_data1 = render_handler_->GetDragData();
-        auto fragment1 = drag_data1->GetFragmentText();
-        LOG(DEBUG) << "DragDrop drag data GetFragmentText:"
-                   << fragment1.ToString();
-        auto link_url1 = drag_data1->GetLinkURL();
-        LOG(DEBUG) << "DragDrop drag data GetLinkURL:" << link_url1.ToString();
-        auto link_html1 = drag_data1->GetFragmentHtml();
-        LOG(DEBUG) << "DragDrop drag data GetFragmentHtml:"
-                   << link_html1.ToString();
+        auto drag_data = render_handler_->GetDragData();
+        auto fragment = drag_data->GetFragmentText();
+        auto link_url = drag_data->GetLinkURL();
+        auto link_html = drag_data->GetFragmentHtml();
 #if BUILDFLAG(ARKWEB_REPORT_SYS_EVENT)
-        ReportDragDropInfo("DRAG_DROP", GetBrowser()->GetNWebId(), fragment1,
-                           link_url1, link_html1);
+        ReportDragDropInfo("DRAG_DROP", GetBrowser()->GetNWebId(), fragment,
+                           link_url, link_html);
 #endif
       } else {
         LOG(ERROR) << "DragDrop drag data nullptr";
