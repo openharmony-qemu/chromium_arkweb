@@ -32,6 +32,19 @@ namespace hitrace {
 
 namespace {
 
+constexpr const char* const kHiTraceDisabledCategories[] = {
+    "scheduler.long_tasks",
+    "toplevel.flow",
+    "wakeup.flow",
+    "mojom.flow",
+    "log",
+    "sequence_manager",
+    "net.stream",
+    "net",
+    "extensions",
+    "disabled-by-default-*",
+};
+
 perfetto::TraceConfig CreateTraceConfigForHiTrace() {
   perfetto::TraceConfig config;
 
@@ -41,6 +54,12 @@ perfetto::TraceConfig CreateTraceConfigForHiTrace() {
 
   perfetto::protos::gen::TrackEventConfig track_event_config;
   track_event_config.add_enabled_categories("*");
+  // Disable specific single categories at the Perfetto fast-path. The disabled
+  // exact name wins over the "*" wildcard, so the event never reaches the
+  // interceptor (no OnTracePacket, no forwarding cost).
+  for (auto category : kHiTraceDisabledCategories) {
+    track_event_config.add_disabled_categories(category);
+  }
   data_source_config->set_track_event_config_raw(
       track_event_config.SerializeAsString());
 
