@@ -763,6 +763,200 @@ TEST_F(ArkWebHostResolverManagerJobExtTest,
   base::CommandLine::ForCurrentProcess()->RemoveSwitch(
       switches::kEnableNwebExHttpDnsFallback);
 }
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       CheckDnsFallBackTask_AllConditionsMet) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  net::HostResolverManager resolver_manager(net::HostResolver::ManagerOptions(),
+                                            nullptr, nullptr);
+  resolver_manager.RegisterResolveContext(resolve_context_.get());
+
+  net::DnsConfig cfg = net::CreateValidDnsConfig();
+  net::MockDnsClientRuleList rules;
+  rules.emplace_back(
+      "example.com", net::dns_protocol::kTypeA, true,
+      net::MockDnsClientRule::Result(net::BuildTestDnsAddressResponse(
+          "example.com", net::IPAddress::IPv4Localhost(), "example.com")),
+      false, url_request_context_.get());
+  auto mock_dns = std::make_unique<net::MockDnsClient>(cfg, std::move(rules));
+  mock_dns->SetForceDohServerAvailable(true);
+  mock_dns->SetInsecureEnabled(false, false);
+  resolver_manager.SetDnsClientForTesting(std::move(mock_dns));
+  base::RunLoop().RunUntilIdle();
+
+  auto req = resolver_manager.CreateRequest(
+      net::HostResolver::Host(url::SchemeHostPort("https", "example.com", 443)),
+      net::NetworkAnonymizationKey(), net::NetLogWithSource(),
+      net::HostResolver::ResolveHostParameters(), resolve_context_.get());
+  ASSERT_TRUE(req);
+  int rv = req->Start(base::DoNothing());
+  EXPECT_TRUE(rv == net::ERR_IO_PENDING);
+  base::RunLoop().RunUntilIdle();
+
+  auto* base_job = resolver_manager.jobs_.begin()->second.get();
+  ASSERT_NE(base_job, nullptr);
+  auto* ext_job = static_cast<net::ArkWebHostResolverManagerJobExt*>(base_job);
+  ASSERT_NE(ext_job, nullptr);
+
+  // Set up all conditions for CheckDnsFallBackTask to return true:
+  // dns_task_error_ != OK, net_error != OK, tasks_ non-empty,
+  // tasks_.back() == SECURE_DNS_FALLBACK.
+  ext_job->dns_task_error_ = ERR_FAILED;
+  ext_job->tasks_.clear();
+  ext_job->tasks_.push_back(HostResolverManager::TaskType::DNS);
+  ext_job->tasks_.push_back(HostResolverManager::TaskType::SECURE_DNS_FALLBACK);
+
+  EXPECT_TRUE(ext_job->CheckDnsFallBackTask(ERR_NAME_NOT_RESOLVED));
+
+  req.reset();
+  base::RunLoop().RunUntilIdle();
+  resolver_manager.DeregisterResolveContext(resolve_context_.get());
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       ReportDnsFallBackTaskResult_SwitchOff_NoCrash) {
+  // Without the command-line switch, the method body is skipped entirely.
+  // Verify no crash.
+  HostCache::Entry results(OK, HostCache::Entry::SOURCE_UNKNOWN, std::nullopt);
+  EXPECT_NO_FATAL_FAILURE(
+      job_->ReportDnsFallBackTaskResult(results, base::Milliseconds(100)));
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       ReportDnsFallBackTaskResult_SecureFallbackFalse) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  net::HostResolverManager resolver_manager(net::HostResolver::ManagerOptions(),
+                                            nullptr, nullptr);
+  resolver_manager.RegisterResolveContext(resolve_context_.get());
+
+  net::DnsConfig cfg = net::CreateValidDnsConfig();
+  net::MockDnsClientRuleList rules;
+  rules.emplace_back(
+      "example.com", net::dns_protocol::kTypeA, true,
+      net::MockDnsClientRule::Result(net::BuildTestDnsAddressResponse(
+          "example.com", net::IPAddress::IPv4Localhost(), "example.com")),
+      false, url_request_context_.get());
+  auto mock_dns = std::make_unique<net::MockDnsClient>(cfg, std::move(rules));
+  mock_dns->SetForceDohServerAvailable(true);
+  mock_dns->SetInsecureEnabled(false, false);
+  resolver_manager.SetDnsClientForTesting(std::move(mock_dns));
+  base::RunLoop().RunUntilIdle();
+
+  auto req = resolver_manager.CreateRequest(
+      net::HostResolver::Host(url::SchemeHostPort("https", "example.com", 443)),
+      net::NetworkAnonymizationKey(), net::NetLogWithSource(),
+      net::HostResolver::ResolveHostParameters(), resolve_context_.get());
+  ASSERT_TRUE(req);
+  int rv = req->Start(base::DoNothing());
+  EXPECT_TRUE(rv == net::ERR_IO_PENDING);
+  base::RunLoop().RunUntilIdle();
+
+  auto* base_job = resolver_manager.jobs_.begin()->second.get();
+  ASSERT_NE(base_job, nullptr);
+  auto* ext_job = static_cast<net::ArkWebHostResolverManagerJobExt*>(base_job);
+  ASSERT_NE(ext_job, nullptr);
+  ASSERT_FALSE(ext_job->requests_.empty());
+
+  // Kill the existing task and start an insecure DNS task with
+  // secure_fallback=false.
+  ext_job->KillDnsTask();
+  ext_job->dispatched_ = false;
+  ext_job->StartDnsTask(false, false);
+  ASSERT_TRUE(ext_job->dns_task_);
+  EXPECT_FALSE(ext_job->dns_task_->secure_fallback());
+
+  HostCache::Entry results(OK, HostCache::Entry::SOURCE_UNKNOWN, std::nullopt);
+  EXPECT_NO_FATAL_FAILURE(
+      ext_job->ReportDnsFallBackTaskResult(results, base::Milliseconds(100)));
+
+  req.reset();
+  base::RunLoop().RunUntilIdle();
+  resolver_manager.DeregisterResolveContext(resolve_context_.get());
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       ReportDnsFallBackTaskResult_SniffIpWithFailedTransaction) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  net::HostResolverManager resolver_manager(net::HostResolver::ManagerOptions(),
+                                            nullptr, nullptr);
+  resolver_manager.RegisterResolveContext(resolve_context_.get());
+
+  net::DnsConfig cfg = net::CreateValidDnsConfig();
+  net::MockDnsClientRuleList rules;
+  rules.emplace_back(
+      "example.com", net::dns_protocol::kTypeA, true,
+      net::MockDnsClientRule::Result(net::BuildTestDnsAddressResponse(
+          "example.com", net::IPAddress::IPv4Localhost(), "example.com")),
+      false, url_request_context_.get());
+  auto mock_dns = std::make_unique<net::MockDnsClient>(cfg, std::move(rules));
+  mock_dns->SetForceDohServerAvailable(true);
+  mock_dns->SetInsecureEnabled(false, false);
+  resolver_manager.SetDnsClientForTesting(std::move(mock_dns));
+  base::RunLoop().RunUntilIdle();
+
+  auto req = resolver_manager.CreateRequest(
+      net::HostResolver::Host(url::SchemeHostPort("https", "example.com", 443)),
+      net::NetworkAnonymizationKey(), net::NetLogWithSource(),
+      net::HostResolver::ResolveHostParameters(), resolve_context_.get());
+  ASSERT_TRUE(req);
+  req->Start(base::DoNothing());
+  base::RunLoop().RunUntilIdle();
+
+  auto* base_job = resolver_manager.jobs_.begin()->second.get();
+  ASSERT_NE(base_job, nullptr);
+  auto* ext_job = static_cast<net::ArkWebHostResolverManagerJobExt*>(base_job);
+  ASSERT_NE(ext_job, nullptr);
+  ASSERT_FALSE(ext_job->requests_.empty());
+
+  // Kill existing task, start a secure DNS task, set sniff_ip and failed type.
+  ext_job->KillDnsTask();
+  ext_job->dispatched_ = false;
+  ext_job->StartDnsTask(true, false);
+  ASSERT_TRUE(ext_job->dns_task_);
+  ext_job->dns_task_->need_to_sniff_ip_result_ = true;
+  ext_job->failed_transactions_type_ =
+      HostResolverManager::DnsTransactionAddressFailedType::IPV4_ADDRESS_FAILED;
+
+  HostCache::Entry results(OK, HostCache::Entry::SOURCE_UNKNOWN, std::nullopt);
+  base::TimeDelta duration = base::Milliseconds(100);
+  EXPECT_NO_FATAL_FAILURE(
+      ext_job->ReportDnsFallBackTaskResult(results, duration));
+
+  req.reset();
+  base::RunLoop().RunUntilIdle();
+  resolver_manager.DeregisterResolveContext(resolve_context_.get());
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+
+TEST_F(ArkWebHostResolverManagerJobExtTest,
+       StoreSuspectIPListAndSourceHostList_InvalidIP) {
+  // Store an invalid IP string. The function should not crash and the
+  // invalid IP should be silently skipped.
+  EXPECT_NO_FATAL_FAILURE(
+      net::StoreSuspectIPListAndSourceHostList({"not-an-ip"}, {"example.com"}));
+
+  int net_error = net::OK;
+  net::AddressList addr_list(
+      {net::IPEndPoint(net::IPAddress(192, 168, 1, 1), 0)});
+  std::vector<net::IPEndPoint> truncation_results;
+  // The invalid IP won't match any endpoint, so MaybeModifyProcResolveResults
+  // should not modify the address list.
+  job_->MaybeModifyProcResolveResults("example.com", true, net_error, addr_list,
+                                      truncation_results);
+  EXPECT_EQ(net_error, net::OK);
+  EXPECT_EQ(addr_list.endpoints().size(), 1u);
+
+  // Clean up global state.
+  net::StoreSuspectIPListAndSourceHostList({}, {});
+}
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 
 }  // namespace net

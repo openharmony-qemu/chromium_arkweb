@@ -824,6 +824,652 @@ TEST_F(URLRequestHttpJobForIncludeTest,
 
 #endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)
 
+#if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+// ---------- Additional coverage tests ----------
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       CanRetryWithFallbackProxy_CloudControlSwitchDisabled) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, GetFallbackProxyStatus())
+      .WillRepeatedly(
+          testing::Return(FallbackProxyStatus::DISABLE_BY_CLOUD_CONTROL));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(
+      ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  bool ret = job_ptr->CanRetryWithFallbackProxy(ERR_CONNECTION_FAILED, &reason);
+  EXPECT_FALSE(ret);
+  EXPECT_EQ(reason, ProxyUnusedReason::CLOUD_CONTROL_SWITCH_DISABLED);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       SupportedHostAndNotUsedSystemProxy_IpAddress) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("127.0.0.1", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyFailedHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyBlockHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(
+      ctx->CreateRequest(GURL("http://127.0.0.1"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  // IP address literal path - should return true since not blocked
+  bool ret = job_ptr->SupportedHostAndNotUsedSystemProxy(ctx->proxy_delegate(),
+                                                         &reason);
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       SupportedHostAndNotUsedSystemProxy_WasFetchedViaProxy) {
+  // This test verifies SupportedHostAndNotUsedSystemProxy returns false
+  // when the response was fetched via a system proxy. Since this requires
+  // a mock transaction with WasFetchedViaProxy() returning true, which is
+  // not feasible without a full mock HttpTransaction, we verify the
+  // SupportedHost check still works with the null transaction path
+  // (transaction_ == nullptr means WasFetchedViaProxy is not checked).
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyFailedHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyBlockHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(
+      ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Without a transaction, WasFetchedViaProxy is not checked,
+  // and the host passes both FailedHost and BlockHost checks
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  bool ret = job_ptr->SupportedHostAndNotUsedSystemProxy(ctx->proxy_delegate(),
+                                                         &reason);
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GetSafeBrowsingThreatUrlPolicy_MaliciousTypeMatch) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate,
+              GetUrlMaliciousTypeAndHwCode(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([](const std::vector<GURL>&, int* mt, int* hc) {
+            *mt = 1;
+            *hc = 1;
+            return true;
+          }));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyMaliciousType(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyHwCode(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kMainFrame,
+      url::Origin::Create(GURL("http://example.com")),
+      url::Origin::Create(GURL("http://example.com")),
+      SiteForCookies::FromUrl(GURL("http://example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  int malicious_type = -1;
+  int hw_code = -1;
+  SBThreatURLPolicy policy = job_ptr->GetSafeBrowsingThreatUrlPolicy(
+      ERR_CONNECTION_FAILED, &malicious_type, &hw_code);
+  EXPECT_EQ(policy, PROCEED);
+  EXPECT_EQ(malicious_type, 1);
+  EXPECT_EQ(hw_code, 1);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GetSafeBrowsingThreatUrlPolicy_WaitForSbThreatType) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate,
+              GetUrlMaliciousTypeAndHwCode(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kMainFrame,
+      url::Origin::Create(GURL("http://example.com")),
+      url::Origin::Create(GURL("http://example.com")),
+      SiteForCookies::FromUrl(GURL("http://example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // First call returns WAIT
+  int malicious_type = -1;
+  int hw_code = -1;
+  SBThreatURLPolicy policy = job_ptr->GetSafeBrowsingThreatUrlPolicy(
+      ERR_CONNECTION_FAILED, &malicious_type, &hw_code);
+  EXPECT_EQ(policy, WAIT);
+
+  // Second call returns DENY because wait_for_sb_threat_type_ is now true
+  malicious_type = -1;
+  hw_code = -1;
+  policy = job_ptr->GetSafeBrowsingThreatUrlPolicy(ERR_CONNECTION_FAILED,
+                                                   &malicious_type, &hw_code);
+  EXPECT_EQ(policy, DENY);
+}
+
+#endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_ShouldSetOriginalCode) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  job_ptr->should_set_original_code_ = true;
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_FAILED);
+  EXPECT_EQ(job_ptr->original_error_code_, ERR_CONNECTION_FAILED);
+  EXPECT_FALSE(job_ptr->should_set_original_code_);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_CheckWirelessChangeType) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  job_ptr->current_attempt_type_ = AttemptType::kCheckWirelessChange;
+  size_t prev_size = job_ptr->request_attempts_.size();
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_FAILED);
+  // kCheckWirelessChange type should not add to attempts
+  EXPECT_EQ(job_ptr->request_attempts_.size(), prev_size);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_CheckSafeBrowsingType) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  job_ptr->current_attempt_type_ = AttemptType::kCheckSafeBrowsing;
+  size_t prev_size = job_ptr->request_attempts_.size();
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_FAILED);
+  // kCheckSafeBrowsing type should not add to attempts
+  EXPECT_EQ(job_ptr->request_attempts_.size(), prev_size);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_CheckNotRetryHttpDnsType) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  job_ptr->current_attempt_type_ = AttemptType::kCheckNotRetryHttpDns;
+  size_t prev_size = job_ptr->request_attempts_.size();
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_FAILED);
+  // kCheckNotRetryHttpDns type should not add to attempts
+  EXPECT_EQ(job_ptr->request_attempts_.size(), prev_size);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_NormalTypeAddsAttempt) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Default current_attempt_type_ is kNormal
+  ASSERT_EQ(job_ptr->current_attempt_type_, AttemptType::kNormal);
+  size_t prev_size = job_ptr->request_attempts_.size();
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_FAILED);
+  // kNormal type should add an attempt (even with null transaction)
+  EXPECT_EQ(job_ptr->request_attempts_.size(), prev_size + 1);
+  EXPECT_EQ(job_ptr->request_attempts_.back().request_result,
+            ERR_CONNECTION_FAILED);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_ShouldSetOriginalCodeTrue) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Enable should_set_original_code_ (it may already be false from a prior
+  // call, so set it explicitly)
+  job_ptr->should_set_original_code_ = true;
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_REFUSED);
+  // After GenerateRequestAttempt, should_set_original_code_ is reset
+  EXPECT_FALSE(job_ptr->should_set_original_code_);
+  // original_error_code_ should be set to the error
+  EXPECT_EQ(job_ptr->original_error_code_, ERR_CONNECTION_REFUSED);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GenerateRequestAttempt_ShouldSetOriginalCodeFalse) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // should_set_original_code_ is false by default (after first call)
+  job_ptr->should_set_original_code_ = false;
+  int prev_error = job_ptr->original_error_code_;
+  job_ptr->GenerateRequestAttempt(ERR_CONNECTION_RESET);
+  // original_error_code_ should NOT be updated
+  EXPECT_EQ(job_ptr->original_error_code_, prev_error);
+}
+#endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+
+#if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+// ---------- CanRetryWithFallbackProxy sub-frame tests ----------
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       CanRetryWithFallbackProxy_SubFrameSuccessHost) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("sub.example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, GetFallbackProxyStatus())
+      .WillRepeatedly(testing::Return(FallbackProxyStatus::NORMAL));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyRetryErrorCode(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyFailedHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyBlockHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxySuccessMainFrameHost(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req =
+      ctx->CreateRequest(GURL("http://sub.example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS);
+  // Sub-frame with top_frame_origin whose host succeeded via proxy
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kSubFrame,
+      url::Origin::Create(GURL("http://top-frame.com")),
+      url::Origin::Create(GURL("http://sub.example.com")),
+      SiteForCookies::FromUrl(GURL("http://sub.example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  bool ret = job_ptr->CanRetryWithFallbackProxy(ERR_CONNECTION_FAILED, &reason);
+  // Sub-frame with top frame that succeeded via proxy should return true
+  EXPECT_TRUE(ret);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       CanRetryWithFallbackProxy_SubFrameNotSuccessHost) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("sub.example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, GetFallbackProxyStatus())
+      .WillRepeatedly(testing::Return(FallbackProxyStatus::NORMAL));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyRetryErrorCode(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyFailedHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyBlockHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxySuccessMainFrameHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req =
+      ctx->CreateRequest(GURL("http://sub.example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS);
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kSubFrame,
+      url::Origin::Create(GURL("http://top-frame.com")),
+      url::Origin::Create(GURL("http://sub.example.com")),
+      SiteForCookies::FromUrl(GURL("http://sub.example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  bool ret = job_ptr->CanRetryWithFallbackProxy(ERR_CONNECTION_FAILED, &reason);
+  // Sub-frame with top frame that did NOT succeed via proxy should return false
+  EXPECT_FALSE(ret);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       CanRetryWithFallbackProxy_SubFrameNoTopOrigin) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("sub.example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, GetFallbackProxyStatus())
+      .WillRepeatedly(testing::Return(FallbackProxyStatus::NORMAL));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyRetryErrorCode(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyFailedHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyBlockHost(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req =
+      ctx->CreateRequest(GURL("http://sub.example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS);
+  // Sub-frame without top_frame_origin (nullable origin)
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kSubFrame,
+      url::Origin::Create(GURL("http://sub.example.com")),
+      url::Origin::Create(GURL("http://sub.example.com")),
+      SiteForCookies::FromUrl(GURL("http://sub.example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  ProxyUnusedReason reason = ProxyUnusedReason::MAX_VALUE;
+  bool ret = job_ptr->CanRetryWithFallbackProxy(ERR_CONNECTION_FAILED, &reason);
+  // Sub-frame without a distinct top_frame_origin should return false
+  // (same origin means top_frame_origin().host() won't be in success list)
+  EXPECT_FALSE(ret);
+}
+
+// ---------- IsFallbackProxyIgnoreErrorCode logic tests via
+//           MaybeRetryWithFallbackProxy ----------
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       MaybeRetryWithFallbackProxy_AccelerateProxy_CertErrorIgnored) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(true));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(
+      ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Certificate error is in IsFallbackProxyIgnoreErrorCode, so
+  // accelerate-proxy path should NOT retry with direct
+  int result = ERR_CERT_AUTHORITY_INVALID;
+  bool ret = job_ptr->MaybeRetryWithFallbackProxy(result);
+  EXPECT_FALSE(ret);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       MaybeRetryWithFallbackProxy_AccelerateProxy_ConnectionError) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate, IsAccelerateProxyConfig())
+      .WillRepeatedly(testing::Return(true));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  std::unique_ptr<URLRequest> req(
+      ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY, &d,
+                         TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Without a mock transaction, the is_accelerate_proxy check at line 261-264
+  // requires transaction_->GetResponseInfo()->is_accelerate_proxy. Since
+  // transaction_ is null here, MaybeRetryWithFallbackProxy falls through to
+  // CanRetryWithFallbackProxy which returns false because
+  // IsAccelerateProxyConfig() is true.
+  int result = ERR_CONNECTION_FAILED;
+  bool ret = job_ptr->MaybeRetryWithFallbackProxy(result);
+  EXPECT_FALSE(ret);
+}
+
+// ---------- GetSafeBrowsingThreatUrlPolicy DENY tests ----------
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GetSafeBrowsingThreatUrlPolicy_MaliciousTypeDeny) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate,
+              GetUrlMaliciousTypeAndHwCode(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([](const std::vector<GURL>&, int* mt, int* hc) {
+            *mt = 1;
+            *hc = 1;
+            return true;
+          }));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyMaliciousType(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kMainFrame,
+      url::Origin::Create(GURL("http://example.com")),
+      url::Origin::Create(GURL("http://example.com")),
+      SiteForCookies::FromUrl(GURL("http://example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  int malicious_type = -1;
+  int hw_code = -1;
+  SBThreatURLPolicy policy = job_ptr->GetSafeBrowsingThreatUrlPolicy(
+      ERR_CONNECTION_FAILED, &malicious_type, &hw_code);
+  // Malicious type not in cloud list => DENY
+  EXPECT_EQ(policy, DENY);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       GetSafeBrowsingThreatUrlPolicy_HwCodeDeny) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto host_resolver = std::make_unique<MockHostResolver>();
+  host_resolver->rules()->AddRule("example.com", "127.0.0.1");
+  context_builder->set_host_resolver(std::move(host_resolver));
+  auto mock_delegate = std::make_unique<FallbackProxyMockDelegate>();
+  EXPECT_CALL(*mock_delegate,
+              GetUrlMaliciousTypeAndHwCode(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([](const std::vector<GURL>&, int* mt, int* hc) {
+            *mt = 1;
+            *hc = 1;
+            return true;
+          }));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyMaliciousType(testing::_))
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_delegate, IsFallbackProxyHwCode(testing::_))
+      .WillRepeatedly(testing::Return(false));
+  context_builder->set_proxy_delegate(std::move(mock_delegate));
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  IsolationInfo isolation_info = IsolationInfo::Create(
+      IsolationInfo::RequestType::kMainFrame,
+      url::Origin::Create(GURL("http://example.com")),
+      url::Origin::Create(GURL("http://example.com")),
+      SiteForCookies::FromUrl(GURL("http://example.com")));
+  req->set_isolation_info(isolation_info);
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  int malicious_type = -1;
+  int hw_code = -1;
+  SBThreatURLPolicy policy = job_ptr->GetSafeBrowsingThreatUrlPolicy(
+      ERR_CONNECTION_FAILED, &malicious_type, &hw_code);
+  // Malicious type matches but hw code doesn't => DENY
+  EXPECT_EQ(policy, DENY);
+}
+#endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+
 }  // namespace net
 
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY) ||

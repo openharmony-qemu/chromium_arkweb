@@ -38,6 +38,19 @@ TEST_F(NetworkContextTest, TesExtSetHostIP002) {
                                                               alive_time));
 }
 
+TEST_F(NetworkContextTest, TesExtSetHostIP003) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  std::string hostName = "example.com";
+  std::vector<std::string> address = {};
+  address.push_back("127.0.0.1");
+  address.push_back("::1");
+  uint32_t alive_time = 60;
+  ASSERT_NO_FATAL_FAILURE(
+      network_context->AsArkWebNetworkContextExt()->SetHostIP(hostName, address,
+                                                              alive_time));
+}
+
 TEST_F(NetworkContextTest, TesExtClearHostIP001) {
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
@@ -51,6 +64,19 @@ TEST_F(NetworkContextTest, TesExtClearHostIP002) {
   std::string hostName = "111";
   std::vector<std::string> address = {};
   uint32_t alive_time = 0;
+  ASSERT_NO_FATAL_FAILURE(
+      network_context->AsArkWebNetworkContextExt()->ClearHostIP(hostName));
+}
+
+TEST_F(NetworkContextTest, TesExtClearHostIP003) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  std::string hostName = "example.com";
+  std::vector<std::string> address = {};
+  address.push_back("127.0.0.1");
+  uint32_t alive_time = 60;
+  network_context->AsArkWebNetworkContextExt()->SetHostIP(hostName, address,
+                                                          alive_time);
   ASSERT_NO_FATAL_FAILURE(
       network_context->AsArkWebNetworkContextExt()->ClearHostIP(hostName));
 }
@@ -74,5 +100,14 @@ TEST_F(NetworkContextTest, TesExtIsStrictLogModeIP002) {
   network_context->AsArkWebNetworkContextExt()->params_ = nullptr;
   bool result = network_context->AsArkWebNetworkContextExt()->IsStrictLogMode();
   ASSERT_FALSE(result);
+}
+
+TEST_F(NetworkContextTest, TesExtIsStrictLogModeIP003) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  network_context->AsArkWebNetworkContextExt()->params_->is_strict_log_mode =
+      true;
+  bool result = network_context->AsArkWebNetworkContextExt()->IsStrictLogMode();
+  ASSERT_TRUE(result);
 }
 #endif  // ARKWEB_LOGGER_REPORT

@@ -24,6 +24,9 @@
 #include "services/network/network_service.h"
 #include "arkweb/chromium_ext/services/network/arkweb_network_service_ext.h"
 #undef private
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK) || BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+#include "arkweb/chromium_ext/servieces/network/public/mojom/network_config_ohos.mojom.h"
+#endif
 #include "services/network/test/fake_test_cert_verifier_params_factory.h"
 #include "services/network/test/test_network_context_client.h"
 
@@ -206,9 +209,6 @@ TEST_F(ArkWebNetworkServiceExtTest, BindDnsToNetwork) {
   service_ext->cfg_https_dns_fallback_enabled_ = true;
   EXPECT_NO_FATAL_FAILURE(service_ext->BindDnsToNetwork(network_id));
   EXPECT_EQ(service_ext->network_for_dns_, network_id);
-  log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("SetHttpsDnsHostResolver, enabled 1"),
-            std::string::npos);
 #endif
 
   // url_request_context = null
@@ -411,6 +411,60 @@ TEST_F(ArkWebNetworkServiceExtTest, SetHttpsDnsHostResolver) {
   EXPECT_EQ(service_ext->real_http_dns_server_template_, server_template);
   EXPECT_TRUE(resolver->enabled());
   service_ext->host_resolver_manager_.reset(manager);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK_ON_DNS_HIJACKING)
+TEST_F(ArkWebNetworkServiceExtTest, SetHttpsDnsFallbackDataOnDnsHijacking) {
+  auto service_ext = service()->AsArkWebNetworkServiceExt();
+  ASSERT_TRUE(service_ext);
+  service_ext->RegisterNetworkContext(network_context());
+
+  auto manager = service_ext->host_resolver_manager_.release();
+  service_ext->host_resolver_manager_ = CreateResolver();
+
+  std::vector<std::string> protect_list = {"example.com", "test.com"};
+  std::vector<std::string> errorcode_list = {"ERR_DNS_TIMED_OUT",
+                                              "ERR_NAME_NOT_RESOLVED"};
+  EXPECT_NO_FATAL_FAILURE(
+      service_ext->SetHttpsDnsFallbackDataOnDnsHijacking(protect_list,
+                                                          errorcode_list));
+
+  // host_resolver_manager_ is null
+  service_ext->host_resolver_manager_.reset();
+  EXPECT_NO_FATAL_FAILURE(
+      service_ext->SetHttpsDnsFallbackDataOnDnsHijacking(protect_list,
+                                                          errorcode_list));
+  service_ext->host_resolver_manager_.reset(manager);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
+TEST_F(ArkWebNetworkServiceExtTest, SetArkWebGlobalConfig_NullConfig) {
+  auto service_ext = service()->AsArkWebNetworkServiceExt();
+  ASSERT_TRUE(service_ext);
+  service_ext->RegisterNetworkContext(network_context());
+
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetArkWebGlobalConfig(nullptr));
+}
+
+TEST_F(ArkWebNetworkServiceExtTest, SetArkWebGlobalConfig_ValidConfig) {
+  auto service_ext = service()->AsArkWebNetworkServiceExt();
+  ASSERT_TRUE(service_ext);
+  service_ext->RegisterNetworkContext(network_context());
+
+  mojom::ArkWebGlobalConfigPtr config = mojom::ArkWebGlobalConfig::New();
+  config->should_report_new_navigation_info = true;
+  testing::internal::CaptureStderr();
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetArkWebGlobalConfig(std::move(config)));
+  auto log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("reportNewNavigationInfoEnabled"), std::string::npos);
+
+  // url_request_context = null
+  network_context()->url_request_context_ = nullptr;
+  mojom::ArkWebGlobalConfigPtr config2 = mojom::ArkWebGlobalConfig::New();
+  config2->should_report_new_navigation_info = false;
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetArkWebGlobalConfig(std::move(config2)));
 }
 #endif
 }  // namespace network

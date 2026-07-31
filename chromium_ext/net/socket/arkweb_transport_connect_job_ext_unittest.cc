@@ -461,6 +461,25 @@ TEST_F(ArkWebTransportConnectJobExtTest, NeedReportSuccessIp) {
 
 #endif
 
+#if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+TEST_F(ArkWebTransportConnectJobExtTest, SetConnectTimeout) {
+  host_resolver_.rules()->AddSimulatedTimeoutFailure(HOST_NAME);
+  host_resolver_.set_synchronous_mode(false);
+  TestConnectJobDelegate test_delegate;
+  ArkWebTransportConnectJobExt transport_connect_job(
+        DEFAULT_PRIORITY, SocketTag(), &common_connect_job_params_,
+        DefaultParams(), &test_delegate, nullptr /* net_log */);
+  test_delegate.StartJobExpectingResult(&transport_connect_job, ERR_NAME_NOT_RESOLVED, false);
+
+  // Verify SetConnectTimeout sets the timeout_override_
+  transport_connect_job.SetConnectTimeout(30);
+  EXPECT_EQ(transport_connect_job.timeout_override_, base::Seconds(30));
+
+  transport_connect_job.SetConnectTimeout(0);
+  EXPECT_EQ(transport_connect_job.timeout_override_, base::Seconds(0));
+}
+#endif  // BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+
 #if BUILDFLAG(ARKWEB_PRP_PRELOAD)
 TEST_F(ArkWebTransportConnectJobExtTest, SetFromPreload) {
   host_resolver_.rules()->AddSimulatedTimeoutFailure(HOST_NAME);
