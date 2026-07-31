@@ -62,6 +62,11 @@ bool PRPPRequestLoaderImpl::Init(const net::IsolationInfo& isolation_info)
   }
   real_load_flags_ = prpp_req_info_->load_flags();
   InitAndStartUrlRequest(prpp_req_info_, isolation_info);
+  // if real_load_flags_ contains net::LOAD_SHOULD_BYPASS_HSTS and allow_credentials is true, stop preloading.
+  if (prpp_req_info_->allow_credentials() && (real_load_flags_ & net::LOAD_SHOULD_BYPASS_HSTS)) {
+    LOG(INFO) << "PRPPreload.PRPPRequestLoaderImpl::Init, info is not matched";
+    return false;
+  }
   return true;
 }
 
@@ -107,6 +112,10 @@ void PRPPRequestLoaderImpl::InitAndStartUrlRequest(const std::shared_ptr<PRReque
   url_request_->SetLoadFlags(real_load_flags_);
   if (!info->allow_credentials()) {
     url_request_->set_disallow_credentials();
+  }
+  if (info->allow_credentials() && (info->load_flags() & net::LOAD_SHOULD_BYPASS_HSTS)) {
+    LOG(INFO) << "PRPPreload.PRPPRequestLoaderImpl::InitAndStartUrlRequest, error info";
+    return;
   }
   url_request_->set_send_client_certs(info->send_client_certs());
   url_request_->SetRequestHeadersCallback(base::BindRepeating(
