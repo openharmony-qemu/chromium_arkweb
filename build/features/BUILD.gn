@@ -114,6 +114,8 @@ if (!enable_arkweb) {
   arkweb_ca = false
   arkweb_cache = false
   arkweb_clipboard = false
+  arkweb_clipped_image_scaling = false
+  arkweb_gpu_image_persistent_cache_limit = false
   arkweb_close_steps = false
   arkweb_cloud_control = false
   arkweb_composite_render = true
@@ -203,6 +205,7 @@ if (!enable_arkweb) {
   arkweb_performance_inc_freq = false
   arkweb_performance_jitter = false
   arkweb_performance_memory_threshold = false
+  arkweb_trim_render_process_memory = false
   arkweb_performance_persistent_task = false
   arkweb_performance_scheduling = false
   arkweb_per_dfx = false
@@ -490,6 +493,7 @@ buildflag_header("features") {
     "ARKWEB_PERFORMANCE_INC_FREQ=$arkweb_performance_inc_freq",
     "ARKWEB_PERFORMANCE_JITTER=$arkweb_performance_jitter",
     "ARKWEB_PERFORMANCE_MEMORY_THRESHOLD=$arkweb_performance_memory_threshold",
+    "ARKWEB_TRIM_RENDER_PROCESS_MEMORY=$arkweb_trim_render_process_memory",
     "ARKWEB_PERFORMANCE_PERSISTENT_TASK=$arkweb_performance_persistent_task",
     "ARKWEB_PERFORMANCE_SCHEDULING=$arkweb_performance_scheduling",
     "ARKWEB_PER_DFX=$arkweb_per_dfx",
@@ -598,7 +602,9 @@ buildflag_header("features") {
     "ARKWEB_SWAP_BUFFER_TRACE=$arkweb_swap_buffer_trace",
     "ARKWEB_SAFEBROWSING=$arkweb_safebrowsing",
     "ARKWEB_PERMISSION=$arkweb_permission",
+    "ARKWEB_GPU_IMAGE_PERSISTENT_CACHE_LIMIT=$arkweb_gpu_image_persistent_cache_limit",
     "ARKWEB_HEIF_SUPPORT=$arkweb_heif_support",
+    "ARKWEB_CLIPPED_IMAGE_SCALING=$arkweb_clipped_image_scaling",
     "ARKWEB_ADVANCED_SECURITY_MODE=$arkweb_advanced_security_mode",
     "ARKWEB_DRAG_RESIZE=$arkweb_drag_resize",
     "ARKWEB_EX_SCREEN_CAPTURE=$arkweb_ex_screen_capture",
