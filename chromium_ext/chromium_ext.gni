@@ -703,9 +703,7 @@ arkweb_components_content_settings_renderer_sources = [
   "//arkweb/chromium_ext/components/content_settings/renderer/arkweb_content_settings_agent_impl_ext.h",
 ]
 
-arkweb_components_pdf_browser_test_sources = [
-  "//arkweb/chromium_ext/components/pdf/browser/pdf_document_helper_for_include_unittest.cpp"
-]
+arkweb_components_pdf_browser_test_sources = [ "//arkweb/chromium_ext/components/pdf/browser/pdf_document_helper_for_include_unittest.cpp" ]
 
 arkweb_components_subresource_filter_content_renderer_sources = [
   "//arkweb/chromium_ext/components/subresource_filter/content/renderer/arkweb_subresource_filter_agent_ext.cc",
@@ -719,6 +717,7 @@ arkweb_components_subresource_filter_content_renderer_sources = [
 arkweb_components_cdm_render_unittest_sources = [ "//arkweb/chromium_ext/components/cdm/renderer/wiseplay_key_system_info_unittest.cc" ]
 
 arkweb_components_subresource_filter_content_renderer_unittest_sources = [
+  "//arkweb/chromium_ext/components/subresource_filter/content/renderer/arkweb_subresource_filter_agent_ext_unittest.cc",
   "//arkweb/chromium_ext/components/subresource_filter/content/renderer/user_subresource_filter_agent_unittest.cc",
   "//arkweb/chromium_ext/components/subresource_filter/content/renderer/user_unverified_ruleset_dealer_unittest.cc",
   "//arkweb/chromium_ext/components/subresource_filter/content/renderer/web_document_subresource_filter_impl_for_include_unittest.cc",
@@ -1558,8 +1557,8 @@ arkweb_content_browser_media_video_assistant = [
 arkweb_components_safe_browsing_content_browser_sources = [
   "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.cc",
   "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.h",
-  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_threat_type.h",
   "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_blocking_page_info.h",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_threat_type.h",
 ]
 
 arkweb_services_network_mojom_traits_sources = []

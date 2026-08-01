@@ -838,4 +838,92 @@ TEST_F(UserRulesetServiceTest, WriteRuleset_FailedWritingLicense) {
       base::span<const uint8_t>(GetValidIndexRulesetContent(0)));
   EXPECT_EQ(result, IndexAndWriteRulesetResult::FAILED_WRITING_LICENSE);
 }
+// Test GetMostRecentlyIndexedVersion returns correct version from prefs
+TEST_F(UserRulesetServiceTest, GetMostRecentlyIndexedVersion_ReturnsFromPrefs) {
+  CreateUserRulesetService();
+  EXPECT_NE(service(), nullptr);
+
+  // Initially should return default (invalid) version
+  auto version = service()->GetMostRecentlyIndexedVersion();
+  EXPECT_FALSE(version.IsValid());
+
+  // Save a valid version and verify it can be retrieved
+  UserIndexedRulesetVersion saved_version("content_2.0", CurrentFormatVersion(),
+                                          kTestUserRulesetConfig.filter_tag);
+  saved_version.SaveToPrefs(prefs());
+  version = service()->GetMostRecentlyIndexedVersion();
+  EXPECT_TRUE(version.IsValid());
+  EXPECT_EQ(version.content_version, "content_2.0");
+}
+
+// Test IndexAndWriteRuleset when sentinel file cannot be created
+TEST_F(UserRulesetServiceTest, IndexAndWriteRuleset_SentinelCreateFails) {
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII(base::NumberToString(CurrentFormatVersion()));
+  ASSERT_TRUE(base::CreateDirectory(indexed_ruleset_base_dir));
+
+  UserUnindexedRulesetInfo unindexed_ruleset_info =
+      CreateTestUnindexedRuleset();
+
+  // Pre-create the version directory and a FILE (not directory) at sentinel
+  // path to make sentinel creation fail
+  UserIndexedRulesetVersion indexed_version(
+      unindexed_ruleset_info.content_version,
+      UserIndexedRulesetVersion::CurrentFormatVersion(),
+      kTestUserRulesetConfig.filter_tag);
+  base::FilePath version_dir =
+      UserIndexedRulesetLocator::GetSubdirectoryPathForVersion(
+          indexed_ruleset_base_dir, indexed_version);
+  // Do NOT create the version directory - make the parent path invalid
+  // so that sentinel file creation fails (need version_dir to not exist
+  // so that CreateDirectory fails for a sub-path)
+
+  // Actually, a simpler approach: create the version_dir but make it
+  // read-only so WriteFile for sentinel fails
+  ASSERT_TRUE(base::CreateDirectory(version_dir));
+  base::FilePath sentinel_path =
+      UserIndexedRulesetLocator::GetSentinelFilePath(version_dir);
+  // Create a directory at the sentinel path to prevent file creation
+  ASSERT_TRUE(base::CreateDirectory(sentinel_path));
+
+  UserIndexedRulesetVersion result = UserRulesetService::IndexAndWriteRuleset(
+      kTestUserRulesetConfig, indexed_ruleset_base_dir, unindexed_ruleset_info);
+
+  // Sentinel creation should fail since path is a directory
+  EXPECT_EQ(result.filter_tag, kTestUserRulesetConfig.filter_tag);
+  EXPECT_FALSE(result.IsValid());
+
+  // Cleanup: remove the directory we created at sentinel path
+  base::DeletePathRecursively(sentinel_path);
+}
+
+// Test DeleteObsoleteRulesets with null client and obsolete format dirs
+TEST_F(UserRulesetServiceTest,
+       DeleteObsoleteRulesets_NullClientWithObsoleteFormat) {
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII("indexed_ruleset_null_client");
+  // Create an obsolete format directory
+  int obsolete_format = UserIndexedRulesetVersion::CurrentFormatVersion() + 1;
+  ASSERT_TRUE(base::CreateDirectory(
+      indexed_ruleset_base_dir
+          .AppendASCII(base::NumberToString(obsolete_format))
+          .AppendASCII("old_content")));
+  // Create current format directory (empty)
+  ASSERT_TRUE(base::CreateDirectory(
+      indexed_ruleset_base_dir.AppendASCII(base::NumberToString(
+          UserIndexedRulesetVersion::CurrentFormatVersion()))));
+
+  UserIndexedRulesetVersion most_recent_version(
+      "content_1.0", CurrentFormatVersion(), kTestUserRulesetConfig.filter_tag);
+
+  // Call with null client - should not crash even with obsolete format dirs
+  EXPECT_NO_FATAL_FAILURE(UserIndexedRulesetLocator::DeleteObsoleteRulesets(
+      indexed_ruleset_base_dir, base::FilePath(), nullptr,
+      most_recent_version));
+
+  // The obsolete format dir should still have been deleted
+  EXPECT_FALSE(base::PathExists(indexed_ruleset_base_dir.AppendASCII(
+      base::NumberToString(obsolete_format))));
+}
+
 }  // namespace subresource_filter
