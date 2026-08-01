@@ -26,8 +26,6 @@ constexpr char16_t DEL_CHAR = 127;
 
 namespace OHOS::NWeb {
 void NWebCustomKeyboardHandlerImpl::InsertText(const std::string& text) {
-  LOG(DEBUG) << "WebCustomKeyboard insert text, text = " << text;
-
   if (!isAttached_) {
     LOG(ERROR) << "WebCustomKeyboard custom keyboard is not attached, insert "
                   "text return";

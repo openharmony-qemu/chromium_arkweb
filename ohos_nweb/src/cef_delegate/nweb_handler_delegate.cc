@@ -2720,8 +2720,7 @@ bool NWebHandlerDelegate::OnPreKeyEvent(CefRefPtr<CefBrowser> browser,
                                         const CefKeyEvent& event,
                                         CefEventHandle os_event,
                                         bool* is_keyboard_shortcut) {
-  LOG(DEBUG) << "NWebHandlerDelegate::OnPreKeyEvent type:" << event.type
-             << ", win:" << event.windows_key_code;
+  LOG(DEBUG) << "NWebHandlerDelegate::OnPreKeyEvent type:" << event.type;
   if (nweb_handler_ != nullptr) {
     int32_t action =
         NWebInputDelegate::CefConverter("ohoskeyaction", event.type);
@@ -2743,8 +2742,7 @@ bool NWebHandlerDelegate::OnPreKeyEvent(CefRefPtr<CefBrowser> browser,
 bool NWebHandlerDelegate::OnKeyEvent(CefRefPtr<CefBrowser> browser,
                                      const CefKeyEvent& event,
                                      CefEventHandle os_event) {
-  LOG(DEBUG) << "NWebHandlerDelegate::OnKeyEvent type:" << event.type
-             << ", win:" << event.windows_key_code;
+  LOG(DEBUG) << "NWebHandlerDelegate::OnKeyEvent type:" << event.type;
   if (nweb_handler_ != nullptr) {
     int32_t action =
         NWebInputDelegate::CefConverter("ohoskeyaction", event.type);
@@ -2767,7 +2765,7 @@ bool NWebHandlerDelegate::OnKeyEvent(CefRefPtr<CefBrowser> browser,
 void NWebHandlerDelegate::KeyboardReDispatch(const CefKeyEvent& event,
                                              bool isUsed) {
   LOG(INFO) << "NWebHandlerDelegate::KeyboardReDispatch type:" << event.type
-            << ", win:" << event.windows_key_code << ", isUsed:" << isUsed;
+            << ", isUsed:" << isUsed;
   if (nweb_handler_ != nullptr) {
     int32_t action =
         NWebInputDelegate::CefConverter("ohoskeyaction", event.type);
