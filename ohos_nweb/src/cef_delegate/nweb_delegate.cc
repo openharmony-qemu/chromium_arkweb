@@ -7042,8 +7042,7 @@ void NWebDelegate::SetErrorPageEnabled(bool enable, bool includeSubframe) {
       << ", nweb_id_[" << nweb_id_ << "]";
     return;
   }
-  preference_delegate_->PutErrorPageEnabled(enable);
-  preference_delegate_->PutSubframeErrorPageEnabled(enable && includeSubframe);
+  preference_delegate_->PutErrorPageEnabled(enable, includeSubframe);
 }
 
 bool NWebDelegate::GetSubframeErrorPageEnabled() {

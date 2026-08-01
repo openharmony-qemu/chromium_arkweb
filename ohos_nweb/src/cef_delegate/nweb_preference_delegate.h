@@ -357,8 +357,8 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
   bool ErrorPageEnabled();
   void PutErrorPageEnabled(bool enable);
+  void PutErrorPageEnabled(bool enable, bool includeSubframe);
   bool SubframeErrorPageEnabled();
-  void PutSubframeErrorPageEnabled(bool enable);
 #endif
 
  private:
