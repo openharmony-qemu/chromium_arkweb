@@ -46,6 +46,9 @@ class LocationProviderCallback : public OHOS::NWeb::LocationCallbackAdapter {
   void SetUpdateCallback(const UpdateCallback& callback) {
     callback_ = callback;
   }
+  void ResetCallback() {
+    callback_.Reset();
+  }
   const mojom::GeopositionResult* GetPosition() { return last_position_.get(); }
 
  private:
