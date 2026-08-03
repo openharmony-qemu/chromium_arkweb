@@ -20,11 +20,11 @@ using ResRequestInfoCacheLoadedCB =
     const net::NetworkAnonymizationKey& networkAnonymizationKey,
     const std::string& page_seq_num)>;
 
-enum JSONParseResult : uint32_t {
-  SUCCEED = 0,
-  VALUE_PARESE_ERROR = 1,
-  VALUE_MATCHED_ERROR = 2,
-  VALUE_INVALID = 3,
+enum JSONParseResult : uint32_t{
+  kSuccess = 0,
+  kValueParseError = 1,
+  kValueInconsistent = 2,
+  kValueInvalid = 3,
 };
 
 class ResReqInfoCacheMgr : public base::RefCountedThreadSafe<ResReqInfoCacheMgr> {
