@@ -311,6 +311,7 @@ if (arkweb_same_layer) {
 if (defined(arkweb_custom_video_player) && arkweb_custom_video_player) {
   import(
       "//arkweb/chromium_ext/content/renderer/media/ohos/arkweb_content_renderer_media_ohos.gni")
+
   arkweb_content_render_sources +=
       arkweb_content_renderer_media_ohos_custom_media_player_sources
 }
@@ -1314,6 +1315,7 @@ arkweb_content_browser_test_sources = [
   "//arkweb/chromium_ext/content/browser/display_cutout/display_cutout_host_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/permissions/permission_service_impl_for_include_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/ark_web_render_frame_host_manager_test.cc",
+  "//arkweb/chromium_ext/content/browser/renderer_host/arkweb_navigation_controller_impl_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/arkweb_render_process_host_impl_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/navigation_request_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_impl_ext_unittest.cc",
