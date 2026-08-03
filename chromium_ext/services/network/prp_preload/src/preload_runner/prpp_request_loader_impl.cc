@@ -61,12 +61,12 @@ bool PRPPRequestLoaderImpl::Init(const net::IsolationInfo& isolation_info)
     return false;
   }
   real_load_flags_ = prpp_req_info_->load_flags();
-  InitAndStartUrlRequest(prpp_req_info_, isolation_info);
   // if real_load_flags_ contains net::LOAD_SHOULD_BYPASS_HSTS and allow_credentials is true, stop preloading.
   if (prpp_req_info_->allow_credentials() && (real_load_flags_ & net::LOAD_SHOULD_BYPASS_HSTS)) {
     LOG(INFO) << "PRPPreload.PRPPRequestLoaderImpl::Init, info is not matched";
     return false;
   }
+  InitAndStartUrlRequest(prpp_req_info_, isolation_info);
   return true;
 }
 

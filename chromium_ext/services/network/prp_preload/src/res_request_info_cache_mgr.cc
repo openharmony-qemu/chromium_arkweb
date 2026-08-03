@@ -106,7 +106,7 @@ JSONParseResult ParseJson(base::Value& json_value,
 {
   base::Value::List::iterator it = json_value.GetList().begin();
   if (it == json_value.GetList().end()) {
-    return JSONParseResult::VALUE_INVALID;
+    return JSONParseResult::kValueInvalid;
   }
   PRPPreloadMode mode =
     ohos_prp_preload::PRParallelPreloadMgr::GetInstance().GetPRParallelPreloadMode();
@@ -114,11 +114,11 @@ JSONParseResult ParseJson(base::Value& json_value,
   if (!DiskCacheInfoParser::GetRequestInfoTypeFromJson(*it, PARAM_REQUEST_INFO_TYPE, origin_info) ||
       (origin_info->type() != PRRequestInfoType::TYPE_PAGE_ORIGIN)) {
     LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList json parse request_info_type failed";
-    return JSONParseResult::VALUE_PARESE_ERROR;
+    return JSONParseResult::kValueParseError;
   }
   if (!DiskCacheInfoParser::GetPageIndexFromJson(*it, PARAM_PAGE_INDEX, origin_info)) {
     LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList json parse page_index failed";
-    return JSONParseResult::VALUE_PARESE_ERROR;
+    return JSONParseResult::kValueParseError;
   }
   page_index = origin_info->page_index() + 1;
   if (mode == PRPPreloadMode::PRELOAD &&
@@ -158,9 +158,9 @@ JSONParseResult ParseJson(base::Value& json_value,
     LOG(ERROR) << "PRPPreload.JsonToResReqPreloadInfoList info is broken";
     prelaod_info_list.clear();
     preconnect_limit_info_list.clear();
-    return JSONParseResult::VALUE_MATCHED_ERROR;
+    return JSONParseResult::kValueInconsistent;
   }
-  return JSONParseResult::SUCCEED;
+  return JSONParseResult::kSuccess;
 }
 
 JSONParseResult JsonToResReqPreloadInfoList(const std::string& content,
@@ -172,13 +172,13 @@ JSONParseResult JsonToResReqPreloadInfoList(const std::string& content,
   if (content.empty()) {
     prelaod_info_list.clear();
     preconnect_limit_info_list.clear();
-    return JSONParseResult::VALUE_INVALID;
+    return JSONParseResult::kValueInvalid;
   }
   absl::optional<base::Value> json_value = base::JSONReader::Read(
       content, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
   if (!json_value || !json_value->is_list()) {
     LOG(WARNING) << "PRPPreload.JsonToResReqPreloadInfoList failed";
-    return JSONParseResult::VALUE_INVALID;
+    return JSONParseResult::kValueInvalid;
   }
   auto ret = ParseJson(json_value.value(), prelaod_info_list, preconnect_limit_info_list, page_index);
   LOG(DEBUG) << "PRPPreload.JsonToResReqPreloadInfoList size:" << prelaod_info_list.size();
@@ -329,7 +329,7 @@ void ResReqInfoCacheMgr::OnEntryLoadedCallback(const std::string& entry_content)
   }
   auto parse_result  = JsonToResReqPreloadInfoList(entry_content, load_preload_info_list_,
     load_preconnect_limit_list_, page_index_);
-  if (parse_result  == JSONParseResult::VALUE_MATCHED_ERROR) {
+  if (parse_result  == JSONParseResult::kValueInconsistent) {
     disk_cache_->ClearDiskCache();
   }
 
