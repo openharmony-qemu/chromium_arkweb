@@ -49,6 +49,9 @@ class StreamTexture : public RefCountedLockHelperDrDc,
       GpuChannel* channel,
       int stream_id,
       gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver);
 
   StreamTexture(const StreamTexture&) = delete;
@@ -69,6 +72,9 @@ class StreamTexture : public RefCountedLockHelperDrDc,
   StreamTexture(GpuChannel* channel,
                 int32_t route_id,
                 gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+                bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
                 mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver,
                 scoped_refptr<SharedContextState> context_state);
   ~StreamTexture() override;
@@ -112,6 +118,10 @@ class StreamTexture : public RefCountedLockHelperDrDc,
   bool has_pending_frame_;
 
   gl::ohos::TextureOwnerMode texture_owner_mode_;
+
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+  bool is_custom_media_player_{false};
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
 
   int native_embed_id_{-1};
 

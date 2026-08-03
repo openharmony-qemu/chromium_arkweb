@@ -34,6 +34,9 @@ class CONTENT_EXPORT NativeTextureWrapperImpl
   static media::ScopedNativeTextureWrapper Create(
       bool enable_texture_copy,
       gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       scoped_refptr<NativeTextureFactory> factory,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
 
@@ -65,6 +68,9 @@ class CONTENT_EXPORT NativeTextureWrapperImpl
   NativeTextureWrapperImpl(
       bool enable_texture_copy,
       gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       scoped_refptr<NativeTextureFactory> factory,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner);
   ~NativeTextureWrapperImpl() override;
@@ -86,6 +92,9 @@ class CONTENT_EXPORT NativeTextureWrapperImpl
 
   bool enable_texture_copy_;
   gl::ohos::TextureOwnerMode texture_owner_mode_;
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+  bool is_custom_media_player_{false};
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
 
   // Object for calling back the compositor thread to repaint the video when a
   // frame is available. It should be bound to |compositor_task_runner_|.

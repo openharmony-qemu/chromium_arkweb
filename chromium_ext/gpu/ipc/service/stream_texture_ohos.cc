@@ -62,6 +62,9 @@ scoped_refptr<StreamTexture> StreamTexture::Create(
     GpuChannel* channel,
     int stream_id,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver) {
   LOG(INFO) << "[NativeEmbed] StreamTexture::Create.";
   ContextResult result;
@@ -75,6 +78,9 @@ scoped_refptr<StreamTexture> StreamTexture::Create(
     return nullptr;
   }
   return new StreamTexture(channel, stream_id, texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+                           is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
                            std::move(receiver), std::move(context_state));
 }
 
@@ -97,6 +103,9 @@ StreamTexture::StreamTexture(
     GpuChannel* channel,
     int32_t route_id,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver,
     scoped_refptr<SharedContextState> context_state)
     : RefCountedLockHelperDrDc(CreateDrDcLockIfNeeded()),
@@ -105,6 +114,9 @@ StreamTexture::StreamTexture(
                                                             GetDrDcLock())),
       has_pending_frame_(false),
       texture_owner_mode_(texture_owner_mode),
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      is_custom_media_player_(is_custom_media_player),
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
       channel_(channel),
       route_id_(route_id),
       context_state_(std::move(context_state)),
@@ -189,6 +201,13 @@ void StreamTexture::OnFrameAvailable() {
   // We haven't received size for first time yet from the MediaPlayer we will
   // defer this sending OnFrameAvailable till then.
   if (rotated_visible_size_.IsEmpty()) {
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    if (is_custom_media_player_) {
+      LOG(INFO) << "OnFrameAvailable, custom_media_player buffer needs to be cleared.";
+      native_texture_owner_->UpdateNativeImage();
+      has_pending_frame_ = false;
+    }
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     return;
   }
 

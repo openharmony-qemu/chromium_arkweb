@@ -27,11 +27,17 @@ int32_t TryCreateNativeTexture(
     base::WeakPtr<GpuChannel> channel,
     int32_t native_id,
     gl::ohos::TextureOwnerMode texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+    bool is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
     mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver) {
   if (!channel) {
     return -1;
   }
   channel->AsGpuChannelExt()->CreateNativeTexture(native_id, texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+                               is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
                                std::move(receiver));
   return channel->AsGpuChannelExt()->current_native_embed_id(native_id);
 }
@@ -41,6 +47,7 @@ int32_t TryCreateNativeTexture(
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 void GpuChannelMessageFilter::CreateNativeTexture(int32_t native_id,
                                           int32_t texture_owner_mode,
+                                          bool is_custom_media_player, // custom media player
                                           mojo::PendingAssociatedReceiver<mojom::StreamTexture> receiver,
                                           mojom::GpuChannel::CreateNativeTextureCallback callback) {
   base::AutoLock auto_lock(gpu_channel_lock_);
@@ -53,6 +60,9 @@ void GpuChannelMessageFilter::CreateNativeTexture(int32_t native_id,
       FROM_HERE,
       base::BindOnce(&TryCreateNativeTexture, gpu_channel_->AsWeakPtr(),
                      native_id, (gl::ohos::TextureOwnerMode)texture_owner_mode,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+                     is_custom_media_player,
+#endif // ARKWEB_CUSTOM_VIDEO_PLAYER
                      std::move(receiver)),
       std::move(callback));
 }
