@@ -15,9 +15,12 @@
 
 #include "builtins-longque.h"
 
+#include <atomic>
+
 #include "src/api/api-inl.h"
 #include "src/builtins/builtins-utils-inl.h"
 #include "src/builtins/builtins.h"
+#include "src/handles/global-handles.h"
 #include "src/heap/heap-inl.h"
 #include "src/logging/counters.h"
 #include "src/objects/objects-inl.h"
@@ -45,6 +48,77 @@ size_t GetGlobalSmiConstantsCount() {
   return arraysize(global_smi_constants);
 }
 }  // namespace longque
+
+namespace {
+std::atomic<DelegateKeyCache*> delegate_key_cache{nullptr};
+}  // namespace
+
+DelegateKeyCache* DelegateKeyCache::GetInstance() {
+  DelegateKeyCache* cache =
+      delegate_key_cache.load(std::memory_order_acquire);
+  if (cache != nullptr) {
+    return cache;
+  }
+
+  DelegateKeyCache* new_cache = new DelegateKeyCache();
+  if (!delegate_key_cache.compare_exchange_strong(
+          cache, new_cache, std::memory_order_release,
+          std::memory_order_acquire)) {
+    delete new_cache;
+  } else {
+    cache = new_cache;
+  }
+  return cache;
+}
+
+Handle<Object> DelegateKeyCache::Get(Isolate* isolate) {
+  base::MutexGuard guard(&mutex_);
+  auto it = isolate_to_slot_.find(isolate);
+  if (it != isolate_to_slot_.end()) {
+    return it->second;
+  }
+
+  AllowGarbageCollection allow_gc;
+  Handle<Object> slot = isolate->global_handles()->Create(
+      *Cast<Object>(isolate->factory()->NewPrivateSymbol()));
+  isolate_to_slot_.emplace(isolate, slot);
+  return slot;
+}
+
+void DelegateKeyCache::ReleaseItem(Isolate* isolate) {
+  base::MutexGuard guard(&mutex_);
+  auto it = isolate_to_slot_.find(isolate);
+  if (it == isolate_to_slot_.end()) {
+    return;
+  }
+  GlobalHandles::Destroy(it->second.location());
+  isolate_to_slot_.erase(it);
+}
+
+void DelegateKeyCache::ReleaseAll() {
+  base::MutexGuard guard(&mutex_);
+  for (auto& entry : isolate_to_slot_) {
+    GlobalHandles::Destroy(entry.second.location());
+  }
+  isolate_to_slot_.clear();
+}
+
+void DelegateKeyCache::Release(Isolate* isolate) {
+  DelegateKeyCache* cache =
+      delegate_key_cache.load(std::memory_order_acquire);
+  if (cache != nullptr) {
+    cache->ReleaseItem(isolate);
+  }
+}
+
+void DelegateKeyCache::Release() {
+  DelegateKeyCache* cache =
+      delegate_key_cache.exchange(nullptr, std::memory_order_acq_rel);
+  if (cache != nullptr) {
+    cache->ReleaseAll();
+    delete cache;
+  }
+}
 
 class DelegateBuilder {
  public:
@@ -89,11 +163,9 @@ static inline Tagged<Object> ThrowTypeError(Isolate* isolate,
 }
 
 static inline Handle<Name> GetDelegateKey(Isolate* isolate) {
-  AllowGarbageCollection allow_gc;
-  static Handle<Object> symbol = isolate->global_handles()->Create(
-      *Cast<Object>(isolate->factory()->NewPrivateSymbol()));
-  DCHECK(!symbol.is_null());
-  return Cast<Symbol>(symbol);
+  Handle<Object> slot = DelegateKeyCache::GetInstance()->Get(isolate);
+  DCHECK(!slot.is_null());
+  return Cast<Symbol>(slot);
 }
 
 static inline bool IsDelegate(Isolate* isolate, Handle<JSObject> object) {
