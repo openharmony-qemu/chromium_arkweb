@@ -21,8 +21,8 @@
 #include "cef/include/cef_request.h"
 #include "gtest/gtest.h"
 #include "ohos_nweb/src/capi/arkweb_scheme_handler.h"
-#include "ohos_nweb/src/ndk/scheme_handler/resource_request.h"
 #include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
+#include "ohos_nweb/src/ndk/scheme_handler/resource_request.h"
 
 using namespace testing;
 
@@ -105,7 +105,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, ArkWeb_HttpBodyStream_Test_OnReadComplete) {
   _awhbst->OnReadComplete(nullptr, 0);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, GetSize_WithValidPostDataStream_ReturnsCorrectSize) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       GetSize_WithValidPostDataStream_ReturnsCorrectSize) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   const uint64_t expected_size = 1024;
 
@@ -116,7 +117,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, GetSize_WithValidPostDataStream_ReturnsCorrec
   EXPECT_EQ(static_cast<uint64_t>(size), expected_size);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, GetPosition_WithValidPostDataStream_ReturnsCorrectPosition) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       GetPosition_WithValidPostDataStream_ReturnsCorrectPosition) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   const uint64_t expected_position = 512;
 
@@ -127,7 +129,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, GetPosition_WithValidPostDataStream_ReturnsCo
   EXPECT_EQ(static_cast<uint64_t>(position), expected_position);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, IsChunked_WithValidPostDataStream_ReturnsCorrectValue) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       IsChunked_WithValidPostDataStream_ReturnsCorrectValue) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   const bool expected_chunked = true;
 
@@ -138,7 +141,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, IsChunked_WithValidPostDataStream_ReturnsCorr
   EXPECT_EQ(is_chunked, expected_chunked);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, IsEOF_WithValidPostDataStream_ReturnsCorrectValue) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       IsEOF_WithValidPostDataStream_ReturnsCorrectValue) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   const bool expected_eof = true;
 
@@ -149,7 +153,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, IsEOF_WithValidPostDataStream_ReturnsCorrectV
   EXPECT_EQ(is_eof, expected_eof);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, IsInMemory_WithValidPostDataStream_ReturnsCorrectValue) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       IsInMemory_WithValidPostDataStream_ReturnsCorrectValue) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   const bool expected_in_memory = false;
 
@@ -174,7 +179,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, Read_WithNegativeBufLen) {
   int64_t negative_buf_len = -1;
   stream->Read(buffer, negative_buf_len);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("buf_len must be greater than or equal to 0."), std::string::npos);
+  EXPECT_NE(log_output.find("buf_len must be greater than or equal to 0."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, Read_WithNullPostDataStream) {
@@ -186,7 +192,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, Read_WithNullPostDataStream) {
   int64_t buf_len = -1;
   stream->Read(null_buffer, buf_len);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler read buffer is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler read buffer is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, AsyncRead_WithNullBuffer) {
@@ -198,7 +205,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, AsyncRead_WithNullBuffer) {
   int64_t buf_len = 10;
   stream->AsyncRead(null_buffer, buf_len);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_hadnler read buffer is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_hadnler read buffer is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, AsyncRead_WithNullPostDataStream) {
@@ -209,7 +217,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, AsyncRead_WithNullPostDataStream) {
   int64_t buf_len = 10;
   stream->AsyncRead(buffer, buf_len);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithNullStreamInitCallback) {
@@ -220,7 +229,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithNullStreamInitCallback) {
   stream->stream_init_callback = nullptr;
   stream->OnInitComplete(0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler stream_init_callback is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler stream_init_callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithValidCallback) {
@@ -228,12 +238,14 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithValidCallback) {
   auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
   auto mock_stream = std::make_shared<MockPostDataStream>();
   stream->post_data_stream = mock_stream.get();
-  ArkWeb_HttpBodyStreamInitCallback test_callback = 
-      [](const ArkWeb_HttpBodyStream* httpBodyStream, ArkWeb_NetError result) {};
+  ArkWeb_HttpBodyStreamInitCallback test_callback =
+      [](const ArkWeb_HttpBodyStream* httpBodyStream, ArkWeb_NetError result) {
+      };
   stream->stream_init_callback = test_callback;
   stream->OnInitComplete(0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_EQ(log_output.find("scheme_handler stream_init_callback is nullptr."), std::string::npos);
+  EXPECT_EQ(log_output.find("scheme_handler stream_init_callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithNullPostDataStream) {
@@ -243,10 +255,12 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithNullPostDataStream) {
   stream->read_async_callback = nullptr;
   stream->OnAsyncReadComplete(nullptr, 0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
+            std::string::npos);
 }
 
-TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithNullReadAsyncCallback) {
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       OnAsyncReadComplete_WithNullReadAsyncCallback) {
   testing::internal::CaptureStderr();
   auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
   auto mock_stream = std::make_shared<MockPostDataStream>();
@@ -254,7 +268,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithNullReadAsyncCallback
   stream->read_async_callback = nullptr;
   stream->OnAsyncReadComplete(nullptr, 0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler read async callback is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler read async callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithValidCallback) {
@@ -262,12 +277,14 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnAsyncReadComplete_WithValidCallback) {
   auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
   auto mock_stream = std::make_shared<MockPostDataStream>();
   stream->post_data_stream = mock_stream.get();
-  ArkWeb_HttpBodyStreamAsyncReadCallback test_callback = 
-      [](const ArkWeb_HttpBodyStream* httpBodyStream, uint8_t* buffer, int bytesRead) {};
+  ArkWeb_HttpBodyStreamAsyncReadCallback test_callback =
+      [](const ArkWeb_HttpBodyStream* httpBodyStream, uint8_t* buffer,
+         int bytesRead) {};
   stream->read_async_callback = test_callback;
   stream->OnAsyncReadComplete(nullptr, 0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_EQ(log_output.find("scheme_handler read async callback is nullptr."), std::string::npos);
+  EXPECT_EQ(log_output.find("scheme_handler read async callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnReadComplete_WithNullReadCallback) {
@@ -278,7 +295,8 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnReadComplete_WithNullReadCallback) {
   stream->read_callback = nullptr;
   stream->OnReadComplete(nullptr, 0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler read callback is nullptr."), std::string::npos);
+  EXPECT_NE(log_output.find("scheme_handler read callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnReadComplete_NormalExecutionPath) {
@@ -287,13 +305,15 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnReadComplete_NormalExecutionPath) {
   auto mock_stream = std::make_shared<MockPostDataStream>();
   stream->post_data_stream = mock_stream.get();
 
-  ArkWeb_HttpBodyStreamReadCallback test_callback = 
-      [](const ArkWeb_HttpBodyStream* httpBodyStream, uint8_t* buffer, int bytesRead) {};
+  ArkWeb_HttpBodyStreamReadCallback test_callback =
+      [](const ArkWeb_HttpBodyStream* httpBodyStream, uint8_t* buffer,
+         int bytesRead) {};
   stream->read_callback = test_callback;
   stream->is_ets_ = false;
   stream->OnReadComplete(nullptr, 0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_EQ(log_output.find("scheme_handler read callback is nullptr."), std::string::npos);
+  EXPECT_EQ(log_output.find("scheme_handler read callback is nullptr."),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WhenNotOnUITAndIsEtsTrue) {
@@ -301,11 +321,98 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WhenNotOnUITAndIsEtsTrue) {
   auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
   auto mock_stream = std::make_shared<MockPostDataStream>();
   stream->post_data_stream = mock_stream.get();
-  ArkWeb_HttpBodyStreamInitCallback test_callback = 
-      [](const ArkWeb_HttpBodyStream* httpBodyStream, ArkWeb_NetError result) {};
+  ArkWeb_HttpBodyStreamInitCallback test_callback =
+      [](const ArkWeb_HttpBodyStream* httpBodyStream, ArkWeb_NetError result) {
+      };
   stream->stream_init_callback = test_callback;
   stream->is_ets_ = false;
   stream->OnInitComplete(0);
   std::string log_output = testing::internal::GetCapturedStderr();
-  EXPECT_EQ(log_output.find("scheme_handler stream_init_callback is nullptr."), std::string::npos);
+  EXPECT_EQ(log_output.find("scheme_handler stream_init_callback is nullptr."),
+            std::string::npos);
+}
+
+// ===== Additional tests for uncovered branches =====
+
+TEST_F(ArkWeb_HttpBodyStream_Test, Constructor_NullCefRequest) {
+  // Test constructor with resource_request non-null but cef_request null
+  ArkWeb_ResourceRequest_ req(nullptr);
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(&req);
+  // post_data_stream should be null since cef_request is null
+  EXPECT_EQ(stream->post_data_stream.get(), nullptr);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, Constructor_NullUploadStream) {
+  // Test constructor with cef_request non-null but upload stream null
+  MockCefRequest mock_cef_request(nullptr);
+  ArkWeb_ResourceRequest_ req(&mock_cef_request);
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(&req);
+  // post_data_stream should be null since no upload stream
+  EXPECT_EQ(stream->post_data_stream.get(), nullptr);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, Constructor_ValidUploadStream) {
+  // Test constructor with valid upload stream - success path
+  auto mock_stream = std::make_shared<MockPostDataStream>();
+  MockCefRequest mock_cef_request(mock_stream.get());
+  ArkWeb_ResourceRequest_ req(&mock_cef_request);
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(&req);
+  // post_data_stream should be assigned
+  EXPECT_NE(stream->post_data_stream.get(), nullptr);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, Read_WithPostDataStreamNull) {
+  testing::internal::CaptureStderr();
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  stream->post_data_stream = nullptr;
+  char buffer[10];
+  stream->Read(buffer, 10);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test,
+       IsChunked_WithValidPostDataStream_ReturnsFalse) {
+  auto mock_stream = std::make_shared<MockPostDataStream>();
+  mock_stream->SetChunked(false);
+  _awhbst->post_data_stream = mock_stream.get();
+  bool is_chunked = _awhbst->IsChunked();
+  EXPECT_EQ(is_chunked, false);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, IsEOF_WithValidPostDataStream_ReturnsFalse) {
+  auto mock_stream = std::make_shared<MockPostDataStream>();
+  mock_stream->SetEOF(false);
+  _awhbst->post_data_stream = mock_stream.get();
+  bool is_eof = _awhbst->IsEOF();
+  EXPECT_EQ(is_eof, false);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, OnReadComplete_WithNullPostDataStream) {
+  testing::internal::CaptureStderr();
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  stream->post_data_stream = nullptr;
+  stream->read_callback = nullptr;
+  stream->OnReadComplete(nullptr, 0);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, ResetOnIOThread_WithNullPostDataStream) {
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  stream->post_data_stream = nullptr;
+  // Should return early without crash
+  EXPECT_NO_FATAL_FAILURE(stream->ResetOnIOThread());
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithNullPostDataStream) {
+  testing::internal::CaptureStderr();
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  stream->post_data_stream = nullptr;
+  stream->OnInitComplete(0);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
+            std::string::npos);
 }

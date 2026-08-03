@@ -14,11 +14,11 @@
  */
 
 #include "ohos_nweb/src/ndk/scheme_handler/response.h"
-#include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
 
 #include <gmock/gmock.h>
 
 #include "gtest/gtest.h"
+#include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
 
 using namespace testing;
 
@@ -110,8 +110,9 @@ TEST_F(ArkWeb_Response_Test, SetUrl_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetUrl("http://example.com");
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetUrl_WithNullCefResponse) {
@@ -121,8 +122,9 @@ TEST_F(ArkWeb_Response_Test, GetUrl_WithNullCefResponse) {
 
   char* url = nullptr;
   response->GetUrl(&url);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetUrl_MemoryAllocationFailure_BranchTest) {
@@ -142,8 +144,9 @@ TEST_F(ArkWeb_Response_Test, SetError_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetError(ARKWEB_NET_OK);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetError_WithNullCefResponse) {
@@ -158,8 +161,9 @@ TEST_F(ArkWeb_Response_Test, SetStatus_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetStatus(200);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetStatus_WithNullCefResponse) {
@@ -174,8 +178,9 @@ TEST_F(ArkWeb_Response_Test, SetStatusText_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetStatusText("Not Found");
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetStatusText_WithNullCefResponse) {
@@ -184,8 +189,9 @@ TEST_F(ArkWeb_Response_Test, GetStatusText_WithNullCefResponse) {
   response->cef_response = nullptr;
   char* status_text = nullptr;
   response->GetStatusText(&status_text);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, SetMimeType_WithNullCefResponse) {
@@ -193,8 +199,9 @@ TEST_F(ArkWeb_Response_Test, SetMimeType_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetMimeType("text/html");
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetMimeType_WithNullCefResponse) {
@@ -203,8 +210,9 @@ TEST_F(ArkWeb_Response_Test, GetMimeType_WithNullCefResponse) {
   response->cef_response = nullptr;
   char* mime_type = nullptr;
   response->GetMimeType(&mime_type);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, SetCharset_WithNullCefResponse) {
@@ -212,8 +220,9 @@ TEST_F(ArkWeb_Response_Test, SetCharset_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetCharset("UTF-8");
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetCharset_WithNullCefResponse) {
@@ -222,8 +231,9 @@ TEST_F(ArkWeb_Response_Test, GetCharset_WithNullCefResponse) {
   response->cef_response = nullptr;
   char* charset = nullptr;
   response->GetCharset(&charset);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, SetHeaderByName_WithNullCefResponse) {
@@ -231,8 +241,9 @@ TEST_F(ArkWeb_Response_Test, SetHeaderByName_WithNullCefResponse) {
   auto response = std::make_shared<ArkWeb_Response_>();
   response->cef_response = nullptr;
   response->SetHeaderByName("Content-Type", "text/html", true);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
 }
 
 TEST_F(ArkWeb_Response_Test, GetHeaderByName_WithNullCefResponse) {
@@ -241,6 +252,76 @@ TEST_F(ArkWeb_Response_Test, GetHeaderByName_WithNullCefResponse) {
   response->cef_response = nullptr;
   char* value = nullptr;
   response->GetHeaderByName("Content-Type", &value);
-  std::string log_output =  testing::internal::GetCapturedStderr();
-  EXPECT_NE(log_output.find("scheme_handler response is nullptr"), std::string::npos);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
+}
+
+// ===== Additional tests for uncovered branches =====
+
+TEST_F(ArkWeb_Response_Test, SetError_GetError_RoundTrip) {
+  _awrt->SetError(ARKWEB_ERR_IO_PENDING);
+  ArkWeb_NetError error = _awrt->GetError();
+  EXPECT_EQ(error, ARKWEB_ERR_IO_PENDING);
+}
+
+TEST_F(ArkWeb_Response_Test, SetStatus_GetStatus_RoundTrip) {
+  _awrt->SetStatus(404);
+  int32_t status = _awrt->GetStatus();
+  EXPECT_EQ(status, 404);
+}
+
+TEST_F(ArkWeb_Response_Test, GetStatusText_WithValidResponse) {
+  _awrt->SetStatusText("Not Found");
+  char* status_text = nullptr;
+  _awrt->GetStatusText(&status_text);
+  ASSERT_NE(status_text, nullptr);
+  EXPECT_STREQ(status_text, "Not Found");
+  free(status_text);
+}
+
+TEST_F(ArkWeb_Response_Test, GetMimeType_WithValidResponse) {
+  _awrt->SetMimeType("text/html");
+  char* mime_type = nullptr;
+  _awrt->GetMimeType(&mime_type);
+  ASSERT_NE(mime_type, nullptr);
+  EXPECT_STREQ(mime_type, "text/html");
+  free(mime_type);
+}
+
+TEST_F(ArkWeb_Response_Test, GetCharset_WithValidResponse) {
+  _awrt->SetCharset("UTF-8");
+  char* charset = nullptr;
+  _awrt->GetCharset(&charset);
+  ASSERT_NE(charset, nullptr);
+  EXPECT_STREQ(charset, "UTF-8");
+  free(charset);
+}
+
+TEST_F(ArkWeb_Response_Test, GetHeaderByName_WithValidResponse) {
+  _awrt->SetHeaderByName("X-Custom", "test-value", true);
+  char* value = nullptr;
+  _awrt->GetHeaderByName("X-Custom", &value);
+  ASSERT_NE(value, nullptr);
+  EXPECT_STREQ(value, "test-value");
+  free(value);
+}
+
+TEST_F(ArkWeb_Response_Test, GetUrl_EmptyUrl) {
+  // Test with empty URL
+  char* url = nullptr;
+  _awrt->GetUrl(&url);
+  ASSERT_NE(url, nullptr);
+  EXPECT_STREQ(url, "");
+  free(url);
+}
+
+TEST_F(ArkWeb_Response_Test, SetHeaderByName_NoOverwrite) {
+  _awrt->SetHeaderByName("X-Test", "value1", true);
+  _awrt->SetHeaderByName("X-Test", "value2", false);
+  char* value = nullptr;
+  _awrt->GetHeaderByName("X-Test", &value);
+  ASSERT_NE(value, nullptr);
+  EXPECT_STREQ(value, "value1");
+  free(value);
 }
