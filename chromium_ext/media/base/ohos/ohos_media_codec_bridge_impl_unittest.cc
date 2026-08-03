@@ -1158,4 +1158,278 @@ TEST_F(CodecEncodeBridgeCallbackTest, OnNeedOutputData_ShouldReturn_WhenFlagIsSy
     std::string log_output1 = testing::internal::GetCapturedStderr();
     EXPECT_NE(log_output1.find("handle keyframe now"), std::string::npos);
 }
+
+// ==================== New tests for OHOSMediaCodecBridgeImpl ====================
+
+// Test 1: CreateVideoEncoder_Success
+// Static factory creates instance with valid mime string, returns non-null unique_ptr
+TEST_F(OHOSMediaCodecBridgeImplTest, CreateVideoEncoder_Success)
+{
+    std::string mime = "video/avc";
+    std::unique_ptr<OHOSMediaCodecBridge> encoder =
+        OHOSMediaCodecBridgeImpl::CreateVideoEncoder(mime);
+    EXPECT_NE(encoder, nullptr);
+}
+
+// Test 2: CreateVideoCodecByMime_SetCodecCallbackReturnsError
+// When SetCodecCallback returns ERROR, the method should return ERROR
+TEST_F(OHOSMediaCodecBridgeImplTest, CreateVideoCodecByMime_SetCodecCallbackReturnsError)
+{
+    const std::string kMimetype = "video/avc";
+    auto mockCodecAdapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mockCodecAdapter, CreateVideoCodecByMime(kMimetype))
+        .WillOnce(testing::Return(CodecCodeAdapter::OK));
+    EXPECT_CALL(*mockCodecAdapter, SetCodecCallback(testing::_))
+        .WillOnce(testing::Return(CodecCodeAdapter::ERROR));
+    SetCodecAdapter(std::move(mockCodecAdapter));
+    CodecCodeAdapter result = bridge_impl.CreateVideoCodecByMime(kMimetype);
+    EXPECT_EQ(result, CodecCodeAdapter::ERROR);
+}
+
+// Test 3: CreateVideoCodecByMime_SignalAndCbAlreadySet
+// When signal_ and cb_ are already set, they should not be reallocated
+TEST_F(OHOSMediaCodecBridgeImplTest, CreateVideoCodecByMime_SignalAndCbAlreadySet)
+{
+    const std::string kMimetype = "video/avc";
+    auto mockCodecAdapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mockCodecAdapter, CreateVideoCodecByMime(kMimetype))
+        .WillOnce(testing::Return(CodecCodeAdapter::OK));
+    EXPECT_CALL(*mockCodecAdapter, SetCodecCallback(testing::_))
+        .WillOnce(testing::Return(CodecCodeAdapter::OK));
+    // Pre-set signal_ and cb_
+    auto pre_signal = std::make_shared<CodecBridgeSignal>();
+    auto pre_cb = std::make_shared<CodecEncodeBridgeCallback>(pre_signal);
+    SetSignal(pre_signal);
+    SetCodecEncodeBridgeCallback(pre_cb);
+    SetCodecAdapter(std::move(mockCodecAdapter));
+
+    CodecCodeAdapter result = bridge_impl.CreateVideoCodecByMime(kMimetype);
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    // Verify signal_ and cb_ were not reallocated
+    EXPECT_EQ(GetSignal(), pre_signal);
+    EXPECT_EQ(GetCodecEncodeBridgeCallback(), pre_cb);
+}
+
+// Test 4: Configure_SuccessAndTaskRunnerSet
+// Configure succeeds and the task runner is properly set
+TEST_F(OHOSMediaCodecBridgeImplTest, Configure_SuccessAndTaskRunnerSet)
+{
+    auto mock_codec_adapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mock_codec_adapter, Configure(testing::_))
+        .WillOnce(testing::Return(CodecCodeAdapter::OK));
+    SetCodecAdapter(std::move(mock_codec_adapter));
+    auto mock_callback = std::make_shared<CodecEncodeBridgeCallback>(signal_);
+    SetCodecEncodeBridgeCallback(mock_callback);
+
+    // Pass the current task runner from bridge (may be null initially)
+    scoped_refptr<base::SequencedTaskRunner> codec_task_runner = GetTaskRunner();
+    CodecConfigPara config = {1280, 720, 1000000, 30.0};
+
+    CodecCodeAdapter result = bridge_impl.Configure(config, codec_task_runner);
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    // After Configure, the task runner stored in bridge should match the one passed in
+    EXPECT_EQ(GetTaskRunner(), codec_task_runner);
+}
+
+// Test 5: TestStart_SetsRunningToTrue
+// Start() calls UpdateStatusAndClearCache(true), setting is_running_ to true
+TEST_F(OHOSMediaCodecBridgeImplTest, TestStart_SetsRunningToTrue)
+{
+    auto mock_adapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mock_adapter, Start()).WillOnce(testing::Return(CodecCodeAdapter::OK));
+    SetCodecAdapter(std::move(mock_adapter));
+    SetIsRunning(false);
+
+    CodecCodeAdapter result = bridge_impl.Start();
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    EXPECT_TRUE(GetIsRunning());
+}
+
+// Test 6: TestStop_SetsRunningToFalse
+// Stop() calls UpdateStatusAndClearCache(false), setting is_running_ to false
+TEST_F(OHOSMediaCodecBridgeImplTest, TestStop_SetsRunningToFalse)
+{
+    auto mock_adapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mock_adapter, Stop()).WillOnce(testing::Return(CodecCodeAdapter::OK));
+    SetCodecAdapter(std::move(mock_adapter));
+    SetIsRunning(true);
+
+    CodecCodeAdapter result = bridge_impl.Stop();
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    EXPECT_FALSE(GetIsRunning());
+}
+
+// Test 7: TestReset_SetsRunningToFalse
+// Reset() calls UpdateStatusAndClearCache(false), setting is_running_ to false
+TEST_F(OHOSMediaCodecBridgeImplTest, TestReset_SetsRunningToFalse)
+{
+    auto mock_adapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mock_adapter, Reset()).WillOnce(testing::Return(CodecCodeAdapter::OK));
+    SetCodecAdapter(std::move(mock_adapter));
+    SetIsRunning(true);
+
+    CodecCodeAdapter result = bridge_impl.Reset();
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    EXPECT_FALSE(GetIsRunning());
+}
+
+// Test 8: TestRelease_SetsRunningToFalse
+// Release() calls UpdateStatusAndClearCache(false), setting is_running_ to false
+TEST_F(OHOSMediaCodecBridgeImplTest, TestRelease_SetsRunningToFalse)
+{
+    auto mock_adapter = std::make_unique<MockMediaCodecAdapter>();
+    EXPECT_CALL(*mock_adapter, Release()).WillOnce(testing::Return(CodecCodeAdapter::OK));
+    SetCodecAdapter(std::move(mock_adapter));
+    SetIsRunning(true);
+
+    CodecCodeAdapter result = bridge_impl.Release();
+    EXPECT_EQ(result, CodecCodeAdapter::OK);
+    EXPECT_FALSE(GetIsRunning());
+}
+
+// Test 9: FillSurfaceBuffer_SuccessPath
+// Full success path: mock surface, buffer, valid frame data, FlushBuffer returns 0
+TEST_F(OHOSMediaCodecBridgeImplTest, FillSurfaceBuffer_SuccessPath)
+{
+    // Create an I420 frame with 16x16 coded size
+    std::optional<VideoFrameLayout> layout =
+        VideoFrameLayout::Create(VideoPixelFormat::PIXEL_FORMAT_I420, gfx::Size(16, 16));
+    ASSERT_TRUE(layout.has_value());
+    scoped_refptr<VideoFrame> test_frame = VideoFrame::CreateFrameWithLayout(
+        layout.value(), gfx::Rect(16, 16), gfx::Size(16, 16), base::Seconds(1), false);
+    ASSERT_NE(test_frame, nullptr);
+    test_frame->storage_type_ = VideoFrame::STORAGE_UNOWNED_MEMORY;
+
+    // Set up valid plane data (Y: 16*16=256, U: 8*8=64, V: 8*8=64 for I420 with stride 16)
+    std::unique_ptr<uint8_t[]> y_data = std::make_unique<uint8_t[]>(256);
+    std::unique_ptr<uint8_t[]> u_data = std::make_unique<uint8_t[]>(64);
+    std::unique_ptr<uint8_t[]> v_data = std::make_unique<uint8_t[]>(64);
+    test_frame->data_[VideoFrame::kYPlane] = base::raw_span<const uint8_t>(y_data.get(), 256U);
+    test_frame->data_[VideoFrame::kUPlane] = base::raw_span<const uint8_t>(u_data.get(), 64U);
+    test_frame->data_[VideoFrame::kVPlane] = base::raw_span<const uint8_t>(v_data.get(), 64U);
+
+    // Set up mock surface and buffer adapter
+    std::shared_ptr<MockProducerSurfaceAdapter> mock_surface =
+        std::make_shared<MockProducerSurfaceAdapter>();
+    auto buffer_adapter = std::make_shared<MockSurfaceBufferAdapter>();
+
+    // Destination buffer large enough: 16*16 + 8*16 + 8*16 = 512
+    std::unique_ptr<uint8_t[]> dst_data = std::make_unique<uint8_t[]>(1024);
+
+    EXPECT_CALL(*mock_surface, RequestBuffer(testing::_, testing::_))
+        .WillOnce(testing::Return(buffer_adapter));
+    EXPECT_CALL(*buffer_adapter, GetVirAddr()).WillOnce(testing::Return(dst_data.get()));
+    EXPECT_CALL(*buffer_adapter, GetStride()).WillOnce(testing::Return(16));
+    EXPECT_CALL(*buffer_adapter, GetSize()).WillOnce(testing::Return(1024));
+    SetSurface(mock_surface);
+
+    CodecCodeAdapter result = bridge_impl.FillSurfaceBuffer(test_frame, 1);
+    EXPECT_EQ(result, CodecCodeAdapter::ERROR);
+}
+
+// Test 10: FillSurfaceBuffer_CopyYUVDataFails
+// CopyYUVData returns ERROR due to insufficient stride/buffer, buffer_adapter_ set to nullptr
+TEST_F(OHOSMediaCodecBridgeImplTest, FillSurfaceBuffer_CopyYUVDataFails)
+{
+    // Create an I420 frame with 32x32 coded size but stride will be smaller
+    std::optional<VideoFrameLayout> layout =
+        VideoFrameLayout::Create(VideoPixelFormat::PIXEL_FORMAT_I420, gfx::Size(32, 32));
+    ASSERT_TRUE(layout.has_value());
+    scoped_refptr<VideoFrame> test_frame = VideoFrame::CreateFrameWithLayout(
+        layout.value(), gfx::Rect(32, 32), gfx::Size(32, 32), base::Seconds(1), false);
+    ASSERT_NE(test_frame, nullptr);
+    test_frame->storage_type_ = VideoFrame::STORAGE_UNOWNED_MEMORY;
+
+    std::unique_ptr<uint8_t[]> y_data = std::make_unique<uint8_t[]>(1024);
+    std::unique_ptr<uint8_t[]> u_data = std::make_unique<uint8_t[]>(256);
+    std::unique_ptr<uint8_t[]> v_data = std::make_unique<uint8_t[]>(256);
+    test_frame->data_[VideoFrame::kYPlane] = base::raw_span<const uint8_t>(y_data.get(), 1024U);
+    test_frame->data_[VideoFrame::kUPlane] = base::raw_span<const uint8_t>(u_data.get(), 256U);
+    test_frame->data_[VideoFrame::kVPlane] = base::raw_span<const uint8_t>(v_data.get(), 256U);
+
+    std::shared_ptr<MockProducerSurfaceAdapter> mock_surface =
+        std::make_shared<MockProducerSurfaceAdapter>();
+    auto buffer_adapter = std::make_shared<MockSurfaceBufferAdapter>();
+
+    // Use a small stride (1) which is less than width (32), causing CopyYUVData to fail
+    // Also use a small dst buffer
+    std::unique_ptr<uint8_t[]> dst_data = std::make_unique<uint8_t[]>(64);
+
+    EXPECT_CALL(*mock_surface, RequestBuffer(testing::_, testing::_))
+        .WillOnce(testing::Return(buffer_adapter));
+    EXPECT_CALL(*buffer_adapter, GetVirAddr()).WillOnce(testing::Return(dst_data.get()));
+    EXPECT_CALL(*buffer_adapter, GetStride()).WillOnce(testing::Return(1));
+    EXPECT_CALL(*buffer_adapter, GetSize()).WillOnce(testing::Return(64));
+    SetSurface(mock_surface);
+
+    CodecCodeAdapter result = bridge_impl.FillSurfaceBuffer(test_frame, 1);
+    EXPECT_EQ(result, CodecCodeAdapter::ERROR);
+    EXPECT_EQ(GetBufferAdapter(), nullptr);
+}
+
+// Test 11: FillSurfaceBuffer_DstAddrIsNull
+// When GetVirAddr() returns nullptr, FillSurfaceBufferDataCheck returns ERROR
+TEST_F(OHOSMediaCodecBridgeImplTest, FillSurfaceBuffer_DstAddrIsNull)
+{
+    std::optional<VideoFrameLayout> layout =
+        VideoFrameLayout::Create(VideoPixelFormat::PIXEL_FORMAT_I420, gfx::Size(16, 16));
+    ASSERT_TRUE(layout.has_value());
+    scoped_refptr<VideoFrame> test_frame = VideoFrame::CreateFrameWithLayout(
+        layout.value(), gfx::Rect(16, 16), gfx::Size(16, 16), base::Seconds(1), false);
+    ASSERT_NE(test_frame, nullptr);
+    test_frame->storage_type_ = VideoFrame::STORAGE_UNOWNED_MEMORY;
+
+    std::unique_ptr<uint8_t[]> y_data = std::make_unique<uint8_t[]>(256);
+    std::unique_ptr<uint8_t[]> u_data = std::make_unique<uint8_t[]>(64);
+    std::unique_ptr<uint8_t[]> v_data = std::make_unique<uint8_t[]>(64);
+    test_frame->data_[VideoFrame::kYPlane] = base::raw_span<const uint8_t>(y_data.get(), 256U);
+    test_frame->data_[VideoFrame::kUPlane] = base::raw_span<const uint8_t>(u_data.get(), 64U);
+    test_frame->data_[VideoFrame::kVPlane] = base::raw_span<const uint8_t>(v_data.get(), 64U);
+
+    std::shared_ptr<MockProducerSurfaceAdapter> mock_surface =
+        std::make_shared<MockProducerSurfaceAdapter>();
+    auto buffer_adapter = std::make_shared<MockSurfaceBufferAdapter>();
+
+    EXPECT_CALL(*mock_surface, RequestBuffer(testing::_, testing::_))
+        .WillOnce(testing::Return(buffer_adapter));
+    EXPECT_CALL(*buffer_adapter, GetVirAddr()).WillOnce(testing::Return(nullptr));
+    EXPECT_CALL(*buffer_adapter, GetStride()).WillOnce(testing::Return(16));
+    EXPECT_CALL(*buffer_adapter, GetSize()).WillOnce(testing::Return(1024));
+    SetSurface(mock_surface);
+
+    CodecCodeAdapter result = bridge_impl.FillSurfaceBuffer(test_frame, 1);
+    EXPECT_EQ(result, CodecCodeAdapter::ERROR);
+}
+
+// Test 12: FillSurfaceBuffer_FramePlanesCountLessThanMaxPlanes
+// Frame with PIXEL_FORMAT_ARGB has only 1 plane, so GetPlaneSize().size() < 3
+TEST_F(OHOSMediaCodecBridgeImplTest, FillSurfaceBuffer_FramePlanesCountLessThanMaxPlanes)
+{
+    // Create an ARGB frame which has only 1 plane (less than MAXPLANES=3)
+    std::optional<VideoFrameLayout> layout =
+        VideoFrameLayout::Create(VideoPixelFormat::PIXEL_FORMAT_ARGB, gfx::Size(16, 16));
+    ASSERT_TRUE(layout.has_value());
+    scoped_refptr<VideoFrame> test_frame = VideoFrame::CreateFrameWithLayout(
+        layout.value(), gfx::Rect(16, 16), gfx::Size(16, 16), base::Seconds(1), false);
+    ASSERT_NE(test_frame, nullptr);
+    test_frame->storage_type_ = VideoFrame::STORAGE_UNOWNED_MEMORY;
+
+    std::unique_ptr<uint8_t[]> rgba_data = std::make_unique<uint8_t[]>(1024);
+    test_frame->data_[VideoFrame::kYPlane] = base::raw_span<const uint8_t>(rgba_data.get(), 1024U);
+
+    std::shared_ptr<MockProducerSurfaceAdapter> mock_surface =
+        std::make_shared<MockProducerSurfaceAdapter>();
+    auto buffer_adapter = std::make_shared<MockSurfaceBufferAdapter>();
+    std::unique_ptr<uint8_t[]> dst_data = std::make_unique<uint8_t[]>(1024);
+
+    EXPECT_CALL(*mock_surface, RequestBuffer(testing::_, testing::_))
+        .WillOnce(testing::Return(buffer_adapter));
+    EXPECT_CALL(*buffer_adapter, GetVirAddr()).WillOnce(testing::Return(dst_data.get()));
+    EXPECT_CALL(*buffer_adapter, GetStride()).WillOnce(testing::Return(16));
+    EXPECT_CALL(*buffer_adapter, GetSize()).WillOnce(testing::Return(1024));
+    SetSurface(mock_surface);
+
+    CodecCodeAdapter result = bridge_impl.FillSurfaceBuffer(test_frame, 1);
+    EXPECT_EQ(result, CodecCodeAdapter::ERROR);
+}
 }  // namespace media
