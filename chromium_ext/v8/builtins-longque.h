@@ -16,10 +16,34 @@
 #ifndef V8_BUILTINS_BUILTINS_LONGQUE_H_
 #define V8_BUILTINS_BUILTINS_LONGQUE_H_
 
+#include <unordered_map>
+
+#include "src/base/platform/mutex.h"
+#include "src/handles/handles.h"
 #include "v8-internal.h"
 
 namespace v8 {
 namespace internal {
+
+class DelegateKeyCache final {
+ public:
+  static DelegateKeyCache* GetInstance();
+
+  Handle<Object> Get(Isolate* isolate);
+  static void Release(Isolate* isolate);
+  static void Release();
+
+ private:
+  DelegateKeyCache() = default;
+  ~DelegateKeyCache() = default;
+
+  void ReleaseItem(Isolate* isolate);
+  void ReleaseAll();
+
+  base::Mutex mutex_;
+  std::unordered_map<Isolate*, Handle<Object>> isolate_to_slot_;
+};
+
 namespace longque {
 extern const char* name;
 
