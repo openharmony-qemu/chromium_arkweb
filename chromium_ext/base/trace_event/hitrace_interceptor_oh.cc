@@ -275,7 +275,19 @@ bool HiTraceInterceptor::ShouldForwardCategory(const std::string& category_str) 
   }
 
   constexpr std::string_view kDisabledPrefix = "disabled-";
-  return !base::StartsWith(category_str, kDisabledPrefix);
+  if (base::StartsWith(category_str, kDisabledPrefix)) {
+    return false;
+  }
+
+  constexpr std::string_view kExcludedSubstrings[] = {
+      ".flow",
+  };
+  for (auto sub : kExcludedSubstrings) {
+    if (category_str.find(sub) != std::string::npos) {
+      return false;
+    }
+  }
+  return true;
 #else
   return false;
 #endif
