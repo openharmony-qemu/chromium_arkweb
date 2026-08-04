@@ -136,12 +136,12 @@ void RenderRemoteProxy::NotifyBrowser(
     }
 
     LOG(INFO) << "Wait for AMS to return IPC fd success and wake up process";
-    RenderRemoteProxy::is_browser_fd_received_ = true;
-    RenderRemoteProxy::browser_fd_cv_.notify_one();
     if (clientAdapter) {
       LOG(DEBUG) << "NWebNativeWindowTracker set g_browser_client_";
       NWebNativeWindowTracker::Get()->SetBrowserClient(clientAdapter);
     }
+    RenderRemoteProxy::is_browser_fd_received_ = true;
+    RenderRemoteProxy::browser_fd_cv_.notify_one();
     return;
   }
 
@@ -154,10 +154,10 @@ void RenderRemoteProxy::NotifyBrowser(
   auto type = command_line->GetSwitchValueASCII(switches::kProcessType);
   if (clientAdapter && type == switches::kGpuProcess) {
     // only gpu
+    NWebNativeWindowTracker::Get()->SetBrowserClient(clientAdapter);
     RenderRemoteProxy::is_browser_fd_received_ = true;
     RenderRemoteProxy::browser_fd_cv_.notify_one();
     LOG(DEBUG) << "NWebNativeWindowTracker set g_browser_client_";
-    NWebNativeWindowTracker::Get()->SetBrowserClient(clientAdapter);
   }
 }
 
