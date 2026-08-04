@@ -25,6 +25,7 @@
 #include "base/timer/timer.h"
 #include "content/public/browser/spare_render_process_host_manager.h"
 #include "base/no_destructor.h"
+#include "base/gtest_prod_util.h"
 
 namespace content {
 class BrowserContext;
@@ -39,6 +40,26 @@ class SpareRenderProcessManagerOhos
     : public content::SpareRenderProcessHostManager::Observer {
  public:
    friend class base::NoDestructor<SpareRenderProcessManagerOhos>;
+
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, WarmupSpare_WhenNotIdle_ReturnsEarly);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, WarmupSpare_WithNullContext_ReturnsEarly);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest,
+                            NotifyWarmupSpareLaunched_WhenNotFork_TransitionsToActive);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, NotifyWarmupSpareLaunched_WhenSpareTaken_SkipsTimer);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostReady_WhenActive_SetsSpareRph);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostReady_WhenInactive_SetsSpareRph);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostRemoved_WhenNotFork_ReturnsEarly);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest,
+                            OnSpareRenderProcessHostRemoved_WhenActive_ReportsInactive);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostRemoved_WhenActive_NoTimer);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostRemoved_WhenInactive_Unregisters);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareRenderProcessHostRemoved_WhenInactive_NoTimer);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareTaken_WhenActive_WithTimer_TransitionsToReleased);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareTaken_WhenActive_NoTimer_TransitionsToReleased);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnSpareTaken_WhenInactive_TransitionsToReleased);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, OnRenderActiveTimeout_WhenActive_TransitionsToInactive);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, IsSpareRenderProcess_WhenActiveMatchingPid_ReturnsTrue);
+  FRIEND_TEST_ALL_PREFIXES(SpareRenderProcessManagerOhosTest, IsSpareRenderProcess_WhenInactiveMatchingPid_ReturnsTrue);
 
   enum class State {
     IDLE = 0,     // No spare process
