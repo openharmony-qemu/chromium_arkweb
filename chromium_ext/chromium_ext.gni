@@ -339,6 +339,7 @@ arkweb_media_base_unittest_sources = [
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_drm_storage_bridge_unittest.cc",
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_bridge_unittest.cc",
   "//arkweb/chromium_ext/media/base/ohos/ohos_media_player_callback_unittest.cc",
+  "//arkweb/chromium_ext/media/base/ohos/ohos_media_source_download_manager_unittest.cc",
   "//arkweb/chromium_ext/media/base/pipeline_impl_for_include_unittest.cc",
   "//arkweb/chromium_ext/media/base/video_util_ext_unittest.cc",
 ]
