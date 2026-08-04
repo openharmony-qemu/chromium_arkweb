@@ -466,58 +466,41 @@ bool OffheapTableDumper::BuildJSDispatchTable() {
     return false;
   }
 
-  // IsolateGroup::current() can return null in diagnostic contexts (e.g. when
-  // called outside of an active isolate group during a snapshot walk).
-  i::IsolateGroup* isolate_group = i::IsolateGroup::current();
-  if (isolate_group == nullptr) {
-    LogInfo(
-        "OffheapTableDumper: not writing kJSDispatchTable; "
-        "IsolateGroup::current() is null");
-    return false;
-  }
-  i::JSDispatchTable* jdt = isolate_group->js_dispatch_table();
-  if (jdt == nullptr) {
-    LogInfo(
-        "OffheapTableDumper: not writing kJSDispatchTable; "
-        "js_dispatch_table is null");
-    return false;
-  }
+  i::JSDispatchTable& jdt = isolate->js_dispatch_table();
 
   i::JSDispatchTable::Space* heap_space = heap_->js_dispatch_table_space();
   if (heap_space != nullptr) {
-    jdt->IterateActiveEntriesIn(heap_space, [&](i::JSDispatchHandle handle) {
+    jdt.IterateActiveEntriesIn(heap_space, [&](i::JSDispatchHandle handle) {
       RawHeapJSDispatchEntry entry{};
       entry.handle_ = handle.value();
       entry.state_ = kRawHeapJSDispatchEntryActive;
       // GetCode() returns Tagged<Code>; .address() strips kHeapObjectTag,
       // giving the untagged HeapObject address that FindObjectHead expects.
       entry.code_object_address_ =
-          static_cast<uint64_t>(jdt->GetCode(handle)->address());
-      entry.entrypoint_ = static_cast<uint64_t>(jdt->GetEntrypoint(handle));
+          static_cast<uint64_t>(jdt.GetCode(handle)->address());
+      entry.entrypoint_ = static_cast<uint64_t>(jdt.GetEntrypoint(handle));
       entry.parameter_count_ =
-          static_cast<uint32_t>(jdt->GetParameterCount(handle));
+          static_cast<uint32_t>(jdt.GetParameterCount(handle));
       entry.flags_ = 0;
       js_dispatch_entries_.push_back(entry);
     });
   }
 
-  i::ReadOnlyHeap* ro_heap = isolate->read_only_heap();
-  if (ro_heap != nullptr) {
-    i::JSDispatchTable::Space* ro_space = ro_heap->js_dispatch_table_space();
-    if (ro_space != nullptr) {
-      jdt->IterateActiveEntriesIn(ro_space, [&](i::JSDispatchHandle handle) {
-        RawHeapJSDispatchEntry entry{};
-        entry.handle_ = handle.value();
-        entry.state_ = kRawHeapJSDispatchEntryActive;
-        entry.code_object_address_ =
-            static_cast<uint64_t>(jdt->GetCode(handle)->address());
-        entry.entrypoint_ = static_cast<uint64_t>(jdt->GetEntrypoint(handle));
-        entry.parameter_count_ =
-            static_cast<uint32_t>(jdt->GetParameterCount(handle));
-        entry.flags_ = 0;
-        js_dispatch_entries_.push_back(entry);
-      });
-    }
+  i::JSDispatchTable::Space* ro_space =
+      heap_->read_only_js_dispatch_table_space();
+  if (ro_space != nullptr) {
+    jdt.IterateActiveEntriesIn(ro_space, [&](i::JSDispatchHandle handle) {
+      RawHeapJSDispatchEntry entry{};
+      entry.handle_ = handle.value();
+      entry.state_ = kRawHeapJSDispatchEntryActive;
+      entry.code_object_address_ =
+          static_cast<uint64_t>(jdt.GetCode(handle)->address());
+      entry.entrypoint_ = static_cast<uint64_t>(jdt.GetEntrypoint(handle));
+      entry.parameter_count_ =
+          static_cast<uint32_t>(jdt.GetParameterCount(handle));
+      entry.flags_ = 0;
+      js_dispatch_entries_.push_back(entry);
+    });
   }
 
   if (js_dispatch_entries_.empty()) {
