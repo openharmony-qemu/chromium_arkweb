@@ -93,12 +93,24 @@ SoftwareCompositorRendererOhos::SoftwareCompositorRendererOhos(
     SoftwareCompositorRegistryOhos* registry)
     : sink_(sink), registry_(registry) {}
 
-SoftwareCompositorRendererOhos::~SoftwareCompositorRendererOhos() {}
+SoftwareCompositorRendererOhos::~SoftwareCompositorRendererOhos() {
+  // Defensive cleanup: if DetachFromClient() was not called before destruction
+  // (e.g. abnormal teardown), unregister the BeginFrameSource to prevent
+  // DCHECK(registered_sources_.empty()) in FrameSinkManagerImpl destructor
+  // and dangling raw pointers in registered_sources_. Do NOT call
+  // DetachFromClient() here as registry_ may already be destroyed.
+  if (registered_begin_frame_source_ && frame_sink_manager_) {
+    frame_sink_manager_->UnregisterBeginFrameSource(
+        registered_begin_frame_source_);
+    registered_begin_frame_source_ = nullptr;
+  }
+}
 
 void SoftwareCompositorRendererOhos::BindToClient(
     LayerTreeFrameSinkClient* client,
     viz::BeginFrameSource* source) {
   client_ = client;
+  registered_begin_frame_source_ = source;
 
   registry_->RegisterSoftwareRenderer(this);
 
@@ -134,6 +146,13 @@ void SoftwareCompositorRendererOhos::BindToClient(
 
 void SoftwareCompositorRendererOhos::DetachFromClient() {
   registry_->UnregisterSoftwareRenderer(this);
+
+  if (frame_sink_manager_ && registered_begin_frame_source_) {
+    frame_sink_manager_->UnregisterBeginFrameSource(
+        registered_begin_frame_source_);
+    registered_begin_frame_source_ = nullptr;
+  }
+
   root_support_.reset();
   display_client_.reset();
   display_.reset();

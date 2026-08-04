@@ -83,6 +83,7 @@ class CC_MOJO_EMBEDDER_EXPORT SoftwareCompositorRendererOhos {
   raw_ptr<AsyncLayerTreeFrameSink> sink_ = nullptr;
   raw_ptr<SoftwareCompositorRegistryOhos> registry_ = nullptr;
   raw_ptr<LayerTreeFrameSinkClient> client_ = nullptr;
+  raw_ptr<viz::BeginFrameSource> registered_begin_frame_source_ = nullptr;
 
   std::unique_ptr<viz::FrameSinkManagerImpl> frame_sink_manager_;
   std::unique_ptr<viz::CompositorFrameSinkSupport> root_support_;
