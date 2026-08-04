@@ -680,6 +680,7 @@ buildflag_header("features") {
       "ARKWEB_EXT_RECEIVE_RESPONSE=false",
       "ARKWEB_EXT_EXTENSIONS_HEADER_CLIENT=false",
       "ARKWEB_WEB_APP=false",
+      "ARKWEB_EXT_SAFEBROWSING=false",
     ]
   }
 

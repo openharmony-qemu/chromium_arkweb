@@ -255,4 +255,10 @@ void ArkWebNavigationControllerImplExt::ReloadWithNetError(
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+NavigationEntry* ArkWebNavigationControllerImplExt::GetPostCommitErrorReplacedEntry() {
+  return entry_replaced_by_post_commit_error_.get();
+}
+#endif
+
 }  // namespace content
