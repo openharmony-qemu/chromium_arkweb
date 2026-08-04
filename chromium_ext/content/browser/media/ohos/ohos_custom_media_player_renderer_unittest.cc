@@ -1648,4 +1648,102 @@ TEST_F(OHOSCustomMediaPlayerRendererTest, UpdateVolumeWithMutedWebContents) {
   ASSERT_NO_FATAL_FAILURE(renderer_->UpdateVolume());
 }
 
+TEST_F(OHOSCustomMediaPlayerRendererTest, CreateMediaPlayerWithNullInitCb) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+
+  media::MediaPlayerUrlParams url_params = CreateUrlParams(GURL("https://example"));
+  renderer_->surface_id_ = 123;
+  renderer_->cookies_ = std::string("k=v");
+  renderer_->media_url_params_ = std::make_unique<media::MediaPlayerUrlParams>(url_params);
+  renderer_->init_cb_.Reset();
+  renderer_->initialized_ = false;
+
+  ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
+  EXPECT_FALSE(renderer_->initialized_);
+}
+
+TEST_F(OHOSCustomMediaPlayerRendererTest, CreateMediaPlayerWithNoGpuHost) {
+  const auto process_id = main_rfh()->GetProcess()->GetID();
+  const int routing_id = main_rfh()->GetRoutingID();
+  mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension>
+      client_remote;
+  renderer_ = std::make_unique<OHOSCustomMediaPlayerRenderer>(
+      process_id.value(), routing_id, 1, nullptr, std::move(client_remote),
+      media::MediaPlayerUrlParams(GURL(), net::SiteForCookies(), url::Origin(),
+                                  net::StorageAccessApiStatus::kNone, false,
+                                  base::flat_map<std::string, std::string>(),
+                                  0, 0));
+  ASSERT_NE(renderer_, nullptr);
+
+  media::MediaPlayerUrlParams url_params = CreateUrlParams(GURL("https://example"));
+  renderer_->surface_id_ = 123;
+  renderer_->cookies_ = std::string("k=v");
+  renderer_->media_url_params_ = std::make_unique<media::MediaPlayerUrlParams>(url_params);
+  renderer_->initialized_ = false;
+  callback_called_ = false;
+  renderer_->init_cb_ =
+      base::BindOnce(&OHOSCustomMediaPlayerRendererTest::OnInitCallback,
+                     base::Unretained(this));
+
+  ASSERT_NO_FATAL_FAILURE(renderer_->CreateMediaPlayer());
+  EXPECT_TRUE(callback_called_);
+  EXPECT_EQ(callback_status_, media::PIPELINE_ERROR_INITIALIZATION_FAILED);
+  EXPECT_FALSE(renderer_->initialized_);
+}
+
+TEST_F(OHOSCustomMediaPlayerRendererTest, DestructorWithMediaPlayerButNullWebContents) {
+  const auto process_id = main_rfh()->GetProcess()->GetID();
+  const int routing_id = main_rfh()->GetRoutingID();
+  mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension>
+      client_remote;
+  auto renderer = std::make_unique<OHOSCustomMediaPlayerRenderer>(
+      process_id.value(), routing_id, 1, nullptr, std::move(client_remote),
+      media::MediaPlayerUrlParams(GURL(), net::SiteForCookies(), url::Origin(),
+                                  net::StorageAccessApiStatus::kNone, false,
+                                  base::flat_map<std::string, std::string>(),
+                                  0, 0));
+  auto mock_player = std::make_unique<MockCustomMediaPlayer>();
+  EXPECT_CALL(*mock_player, Release()).Times(1);
+  renderer->media_player_ = std::move(mock_player);
+  renderer.reset();
+}
+
+TEST_F(OHOSCustomMediaPlayerRendererTest, BuildMediaInfoWithAllHeaders) {
+  CreateRenderer();
+  ASSERT_NE(renderer_, nullptr);
+
+  renderer_->surface_id_ = 99;
+  renderer_->is_audio_ = false;
+  renderer_->source_infos_.clear();
+  renderer_->source_infos_.push_back({"test.mp4", "video/mp4"});
+  renderer_->video_rect_ = gfx::Rect(0, 0, 1920, 1080);
+  renderer_->show_media_controls_ = true;
+  renderer_->controls_list_ = {"play", "pause"};
+  renderer_->muted_ = false;
+  renderer_->poster_url_ = "https://example.com/poster.png";
+  renderer_->attributes_.clear();
+  renderer_->attributes_.insert({"attr1", "val1"});
+  renderer_->cookies_ = std::string("session=abc");
+  renderer_->referrer_ = "https://referrer.com";
+
+  media::MediaPlayerUrlParams url_params = CreateUrlParams(
+      GURL("https://example"), false, 1, 1);
+  renderer_->media_url_params_ =
+      std::make_unique<media::MediaPlayerUrlParams>(url_params);
+
+  auto info = renderer_->BuildMediaInfo("surf-99");
+
+  EXPECT_EQ(info.embed_id, "99");
+  EXPECT_EQ(info.media_type, MediaInfo::MediaType::VIDEO);
+  ASSERT_EQ(info.media_src_list.size(), 1u);
+  EXPECT_GE(info.https_headers.size(), 3u);
+  auto cookie_it = info.https_headers.find(net::HttpRequestHeaders::kCookie);
+  EXPECT_NE(cookie_it, info.https_headers.end());
+  EXPECT_EQ(cookie_it->second, "session=abc");
+  auto referrer_it = info.https_headers.find(net::HttpRequestHeaders::kReferer);
+  EXPECT_NE(referrer_it, info.https_headers.end());
+  EXPECT_EQ(referrer_it->second, "https://referrer.com");
+}
+
 }  // namespace content
