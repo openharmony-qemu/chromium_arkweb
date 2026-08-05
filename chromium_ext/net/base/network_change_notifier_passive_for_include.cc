@@ -83,7 +83,7 @@ class NetConnCallbackImpl : public OHOS::NWeb::NetConnCallback {
   std::shared_ptr<OHOS::NWeb::NetConnectionPropertiesAdapter> properties_ =
       nullptr;
   int32_t net_id_ = -1;
-  int32_t network_for_dns_ = -1;
+  std::atomic<int32_t> network_for_dns_{-1};
   OHOS::NWeb::NetConnectType type_ =
       OHOS::NWeb::NetConnectType::CONNECTION_UNKNOWN;
   OHOS::NWeb::NetConnectSubtype subtype_ =
@@ -191,17 +191,20 @@ int32_t NetConnCallbackImpl::OnNetConnectionPropertiesChanged(
 void NetConnCallbackImpl::BindDnsToNetwork(int32_t network_for_dns) {
   LOG_FEEDBACK(INFO, kNetwork)
       << __func__ << " networkForDns:" << network_for_dns;
-  network_for_dns_ = network_for_dns;
+  network_for_dns_.store(network_for_dns, std::memory_order_relaxed);
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
   if (!network_change_notifier_posix_) {
       return;
   }
 
-  if (network_for_dns_ == -1) {
-    network_change_notifier_posix_->SetAddrListForBindedNetwork(std::vector<std::string>());
-    return;
+  int32_t dns_net = network_for_dns_.load(std::memory_order_relaxed);
+  if (dns_net == -1) {
+      network_change_notifier_posix_->SetAddrListForBindedNetwork(
+          std::vector<std::string>());
+      return;
   }
-  auto new_addr_list = network_change_notifier_posix_->GetNetAddrListByNetId(network_for_dns_);
+  auto new_addr_list =
+      network_change_notifier_posix_->GetNetAddrListByNetId(dns_net);
   network_change_notifier_posix_->SetAddrListForBindedNetwork(new_addr_list);
 #endif
 }
@@ -273,7 +276,7 @@ bool NetConnCallbackImpl::HasLinkPropertiesChanged() {
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
   std::vector<std::string> cur_addr_list;
   // Use addrlist for binded network if network_for_dns_ is not -1.
-  if (network_for_dns_ != -1) {
+  if (network_for_dns_.load(std::memory_order_relaxed) != -1) {
     cur_addr_list = network_change_notifier_posix_->GetAddrListForBindedNetwork();
   } else {
     cur_addr_list = network_change_notifier_posix_->GetDefaultAddrList();
@@ -316,9 +319,10 @@ void NetConnCallbackImpl::ConnectionTypeChangedTo(
     int32_t net_id,
     OHOS::NWeb::NetConnectType type,
     OHOS::NWeb::NetConnectSubtype subtype) {
-  if (network_for_dns_ != -1 && net_id != network_for_dns_) {
+  int32_t network_for_dns = network_for_dns_.load(std::memory_order_relaxed);
+  if (network_for_dns != -1 && net_id != network_for_dns) {
     LOG(INFO) << "ohos_network ConnectionTypeChangedTo ret, net_id " << net_id
-              << ", network_for_dns_ " << network_for_dns_;
+              << ", network_for_dns_ " << network_for_dns;
     return;
   }
 
@@ -327,14 +331,15 @@ void NetConnCallbackImpl::ConnectionTypeChangedTo(
   }
 
   if (net_id_ != net_id || type_ != type || HasLinkPropertiesChanged()) {
-    LOG(INFO) << "ohos_network ConnectionTypeChangedTo, net_id_ " << net_id_
-              << ", net_id " << net_id << ", type_ " << (int)type_ << ", type "
-              << (int)type << ", network_for_dns_ " << network_for_dns_;
-    net_id_ = net_id;
-    type_ = type;
+      LOG(INFO) << "ohos_network ConnectionTypeChangedTo, net_id_ " << net_id_
+                << ", net_id " << net_id << ", type_ " << (int)type_
+                << ", type " << (int)type << ", network_for_dns_ "
+                << network_for_dns;
+      net_id_ = net_id;
+      type_ = type;
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
     auto new_addr_list = network_change_notifier_posix_->GetNetAddrListByNetId(net_id_);
-    if (network_for_dns_ != -1) {
+    if (network_for_dns != -1) {
       auto addr_list_for_binded_network = network_change_notifier_posix_->GetAddrListForBindedNetwork();
       if (!IsSameAddrList(new_addr_list, addr_list_for_binded_network)) {
         MaybeNotifyIPAddressChanged();
@@ -370,7 +375,7 @@ base::NoDestructor<std::shared_ptr<NetConnCallbackImpl>> g_net_connect_callback(
 #if BUILDFLAG(IS_ARKWEB_EXT)
 base::NoDestructor<std::shared_ptr<VpnListenerImpl>> g_vpn_listener(nullptr);
 #endif
-int32_t g_callback_id = -1;
+std::atomic<int32_t> g_callback_id{-1};
 #endif
 
 }  // namespace
@@ -387,9 +392,10 @@ class NetworkChangeNotifierPassiveUtils {
     *g_vpn_listener = std::make_shared<VpnListenerImpl>(obj);
 #endif
     if (obj->ohos_net_conn_adapter_) {
-      g_callback_id = obj->ohos_net_conn_adapter_->RegisterNetConnCallback(
-          *g_net_connect_callback);
-      if (g_callback_id < 0) {
+      g_callback_id.store(obj->ohos_net_conn_adapter_->RegisterNetConnCallback(
+                              *g_net_connect_callback),
+                          std::memory_order_relaxed);
+      if (g_callback_id.load(std::memory_order_relaxed) < 0) {
         LOG(ERROR) << "register ohos net connect callback failed.";
       }
 #if BUILDFLAG(IS_ARKWEB_EXT)
@@ -401,8 +407,8 @@ class NetworkChangeNotifierPassiveUtils {
   static void UnRegisterOhosNetConnCallback(
       raw_ptr<NetworkChangeNotifierPassive> obj) {
     if (obj->ohos_net_conn_adapter_) {
-      int32_t ret =
-          obj->ohos_net_conn_adapter_->UnregisterNetConnCallback(g_callback_id);
+      int32_t ret = obj->ohos_net_conn_adapter_->UnregisterNetConnCallback(
+          g_callback_id.load(std::memory_order_relaxed));
       if (ret != 0) {
         LOG(ERROR) << "unregister ohos net connect callback failed.";
       }
