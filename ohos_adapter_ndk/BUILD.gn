@@ -30,6 +30,68 @@ declare_args() {
   }
 }
 
+config("string_utils_config") {
+  include_dirs = [
+    "utils/include",
+    "utils/extractortool/include",
+    "interfaces",
+  ]
+}
+
+component("adapter_string_utils") {
+  sources = [ "utils/extractortool/src/file_path_utils.cpp" ]
+
+  cflags = []
+  if (target_cpu == "arm") {
+    cflags += [ "-DBINDER_IPC_32BIT" ]
+  }
+
+  public_configs = [ ":string_utils_config" ]
+}
+
+config("ability_extractor_config") {
+  include_dirs = [
+    "utils/include",
+    "utils/extractortool/include",
+    "//third_party/zlib/",
+    "//third_party/zlib/contrib/minizip",
+    "interfaces",
+    "//third_party/ohos_ndk/includes/ohos_adapter",
+  ]
+}
+
+component("adapter_extractortool") {
+  sources = [
+    "utils/extractortool/src/extractor.cpp",
+    "utils/extractortool/src/file_mapper.cpp",
+    "utils/extractortool/src/zip_file.cpp",
+    "utils/extractortool/src/zip_file_reader.cpp",
+    "utils/extractortool/src/zip_file_reader_io.cpp",
+  ]
+
+  include_dirs = [ "hiviewdfx_adapter/include" ]
+
+  cflags = []
+  # Keep the 6.0 NDK extractortool implementation unchanged. The 7.0
+  # toolchain no longer exposes these C declarations through transitive
+  # includes, so provide them at the target boundary.
+  cflags_cc = [
+    "-includeerrno.h",
+    "-includestdlib.h",
+  ]
+
+  if (target_cpu == "arm") {
+    cflags += [ "-DBINDER_IPC_32BIT" ]
+  }
+
+  deps = [
+    ":adapter_string_utils",
+    "//third_party/zlib:zlib",
+  ]
+
+  public_configs = [ ":ability_extractor_config" ]
+}
+
 config("adapter_ndk_config") {
   ldflags = wrapper_ldflags
 }
@@ -50,7 +112,48 @@ source_set("adapter_ndk_wrapper") {
 component("adapter_ndk") {
   defines = []
 
+  # Keep the 6.0 implementation sources unchanged when compiling with the
+  # stricter 7.0 libc++ headers.
+  cflags_cc = [
+    "-includeatomic",
+    "-includestdlib.h",
+    "-includestring",
+    "-include" + rebase_path(
+            "system_properties_adapter/ndk_config_helper.h",
+            root_build_dir),
+  ]
+
   sources = [
+    "aafwk_adapter/aafwk_app_mgr_client_adapter_impl.cpp",
+    "audio_capturer_adapter/audio_device_desc_adapter_impl.cpp",
+    "audio_capturer_adapter/audio_renderer_adapter_impl.cpp",
+    "audio_capturer_adapter/audio_system_manager_adapter_impl.cpp",
+    "camera_adapter/camera_manager_adapter_impl.cpp",
+    "camera_adapter/camera_rotation_info_adapter_impl.cpp",
+    "camera_adapter/format_adapter_impl.cpp",
+    "camera_adapter/video_capture_range_adapter_impl.cpp",
+    "camera_adapter/video_control_support_adapter_impl.cpp",
+    "camera_adapter/video_device_descriptor_adapter_impl.cpp",
+    "distributeddatamgr_adapter/ohos_web_data_base_adapter_impl.cpp",
+    "distributeddatamgr_adapter/ohos_web_permission_data_base_adapter_impl.cpp",
+    "enterprise_device_management_adapter/enterprise_device_management_adapter_impl.cpp",
+    "event_handler_adapter/event_handler_adapter_impl.cpp",
+    "flowbuffer_adapter/flowbuffer_adapter_impl.cpp",
+    "hiviewdfx_adapter/hisysevent_adapter_impl.cpp",
+    "location_adapter/ark_location_instance_decouple.cpp",
+    "location_adapter/location_instance_impl.cpp",
+    "location_adapter/location_proxy_adapter_impl.cpp",
+    "media_adapter/player_framework_adapter_impl.cpp",
+    "migration_manager_adapter/migration_manager_adapter_impl.cpp",
+    "ndk_interface_compat.cpp",
+    "ohos_init_web_adapter/ohos_init_web_adapter_impl.cpp",
+    "ohos_resource_adapter/ohos_resource_adapter_impl.cpp",
+    "power_mgr_adapter/power_mgr_client_adapter_impl.cpp",
+    "print_manager_adapter/print_manager_adapter_impl.cpp",
+    "soc_perf_adapter/soc_perf_client_adapter_impl.cpp",
+    "system_properties_adapter/system_properties_adapter_impl.cpp",
+    "system_properties_adapter/ndk_config_helper.cpp",
+    "interfaces/ndk_ohos_adapter_helper.h",
     "ohos_adapter_helper_ext.h",
     "ohos_adapter_helper_decouple.cpp",
     "inputmethodframework_adapter/imf_adapter_impl.h",
@@ -157,6 +260,11 @@ component("adapter_ndk") {
     "utils/include/",
     "interfaces/",
     "graphic_adapter/",
+    "audio_capturer_adapter/",
+    "camera_adapter/include/",
+    "hiviewdfx_adapter/",
+    "system_properties_adapter/",
+    "utils/extractortool/include/",
     "third_party/bounds_checking_function/include",
     "ohos_sdk/openharmony/native/sysroot/usr/include/",
     "//third_party/skia",
@@ -226,6 +334,15 @@ component("adapter_ndk") {
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libnative_vsync.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libhiappevent_ndk.z.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libohhicollie.so", ]
+    libs += [
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libchild_process.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libipc_capi.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/liblocation_ndk.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libohcamera.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libohprint.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/libohresmgr.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/aarch64-linux-ohos/librawfile.z.so",
+    ]
   } else if (target_cpu == "arm") {
     libs = [ "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libffrt.z.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libhilog_ndk.z.so",
@@ -284,6 +401,15 @@ component("adapter_ndk") {
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libhitrace_ndk.z.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libnative_vsync.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libhiappevent_ndk.z.so", ]
+    libs += [
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libchild_process.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libipc_capi.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/liblocation_ndk.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libohcamera.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libohprint.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/libohresmgr.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/arm-linux-ohos/librawfile.z.so",
+    ]
   } else if (target_cpu == "x86_64" || target_cpu == "x64") {
     libs = [ "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libffrt.z.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libhilog_ndk.z.so",
@@ -342,6 +468,16 @@ component("adapter_ndk") {
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libhitrace_ndk.z.so",
     "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libhiappevent_ndk.z.so",
      ]
+    libs += [
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libchild_process.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libipc_capi.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/liblocation_ndk.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libnative_vsync.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libohcamera.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libohprint.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/libohresmgr.so",
+      "//ohos_sdk/openharmony/native/sysroot/usr/lib/x86_64-linux-ohos/librawfile.z.so",
+    ]
   }
 
   if (target_cpu == "arm") {
@@ -373,9 +509,11 @@ component("adapter_ndk") {
   }
 
   deps = [
+    ":adapter_extractortool",
     "//third_party:huawei_securec",
     "//arkweb/build/features",
     "//third_party/boringssl",
+    "//third_party/jsoncpp",
     "//base/allocator/partition_allocator:raw_ptr",
     "//base:tracing_buildflags"
   ]
