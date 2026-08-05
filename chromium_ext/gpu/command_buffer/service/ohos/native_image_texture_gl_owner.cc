@@ -136,6 +136,13 @@ void* NativeImageTextureGlOwner::AquireOhosNativeWindow() const {
   }
 }
 
+#if BUILDFLAG(ARKWEB_AI_HDR)
+bool NativeImageTextureGlOwner::IsAiHdrActive() const {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  return native_image_ ? native_image_->IsAiHdrActive() : false;
+}
+#endif
+
 std::unique_ptr<ScopedNativeBufferFenceSync>
 NativeImageTextureGlOwner::GetNativeBuffer() {
   return nullptr;

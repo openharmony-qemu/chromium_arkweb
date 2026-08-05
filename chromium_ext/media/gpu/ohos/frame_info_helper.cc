@@ -13,6 +13,9 @@
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
+#if BUILDFLAG(ARKWEB_AI_HDR)
+#include "base/trace_event/trace_event.h"
+#endif
 #include "gpu/command_buffer/service/ohos/ohos_video_image_backing.h"
 #include "gpu/ipc/service/command_buffer_stub.h"
 #include "gpu/ipc/service/gpu_channel.h"
@@ -108,6 +111,23 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
         if (texture_owner->GetCodedSizeAndVisibleRect(
                 buffer_renderer->size(), &coded_size, &visible_rect)) {
           info.emplace();
+#if BUILDFLAG(ARKWEB_AI_HDR)
+          // When VPE (aihdr) is enabled, GetCodedSizeAndVisibleRect may
+          // report a stale size from VPE's buffered output, while the
+          // decoder has already switched to a new resolution.
+          // buffer_renderer->size() reflects the decoder's actual output
+          // size and should be used as the coded_size to ensure the
+          // SharedImage pool is refreshed on resolution changes.
+          if (texture_owner->IsAiHdrActive() &&
+              coded_size != buffer_renderer->size()) {
+            TRACE_EVENT2("gpu",
+                "FrameInfoHelper coded_size mismatch",
+                "buffer_size", coded_size.ToString(),
+                "decoder_size", buffer_renderer->size().ToString());
+            coded_size = buffer_renderer->size();
+            visible_rect = gfx::Rect(coded_size);
+          }
+#endif
           info->coded_size = coded_size;
           info->visible_rect = visible_rect;
           info->ycbcr_info = gpu::OhosVideoImageBacking::GetYcbcrInfo(

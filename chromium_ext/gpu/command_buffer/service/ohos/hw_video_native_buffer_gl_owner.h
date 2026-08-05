@@ -49,6 +49,9 @@ class GPU_GLES2_EXPORT HwVideoNativeBufferGLOwner
   void RunWhenBufferIsAvailable(base::OnceClosure callback) override;
 
   void* AquireOhosNativeWindow() const override;
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  bool IsAiHdrActive() const override;
+#endif
 
   void GetSurfaceId(uint64_t* surface_id) override;
 

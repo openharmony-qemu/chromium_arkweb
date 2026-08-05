@@ -378,6 +378,13 @@ void* SameLayerNativeBufferGLOwner::AquireOhosNativeWindow() const {
   }
 }
 
+#if BUILDFLAG(ARKWEB_AI_HDR)
+bool SameLayerNativeBufferGLOwner::IsAiHdrActive() const {
+  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
+  return loader_ ? loader_->IsAiHdrActive() : false;
+}
+#endif
+
 void SameLayerNativeBufferGLOwner::GetSurfaceId(uint64_t* surface_id) {
   DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
   if (loader_) {

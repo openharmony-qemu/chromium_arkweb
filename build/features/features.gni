@@ -306,6 +306,11 @@ declare_args() {
   }
 }
 
+# AI HDR depends on delegated compositing at compile time.
+declare_args() {
+  arkweb_ai_hdr = arkweb_delegate_compositing
+}
+
 # Features enabled in mojom bindings.
 arkweb_mojo_features = []
 
@@ -393,6 +398,11 @@ if (defined(arkweb_custom_viewport_width) && arkweb_custom_viewport_width) {
   arkweb_mojo_features += [ "arkweb_custom_viewport_width" ]
 }
 #endif // BUILDFLAG(ARKWEB_CUSTOM_VIEWPORT_WIDTH)
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+if (defined(arkweb_ai_hdr) && arkweb_ai_hdr) {
+  arkweb_mojo_features += [ "arkweb_ai_hdr" ]
+}  #endif  // BUILDFLAG(ARKWEB_AI_HDR)
 
 #if BUILDFLAG(ARKWEB_CERT_AUTHENTICATION)
 if (defined(arkweb_cert_authentication) && arkweb_cert_authentication && !is_component_build) {
