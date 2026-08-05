@@ -129,6 +129,7 @@ class CodecWrapperTest : public testing::Test {
     format.frameRate = 30.0;
     bridge_->ConfigureBridgeDecoder(
         format, base::SequencedTaskRunner::GetCurrentDefault());
+    bridge_->isRunning_ = true;
     surface_bundle_ = base::MakeRefCounted<CodecSurfaceBundle>();
     CodecSurfacePair codec_surface_pair = {std::move(bridge_), surface_bundle_};
     wrapper_ = std::make_unique<CodecWrapper>(std::move(codec_surface_pair),
@@ -173,6 +174,34 @@ class CodecWrapperTest : public testing::Test {
   std::unique_ptr<NiceMock<MockMediaCodecDecoderAdapter>> mock_adapter_;
   scoped_refptr<DecoderBuffer> fake_decoder_buffer_;
   MockMediaCodecDecoderAdapter* adapter_;
+  std::vector<uint8_t> input_buffer_storage_;
+
+  // Push an input buffer onto signal_->inputQueue_ so the bridge can
+  // QueueInputBuffer.  The bridge reads inputQueue_ directly (not through
+  // mock getter methods) and copies data via memcpy_s, so the OhosBuffer
+  // must have a valid addr and sufficient bufferSize.
+  void PushInputBuffer(uint32_t index = 0) {
+    if (input_buffer_storage_.empty())
+      input_buffer_storage_.resize(4096, 0);
+    VideoBridgeDecoderInputBuffer buf;
+    buf.inputBufferIndex = index;
+    buf.inputBuffer.addr = input_buffer_storage_.data();
+    buf.inputBuffer.bufferSize =
+        static_cast<uint32_t>(input_buffer_storage_.size());
+    signal_->inputQueue_.push(buf);
+  }
+
+  // Push an output buffer onto signal_->outputQueue_ so the bridge can
+  // DequeueOutputBuffer.  The bridge reads outputQueue_ directly.
+  void PushOutputBuffer(uint32_t index = 0,
+                        BufferFlag flag = BufferFlag::CODEC_BUFFER_FLAG_NONE,
+                        int64_t timestamp_us = 1000) {
+    VideoBridgeDecoderOutputBuffer buf;
+    buf.outputBufferIndex = index;
+    buf.outputBufferFlag = flag;
+    buf.outputBufferInfo.presentationTimeUs = timestamp_us;
+    signal_->outputQueue_.push(buf);
+  }
 };
 
 TEST_F(CodecWrapperTest, TakeCodecSurfacePair) {
@@ -495,4 +524,323 @@ TEST_F(CodecWrapperTest, ResumeDmaBuffer_AfterTakeCodec) {
   ASSERT_NO_FATAL_FAILURE(wrapper_->ResumeDmaBuffer());
 }
 #endif  // ARKWEB_MEDIA_DMABUF
+
+// ==================== Uncovered branch tests ====================
+
+// ---------- SetSurface: DECODER_ERROR branch ----------
+TEST_F(CodecWrapperTest, SetSurface_DecoderError) {
+  int32_t value = 1;
+  intptr_t int_as_ptr = reinterpret_cast<intptr_t>(&value);
+  void* window = reinterpret_cast<void*>(int_as_ptr);
+  auto surface_bundle = base::MakeRefCounted<CodecSurfaceBundle>();
+  surface_bundle->ohos_native_window_ = window;
+
+  ON_CALL(*adapter_, SetOutputSurface(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_ERROR));
+
+  auto result = wrapper_->SetSurface(surface_bundle);
+  EXPECT_FALSE(result);
+}
+
+// ---------- SetDecryptionConfig: non-DECODER_OK branch ----------
+TEST_F(CodecWrapperTest, SetDecryptionConfig_DecoderError) {
+  void* session = nullptr;
+  bool isSecure = true;
+  EXPECT_CALL(*adapter_, SetDecryptionConfig(session, isSecure))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_ERROR));
+  auto result = wrapper_->SetDecryptionConfig(session, isSecure);
+  EXPECT_FALSE(result);
+}
+
+// ---------- CodecOutputBuffer: null codec branches ----------
+#if BUILDFLAG(ARKWEB_UNITTESTS)
+TEST_F(CodecWrapperTest, CodecOutputBuffer_ReleaseToSurface_NullCodec) {
+  auto buffer = CodecOutputBuffer::CreateForTesting(
+      gfx::Size(640, 480),
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      false,
+#endif
+      gfx::ColorSpace::CreateSRGB());
+  EXPECT_TRUE(buffer->ReleaseToSurface());
+}
+
+TEST_F(CodecWrapperTest, CodecOutputBuffer_Destructor_Unrendered_NullCodec) {
+  {
+    auto buffer = CodecOutputBuffer::CreateForTesting(
+        gfx::Size(320, 240),
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+        false,
+#endif
+        gfx::ColorSpace::CreateSRGB());
+    // Don't call ReleaseToSurface; destructor with !was_rendered_ && !codec_
+  }
+}
+
+TEST_F(CodecWrapperTest, CodecOutputBuffer_SizeAndColorSpace) {
+  gfx::Size expected_size(1280, 720);
+  gfx::ColorSpace expected_cs = gfx::ColorSpace::CreateSRGB();
+  auto buffer = CodecOutputBuffer::CreateForTesting(
+      expected_size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      false,
+#endif
+      expected_cs);
+  EXPECT_EQ(buffer->size(), expected_size);
+  EXPECT_EQ(buffer->color_space(), expected_cs);
+}
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(CodecWrapperTest, CodecOutputBuffer_RenderVideoView_True) {
+  auto buffer = CodecOutputBuffer::CreateForTesting(
+      gfx::Size(640, 480), true, gfx::ColorSpace::CreateSRGB());
+  EXPECT_TRUE(buffer->RenderVideoView());
+}
+
+TEST_F(CodecWrapperTest, CodecOutputBuffer_RenderVideoView_False) {
+  auto buffer = CodecOutputBuffer::CreateForTesting(
+      gfx::Size(640, 480), false, gfx::ColorSpace::CreateSRGB());
+  EXPECT_FALSE(buffer->RenderVideoView());
+}
+#endif  // ARKWEB_VIDEO_ASSISTANT
+#endif  // ARKWEB_UNITTESTS
+
+// ---------- QueueInputBuffer: normal buffer branches ----------
+TEST_F(CodecWrapperTest, QueueInputBuffer_NormalBuffer_DecoderOK) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  auto status = wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+  EXPECT_EQ(status, CodecWrapper::QueueStatus::kOk);
+}
+
+TEST_F(CodecWrapperTest, QueueInputBuffer_NormalBuffer_DecoderError) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_ERROR));
+  auto status = wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+  EXPECT_EQ(status, CodecWrapper::QueueStatus::kError);
+}
+
+TEST_F(CodecWrapperTest, QueueInputBuffer_NormalBuffer_TryAgainLater) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_RETRY));
+  auto status = wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+  EXPECT_EQ(status, CodecWrapper::QueueStatus::kTryAgainLater);
+}
+
+// ---------- QueueInputBuffer: EOS from running state (non-elided) ----------
+TEST_F(CodecWrapperTest, QueueInputBuffer_EOS_FromRunningState) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  // Now in kRunning state; queue EOS (non-elided path, calls QueueInputBufferEOS)
+  PushInputBuffer(1);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  auto eos = DecoderBuffer::CreateEOSBuffer();
+  auto status = wrapper_->QueueInputBuffer(*eos);
+  EXPECT_EQ(status, CodecWrapper::QueueStatus::kOk);
+  EXPECT_TRUE(wrapper_->IsDraining());
+}
+
+TEST_F(CodecWrapperTest, QueueInputBuffer_EOS_FromRunningState_TryAgainLater) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  // Queue EOS with DECODER_RETRY (no input buffer available for EOS)
+  auto eos = DecoderBuffer::CreateEOSBuffer();
+  auto status = wrapper_->QueueInputBuffer(*eos);
+  EXPECT_EQ(status, CodecWrapper::QueueStatus::kTryAgainLater);
+}
+
+// ---------- DequeueOutputBuffer: output buffer branches ----------
+TEST_F(CodecWrapperTest, DequeueOutputBuffer_WithOutputBuffer) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  // Bridge reads signal_->outputQueue_ directly
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_NONE, 1000);
+  ON_CALL(*adapter_, GetOutputFormatDec(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+
+  base::TimeDelta presentation_time;
+  bool end_of_stream = false;
+  std::unique_ptr<CodecOutputBuffer> codec_buffer;
+  auto status = wrapper_->DequeueOutputBuffer(&presentation_time,
+                                              &end_of_stream, &codec_buffer);
+  EXPECT_EQ(status, CodecWrapper::DequeueStatus::kOk);
+  EXPECT_FALSE(end_of_stream);
+  EXPECT_NE(codec_buffer, nullptr);
+  EXPECT_TRUE(wrapper_->HasUnreleasedOutputBuffers());
+}
+
+TEST_F(CodecWrapperTest, DequeueOutputBuffer_WithEOSOutputFromCodec) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_EOS, 1000);
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+
+  base::TimeDelta presentation_time;
+  bool end_of_stream = false;
+  std::unique_ptr<CodecOutputBuffer> codec_buffer;
+  auto status = wrapper_->DequeueOutputBuffer(&presentation_time,
+                                              &end_of_stream, &codec_buffer);
+  EXPECT_EQ(status, CodecWrapper::DequeueStatus::kOk);
+  EXPECT_TRUE(end_of_stream);
+  EXPECT_TRUE(wrapper_->IsDrained());
+}
+
+TEST_F(CodecWrapperTest, DequeueOutputBuffer_GetOutputFormatError) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_NONE, 1000);
+  // GetOutputFormat fails → wrapper falls back to config size (640x480)
+  ON_CALL(*adapter_, GetOutputFormatDec(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_ERROR));
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+
+  base::TimeDelta presentation_time;
+  bool end_of_stream = false;
+  std::unique_ptr<CodecOutputBuffer> codec_buffer;
+  auto status = wrapper_->DequeueOutputBuffer(&presentation_time,
+                                              &end_of_stream, &codec_buffer);
+  EXPECT_EQ(status, CodecWrapper::DequeueStatus::kOk);
+  EXPECT_NE(codec_buffer, nullptr);
+  EXPECT_EQ(codec_buffer->size(), gfx::Size(640, 480));
+}
+
+// ---------- ReleaseCodecOutputBuffer via CodecOutputBuffer lifecycle ----------
+TEST_F(CodecWrapperTest, ReleaseCodecOutputBuffer_ReleaseToSurface) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_NONE, 1000);
+  ON_CALL(*adapter_, GetOutputFormatDec(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+
+  auto codec_buffer = DequeueCodecOutputBuffer();
+  EXPECT_FALSE(wrapper_->HasUnreleasedOutputBuffers());
+}
+
+TEST_F(CodecWrapperTest, ReleaseCodecOutputBuffer_DestructorUnrendered) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_NONE, 1000);
+  ON_CALL(*adapter_, GetOutputFormatDec(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+
+  {
+    auto codec_buffer = DequeueCodecOutputBuffer();
+    // Destructor calls ReleaseCodecOutputBuffer(id_, false)
+  }
+  EXPECT_FALSE(wrapper_->HasUnreleasedOutputBuffers());
+}
+
+// ---------- State transition tests ----------
+TEST_F(CodecWrapperTest, IsDraining_AfterEOSQueue) {
+  auto eos = DecoderBuffer::CreateEOSBuffer();
+  wrapper_->QueueInputBuffer(*eos);
+  EXPECT_TRUE(wrapper_->IsDraining());
+  EXPECT_FALSE(wrapper_->IsDrained());
+  EXPECT_FALSE(wrapper_->IsFlushed());
+}
+
+TEST_F(CodecWrapperTest, IsDrained_AfterEOSDequeue) {
+  auto eos = DecoderBuffer::CreateEOSBuffer();
+  wrapper_->QueueInputBuffer(*eos);
+
+  base::TimeDelta presentation_time;
+  bool end_of_stream = false;
+  std::unique_ptr<CodecOutputBuffer> codec_buffer;
+  wrapper_->DequeueOutputBuffer(&presentation_time, &end_of_stream, &codec_buffer);
+
+  EXPECT_TRUE(wrapper_->IsDrained());
+  EXPECT_FALSE(wrapper_->IsDraining());
+}
+
+TEST_F(CodecWrapperTest, Flush_WhenAlreadyFlushed) {
+  EXPECT_TRUE(wrapper_->IsFlushed());
+  EXPECT_CALL(*adapter_, FlushDecoder())
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*adapter_, StartDecoder())
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_TRUE(wrapper_->Flush());
+  EXPECT_TRUE(wrapper_->IsFlushed());
+}
+
+TEST_F(CodecWrapperTest, Flush_AfterDraining) {
+  auto eos = DecoderBuffer::CreateEOSBuffer();
+  wrapper_->QueueInputBuffer(*eos);
+  EXPECT_TRUE(wrapper_->IsDraining());
+
+  EXPECT_CALL(*adapter_, FlushDecoder())
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*adapter_, StartDecoder())
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_TRUE(wrapper_->Flush());
+  EXPECT_TRUE(wrapper_->IsFlushed());
+}
+
+// ---------- ARKWEB_VIDEO_ASSISTANT uncovered branches ----------
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(CodecWrapperTest, SetPreciseSeekTarget) {
+  int64_t target = 5000000;
+  ASSERT_NO_FATAL_FAILURE(wrapper_->SetPreciseSeekTarget(target));
+}
+
+TEST_F(CodecWrapperTest, SetVideoSurface_NotPending_PositiveWidgetId) {
+  int32_t widget_id = 100;
+  ASSERT_NO_FATAL_FAILURE(wrapper_->SetVideoSurface(widget_id, false));
+}
+
+TEST_F(CodecWrapperTest, SetVideoSurface_NotPending_ZeroWidgetId) {
+  int32_t widget_id = 0;
+  ASSERT_NO_FATAL_FAILURE(wrapper_->SetVideoSurface(widget_id, false));
+}
+
+TEST_F(CodecWrapperTest, SetVideoSurface_Pending_ThenNotPending) {
+  wrapper_->SetVideoSurface(123, true);
+  ASSERT_NO_FATAL_FAILURE(wrapper_->SetVideoSurface(456, false));
+}
+
+TEST_F(CodecWrapperTest, OnBufferRendered_ThroughCodecOutputBuffer) {
+  PushInputBuffer(0);
+  EXPECT_CALL(*adapter_, QueueInputBufferDec(_, _, _, _, _))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  wrapper_->QueueInputBuffer(*fake_decoder_buffer_);
+
+  PushOutputBuffer(0, BufferFlag::CODEC_BUFFER_FLAG_NONE, 1000);
+  ON_CALL(*adapter_, GetOutputFormatDec(_))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+  ON_CALL(*adapter_, ReleaseOutputBufferDec(_, _))
+      .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
+}
+#endif  // ARKWEB_VIDEO_ASSISTANT
+
 }  // namespace media

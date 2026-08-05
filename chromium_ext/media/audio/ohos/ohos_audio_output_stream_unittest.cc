@@ -1239,4 +1239,139 @@ TEST_F(OHOSAudioOutputStreamTest, SchedulePumpSamples002) {
   stream_->SchedulePumpSamples();
   EXPECT_FALSE(stream_->timer_.IsRunning());
 }
+
+TEST_F(OHOSAudioOutputStreamTest, OnSuspend008) {
+  ASSERT_NE(stream_, nullptr);
+  stream_->Open();
+  stream_->isDestroyed_ = false;
+  stream_->running_ = true;
+  SetSessionFocusState(content::MediaSessionImpl::State::ACTIVE);
+  stream_->audioResumeInterval_ = 0;
+  stream_->audio_task_runner_ = nullptr;
+  stream_->OnSuspend();
+  EXPECT_TRUE(stream_->isSuspended_);
+}
+
+// OnResume: IsSuspended=true, isNeedResume=false (audioResumeInterval_=0)
+TEST_F(OHOSAudioOutputStreamTest, OnResume006) {
+  ASSERT_NE(stream_, nullptr);
+  stream_->Open();
+  stream_->isDestroyed_ = false;
+  stream_->audioResumeInterval_ = 0;
+  SetSessionFocusState(content::MediaSessionImpl::State::SUSPENDED);
+  stream_->OnResume();
+  // isNeedResume(0) returns false, no OnResume task posted
+}
+
+// OnResume: IsSuspended=false, callback_ non-null, audio_task_runner_ exists
+TEST_F(OHOSAudioOutputStreamTest, OnResume007) {
+  ASSERT_NE(stream_, nullptr);
+  stream_->Open();
+  stream_->isDestroyed_ = false;
+  SetSessionFocusState(content::MediaSessionImpl::State::ACTIVE);
+  MockAudioSourceCallback callback;
+  stream_->callback_ = &callback;
+  stream_->OnResume();
+}
+
+// OnResume: IsSuspended=false, callback_ non-null, audio_task_runner_ = null
+TEST_F(OHOSAudioOutputStreamTest, OnResume008) {
+  ASSERT_NE(stream_, nullptr);
+  stream_->Open();
+  stream_->isDestroyed_ = false;
+  SetSessionFocusState(content::MediaSessionImpl::State::ACTIVE);
+  MockAudioSourceCallback callback;
+  stream_->callback_ = &callback;
+  stream_->audio_task_runner_ = nullptr;
+  stream_->OnResume();
+}
+
+// SuspendOtherMediaSession: same render_process_id/render_frame_id (skip)
+TEST_F(OHOSAudioOutputStreamTest, SuspendOtherMediaSession004) {
+  testing::internal::CaptureStderr();
+  stream_->audioExclusive_ = true;
+  stream_->Open();
+  GetMediaSession();
+  OHOSAudioOutputStream::audioParameterSet_.emplace_back(stream_->parameters_);
+  stream_->SuspendOtherMediaSession();
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("skip mediaSession control because of same audioparameters"),
+            std::string::npos);
+  OHOSAudioOutputStream::audioParameterSet_.clear();
+}
+
+// SuspendOtherMediaSession: GetInterruptMode=true, IsPreloadOrMutedMediaMode=true (no suspend)
+TEST_F(OHOSAudioOutputStreamTest, SuspendOtherMediaSession005) {
+  testing::internal::CaptureStderr();
+  stream_->audioExclusive_ = true;
+  stream_->InitRender();
+  GetMediaSession();
+  SetSessionState(content::MediaSessionImpl::NWebMediaSessionState::NONEED);
+  SetHasOneSHotPlayers(false);
+  SetSessionFocusState(content::MediaSessionImpl::State::SUSPENDED);
+  SetPlayingState(false);
+  SetMuted(true);
+  auto other_params = AudioParameters(
+      AudioParameters::Format::AUDIO_PCM_LINEAR,
+      ChannelLayoutConfig::FromLayout<CHANNEL_LAYOUT_STEREO>(), 44100, 256);
+  other_params.set_render_process_id(999);
+  other_params.set_render_frame_id(888);
+  OHOSAudioOutputStream::audioParameterSet_.emplace_back(other_params);
+  stream_->SuspendOtherMediaSession();
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_EQ(log_output.find("MediaSession is suspending the audio in other web."),
+            std::string::npos);
+  OHOSAudioOutputStream::audioParameterSet_.clear();
+}
+
+// InitRender with kPlayback latency_tag
+TEST_F(OHOSAudioOutputStreamTest, InitRender005) {
+  testing::internal::CaptureStderr();
+  auto playback_params = AudioParameters(
+      AudioParameters::Format::AUDIO_PCM_LINEAR,
+      ChannelLayoutConfig::FromLayout<CHANNEL_LAYOUT_MONO>(), 8000, 160);
+  playback_params.set_latency_tag(AudioLatency::Type::kPlayback);
+  auto playback_stream = std::make_unique<OHOSAudioOutputStream>(nullptr, playback_params, false);
+  EXPECT_TRUE(playback_stream->InitRender());
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_EQ(log_output.find(
+                "OHOSAudioOutputStream::InitRender, parameters_ is not valid"),
+            std::string::npos);
+}
+
+// SetUpAudioSilentState with kInteractive latency_tag, no valid WebContents
+TEST_F(OHOSAudioOutputStreamTest, SetUpAudioSilentState011) {
+  stream_->InitRender();
+  stream_->isSilentMode_ = true;
+  stream_->parameters_.set_latency_tag(AudioLatency::Type::kInteractive);
+  stream_->SetUpAudioSilentState();
+  // No valid WebContents -> IsWebContentCurrentlyAudible returns true
+  // -> SetSilentModeAndMixWithOthers(false), isSilentMode_ = false
+  EXPECT_TRUE(stream_->isSilentMode_);
+}
+
+// SetUpAudioSilentState with kInteractive latency_tag, valid WebContents not audible
+TEST_F(OHOSAudioOutputStreamTest, SetUpAudioSilentState012) {
+  stream_->Open();
+  stream_->isSilentMode_ = true;
+  stream_->parameters_.set_latency_tag(AudioLatency::Type::kInteractive);
+  GetMediaSession();
+  stream_->SetUpAudioSilentState();
+}
+
+// IsPreloadOrMutedMediaMode with kInteractive latency_tag and audio_renderer_
+TEST_F(OHOSAudioOutputStreamTest, IsPreloadOrMutedMediaMode008) {
+  stream_->InitRender();
+  stream_->parameters_.set_latency_tag(AudioLatency::Type::kInteractive);
+  EXPECT_EQ(stream_->IsPreloadOrMutedMediaMode(), false);
+  EXPECT_TRUE(stream_->isSilentMode_);
+}
+
+// IsPreloadOrMutedMediaMode with kInteractive latency_tag without audio_renderer_
+TEST_F(OHOSAudioOutputStreamTest, IsPreloadOrMutedMediaMode009) {
+  stream_->audio_renderer_ = nullptr;
+  stream_->parameters_.set_latency_tag(AudioLatency::Type::kInteractive);
+  EXPECT_EQ(stream_->IsPreloadOrMutedMediaMode(), false);
+  EXPECT_FALSE(stream_->isSilentMode_);
+}
 }  // namespace media
