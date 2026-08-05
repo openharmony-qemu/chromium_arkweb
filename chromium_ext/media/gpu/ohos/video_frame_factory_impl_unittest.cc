@@ -24,9 +24,14 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/config/gpu_finch_features.h"
+#include "arkweb/chromium_ext/gpu/config/gpu_finch_features_ext.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "gpu/config/gpu_preferences.h"
 #include "media/base/limits.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
@@ -315,5 +320,124 @@ TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_InvalidConfig) {
   video_frame_factory_->CreateVideoFrame(std::move(output_buffer), timestamp,
                                          natural_size, std::move(output_cb));
   EXPECT_EQ(result_frame, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_nonnull) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(base::MakeRefCounted<CodecSurfaceBundle>());
+  auto after = impl_->image_spec_.generation_id;
+  EXPECT_EQ(after, before + 1);
+  EXPECT_EQ(impl_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_pip_shortcircuit) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_vulkan_disabled) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndDisableFeature(features::kVulkanVideoZeroCopy);
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_copy_required_shortcircuit) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_zerocopy) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kZeroCopy)));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_onecopy) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kOneCopy)));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_default_fallthrough) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(3));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
 }
 }  // namespace media
