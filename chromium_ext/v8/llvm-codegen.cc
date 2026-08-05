@@ -151,6 +151,8 @@ Handle<Code> LLVMIRGenerator::GenerateCode()
       }
       std::unique_ptr<llvm::object::ObjectFile> object_file = std::move(*create_obj_file);
 
+      const uint64_t buf_total = LLVMGetBufferSize(mem_buf);
+
       uint8_t *safepoint_buffer = nullptr;
       int32_t safepoint_buffer_length = 0;
       int32_t stack_size = 0;
@@ -165,7 +167,10 @@ Handle<Code> LLVMIRGenerator::GenerateCode()
         }
         llvm::object::ELFSectionRef elf_section(section);
         uint64_t offset = elf_section.getOffset();
-        int32_t size = static_cast<int>(section.getSize());
+        uint64_t size_u64 = section.getSize();
+        CHECK(offset <= buf_total && size_u64 <= buf_total - offset);
+        CHECK_LE(size_u64, static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+        int32_t size = static_cast<int32_t>(size_u64);
         uint8_t *src_buffer = reinterpret_cast<uint8_t*>(const_cast<char*>(LLVMGetBufferStart(mem_buf) + offset));
         std::tuple<uint8_t*, int32_t, int32_t> emit = EmitStackMap(src_buffer, size);
         safepoint_buffer = std::get<0>(emit);
@@ -184,7 +189,10 @@ Handle<Code> LLVMIRGenerator::GenerateCode()
 
         llvm::object::ELFSectionRef elf_section(section);
         uint64_t offset = elf_section.getOffset();
-        int32_t size = static_cast<int>(section.getSize());
+        uint64_t size_u64 = section.getSize();
+        CHECK(offset <= buf_total && size_u64 <= buf_total - offset);
+        CHECK_LE(size_u64, static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+        int32_t size = static_cast<int32_t>(size_u64);
 
         // transform to v8 code
         CodeDesc desc;
@@ -252,13 +260,18 @@ Handle<Code> LLVMIRGenerator::GenerateCode()
         if (info()->function_context_specializing()) {
           builder.set_is_context_specialized();
         }
-
         MaybeHandle<Code> maybe_code = builder.TryBuild();
         if (!maybe_code.ToHandle(&code)) {
           UNREACHABLE();
         }
         delete[] buffer;
         delete[] safepoint_buffer;
+        safepoint_buffer = nullptr;
+        safepoint_buffer_length = 0;
+        break;
+      }
+      if (code.is_null()) {
+        FATAL("LLVM object has no text section to generate code from");
       }
     }
 
@@ -401,6 +414,10 @@ std::tuple<uint8_t*, int32_t, int32_t> LLVMIRGenerator::EmitStackMap(uint8_t* sr
   uint64_t stack_size = stk_size_record->stack_size_;
   CHECK_WITH_MSG(stk_size_record->record_count_ == num_records, "Must be when only support 1 function");
   CHECK_WITH_MSG(function_address == 0, "Must be");
+  // LLVM allows UINT64_MAX to denote an unknown stack size; this encoder
+  // requires a statically known, int32-representable stack size.
+  CHECK_WITH_MSG(stack_size != UINT64_MAX, "Unknown stack size is not supported");
+  CHECK_WITH_MSG(stack_size <= static_cast<uint64_t>(INT32_MAX), "Stack size exceeds int32 range");
 
   // Read Constants
   // should have no constants
@@ -436,6 +453,7 @@ std::tuple<uint8_t*, int32_t, int32_t> LLVMIRGenerator::EmitStackMap(uint8_t* sr
       }
 
       CHECK_WITH_MSG(location->dwarf_reg_num_ == 31, "Must be sp");
+      CHECK_WITH_MSG(location->offset_or_small_constant_ >= 0, "Negative stack offset is not supported");
       CHECK_WITH_MSG((location->offset_or_small_constant_ & 7) == 0, "Must be aligned with 8 bytes");
       safepoint.offsets.emplace(location->offset_or_small_constant_);
     }
@@ -491,7 +509,8 @@ std::tuple<uint8_t*, int32_t, int32_t> LLVMIRGenerator::EmitStackMap(uint8_t* sr
   int32_t pc_size = value_to_bytes(max_pc + 1);
   uint32_t entry_configuration = pc_size << 4;
   buffer_size += (pc_size * length);
-  int32_t slot_bytes = ((static_cast<int32_t>(stack_size) / 8) + 7) / 8;
+  int32_t slot_bytes = static_cast<int32_t>(((stack_size / 8) + 7) / 8);
+  CHECK_WITH_MSG(slot_bytes > 0, "Stack size too small to encode safepoint bitmap");
   entry_configuration |= (slot_bytes << 10);
   buffer_size += (slot_bytes * length);
 
@@ -521,7 +540,9 @@ std::tuple<uint8_t*, int32_t, int32_t> LLVMIRGenerator::EmitStackMap(uint8_t* sr
   for (auto &item : remove_duplicated) {
     std::fill(bits.begin(), bits.end(), 0);
     for (int offset : item.offsets) {
-      bits[offset >> 6] |= (1u << ((offset >> 3) & 7));
+      int32_t bit_index = offset >> 6;
+      CHECK_LT(bit_index, static_cast<int32_t>(bits.size()));
+      bits[bit_index] |= (1u << ((offset >> 3) & 7));
     }
 
     for (uint8_t byte : bits) {
