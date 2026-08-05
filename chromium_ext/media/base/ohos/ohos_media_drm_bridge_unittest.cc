@@ -1396,6 +1396,98 @@ TEST_F(OHOSMediaDrmBridgeTest, ResumeMediaLicense002) {
             std::string::npos);
   ASSERT_EQ(media_drm_bridge_->ohos_drm_adapter_, nullptr);
 }
+
+TEST_F(OHOSMediaDrmBridgeTest,
+       ResumeMediaLicense003) {
+  std::string session_id = "test_session_id";
+  uint32_t promise_id = 100;
+  media_drm_bridge_->properties_ =
+      std::make_unique<DrmProperties>(session_id, promise_id);
+  media_drm_bridge_->is_license_ready_ = true;
+  ASSERT_NE(media_drm_bridge_->ohos_drm_adapter_, nullptr);
+  ASSERT_NE(media_drm_bridge_->properties_, nullptr);
+ 
+  media_drm_bridge_->ResumeMediaLicense();
+  ASSERT_EQ(media_drm_bridge_->drm_status_,
+            OHOSMediaDrmBridge::DrmStatus::DRM_STATUS_RESUME_LOAD_SESSION);
+  media_drm_bridge_.reset();
+}
+ 
+TEST_F(OHOSMediaDrmBridgeTest,
+       ResumeMediaLicense004) {
+  std::string session_id = "test_session_id";
+  uint32_t promise_id = 100;
+  media_drm_bridge_->properties_ =
+      std::make_unique<DrmProperties>(session_id, promise_id);
+  media_drm_bridge_->is_license_ready_ = false;
+  ASSERT_NE(media_drm_bridge_->ohos_drm_adapter_, nullptr);
+  ASSERT_NE(media_drm_bridge_->properties_, nullptr);
+ 
+  media_drm_bridge_->ResumeMediaLicense();
+  ASSERT_EQ(media_drm_bridge_->drm_status_,
+            OHOSMediaDrmBridge::DrmStatus::DRM_STATUS_RESUME_GENERATE_REQUEST);
+  media_drm_bridge_.reset();
+}
+ 
+TEST_F(OHOSMediaDrmBridgeTest,
+       ResumeMediaLicense005) {
+  std::string session_id = "test_session_id";
+  std::string mime_type = "video/mp4";
+  uint32_t key_type = 1;
+  uint32_t promise_id = 100;
+  std::vector<uint8_t> init_data = {0x01, 0x02, 0x03};
+  media_drm_bridge_->properties_ = std::make_unique<DrmProperties>(
+      session_id, mime_type, key_type, promise_id, false, init_data);
+  media_drm_bridge_->is_license_ready_ = true;
+  ASSERT_NE(media_drm_bridge_->ohos_drm_adapter_, nullptr);
+  ASSERT_NE(media_drm_bridge_->properties_, nullptr);
+  ASSERT_FALSE(media_drm_bridge_->properties_->persistent_license());
+ 
+  media_drm_bridge_->ResumeMediaLicense();
+  ASSERT_EQ(media_drm_bridge_->drm_status_,
+            OHOSMediaDrmBridge::DrmStatus::DRM_STATUS_RESUME_GENERATE_REQUEST);
+  media_drm_bridge_.reset();
+}
+ 
+TEST_F(OHOSMediaDrmBridgeTest,
+       ResumeMediaLicense006) {
+  std::string session_id = "test_session_id";
+  std::string mime_type = "video/mp4";
+  uint32_t key_type = 1;
+  uint32_t promise_id = 100;
+  std::vector<uint8_t> init_data = {0x01, 0x02, 0x03};
+  media_drm_bridge_->properties_ = std::make_unique<DrmProperties>(
+      session_id, mime_type, key_type, promise_id, false, init_data);
+  media_drm_bridge_->is_license_ready_ = false;
+  ASSERT_NE(media_drm_bridge_->ohos_drm_adapter_, nullptr);
+  ASSERT_NE(media_drm_bridge_->properties_, nullptr);
+  ASSERT_FALSE(media_drm_bridge_->properties_->persistent_license());
+ 
+  media_drm_bridge_->ResumeMediaLicense();
+  ASSERT_EQ(media_drm_bridge_->drm_status_,
+            OHOSMediaDrmBridge::DrmStatus::DRM_STATUS_RESUME_GENERATE_REQUEST);
+  media_drm_bridge_.reset();
+}
+ 
+TEST_F(OHOSMediaDrmBridgeTest,
+       ResumeMediaLicense007) {
+  std::string session_id = "test_session_id";
+  std::string mime_type = "video/mp4";
+  uint32_t key_type = 1;
+  uint32_t promise_id = 200;
+  std::vector<uint8_t> init_data = {0x01, 0x02, 0x03, 0x04};
+  media_drm_bridge_->properties_ = std::make_unique<DrmProperties>(
+      session_id, mime_type, key_type, promise_id, true, init_data);
+  media_drm_bridge_->is_license_ready_ = true;
+  ASSERT_NE(media_drm_bridge_->ohos_drm_adapter_, nullptr);
+  ASSERT_NE(media_drm_bridge_->properties_, nullptr);
+  ASSERT_TRUE(media_drm_bridge_->properties_->persistent_license());
+ 
+  media_drm_bridge_->ResumeMediaLicense();
+  ASSERT_EQ(media_drm_bridge_->drm_status_,
+            OHOSMediaDrmBridge::DrmStatus::DRM_STATUS_RESUME_LOAD_SESSION);
+  media_drm_bridge_.reset();
+}
 #endif
 
 TEST_F(OHOSMediaDrmBridgeTest, IsKeySystemSupportedWithTypeImpl_001) {

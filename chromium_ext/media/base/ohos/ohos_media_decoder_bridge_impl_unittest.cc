@@ -1829,4 +1829,114 @@ TEST_F(MediaCodecDecoderBridgeImplTest,
       data, data_size, presentation_time, nullptr, false);
   ASSERT_EQ(expected_result, actual_result);
 }
+
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnOk_WhenCencEncryptionWithSubsamples) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x01');
+  std::string iv(16, '\x02');
+  std::vector<media::SubsampleEntry> subsamples = {
+      {1024, 2048}, {512, 1024}};
+  auto decrypt_config = media::DecryptConfig::CreateCencConfig(
+      key_id, iv, subsamples);
+ 
+  auto result = bridge_->SetAVCencInfo(0, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_OK);
+}
+ 
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnOk_WhenCbcsEncryptionWithPattern) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x01');
+  std::string iv(16, '\x02');
+  std::vector<media::SubsampleEntry> subsamples = {{1024, 2048}};
+  auto decrypt_config = media::DecryptConfig::CreateCbcsConfig(
+      key_id, iv, subsamples, media::EncryptionPattern(1, 9));
+ 
+  auto result = bridge_->SetAVCencInfo(0, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_OK);
+}
+ 
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnOk_WhenCencEncryptionWithoutPattern) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x01');
+  std::string iv(16, '\x02');
+  std::vector<media::SubsampleEntry> subsamples = {{1024, 2048}};
+  auto decrypt_config = media::DecryptConfig::CreateCencConfig(
+      key_id, iv, subsamples);
+ 
+  auto result = bridge_->SetAVCencInfo(0, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_OK);
+}
+ 
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnOk_WhenEmptySubsamples) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x01');
+  std::string iv(16, '\x02');
+  std::vector<media::SubsampleEntry> subsamples;
+  auto decrypt_config = media::DecryptConfig::CreateCencConfig(
+      key_id, iv, subsamples);
+ 
+  auto result = bridge_->SetAVCencInfo(0, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_OK);
+}
+ 
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnError_WhenAdapterReturnsError) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_ERROR));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x01');
+  std::string iv(16, '\x02');
+  std::vector<media::SubsampleEntry> subsamples = {{1024, 2048}};
+  auto decrypt_config = media::DecryptConfig::CreateCencConfig(
+      key_id, iv, subsamples);
+ 
+  auto result = bridge_->SetAVCencInfo(0, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_ERROR);
+}
+ 
+TEST_F(MediaCodecDecoderBridgeImplTest,
+       SetAVCencInfo_ShouldReturnOk_WhenCbcsEncryptionWithMultipleSubsamples) {
+  auto mock_video_decoder = std::make_unique<MockMediaCodecDecoderAdapter>();
+  EXPECT_CALL(*mock_video_decoder, SetAVCencInfo(testing::_, testing::_))
+      .WillOnce(Return(DecoderAdapterCode::DECODER_OK));
+  EXPECT_CALL(*mock_video_decoder, ReleaseDecoder()).Times(1);
+  SetVideoDecoder(std::move(mock_video_decoder));
+ 
+  std::string key_id(16, '\x10');
+  std::string iv(16, '\x11');
+  std::vector<media::SubsampleEntry> subsamples = {
+      {1024, 2048}, {512, 1024}, {256, 512}};
+  auto decrypt_config = media::DecryptConfig::CreateCbcsConfig(
+      key_id, iv, subsamples, media::EncryptionPattern(1, 9));
+ 
+  auto result = bridge_->SetAVCencInfo(1, decrypt_config.get());
+  ASSERT_EQ(result, DecoderAdapterCode::DECODER_OK);
+}
 }  // namespace media
