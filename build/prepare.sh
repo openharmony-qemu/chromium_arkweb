@@ -262,6 +262,22 @@ handle_translate_commond() {
   done
 }
 
+handle_xweb_compat_patch() {
+  local nweb_bridge_file=${OHOS_GLUE_DIR}/ohos_nweb/bridge/ark_web_nweb_webcore_bridge_helper.cpp
+  local adapter_bridge_file=${OHOS_GLUE_DIR}/ohos_adapter/bridge/ark_web_adapter_webcore_bridge_helper.cpp
+
+  # XWeb loads libarkweb_engine.so from the application namespace. Avoid
+  # reverse-loading system glue libraries that are not visible in that namespace.
+  if [ -f ${nweb_bridge_file} ]; then
+    sed -i '/^[[:space:]]*CHECK(LoadLibFile(RTLD_LAZY, NWEB_LIB_FILE_NAME, false));[[:space:]]*$/d' \
+      ${nweb_bridge_file}
+  fi
+  if [ -f ${adapter_bridge_file} ]; then
+    sed -i '/^[[:space:]]*CHECK(LoadLibFile(RTLD_LAZY, kAdapterLibFileName, false));[[:space:]]*$/d' \
+      ${adapter_bridge_file}
+  fi
+}
+
 handle_patch_apply() {
   #!/bin/sh
   CHROMIUM_DIR=${WORK_SPACE}/../
@@ -281,3 +297,5 @@ if [ "$NEED_PROCESS" -eq 1 ]; then
 
   update_local_revision
 fi
+
+handle_xweb_compat_patch
