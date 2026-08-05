@@ -595,7 +595,7 @@ TEST_F(OhosAudioDecoderTest, ProvideInputData)
     AudioDecoder::DecodeCB decode_cb = future.GetCallback();
     std::optional<EncryptionPattern> opt = EncryptionPattern{crypt_byte_block, skip_byte_block};
     std::unique_ptr<DecryptConfig> decrypt_config = std::make_unique<DecryptConfig>(
-        EncryptionScheme::kUnencrypted, "key_id", iv, subsamples, std::move(opt));
+        EncryptionScheme::kCbcs, "key_id", iv, subsamples, std::move(opt));
     decoder_->input_queue_.clear();
     scoped_refptr<DecoderBuffer> buffer = base::MakeRefCounted<DecoderBuffer>(1);
     buffer->set_decrypt_config(std::move(decrypt_config));
@@ -603,7 +603,8 @@ TEST_F(OhosAudioDecoderTest, ProvideInputData)
     OHOSAudioDecoderLoop::InputData data = decoder_->ProvideInputData();
     ASSERT_TRUE(data.is_valid);
     ASSERT_TRUE(data.cenc_info);
-    ASSERT_FALSE(data.is_encrypted);
+    ASSERT_TRUE(data.is_encrypted);
+    EXPECT_EQ(data.cenc_info->GetAlgo(), uint32_t(DrmCencAlgorithmAdapter::DRM_ALG_CENC_AES_CBC));
     EXPECT_EQ(data.cenc_info->GetEncryptedBlockCount(), crypt_byte_block);
     ASSERT_TRUE(data.cenc_info->GetClearHeaderLens().empty());
   }
@@ -614,7 +615,7 @@ TEST_F(OhosAudioDecoderTest, ProvideInputData)
     std::optional<EncryptionPattern> opt = EncryptionPattern{crypt_byte_block, skip_byte_block};
     subsamples = {{4096, 0}, {0, 4096}};
     std::unique_ptr<DecryptConfig> decrypt_config = std::make_unique<DecryptConfig>(
-        EncryptionScheme::kUnencrypted, "key_id", iv, subsamples, std::move(opt));
+        EncryptionScheme::kCbcs, "key_id", iv, subsamples, std::move(opt));
     decoder_->input_queue_.clear();
     scoped_refptr<DecoderBuffer> buffer = base::MakeRefCounted<DecoderBuffer>(1);
     buffer->set_decrypt_config(std::move(decrypt_config));
@@ -622,7 +623,8 @@ TEST_F(OhosAudioDecoderTest, ProvideInputData)
     OHOSAudioDecoderLoop::InputData data = decoder_->ProvideInputData();
     ASSERT_TRUE(data.is_valid);
     ASSERT_TRUE(data.cenc_info);
-    ASSERT_FALSE(data.is_encrypted);
+    ASSERT_TRUE(data.is_encrypted);
+    EXPECT_EQ(data.cenc_info->GetAlgo(), uint32_t(DrmCencAlgorithmAdapter::DRM_ALG_CENC_AES_CBC));
     EXPECT_EQ(data.cenc_info->GetEncryptedBlockCount(), crypt_byte_block);
     ASSERT_FALSE(data.cenc_info->GetClearHeaderLens().empty());
   }
@@ -630,9 +632,8 @@ TEST_F(OhosAudioDecoderTest, ProvideInputData)
   {
     base::test::TestFuture<DecoderStatus> future;
     AudioDecoder::DecodeCB decode_cb = future.GetCallback();
-    std::optional<EncryptionPattern> opt = EncryptionPattern{crypt_byte_block, skip_byte_block};
-    std::unique_ptr<DecryptConfig> decrypt_config = std::make_unique<DecryptConfig>(
-        EncryptionScheme::kCenc, "key_id", iv, subsamples, std::move(opt));
+    std::unique_ptr<DecryptConfig> decrypt_config = DecryptConfig::CreateCencConfig(
+        "key_id", iv, subsamples);
     decoder_->input_queue_.clear();
     scoped_refptr<DecoderBuffer> buffer = base::MakeRefCounted<DecoderBuffer>(1);
     buffer->set_decrypt_config(std::move(decrypt_config));
@@ -1077,5 +1078,181 @@ TEST_F(OhosAudioDecoderTest, UpdateOutputFormat_001)
 {
   decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
   decoder_->UpdateOutputFormat();
+}
+
+// OHOSAudioDecoderFormat (chromium_ext class) getters/setters full coverage.
+// Note: the existing FunctionsCalled case above exercises the adapter_ndk
+// AudioDecoderFormatAdapterImpl, not this chromium_ext subclass.
+TEST_F(OHOSAudioDecoderFormatTest, GetSetAllFields)
+{
+  OHOSAudioDecoderFormat format;
+
+  constexpr int32_t kSampleRate = 48000;
+  constexpr int32_t kChannelCount = 2;
+  constexpr int64_t kBitRate = 192000;
+  constexpr int32_t kMaxInputSize = 8192;
+  constexpr bool kAacIsAdts = true;
+  constexpr int32_t kAudioSampleFormat = 2;
+  constexpr int32_t kIdentificationHeader = 0x1234;
+  constexpr int32_t kSetupHeader = 0x5678;
+  constexpr uint32_t kCodecConfigSize = 4;
+  // Stack array outlives every GetCodecConfig() call below.
+  uint8_t codec_config[kCodecConfigSize] = {0xDE, 0xAD, 0xBE, 0xEF};
+
+  format.SetSampleRate(kSampleRate);
+  EXPECT_EQ(format.GetSampleRate(), kSampleRate);
+
+  format.SetChannelCount(kChannelCount);
+  EXPECT_EQ(format.GetChannelCount(), kChannelCount);
+
+  format.SetBitRate(kBitRate);
+  EXPECT_EQ(format.GetBitRate(), kBitRate);
+
+  format.SetMaxInputSize(kMaxInputSize);
+  EXPECT_EQ(format.GetMaxInputSize(), kMaxInputSize);
+
+  format.SetAACIsAdts(kAacIsAdts);
+  EXPECT_EQ(format.GetAACIsAdts(), kAacIsAdts);
+
+  format.SetAudioSampleFormat(kAudioSampleFormat);
+  EXPECT_EQ(format.GetAudioSampleFormat(), kAudioSampleFormat);
+
+  format.SetIdentificationHeader(kIdentificationHeader);
+  EXPECT_EQ(format.GetIdentificationHeader(), kIdentificationHeader);
+
+  format.SetSetupHeader(kSetupHeader);
+  EXPECT_EQ(format.GetSetupHeader(), kSetupHeader);
+
+  format.SetCodecConfig(codec_config);
+  EXPECT_EQ(format.GetCodecConfig(), codec_config);
+
+  format.SetCodecConfigSize(kCodecConfigSize);
+  EXPECT_EQ(format.GetCodecConfigSize(), kCodecConfigSize);
+
+  // nullptr codec config round-trip: the raw_ptr must hold nullptr cleanly.
+  format.SetCodecConfig(nullptr);
+  EXPECT_EQ(format.GetCodecConfig(), nullptr);
+}
+
+TEST_F(OhosAudioDecoderTest, GetDecoderTypeAndSupportsDecryption)
+{
+  EXPECT_EQ(decoder_->GetDecoderType(), AudioDecoderType::kOhos);
+  EXPECT_TRUE(decoder_->SupportsDecryption());
+}
+
+TEST_F(OhosAudioDecoderTest, FlushDecoder)
+{
+  // audio_decoder_ is nullptr -> DECODER_ERROR, no crash.
+  decoder_->audio_decoder_ = nullptr;
+  EXPECT_EQ(decoder_->FlushDecoder(), AudioDecoderAdapterCode::DECODER_ERROR);
+
+  // Non-null but unconfigured adapter: the adapter holds decoder_==nullptr
+  // internally, so its FlushDecoder() also returns DECODER_ERROR and must not
+  // crash (same pattern as ReleaseOutputBufferDec_001 above).
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  ASSERT_TRUE(decoder_->audio_decoder_);
+  EXPECT_EQ(decoder_->FlushDecoder(), AudioDecoderAdapterCode::DECODER_ERROR);
+}
+
+// Covers the false branch of `if (decrypt_config->encryption_pattern())` in
+// SetCencInfoToInputData: all existing ProvideInputData cases pass a pattern,
+// so the no-pattern path is uncovered. Also covers empty subsamples combined
+// with an encrypted scheme (kCenc). The switch default branch is unreachable
+// without source changes (EncryptionScheme has only 3 enumerators), so it is
+// intentionally skipped.
+TEST_F(OhosAudioDecoderTest, ProvideInputDataWithoutEncryptionPattern)
+{
+  const uint32_t crypt_byte_block = 1;
+  const uint32_t skip_byte_block = 1;
+  (void)crypt_byte_block;
+  (void)skip_byte_block;
+
+  // kCenc + empty subsamples + std::nullopt pattern.
+  {
+    base::test::TestFuture<DecoderStatus> future;
+    AudioDecoder::DecodeCB decode_cb = future.GetCallback();
+    std::vector<SubsampleEntry> empty_subsamples;
+    std::string iv(DecryptConfig::kDecryptionKeySize, 't');
+    std::unique_ptr<DecryptConfig> decrypt_config = std::make_unique<DecryptConfig>(
+        EncryptionScheme::kCenc, "key_id", iv, empty_subsamples, std::nullopt);
+    decoder_->input_queue_.clear();
+    scoped_refptr<DecoderBuffer> buffer = base::MakeRefCounted<DecoderBuffer>(1);
+    buffer->set_decrypt_config(std::move(decrypt_config));
+    decoder_->input_queue_.push_back(std::make_pair(std::move(buffer), std::move(decode_cb)));
+
+    OHOSAudioDecoderLoop::InputData data = decoder_->ProvideInputData();
+    ASSERT_TRUE(data.is_valid);
+    ASSERT_TRUE(data.cenc_info);
+    ASSERT_TRUE(data.is_encrypted);
+    EXPECT_EQ(data.cenc_info->GetAlgo(),
+              uint32_t(DrmCencAlgorithmAdapter::DRM_ALG_CENC_AES_CTR));
+    // No-pattern path: encryptedBlockCount_/skippedBlockCount_ are never
+    // assigned by SetCencInfoToInputData and OHOSAudioCencInfo has no in-class
+    // default initializer, so reading them would be use-of-uninitialized-value
+    // UB. Only assert fields the source sets unconditionally.
+    EXPECT_EQ(data.cenc_info->GetFirstEncryptedOffset(), 0u);
+    // Empty subsamples: clear/payLoad vectors stay empty.
+    EXPECT_TRUE(data.cenc_info->GetClearHeaderLens().empty());
+    EXPECT_TRUE(data.cenc_info->GetPayLoadLens().empty());
+    EXPECT_EQ(data.cenc_info->GetMode(),
+              uint32_t(DrmCencInfoModeAdapter::DRM_CENC_INFO_KEY_IV_SUBSAMPLES_SET));
+  }
+
+  // kCbcs + empty subsamples + std::nullopt pattern.
+  {
+    base::test::TestFuture<DecoderStatus> future;
+    AudioDecoder::DecodeCB decode_cb = future.GetCallback();
+    std::vector<SubsampleEntry> empty_subsamples;
+    std::string iv(DecryptConfig::kDecryptionKeySize, 't');
+    std::unique_ptr<DecryptConfig> decrypt_config = std::make_unique<DecryptConfig>(
+        EncryptionScheme::kCbcs, "key_id", iv, empty_subsamples, std::nullopt);
+    decoder_->input_queue_.clear();
+    scoped_refptr<DecoderBuffer> buffer = base::MakeRefCounted<DecoderBuffer>(1);
+    buffer->set_decrypt_config(std::move(decrypt_config));
+    decoder_->input_queue_.push_back(std::make_pair(std::move(buffer), std::move(decode_cb)));
+
+    OHOSAudioDecoderLoop::InputData data = decoder_->ProvideInputData();
+    ASSERT_TRUE(data.is_valid);
+    ASSERT_TRUE(data.cenc_info);
+    ASSERT_TRUE(data.is_encrypted);
+    EXPECT_EQ(data.cenc_info->GetAlgo(),
+              uint32_t(DrmCencAlgorithmAdapter::DRM_ALG_CENC_AES_CBC));
+    // No-pattern path: encryptedBlockCount_/skippedBlockCount_ uninitialized,
+    // not asserted (see kCenc block above).
+    EXPECT_TRUE(data.cenc_info->GetClearHeaderLens().empty());
+    EXPECT_TRUE(data.cenc_info->GetPayLoadLens().empty());
+  }
+}
+
+TEST_F(OhosAudioDecoderTest, PrepareParameters)
+{
+  // NewAudioConfig uses CHANNEL_LAYOUT_MONO and 44100 Hz.
+  AudioDecoderConfig config = NewAudioConfig(AudioCodec::kMP3);
+  decoder_->PrepareParameters(config);
+
+  EXPECT_EQ(decoder_->config_.codec(), AudioCodec::kMP3);
+  EXPECT_EQ(decoder_->channel_layout_, CHANNEL_LAYOUT_MONO);
+  // ChannelLayoutToChannelCount(CHANNEL_LAYOUT_MONO) == 1.
+  EXPECT_EQ(decoder_->channel_count_, 1);
+  EXPECT_EQ(decoder_->sample_rate_, 44100);
+  ASSERT_TRUE(decoder_->timestamp_helper_);
+}
+
+// Explicitly exercises the destructor with audio_decoder_, decoder_loop_ and
+// ohos_crypto_context_ all set: the only case that covers the
+// ohos_crypto_context_->SetOHOSMediaCryptoReadyCB(NullCallback) branch and the
+// decoder_loop_.reset() + StopDecoder/ReleaseDecoder teardown. Must not crash.
+TEST_F(OhosAudioDecoderTest, DestructorWithInitializedMembers)
+{
+  decoder_->audio_decoder_ = OhosAdapterHelper::GetInstance().CreateAudioCodecDecoderAdapter();
+  ASSERT_TRUE(decoder_->audio_decoder_);
+  ASSERT_TRUE(decoder_->CreateOhosDecoderLoop());
+  ASSERT_TRUE(decoder_->decoder_loop_);
+  decoder_->ohos_crypto_context_ = cdm_context_->GetOHOSMediaCryptoContext();
+  ASSERT_TRUE(decoder_->ohos_crypto_context_);
+  decoder_->SetState(OHOSAudioDecoder::READY);
+
+  decoder_.reset();
+  ASSERT_FALSE(decoder_);
 }
 }
