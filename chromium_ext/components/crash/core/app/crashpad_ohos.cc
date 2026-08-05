@@ -560,21 +560,15 @@ void AllowMemoryRange(void* begin, size_t length) {
 bool StartHandlerForMemorySnapshot(pid_t render_pid,
                                    int snapshot_fd,
                                    int socket) {
-  LOG(INFO) << "[MemorySnapshot] render_pid=" << render_pid
+  LOG(DEBUG) << "[MemorySnapshot] render_pid=" << render_pid
             << ", snapshot_fd=" << snapshot_fd << ", socket=" << socket;
 
   if (snapshot_fd < 0) {
     LOG(ERROR) << "[MemorySnapshot] Invalid fd";
-    if (socket >= 0) {
-      close(socket);
-    }
     return false;
   }
   if (socket < 0) {
     LOG(ERROR) << "[MemorySnapshot] Invalid socket";
-    if (snapshot_fd >= 0) {
-      close(snapshot_fd);
-    }
     return false;
   }
   base::FilePath database_path;
@@ -589,8 +583,6 @@ bool StartHandlerForMemorySnapshot(pid_t render_pid,
   base::FilePath exe_dir;
   base::FilePath handler_path;
   if (!GetHandlerPath(&exe_dir, &handler_path)) {
-    close(socket);
-    close(snapshot_fd);
     return false;
   }
 
@@ -604,8 +596,6 @@ bool StartHandlerForMemorySnapshot(pid_t render_pid,
     LOG(ERROR) << "crash HandlerStarter::StartHandlerForClient, set lib path "
                   "failed, path = "
                << exe_dir;
-    close(socket);
-    close(snapshot_fd);
     return false;
   }
 
