@@ -17,6 +17,7 @@
 #include "nweb_display_listener.h"
 
 #include "base/logging.h"
+#include "content/public/browser/browser_thread.h"
 #include "ohos_adapter_helper.h"
 
 namespace OHOS::NWeb {
@@ -40,10 +41,18 @@ void DisplayScreenListener::OnChange(DisplayId id) {
   if (id == display_manager_adapter_->GetDefaultDisplayId()) {
     std::shared_ptr<DisplayAdapter> display =
         display_manager_adapter_->GetDefaultDisplay();
-    auto nweb = nweb_.lock();
-    if (nweb != nullptr && display != nullptr) {
-      nweb->NotifyScreenInfoChanged(display->GetRotation(),
-                                    display->GetDisplayOrientation());
+     auto nweb = nweb_.lock();
+     if (nweb != nullptr && display != nullptr) {
+      RotationType rotation = display->GetRotation();
+      DisplayOrientation orientation = display->GetDisplayOrientation();
+      content::GetUIThreadTaskRunner({})->PostTask(
+          FROM_HERE,
+          base::BindOnce(
+              [](std::shared_ptr<NWebDelegateInterface> delegate,
+                 RotationType rot, DisplayOrientation orient) {
+                delegate->NotifyScreenInfoChanged(rot, orient);
+              },
+              nweb, rotation, orientation));
     } else {
       LOG(ERROR) << "notify screen info change failed";
     }
@@ -65,7 +74,14 @@ void FoldStatusScreenListener::OnFoldStatusChanged(FoldStatus foldstatus) {
   }
   auto nweb = nweb_.lock();
   if (nweb != nullptr) {
-    nweb->OnFoldStatusChanged(foldstatus);
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](std::shared_ptr<NWebDelegateInterface> delegate,
+               FoldStatus status) {
+              delegate->OnFoldStatusChanged(status);
+            },
+            nweb, foldstatus));
   } else {
     LOG(ERROR) << "notify OnFoldStatusChanged info change failed";
   }
