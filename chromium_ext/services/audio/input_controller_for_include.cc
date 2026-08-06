@@ -18,10 +18,9 @@ namespace audio {
 #if BUILDFLAG(ARKWEB_MEDIA_CAPTURE)
 void InputController::OnStreamPaused(bool is_paused) {
   LOG(INFO) << "InputController::OnStreamPaused";
-  task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&InputController::EventHandler::OnPaused,
-                     base::Unretained(event_handler_), is_paused));
+  if (event_handler_) {
+    event_handler_->OnPaused(is_paused);
+  }
 }
 #endif // ARKWEB_MEDIA_CAPTURE
 
