@@ -55,13 +55,13 @@ class NavigationEntrySafeBrowsingData : public base::SupportsUserData::Data {
   const OhosSbBlockingPageInfo& GetHighestThreatInChain() const {
      return highest_blocking_page_info_;
   }
-  void SetHighestThreatInChain(const OhosSbBlockingPageInfo& result);
+  void SetHighestThreatInChain(const OhosSbBlockingPageInfo& info);
 
   const OhosSbBlockingPageInfo& GetPreviouslyShownBlockingPageInfo() const {
      return previously_shown_blocking_page_info_;
   }
-  void SetPreviouslyShownBlockingPageInfo(const OhosSbBlockingPageInfo& result) {
-    previously_shown_blocking_page_info_ = result;
+  void SetPreviouslyShownBlockingPageInfo(const OhosSbBlockingPageInfo& info) {
+    previously_shown_blocking_page_info_ = info;
   }
 
   void AddSbBlockingPageInfo(const OhosSbBlockingPageInfo& info);
