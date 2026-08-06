@@ -25,8 +25,8 @@
 struct NWebExtensionSession {
   static constexpr int NUM_PROPERTIES = 3;
   int64_t last_modified;
-  std::optional<NWebExtensionTab> tab;
-  std::optional<WebExtensionWindow> window;
+  std::optional<NWebExtensionTabV2> tab;
+  std::optional<WebExtensionWindowV2> window;
 };
 
 struct NWebExtensionSessionsDevice {

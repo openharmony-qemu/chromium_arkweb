@@ -16,7 +16,7 @@
 void DispatchExtensionActionClickedWithCustomArgs(
   content::BrowserContext* context,
   std::string extension_id,
-  const NWebExtensionTab* custom_tab);
+  const NWebExtensionTabV2* custom_tab);
  
 void WebExtensionActionShowPopup(
   content::BrowserContext* context,
