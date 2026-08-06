@@ -560,5 +560,186 @@ TEST_F(ArkWebHostResolverDnsTest,
   // Clean up global state.
   StoreSuspectIPListAndSourceHostList({}, {});
 }
+
+TEST_F(ArkWebHostResolverDnsTest,
+       ArkWebFailedTransaction_NoRemainWithSavedResults_ReturnsFalse) {
+  CreateTaskWithoutRequest(HostPortPair("localhost", 80));
+  auto dns_task = GetDnsTaskExt();
+  ASSERT_TRUE(dns_task);
+
+  // Add a non-A/AAAA transaction in progress (so AnyAOrAAAATransactionRemain
+  // returns false).
+  AddTransactionInfo(
+      DnsQueryType::HTTPS,
+      HostResolverDnsTask::TransactionErrorBehavior::kFatalOrEmpty);
+
+  // Populate saved_results_ with a non-empty result so that
+  // saved_results_.empty() returns false.
+  auto data_result = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::A, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{IPEndPoint(IPAddress(1, 2, 3, 4), 80)},
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  dns_task->hostResolverDnsTask->saved_results_.insert(std::move(data_result));
+
+  // With no A/AAAA remaining and non-empty saved results, the outer OR
+  // condition is false, so the function should return false.
+  EXPECT_FALSE(dns_task->ArkWebFailedTransaction(
+      ERR_DNS_SERVER_FAILED,
+      std::make_optional<DnsQueryType>(DnsQueryType::AAAA)));
+}
+
+TEST_F(ArkWebHostResolverDnsTest,
+       MaybeModifyInsecureDnsTaskResolveResults_MixedDataAndErrorResults) {
+  CreateTaskWithoutRequest(HostPortPair("localhost", 80));
+  auto dns_task = GetDnsTaskExt();
+  ASSERT_TRUE(dns_task);
+
+  // Set up suspect IP list with 1.2.3.4 as suspect for localhost.
+  StoreSuspectIPListAndSourceHostList({"1.2.3.4"}, {"localhost"});
+
+  ArkWebHostResolverDnsTaskExt::Results results;
+
+  // Add an error result (non-data).
+  auto error_result = std::make_unique<HostResolverInternalErrorResult>(
+      "localhost", DnsQueryType::A, std::nullopt, std::nullopt,
+      HostResolverInternalResult::Source::kDns, ERR_DNS_SERVER_FAILED);
+  results.insert(std::move(error_result));
+
+  // Add a data result with a suspect IP and a safe IP.
+  auto data_result = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::A, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{
+          IPEndPoint(IPAddress(1, 2, 3, 4), 80),  // suspect
+          IPEndPoint(IPAddress(5, 6, 7, 8), 80),  // safe
+      },
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  results.insert(std::move(data_result));
+
+  std::vector<IPEndPoint> truncation_results;
+  EXPECT_NO_FATAL_FAILURE(dns_task->MaybeModifyInsecureDnsTaskResolveResults(
+      "localhost", true, results, truncation_results));
+
+  // The suspect IP 1.2.3.4 should be removed, leaving only 5.6.7.8 in the
+  // data result. The error result should be untouched.
+  bool found_data = false;
+  bool found_error = false;
+  for (const auto& result : results) {
+    if (result->type() == HostResolverInternalResult::Type::kData) {
+      found_data = true;
+      const auto& endpoints = result->AsData().endpoints();
+      EXPECT_EQ(endpoints.size(), 1u);
+      if (!endpoints.empty()) {
+        EXPECT_EQ(endpoints[0].address(), IPAddress(5, 6, 7, 8));
+      }
+    } else if (result->type() == HostResolverInternalResult::Type::kError) {
+      found_error = true;
+    }
+  }
+  EXPECT_TRUE(found_data);
+  EXPECT_TRUE(found_error);
+
+  // Clean up global state.
+  StoreSuspectIPListAndSourceHostList({}, {});
+}
+
+TEST_F(ArkWebHostResolverDnsTest,
+       MaybeModifyInsecureDnsTaskResolveResults_MultipleDataResults) {
+  CreateTaskWithoutRequest(HostPortPair("localhost", 80));
+  auto dns_task = GetDnsTaskExt();
+  ASSERT_TRUE(dns_task);
+
+  // Set up suspect IP where all IPs are suspect for localhost.
+  StoreSuspectIPListAndSourceHostList({"1.2.3.4", "5.6.7.8"}, {"localhost"});
+
+  ArkWebHostResolverDnsTaskExt::Results results;
+
+  // Add two data results, each with endpoints.
+  auto data_result1 = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::A, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{
+          IPEndPoint(IPAddress(1, 2, 3, 4), 80),
+      },
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  results.insert(std::move(data_result1));
+
+  auto data_result2 = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::AAAA, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{
+          IPEndPoint(IPAddress(5, 6, 7, 8), 80),
+      },
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  results.insert(std::move(data_result2));
+
+  // With secure_dns_fallback_available=true, all suspect IPs should cause
+  // endpoints to be cleared from both data results.
+  std::vector<IPEndPoint> truncation_results;
+  EXPECT_NO_FATAL_FAILURE(dns_task->MaybeModifyInsecureDnsTaskResolveResults(
+      "localhost", true, results, truncation_results));
+
+  for (const auto& result : results) {
+    if (result->type() == HostResolverInternalResult::Type::kData) {
+      EXPECT_TRUE(result->AsData().endpoints().empty());
+    }
+  }
+
+  // Clean up global state.
+  StoreSuspectIPListAndSourceHostList({}, {});
+}
+
+TEST_F(ArkWebHostResolverDnsTest,
+       MaybeModifyInsecureDnsTaskResolveResults_SuspectIPInSecondDataResult) {
+  CreateTaskWithoutRequest(HostPortPair("localhost", 80));
+  auto dns_task = GetDnsTaskExt();
+  ASSERT_TRUE(dns_task);
+
+  // Set up suspect IP list.
+  StoreSuspectIPListAndSourceHostList({"5.6.7.8"}, {"localhost"});
+
+  ArkWebHostResolverDnsTaskExt::Results results;
+
+  // First data result: only safe IPs.
+  auto data_result1 = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::A, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{
+          IPEndPoint(IPAddress(1, 2, 3, 4), 80),
+      },
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  results.insert(std::move(data_result1));
+
+  // Second data result: has a suspect IP mixed with safe IP.
+  auto data_result2 = std::make_unique<HostResolverInternalDataResult>(
+      std::string("localhost"), DnsQueryType::AAAA, std::nullopt, base::Time(),
+      HostResolverInternalResult::Source::kDns,
+      std::vector<IPEndPoint>{
+          IPEndPoint(IPAddress(5, 6, 7, 8), 80),     // suspect
+          IPEndPoint(IPAddress(9, 10, 11, 12), 80),  // safe
+      },
+      std::vector<std::string>(), std::vector<HostPortPair>());
+  results.insert(std::move(data_result2));
+
+  std::vector<IPEndPoint> truncation_results;
+  EXPECT_NO_FATAL_FAILURE(dns_task->MaybeModifyInsecureDnsTaskResolveResults(
+      "localhost", true, results, truncation_results));
+
+  // First result should keep its safe IP.
+  // Second result should have suspect IP removed, keeping only the safe one.
+  int data_count = 0;
+  for (const auto& result : results) {
+    if (result->type() == HostResolverInternalResult::Type::kData) {
+      data_count++;
+      const auto& endpoints = result->AsData().endpoints();
+      EXPECT_EQ(endpoints.size(), 1u);
+    }
+  }
+  EXPECT_EQ(data_count, 2);
+
+  // Clean up global state.
+  StoreSuspectIPListAndSourceHostList({}, {});
+}
 #endif
 }  // namespace net

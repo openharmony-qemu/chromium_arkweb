@@ -95,6 +95,77 @@ TEST_F(SecHeaderHelpersExtTest, Trustworthy_WithInitiator_NoUser_DestNonEmpty) {
   EXPECT_EQ(it_dest->second,
             RequestDestinationToString(mojom::RequestDestination::kScript));
 }
+
+TEST_F(SecHeaderHelpersExtTest, Trustworthy_NoInitiator_SiteIsNone) {
+  GURL https_url("https://a.test/resource");
+  auto headers =
+      GetFetchMetadataHeaders(https_url, mojom::RequestMode::kCors, false,
+                              mojom::RequestDestination::kEmpty, absl::nullopt);
+
+  ASSERT_FALSE(headers.empty());
+  auto it_site = headers.find(std::string("Sec-Fetch-Site"));
+  ASSERT_NE(it_site, headers.end());
+  EXPECT_EQ(it_site->second, "none");
+}
+
+TEST_F(SecHeaderHelpersExtTest, Trustworthy_SameOrigin_SiteIsSameOrigin) {
+  GURL https_url("https://a.test/resource");
+  url::Origin initiator = url::Origin::Create(GURL("https://a.test"));
+  auto headers =
+      GetFetchMetadataHeaders(https_url, mojom::RequestMode::kSameOrigin,
+                              false, mojom::RequestDestination::kDocument,
+                              initiator);
+
+  ASSERT_FALSE(headers.empty());
+  auto it_site = headers.find(std::string("Sec-Fetch-Site"));
+  ASSERT_NE(it_site, headers.end());
+  EXPECT_EQ(it_site->second, "same-origin");
+}
+
+TEST_F(SecHeaderHelpersExtTest, Trustworthy_SameSite_SiteIsSameSite) {
+  GURL https_url("https://sub.a.test/resource");
+  url::Origin initiator = url::Origin::Create(GURL("https://a.test"));
+  auto headers =
+      GetFetchMetadataHeaders(https_url, mojom::RequestMode::kNoCors, false,
+                              mojom::RequestDestination::kImage, initiator);
+
+  ASSERT_FALSE(headers.empty());
+  auto it_site = headers.find(std::string("Sec-Fetch-Site"));
+  ASSERT_NE(it_site, headers.end());
+  EXPECT_EQ(it_site->second, "same-site");
+}
+
+TEST_F(SecHeaderHelpersExtTest, Trustworthy_CrossSite_SiteIsCrossSite) {
+  GURL https_url("https://b.test/resource");
+  url::Origin initiator = url::Origin::Create(GURL("https://a.test"));
+  auto headers =
+      GetFetchMetadataHeaders(https_url, mojom::RequestMode::kCors, false,
+                              mojom::RequestDestination::kScript, initiator);
+
+  ASSERT_FALSE(headers.empty());
+  auto it_site = headers.find(std::string("Sec-Fetch-Site"));
+  ASSERT_NE(it_site, headers.end());
+  EXPECT_EQ(it_site->second, "cross-site");
+}
+
+TEST_F(SecHeaderHelpersExtTest,
+       Trustworthy_NavigateMode_DestDocument) {
+  GURL https_url("https://a.test/page");
+  url::Origin initiator = url::Origin::Create(GURL("https://b.test"));
+  auto headers =
+      GetFetchMetadataHeaders(https_url, mojom::RequestMode::kNavigate, true,
+                              mojom::RequestDestination::kDocument, initiator);
+
+  ASSERT_FALSE(headers.empty());
+  auto it_mode = headers.find(std::string("Sec-Fetch-Mode"));
+  ASSERT_NE(it_mode, headers.end());
+  EXPECT_EQ(it_mode->second,
+            RequestModeToString(mojom::RequestMode::kNavigate));
+  auto it_dest = headers.find(std::string("Sec-Fetch-Dest"));
+  ASSERT_NE(it_dest, headers.end());
+  EXPECT_EQ(it_dest->second,
+            RequestDestinationToString(mojom::RequestDestination::kDocument));
+}
 #endif  // BUILDFLAG(ARKWEB_NETWORK_LOAD)
 
 }  // namespace network

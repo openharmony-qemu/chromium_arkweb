@@ -26,6 +26,7 @@
 
 #include "arkweb/build/features/features.h"
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
+#include "arkweb/ohos_nweb_ex/build/features/features.h"  // nogncheck
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -1130,17 +1131,15 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
        Passive_BindDnsToNetwork_ValidCallback) {
   auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
   GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
-  std::vector<std::string> addrs = {"10.0.0.1"};
-  EXPECT_CALL(*adapter, GetNetAddrListByNetId(8)).WillOnce(Return(addrs));
-  *g_net_connect_callback =
-      std::make_shared<NetConnCallbackImpl>(GetNotifier());
-  ASSERT_NO_FATAL_FAILURE(GetNotifier()->BindDnsToNetwork(8));
-  // TODO(arkweb): Expect addrs: GetNotifier()->GetAddrListForBindedNetwork()
-  EXPECT_TRUE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(8))
+      .WillOnce(Return(std::vector<std::string>{"10.0.0.1"}));
+  auto callback = std::make_shared<NetConnCallbackImpl>(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback->BindDnsToNetwork(8));
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
-  EXPECT_EQ(GetNotifier()->network_for_dns_, 8);
+  // When network_for_dns is not -1, GetNetAddrListByNetId should be called
+  // and the result set as the binded network addr list
+  EXPECT_EQ(GetNotifier()->GetAddrListForBindedNetwork().size(), 1u);
 #endif
-  *g_net_connect_callback = nullptr;
 }
 #endif
 #endif
@@ -1207,6 +1206,220 @@ TEST_F(NetworkChangeNotifierPassiveExtTest, GetActiveDnsServers_NotVpn) {
 TEST_F(NetworkChangeNotifierPassiveExtTest, GetActiveDnsServers_NullAdapter) {
   GetNotifier()->ohos_net_conn_adapter_ = nullptr;
   EXPECT_TRUE(GetNotifier()->GetActiveDnsServers().empty());
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_BASE)
+// Test NetConnCallbackImpl::NetAvailable with non-null notifier.
+// Verifies capabilities_ and properties_ are reset even with a valid notifier.
+TEST_F(NetworkChangeNotifierPassiveExtTest, NetAvailable_NonNullNotifier) {
+  NetConnCallbackImpl callback(GetNotifier());
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  auto properties = std::make_shared<
+      NiceMock<OHOS::NWeb::MockNetConnectionPropertiesAdapter>>();
+  // Set capabilities and properties via OnNetCapabilitiesChanged
+  callback.OnNetCapabilitiesChanged(capabilities);
+  callback.OnNetConnectionPropertiesChanged(properties);
+  // NetAvailable should reset capabilities_ and properties_
+  auto result = callback.NetAvailable();
+  EXPECT_EQ(result, 0);
+  EXPECT_EQ(callback.capabilities_, nullptr);
+  EXPECT_EQ(callback.properties_, nullptr);
+}
+
+// Test NetConnCallbackImpl::NetUnavailable with non-null notifier.
+// Verifies ConnectionTypeChangedTo is called with CONNECTION_NONE.
+TEST_F(NetworkChangeNotifierPassiveExtTest, NetUnavailable_NonNullNotifier) {
+  testing::StrictMock<MockNetworkChangeObserver> observer;
+  NetworkChangeNotifier::AddNetworkChangeObserver(&observer);
+  NetConnCallbackImpl callback(GetNotifier());
+  // Set initial state to CONNECTION_WIFI
+  callback.net_id_ = 10;
+  callback.type_ = OHOS::NWeb::NetConnectType::CONNECTION_WIFI;
+  callback.subtype_ = OHOS::NWeb::NetConnectSubtype::SUBTYPE_UNKNOWN;
+  auto result = callback.NetUnavailable();
+  EXPECT_EQ(result, 0);
+  EXPECT_EQ(callback.capabilities_, nullptr);
+  EXPECT_EQ(callback.properties_, nullptr);
+  FastForwardUntilIdle();
+  EXPECT_GE(observer.GetNetworkChanges(), 1);
+  NetworkChangeNotifier::RemoveNetworkChangeObserver(&observer);
+}
+
+// Test ConnectionTypeChangedTo: same net_id, same type, no link property
+// change, but different subtype. The outer if (net_id_ != net_id || type_ !=
+// type || HasLinkPropertiesChanged()) is false, but subtype_ != subtype is
+// true.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_SameNetIdSameType_DiffSubtype) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  testing::StrictMock<MockMaxBandwidthObserver> cap_observer;
+  NetworkChangeNotifier::AddMaxBandwidthObserver(&cap_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  // Set initial state: net_id=5, type=WIFI, subtype=UNKNOWN
+  callback.net_id_ = 5;
+  callback.type_ = OHOS::NWeb::NetConnectType::CONNECTION_WIFI;
+  callback.subtype_ = OHOS::NWeb::NetConnectSubtype::SUBTYPE_UNKNOWN;
+
+  // Call with same net_id, same type, different subtype
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  // No IP address change (same net_id and type, no link change)
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  // Subtype should be updated
+  EXPECT_EQ(callback.subtype_, OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+  NetworkChangeNotifier::RemoveMaxBandwidthObserver(&cap_observer);
+}
+
+// Test ConnectionTypeChangedTo: same net_id, same type, no link property
+// change, same subtype. Complete no-op case.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_CompleteNoOp) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  testing::StrictMock<MockMaxBandwidthObserver> cap_observer;
+  NetworkChangeNotifier::AddMaxBandwidthObserver(&cap_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 5;
+  callback.type_ = OHOS::NWeb::NetConnectType::CONNECTION_WIFI;
+  callback.subtype_ = OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE;
+
+  // Call with identical state
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  EXPECT_EQ(cap_observer.GetMaxBandwidthChanges(), 0);
+  EXPECT_EQ(callback.net_id_, 5);
+  EXPECT_EQ(callback.subtype_, OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+  NetworkChangeNotifier::RemoveMaxBandwidthObserver(&cap_observer);
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
+// Test ConnectionTypeChangedTo with HasLinkPropertiesChanged returning true
+// (different addr list) when net_id and type are the same.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       ConnectionTypeChangedTo_SameNetIdSameType_LinkPropsChanged) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  // First call: set up initial state with addr "1.1.1.1"
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(std::vector<std::string>{"1.1.1.1"}));
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  // Trigger first update
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+
+  // Now change the addr list so HasLinkPropertiesChanged returns true
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(std::vector<std::string>{"2.2.2.2"}));
+  // Same net_id and type, but addr list changed
+  ASSERT_NO_FATAL_FAILURE(callback.ConnectionTypeChangedTo(
+      5, OHOS::NWeb::NetConnectType::CONNECTION_WIFI,
+      OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  FastForwardUntilIdle();
+  // IP address should change again due to link property change
+  EXPECT_EQ(ip_observer.GetIPChanges(), 2);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+// Test HasLinkPropertiesChanged with network_for_dns_ == -1 and different
+// default addr list.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_DiffDefaultAddrList) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7))
+      .WillRepeatedly(Return(std::vector<std::string>{"3.3.3.3"}));
+  // Set a different default addr list
+  GetNotifier()->SetDefaultAddrList({"1.1.1.1"});
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 7;
+  EXPECT_TRUE(callback.HasLinkPropertiesChanged());
+}
+
+// Test BindDnsToNetwork NetConnCallbackImpl: non-null notifier,
+// network_for_dns == -1 clears the binded network addr list.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       BindDnsToNetwork_ClearAddrListWithNotifier) {
+  GetNotifier()->SetAddrListForBindedNetwork({"1.1.1.1", "2.2.2.2"});
+  ASSERT_FALSE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.BindDnsToNetwork(-1));
+  EXPECT_TRUE(GetNotifier()->GetAddrListForBindedNetwork().empty());
+  EXPECT_EQ(callback.network_for_dns_, -1);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+// Test OnNetCapabilitiesChanged: non-null notifier with ui_task_runner on same
+// sequence triggers // PostUpdateNetworkCapabilityTask (which calls
+// UpdateNetworkCapabilityOnUIThread inline since we're on the same sequence).
+// With kEnableNwebEx off, it should return early without changing
+// network_capability_.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       OnNetCapabilitiesChanged_PostUpdateTask_SameSeqSwitchOffWithNotifier) {
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  EXPECT_CALL(*capabilities, GetNetId()).WillRepeatedly(Return(42));
+  EXPECT_CALL(*capabilities, GetConnectType())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectType::CONNECTION_WIFI));
+  EXPECT_CALL(*capabilities, GetConnectSubtype())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->ui_task_runner_ =
+      base::SequencedTaskRunner::GetCurrentDefault();
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.OnNetCapabilitiesChanged(capabilities));
+  FastForwardUntilIdle();
+  // Switch is off, so capability should remain unchanged
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+}
+
+// Test OnNetCapabilitiesChanged: non-null notifier with ui_task_runner on a
+// different sequence.
+// PostUpdateNetworkCapabilityTask will post to the other sequence.
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       OnNetCapabilitiesChanged_PostUpdateTask_DiffSeqSwitchOff) {
+  auto capabilities =
+      std::make_shared<NiceMock<OHOS::NWeb::MockNetCapabilitiesAdapter>>();
+  EXPECT_CALL(*capabilities, GetNetId()).WillRepeatedly(Return(42));
+  EXPECT_CALL(*capabilities, GetConnectType())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectType::CONNECTION_WIFI));
+  EXPECT_CALL(*capabilities, GetConnectSubtype())
+      .WillRepeatedly(Return(OHOS::NWeb::NetConnectSubtype::SUBTYPE_LTE));
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+  GetNotifier()->ui_task_runner_ =
+      base::ThreadPool::CreateSequencedTaskRunner({});
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  NetConnCallbackImpl callback(GetNotifier());
+  ASSERT_NO_FATAL_FAILURE(callback.OnNetCapabilitiesChanged(capabilities));
+  FastForwardUntilIdle();
+  // Switch is off, capability should remain unchanged
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
 }
 #endif
 

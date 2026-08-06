@@ -88,7 +88,9 @@ arkweb_services_network_sources = [
 
 arkweb_services_network_unittest_sources = [
   "//arkweb/chromium_ext/services/network/arkweb_network_service_ext_unittest.cc",
+  "//arkweb/chromium_ext/services/network/network_service_proxy_delegate_for_include_unittest.cc",
   "//arkweb/chromium_ext/services/network/throttling/throttling_network_transaction_for_include_unittest.cc",
+  "//arkweb/chromium_ext/services/network/url_loader_factory_utils_unittest.cc",
 ]
 
 arkweb_power_save_blocker_source = [ "//arkweb/chromium_ext/service/device/wake_lock/power_save_blocker/power_save_blocker_ohos.cc" ]
@@ -403,8 +405,10 @@ arkweb_net_cert_sources = [
   "//arkweb/chromium_ext/net/cert/test_root_certs_ohos.cc",
 ]
 
-arkweb_net_cert_unittest_sources =
-    [ "//arkweb/chromium_ext/net/cert/cert_verify_proc_ohos_unittest.cc" ]
+arkweb_net_cert_unittest_sources = [
+  "//arkweb/chromium_ext/net/cert/cert_verify_proc_ohos_unittest.cc",
+  "//arkweb/chromium_ext/net/cert/test_root_certs_ohos_unittest.cc",
+]
 
 arkweb_net_dns_sources = [
   "//arkweb/chromium_ext/net/dns/arkweb_address_info_ext.cc",
@@ -422,6 +426,10 @@ arkweb_net_dns_sources = [
 arkweb_net_dns_unittest_sources = [
   "//arkweb/chromium_ext/net/dns/arkweb_host_resolver_dns_task_ext_unittest.cc",
   "//arkweb/chromium_ext/net/dns/dns_config_service_ohos_unittest.cc",
+  "//arkweb/chromium_ext/net/dns/host_resolver_manager_service_endpoint_request_impl_for_include_unittest.cc",
+  "//arkweb/chromium_ext/net/dns/public/dns_info_unittest.cc",
+  "//arkweb/chromium_ext/net/dns/public/resolve_info_unittest.cc",
+  "//arkweb/chromium_ext/net/dns/secure_dns_fallback_utils_unittest.cc",
 ]
 
 arkweb_net_socket_sources = [

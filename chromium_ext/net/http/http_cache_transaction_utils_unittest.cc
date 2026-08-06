@@ -335,4 +335,83 @@ TEST_F(HttpTransactionUtilsTest, RestartNetworkRequestWithSecureDnsOnly_Async) {
 }
 
 #endif  // ARKWEB_EXT_HTTP_DNS_FALLBACK
+
+#if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+// ---------- RestartWithFallbackProxy / RestartWithDirect tests ----------
+// These methods are added to HttpCache::Transaction by
+// http_cache_transaction_for_include.cc
+
+TEST_F(HttpTransactionUtilsTest, RestartWithFallbackProxy_CacheIsNull) {
+  mock_transaction_->cache_ = nullptr;
+  CompletionOnceCallback callback = base::DoNothing();
+  int result = mock_transaction_->RestartWithFallbackProxy(std::move(callback));
+  EXPECT_EQ(result, ERR_UNEXPECTED);
+}
+
+TEST_F(HttpTransactionUtilsTest, RestartWithDirect_CacheIsNull) {
+  mock_transaction_->cache_ = nullptr;
+  CompletionOnceCallback callback = base::DoNothing();
+  int result = mock_transaction_->RestartWithDirect(std::move(callback));
+  EXPECT_EQ(result, ERR_UNEXPECTED);
+}
+
+TEST_F(HttpTransactionUtilsTest, RestartWithFallbackProxy_AsyncResult) {
+  mock_transaction_->cache_ = mock_cache_->http_cache()->GetWeakPtr();
+
+  auto mock_network_trans = std::make_unique<MockHttpTransaction>();
+  mock_network_trans->restart_result_ = ERR_IO_PENDING;
+  mock_transaction_->network_trans_ = std::move(mock_network_trans);
+
+  auto request = std::make_unique<HttpRequestInfo>();
+  mock_transaction_->request_ = request.get();
+  mock_transaction_->initial_request_ = nullptr;
+  mock_transaction_->io_callback_ = base::DoNothing();
+
+  CompletionOnceCallback callback = base::DoNothing();
+  int result = mock_transaction_->RestartWithFallbackProxy(std::move(callback));
+  EXPECT_EQ(result, ERR_IO_PENDING);
+}
+
+TEST_F(HttpTransactionUtilsTest, RestartWithDirect_AsyncResult) {
+  mock_transaction_->cache_ = mock_cache_->http_cache()->GetWeakPtr();
+
+  auto mock_network_trans = std::make_unique<MockHttpTransaction>();
+  mock_network_trans->restart_result_ = ERR_IO_PENDING;
+  mock_transaction_->network_trans_ = std::move(mock_network_trans);
+
+  auto request = std::make_unique<HttpRequestInfo>();
+  mock_transaction_->request_ = request.get();
+  mock_transaction_->initial_request_ = nullptr;
+  mock_transaction_->io_callback_ = base::DoNothing();
+
+  CompletionOnceCallback callback = base::DoNothing();
+  int result = mock_transaction_->RestartWithDirect(std::move(callback));
+  EXPECT_EQ(result, ERR_IO_PENDING);
+}
+
+#endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+TEST_F(HttpTransactionUtilsTest,
+       RestartNetworkRequestWithSecureDnsOnly_SyncCompletion) {
+  auto request = std::make_unique<HttpRequestInfo>();
+  request->url = GURL("http://example.com");
+  mock_transaction_->request_ = request.get();
+  mock_transaction_->initial_request_ = request.get();
+  mock_transaction_->mutable_request_ = std::make_unique<HttpRequestInfo>();
+  mock_transaction_->mutable_request_->url = GURL("http://example.com");
+  mock_transaction_->io_callback_ = base::DoNothing();
+
+  mock_transaction_->next_state_ =
+      HttpCache::Transaction::State::STATE_NONE;
+
+  auto mock_network_trans = std::make_unique<MockHttpTransaction>();
+  mock_network_trans->restart_result_ = OK;
+  mock_transaction_->network_trans_ = std::move(mock_network_trans);
+  int result = utils_->RestartNetworkRequestWithSecureDnsOnly();
+  // When RestartWithSecureDnsOnly returns OK (not ERR_IO_PENDING),
+  // DoLoop is called and the method should return that result.
+  EXPECT_EQ(result, OK);
+}
+#endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 }  // namespace net

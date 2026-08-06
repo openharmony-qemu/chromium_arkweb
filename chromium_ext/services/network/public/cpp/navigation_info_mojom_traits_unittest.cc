@@ -337,6 +337,12 @@ TEST_F(NavigationInfoMojomTraitsTest, RequestAttemptRoundTrip) {
   }
 }
 
+TEST_F(NavigationInfoMojomTraitsTest, RequestAttemptFailsWithCorruptPayload) {
+  net::RequestAttempt input = MakePopulatedRequestAttempt();
+  ExpectCorruptPayloadFailsDeserialization<network::mojom::RequestAttempt>(
+      &input);
+}
+
 // ---------------------------------------------------------------------------
 // NavigationInfo (contains nested ResolveInfo + vector<RequestAttempt>)
 // ---------------------------------------------------------------------------
@@ -369,6 +375,12 @@ TEST_F(NavigationInfoMojomTraitsTest, NavigationInfoFailsWithNullResolveInfo) {
   EXPECT_FALSE(
       mojo::test::SerializeAndDeserialize<network::mojom::NavigationInfo>(
           input, output));
+}
+
+TEST_F(NavigationInfoMojomTraitsTest, NavigationInfoFailsWithCorruptPayload) {
+  net::NavigationInfo input = MakePopulatedNavigationInfo();
+  ExpectCorruptPayloadFailsDeserialization<network::mojom::NavigationInfo>(
+      &input);
 }
 
 }  // namespace

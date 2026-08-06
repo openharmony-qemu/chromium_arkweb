@@ -105,6 +105,15 @@ std::shared_ptr<const bssl::ParsedCertificate> FindLastCertWithUnknownIssuer(
 int ConvertToParsedCertificates(const std::vector<std::string>& cert_bytes,
                                 bssl::CertErrors& errors,
                                 bssl::ParsedCertificateList& certs);
+void X509CertChainVerify(const std::vector<std::string>& cert_chain,
+                         std::string_view host,
+                         int* status,
+                         bool* is_issued_by_known_root,
+                         std::vector<std::string>* verified_chain);
+int AttemptVerificationAfterAIAFetch(const bssl::ParsedCertificateList& certs,
+                                     const std::string& hostname,
+                                     CertVerifyResult* verify_result,
+                                     std::vector<std::string>* verified_chain);
 base::FilePath GetTmpCertDir();
 }  // namespace net
 

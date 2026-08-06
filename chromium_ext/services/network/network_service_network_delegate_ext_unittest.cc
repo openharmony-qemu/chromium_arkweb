@@ -230,6 +230,54 @@ TEST_F(NetworkServiceNetworkDelegateExtTest, GetDownStreamThroughputKbps) {
       network_context.get());
   EXPECT_NE(test_delegate->GetDownStreamThroughputKbps(), 0);
 }
+
+TEST_F(NetworkServiceNetworkDelegateExtTest,
+       GetNetworkQualityInfo_NetworkService_Null) {
+  auto context_params = CreateNetworkContextParamsForTesting();
+  auto network_context =
+      CreateContextWithParams(std::move(context_params), false);
+
+  const_cast<raw_ptr<NetworkService>&>(network_context->network_service_) =
+      nullptr;
+
+  auto test_delegate = std::make_unique<NetworkServiceNetworkDelegateExt>(
+      true, false, mojo::PendingRemote<network::mojom::ProxyErrorClient>(),
+      network_context.get());
+  EXPECT_EQ(test_delegate->GetNetworkQualityInfo(), "NQE:notObtained");
+}
+
+TEST_F(NetworkServiceNetworkDelegateExtTest,
+       GetNetworkQualityInfo_NetworkQualityEstimator_Null) {
+  auto context_params = CreateNetworkContextParamsForTesting();
+  auto network_context =
+      CreateContextWithParams(std::move(context_params), false);
+  auto* network_service = network_context->network_service();
+  ASSERT_NE(network_service, nullptr);
+  auto* mgr = network_service->network_quality_estimator_manager_.get();
+  ASSERT_NE(nullptr, mgr);
+  std::unique_ptr<net::NetworkQualityEstimator> saved =
+      std::move(mgr->network_quality_estimator_);
+  mgr->network_quality_estimator_.reset();
+
+  auto test_delegate = std::make_unique<NetworkServiceNetworkDelegateExt>(
+      true, false, mojo::PendingRemote<network::mojom::ProxyErrorClient>(),
+      network_context.get());
+  EXPECT_EQ(test_delegate->GetNetworkQualityInfo(), "NQE:notObtained");
+  mgr->network_quality_estimator_ = std::move(saved);
+}
+
+TEST_F(NetworkServiceNetworkDelegateExtTest, GetNetworkQualityInfo_ValidNQE) {
+  auto context_params = CreateNetworkContextParamsForTesting();
+  auto network_context =
+      CreateContextWithParams(std::move(context_params), false);
+
+  auto test_delegate = std::make_unique<NetworkServiceNetworkDelegateExt>(
+      true, false, mojo::PendingRemote<network::mojom::ProxyErrorClient>(),
+      network_context.get());
+  std::string result = test_delegate->GetNetworkQualityInfo();
+  EXPECT_NE(result, "NQE:notObtained");
+  EXPECT_FALSE(result.empty());
+}
 #endif  // BUILDFLAG(ARKWEB_EXT_LOG_MESSAGE)
 
 }  // namespace network
