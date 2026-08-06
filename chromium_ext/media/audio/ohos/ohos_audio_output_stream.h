@@ -155,6 +155,8 @@ class OHOSAudioOutputStream : public AudioOutputStream {
 
   bool running_ = false;
 
+  bool isDuck_ = false;
+
   time_t intervalSinceLastSuspend_ = 0.0;
 
   base::TimeDelta time_per_buffer_ = base::Microseconds(0);
