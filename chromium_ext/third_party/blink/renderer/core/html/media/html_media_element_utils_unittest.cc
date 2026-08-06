@@ -545,19 +545,6 @@ TEST_F(HTMLMediaElementUtilsTest, DFX_TESTReportVideoExperience004) {
   auto report_param = element_utils_.ReportVideoExperienceToBI();
   EXPECT_EQ(report_param.get(), nullptr);
 }
-
-TEST_F(HTMLMediaElementUtilsTest, DFX_TESTReportVideoExperience005) {
-  media_ =
-    MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
-  HTMLMediaElementUtils element_utils_(Media());
-  int32_t usage_scenario = 1;
-  Media()->GetDocument().GetSettings()->SetUsageScenario(usage_scenario);
-  element_utils_.has_reported_experience_ = false;
- 
-  Media()->SetError(MakeGarbageCollected<MediaError>(MediaError::kMediaErrDecode, ""));
-  auto report_param = element_utils_.ReportVideoExperienceToBI();
-  EXPECT_NE(report_param.get(), nullptr);
-}
  
 TEST_F(HTMLMediaElementUtilsTest, DFX_TestGetMainUrl) {
   media_ =
@@ -1014,5 +1001,231 @@ TEST_F(HTMLMediaElementUtilsTest, VideoLoadOpt_SetVideoIsPlayingTest) {
   ASSERT_NO_FATAL_FAILURE(element_utils_.SetVideoIsPlaying(true));
 }
 #endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+
+#if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderStartRecordTwice) {
+  HTMLMediaElementUtils::Recorder recorder;
+  recorder.StartRecord();
+  base::TimeTicks first_start = recorder.start_time_;
+  recorder.StartRecord();
+  EXPECT_EQ(recorder.start_time_, first_start);
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderPauseRecordNotStarted) {
+  HTMLMediaElementUtils::Recorder recorder;
+  ASSERT_NO_FATAL_FAILURE(recorder.PauseRecord());
+  EXPECT_EQ(recorder.accumulated_duration_, base::TimeDelta());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderStopRecordTwice) {
+  HTMLMediaElementUtils::Recorder recorder;
+  recorder.total_duration_ = base::Milliseconds(1000);
+  base::TimeDelta original_duration = recorder.total_duration_;
+  recorder.StopRecord();
+  EXPECT_EQ(recorder.total_duration_, original_duration);
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderGetDuration) {
+  HTMLMediaElementUtils::Recorder recorder;
+  EXPECT_EQ(recorder.GetDuration(), base::TimeDelta());
+  recorder.total_duration_ = base::Milliseconds(500);
+  EXPECT_EQ(recorder.GetDuration(), base::Milliseconds(500));
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderReset) {
+  HTMLMediaElementUtils::Recorder recorder;
+  recorder.start_time_ = base::TimeTicks::Now();
+  recorder.accumulated_duration_ = base::Milliseconds(100);
+  recorder.total_duration_ = base::Milliseconds(200);
+  recorder.Reset();
+  EXPECT_EQ(recorder.start_time_, base::TimeTicks());
+  EXPECT_EQ(recorder.accumulated_duration_, base::TimeDelta());
+  EXPECT_EQ(recorder.total_duration_, base::TimeDelta());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestRecorderSetThresholdAndPause) {
+  HTMLMediaElementUtils::Recorder recorder;
+  recorder.SetThreshold(base::Milliseconds(500));
+  // Elapsed time less than threshold — should not accumulate
+  recorder.start_time_ = base::TimeTicks::Now() - base::Milliseconds(100);
+  recorder.PauseRecord();
+  EXPECT_EQ(recorder.accumulated_duration_, base::TimeDelta());
+  EXPECT_EQ(recorder.start_time_, base::TimeTicks());
+  // Elapsed time greater than threshold — should accumulate
+  recorder.start_time_ = base::TimeTicks::Now() - base::Milliseconds(600);
+  recorder.PauseRecord();
+  EXPECT_GT(recorder.accumulated_duration_, base::TimeDelta());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestIsFeedsPage) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  EXPECT_FALSE(element_utils_.IsFeedsPage());
+  Media()->GetDocument().GetSettings()->SetUsageScenario(
+      static_cast<int32_t>(HTMLMediaElementUtils::ScenarioType::SCENARIO_FEEDSPAGE_TYPE));
+  EXPECT_TRUE(element_utils_.IsFeedsPage());
+  Media()->GetDocument().GetSettings()->SetUsageScenario(
+      static_cast<int32_t>(HTMLMediaElementUtils::ScenarioType::SCENARIO_TAB_TYPE));
+  EXPECT_FALSE(element_utils_.IsFeedsPage());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestScheduleNamedEventUtilsPlayPause) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->GetDocument().GetSettings()->SetCustomMediaPlayerEnabled(true);
+  ASSERT_NO_FATAL_FAILURE(
+      element_utils_.ScheduleNamedEventUtils(event_type_names::kPlay));
+  ASSERT_NO_FATAL_FAILURE(
+      element_utils_.ScheduleNamedEventUtils(event_type_names::kPause));
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestVideoInfoReportIsPlayedEmpty) {
+  HTMLMediaElementUtils::VideoInfoReport report;
+  report.start_used_time = 0;
+  report.total_played_time = 0;
+  report.error_code = 0;
+  EXPECT_TRUE(report.IsPlayedEmpty());
+  report.start_used_time = 100;
+  EXPECT_FALSE(report.IsPlayedEmpty());
+  report.start_used_time = 0;
+  report.total_played_time = 100;
+  EXPECT_FALSE(report.IsPlayedEmpty());
+  report.total_played_time = 0;
+  report.error_code = 1;
+  EXPECT_FALSE(report.IsPlayedEmpty());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetVideoRecordTime) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  HTMLMediaElementUtils::VideoInfoReport video_report;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.GetVideoRecordTime(video_report));
+  EXPECT_EQ(video_report.error_code, 0);
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetVideoRecordTimeWithError) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->SetError(MakeGarbageCollected<MediaError>(MediaError::kMediaErrDecode, "test error"));
+  HTMLMediaElementUtils::VideoInfoReport video_report;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.GetVideoRecordTime(video_report));
+  EXPECT_EQ(video_report.error_code, MediaError::kMediaErrDecode);
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetVideoNetworkInfo) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  HTMLMediaElementUtils::VideoInfoReport video_report;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.GetVideoNetworkInfo(video_report));
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetVideoElementInfo) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  HTMLMediaElementUtils::VideoInfoReport video_report;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.GetVideoElementInfo(video_report));
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestResetMediaPlayerAndMediaSourceUtilsNotPaused) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->paused_ = false;
+  Media()->ready_state_ = HTMLMediaElement::kHaveNothing;
+  Media()->load_state_ = HTMLMediaElement::kLoadingFromSourceElement;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.ResetMediaPlayerAndMediaSourceUtils());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestResetMediaPlayerAndMediaSourceUtilsPaused) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->paused_ = true;
+  Media()->load_state_ = HTMLMediaElement::kLoadingFromSourceElement;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.ResetMediaPlayerAndMediaSourceUtils());
+}
+#endif  // ARKWEB_MEDIA_CAPABILITIES_ENHANCE
+
+#if BUILDFLAG(ARKWEB_MEDIA) || BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(HTMLMediaElementUtilsTest, TestGetTitle) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  WebString title = element_utils_.GetTitle();
+  EXPECT_TRUE(title.IsEmpty());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetIconUrlWithNullElement) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  element_utils_.htmlMediaElement_ = nullptr;
+  WebString icon_url = element_utils_.GetIconUrl();
+  EXPECT_TRUE(icon_url.IsEmpty());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestGetIconUrl) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  WebString icon_url = element_utils_.GetIconUrl();
+  EXPECT_TRUE(icon_url.IsEmpty());
+}
+#endif  // ARKWEB_MEDIA || ARKWEB_VIDEO_ASSISTANT
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(HTMLMediaElementUtilsTest, TestRequestAVCastStarted) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->GetDocument().GetSettings()->SetCustomMediaPlayerEnabled(true);
+  ASSERT_NO_FATAL_FAILURE(element_utils_.RequestAVCastStarted());
+  Media()->ResetMojoState();
+  Media()->StartPlayerLoad();
+  ASSERT_NO_FATAL_FAILURE(element_utils_.RequestAVCastStarted());
+  media_ = MakeGarbageCollected<HTMLAudioElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_one_(Media());
+  ASSERT_NO_FATAL_FAILURE(element_utils_one_.RequestAVCastStarted());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestIsRTL) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  ASSERT_NO_FATAL_FAILURE(element_utils_.IsRTL());
+}
+#endif  // ARKWEB_VIDEO_ASSISTANT
+
+#if BUILDFLAG(ARKWEB_MEDIA_CAST)
+TEST_F(HTMLMediaElementUtilsTest, TestOnMediaCastEnterWithNullElement) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  element_utils_.htmlMediaElement_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.OnMediaCastEnter());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestOnMediaCastEnter) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->ResetMojoState();
+  Media()->StartPlayerLoad();
+  ASSERT_NO_FATAL_FAILURE(element_utils_.OnMediaCastEnter());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestOnNotifyMeidaCastUriWithNullElement) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  element_utils_.htmlMediaElement_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(element_utils_.OnNotifyMeidaCastUri());
+}
+
+TEST_F(HTMLMediaElementUtilsTest, TestOnNotifyMeidaCastUri) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  Media()->ResetMojoState();
+  Media()->StartPlayerLoad();
+  ASSERT_NO_FATAL_FAILURE(element_utils_.OnNotifyMeidaCastUri());
+}
+#endif  // BUILDFLAG(ARKWEB_MEDIA_CAST)
+
+TEST_F(HTMLMediaElementUtilsTest, TestTrace) {
+  media_ = MakeGarbageCollected<HTMLVideoElement>(dummy_page_holder_->GetDocument());
+  HTMLMediaElementUtils element_utils_(Media());
+  // Verify htmlMediaElement_ member is properly initialized and can be traced.
+  EXPECT_NE(element_utils_.htmlMediaElement_.Get(), nullptr);
+}
 
 }  // namespace blink

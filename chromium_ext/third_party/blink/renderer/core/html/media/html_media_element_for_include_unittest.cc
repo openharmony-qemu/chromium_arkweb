@@ -13,6 +13,10 @@
  * limitations under the License.
  */
 
+#if !BUILDFLAG(ARKWEB_TEST)
+#error This file is included by html_media_element_test.cc and should not be compiled independently.
+#endif
+
 namespace blink {
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
@@ -314,6 +318,54 @@ TEST_P(HTMLMediaElementTest, IncludeTestOnLayerRectChange3) {
   ASSERT_NO_FATAL_FAILURE(Media()->OnLayerRectChange(new_rect));
   EXPECT_EQ(Media()->layer_rect_, new_rect);
 }
+
+TEST_P(HTMLMediaElementTest, IncludeTestIsMuted) {
+  Media()->muted_ = false;
+  EXPECT_FALSE(Media()->IsMuted());
+  Media()->muted_ = true;
+  EXPECT_TRUE(Media()->IsMuted());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestShouldShowMediaControls) {
+  EXPECT_FALSE(Media()->ShouldShowMediaControls());
+  Media()->setAttribute(html_names::kControlsAttr, AtomicString(""));
+  EXPECT_TRUE(Media()->ShouldShowMediaControls());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestGetMediaFormat) {
+  Media()->media_format_ = "video/mp4";
+  EXPECT_EQ(Media()->GetMediaFormat(), "video/mp4");
+  Media()->media_format_ = "";
+  EXPECT_EQ(Media()->GetMediaFormat(), "");
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestRestartForPrimitive) {
+  Media()->should_create_custom_renderer_ = true;
+  auto* source =
+      MakeGarbageCollected<HTMLSourceElement>(Media()->GetDocument());
+  Media()->AppendChild(source);
+  Media()->next_child_node_to_consider_ = source;
+  Media()->next_retry_child_node_ = source;
+  ASSERT_NO_FATAL_FAILURE(Media()->RestartForPrimitive());
+  EXPECT_FALSE(Media()->should_create_custom_renderer_);
+  EXPECT_EQ(Media()->next_child_node_to_consider_, source);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestFullscreenChanged) {
+  ASSERT_NO_FATAL_FAILURE(Media()->FullscreenChanged(false));
+  ASSERT_NO_FATAL_FAILURE(Media()->FullscreenChanged(true));
+  WaitForPlayer();
+  ASSERT_NO_FATAL_FAILURE(Media()->FullscreenChanged(true));
+  ASSERT_NO_FATAL_FAILURE(Media()->FullscreenChanged(false));
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestUpdateMuted) {
+  Media()->muted_ = false;
+  ASSERT_NO_FATAL_FAILURE(Media()->UpdateMuted(true));
+  EXPECT_TRUE(Media()->muted_);
+  ASSERT_NO_FATAL_FAILURE(Media()->UpdateMuted(false));
+  EXPECT_FALSE(Media()->muted_);
+}
 #endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
 
 #if BUILDFLAG(ARKWEB_MEDIA_AVSESSION)
@@ -341,6 +393,12 @@ TEST_P(HTMLMediaElementTest, IncludeTestDidEndAVSession) {
   ASSERT_NO_FATAL_FAILURE(Media()->DidEndAVSession(false));
   WaitForPlayer();
   ASSERT_NO_FATAL_FAILURE(Media()->DidEndAVSession(false));
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestSetMediaTitle) {
+  Media()->setAttribute(html_names::kTitleAttr, AtomicString("test_title"));
+  ASSERT_NO_FATAL_FAILURE(Media()->SetMediaTitle());
+  EXPECT_EQ(Media()->media_title_, "test_title");
 }
 #endif  // ARKWEB_MEDIA_AVSESSION
 
@@ -689,6 +747,11 @@ TEST_P(HTMLMediaElementTest, IncludeTestResumeDmaBuffer) {
   EXPECT_CALL(*mock_wmpi, ResumeDmaBuffer()).Times(1);
   ASSERT_NO_FATAL_FAILURE(Media()->ResumeDmaBuffer());
 }
+
+TEST_P(HTMLMediaElementTest, IncludeTestOnDmaBufferSeekTo) {
+  ASSERT_NO_FATAL_FAILURE(
+      Media()->OnDmaBufferSeekTo(base::Milliseconds(5000)));
+}
 #endif  // ARKWEB_MEDIA_DMABUF
 
 #if BUILDFLAG(ARKWEB_BFCACHE)
@@ -914,5 +977,112 @@ TEST_P(HTMLMediaElementTest, DownloadHLS_006) {
   test::RunPendingTasks();
   EXPECT_EQ(Media()->SupportVideoAssistantDownload(), true);
 }
+
+TEST_P(HTMLMediaElementTest, IncludeTestIsVideoAssistantEnabled1) {
+  Media()->video_assistant_enabled_ = false;
+  EXPECT_FALSE(Media()->IsVideoAssistantEnabled());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestIsVideoAssistantEnabled2) {
+  Media()->video_assistant_enabled_ = true;
+  Media()->video_assistant_ = true;
+  EXPECT_TRUE(Media()->IsVideoAssistantEnabled());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestIsVideoAssistantEnabled3) {
+  Media()->video_assistant_enabled_ = true;
+  Media()->video_assistant_ = false;
+  EXPECT_FALSE(Media()->IsVideoAssistantEnabled());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestOnPageVisibilityChanged) {
+  ASSERT_NO_FATAL_FAILURE(Media()->OnPageVisibilityChanged());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestSetRenderVideoView) {
+  ASSERT_NO_FATAL_FAILURE(Media()->SetRenderVideoView(true));
+  WaitForPlayer();
+  auto* mock_wmpi =
+      reinterpret_cast<MockWebMediaPlayer*>(Media()->GetWebMediaPlayer());
+  ASSERT_NE(mock_wmpi, nullptr);
+  ASSERT_NO_FATAL_FAILURE(Media()->SetRenderVideoView(true));
+  ASSERT_NO_FATAL_FAILURE(Media()->SetRenderVideoView(false));
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestSetVolume) {
+  ASSERT_NO_FATAL_FAILURE(Media()->SetVolume(0.5));
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestGetVolume) {
+  double result = -1.0;
+  auto callback = base::BindOnce([](double* out, double volume) { *out = volume; }, &result);
+  ASSERT_NO_FATAL_FAILURE(Media()->GetVolume(std::move(callback)));
+  EXPECT_NE(result, -1.0);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestRequestAVCastStarted) {
+  ASSERT_NO_FATAL_FAILURE(Media()->RequestAVCastStarted());
+}
 #endif  // ARKWEB_VIDEO_ASSISTANT
+
+#if BUILDFLAG(ARKWEB_MEDIA_CAST)
+TEST_P(HTMLMediaElementTest, IncludeTestOnMediaCastEnter) {
+  ASSERT_NO_FATAL_FAILURE(Media()->OnMediaCastEnter());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestEnableMediaCastByUrlProtocol1) {
+  Media()->SetSrc(SrcSchemeToURL(TestURLScheme::kHttp));
+  test::RunPendingTasks();
+  EXPECT_TRUE(Media()->EnableMediaCastByUrlProtocol());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestEnableMediaCastByUrlProtocol2) {
+  Media()->SetSrc(SrcSchemeToURL(TestURLScheme::kFile));
+  test::RunPendingTasks();
+  EXPECT_FALSE(Media()->EnableMediaCastByUrlProtocol());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestMediaCastStopByNavigation) {
+  ASSERT_NO_FATAL_FAILURE(Media()->MediaCastStopByNavigation());
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyCastControlShow) {
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyCastControlShow(true));
+  EXPECT_TRUE(Media()->cast_botton_show_);
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyCastControlShow(false));
+  EXPECT_FALSE(Media()->cast_botton_show_);
+}
+#endif  // ARKWEB_MEDIA_CAST
+
+#if BUILDFLAG(ARKWEB_MEDIA_MEMORY_PRESSURE)
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyMemoryLevelNone) {
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyMemoryLevel(0));
+  EXPECT_EQ(Media()->memory_pressure_level_,
+            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyMemoryLevelModerate) {
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyMemoryLevel(1));
+  EXPECT_EQ(Media()->memory_pressure_level_,
+            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyMemoryLevelCritical) {
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyMemoryLevel(2));
+  EXPECT_EQ(Media()->memory_pressure_level_,
+            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyMemoryLevelDefault) {
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyMemoryLevel(99));
+  EXPECT_EQ(Media()->memory_pressure_level_,
+            base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE);
+}
+
+TEST_P(HTMLMediaElementTest, IncludeTestNotifyMemoryLevelWithPlayer) {
+  WaitForPlayer();
+  ASSERT_NO_FATAL_FAILURE(Media()->NotifyMemoryLevel(1));
+}
+#endif  // ARKWEB_MEDIA_MEMORY_PRESSURE
+
 }  // namespace blink
