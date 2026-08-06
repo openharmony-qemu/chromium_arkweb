@@ -21,6 +21,9 @@ LocationProviderOhos::LocationProviderOhos() {
 
 LocationProviderOhos::~LocationProviderOhos() {
   StopProviderTask();
+  if (locator_callback_ != nullptr) {
+    locator_callback_->ResetCallback();
+  }
   if (locator_ != nullptr) {
     locator_.reset();
   }
@@ -188,7 +191,7 @@ void LocationProviderOhos::SetRequestConfig(
 void LocationProviderCallback::NewGeopositionReport(
     mojom::GeopositionResultPtr position) {
   last_position_ = std::move(position);
-  if (!callback_.is_null()) {
+  if (!callback_.is_null() && weak_factory_.HasWeakPtrs()) {
     callback_.Run(last_position_.Clone());
   }
 }
