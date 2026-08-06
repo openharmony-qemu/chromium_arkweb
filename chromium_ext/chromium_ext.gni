@@ -365,6 +365,9 @@ arkweb_media_third_party_unittest_sources = [
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_audio_capturer_source_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_screen_capture_source_bridge_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_window_capturer_unittest.cc",
+  "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/native_frame_unittest.cc",
+  "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/desktop_capture_frame_unittest.cc",
+  "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/window_capturer_notify_unittest.cc",
 ]
 
 arkweb_media_filters_sources = [
@@ -905,6 +908,7 @@ arbweb_content_media_test_sources = [
   "//arkweb/chromium_ext/content/browser/media/ohos/ohos_custom_media_player_renderer_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/audio_focus_delegate_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/media/session/audio_interrupt_adapter_impl_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_controller_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_impl_for_include_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_impl_utils_unittest.cc",
@@ -1332,6 +1336,8 @@ arkweb_content_browser_test_sources = [
   "//arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/content/public/browser/spare_render_process_manager_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/renderer/stream_texture_host_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/renderer/media/renderer_web_native_delegate_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/renderer_host/media/video_capture_host_utils_unittest.cc",
 ]
 
 arkweb_fuzzer_test_sources = [

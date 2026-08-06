@@ -15,6 +15,7 @@
 
 #include <cstring>
 #include <memory>
+#include <vector>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <sys/mman.h>
@@ -26,6 +27,11 @@
 using namespace testing;
 
 namespace OHOS::NWeb {
+
+// Forward declarations for file-level free functions defined in
+// ohos_image_decoder_adapter_impl.cpp (external linkage).
+IMAGE_ALLOCATOR_TYPE GetImageAllocType(AllocatorType type);
+void ReleaseDecodeOptions(OH_DecodingOptions* decodeOptions);
 
 class ImageDecoderAdapterImplTest : public testing::Test {
  public:
@@ -269,7 +275,8 @@ TEST_F(ImageDecoderAdapterImplTest, ImageDecoderAdapterImplTest_ReleasePixelMap)
   EXPECT_NE(adapter_->nativeBuffer_, nullptr);
   adapter_->CreateNativeWindowBuffer();
   EXPECT_NE(adapter_->nativeWindowBuffer_, nullptr);
-  adapter_->bufferHandle_ = new BufferHandle();
+  std::shared_ptr<BufferHandle> bufferHandle = std::make_shared<BufferHandle>();
+  adapter_->bufferHandle_ = bufferHandle.get();
   EXPECT_NE(adapter_->bufferHandle_, nullptr);
   ASSERT_NO_FATAL_FAILURE(adapter_->ReleasePixelMap());
   EXPECT_EQ(adapter_->imageSource_, nullptr);
@@ -315,6 +322,125 @@ TEST_F(ImageDecoderAdapterImplTest, ImageDecoderAdapterImplTest_DecodeByPath) {
   EXPECT_EQ(result, false);
   adapter_->ReleasePixelMap();
   EXPECT_EQ(adapter_->pixelMap_, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// GetImageAllocType free-function tests
+// ---------------------------------------------------------------------------
+
+TEST_F(ImageDecoderAdapterImplTest, GetImageAllocType_DmaAlloc) {
+  EXPECT_EQ(GetImageAllocType(AllocatorType::kDmaAlloc),
+            IMAGE_ALLOCATOR_TYPE_DMA);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, GetImageAllocType_ShareMemAlloc) {
+  EXPECT_EQ(GetImageAllocType(AllocatorType::kShareMemAlloc),
+            IMAGE_ALLOCATOR_TYPE_SHARE_MEMORY);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, GetImageAllocType_InvalidType_ReturnsAuto) {
+  EXPECT_EQ(GetImageAllocType(AllocatorType::kDefault),
+            IMAGE_ALLOCATOR_TYPE_AUTO);
+  EXPECT_EQ(GetImageAllocType(AllocatorType::kHeapAlloc),
+            IMAGE_ALLOCATOR_TYPE_AUTO);
+  EXPECT_EQ(GetImageAllocType(AllocatorType::kCustomAlloc),
+            IMAGE_ALLOCATOR_TYPE_AUTO);
+}
+
+// ---------------------------------------------------------------------------
+// ComputeDownsampleFactor tests
+// ---------------------------------------------------------------------------
+
+TEST_F(ImageDecoderAdapterImplTest, ComputeDownsampleFactor_InvalidWidthHeight) {
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(0, 100), 1u);
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(100, 0), 1u);
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(-1, 100), 1u);
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(100, -1), 1u);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ComputeDownsampleFactor_SmallImage) {
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(100, 100), 1u);
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(8192, 8192), 1u);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ComputeDownsampleFactor_AlreadyComputed) {
+  adapter_->downsampleFactorComputed_ = true;
+  adapter_->downsampleFactor_ = 4;
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(10000, 10000), 4u);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ComputeDownsampleFactor_LargeImage) {
+  // 10000 * 10000 = 100M > 67108864 (kMaxPixelSize)
+  // ratio = ceil(sqrt(100M / 67108864)) = ceil(1.22) = 2
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(10000, 10000), 2u);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ComputeDownsampleFactor_VeryLargeImage) {
+  // total pixels far exceed kMaxPixelSize; factor should be capped at kMaxFactor
+  // kMaxFactor = 1 << 5 = 32
+  EXPECT_EQ(adapter_->ComputeDownsampleFactor(1000000, 1000000), 32u);
+}
+
+// ---------------------------------------------------------------------------
+// ReadPixels tests
+// ---------------------------------------------------------------------------
+
+TEST_F(ImageDecoderAdapterImplTest, ReadPixels_NullPixelMap_ReturnsFalse) {
+  EXPECT_EQ(adapter_->pixelMap_, nullptr);
+  uint8_t dest[16] = {0};
+  size_t size = sizeof(dest);
+  EXPECT_FALSE(adapter_->ReadPixels(dest, &size));
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ReadPixels_ValidPixelMap) {
+  size_t bufferSize = 0;
+  uint8_t* buffer = GetPngBuffer(bufferSize);
+  adapter_->DecodeToPixelMap(buffer, bufferSize);
+  ASSERT_NE(adapter_->pixelMap_, nullptr);
+  size_t destSize = 472 * 75 * 4;
+  std::vector<uint8_t> dest(destSize);
+  // Exercise the non-null pixelMap_ branch. The actual result depends on
+  // the OH runtime, but the call should not crash.
+  ASSERT_NO_FATAL_FAILURE(adapter_->ReadPixels(dest.data(), &destSize));
+}
+
+// ---------------------------------------------------------------------------
+// ReleaseDecodeOptions free-function tests
+// ---------------------------------------------------------------------------
+
+TEST_F(ImageDecoderAdapterImplTest, ReleaseDecodeOptions_NullInput_NoOp) {
+  ASSERT_NO_FATAL_FAILURE(ReleaseDecodeOptions(nullptr));
+}
+
+TEST_F(ImageDecoderAdapterImplTest, ReleaseDecodeOptions_ValidInput_Releases) {
+  OH_DecodingOptions* opts = nullptr;
+  Image_ErrorCode ec = OH_DecodingOptions_Create(&opts);
+  ASSERT_EQ(ec, Image_ErrorCode::IMAGE_SUCCESS);
+  ASSERT_NE(opts, nullptr);
+  ASSERT_NO_FATAL_FAILURE(ReleaseDecodeOptions(opts));
+}
+
+// ---------------------------------------------------------------------------
+// Decode branch coverage
+// ---------------------------------------------------------------------------
+
+TEST_F(ImageDecoderAdapterImplTest, Decode_UseYuvFalse_UsesRGBAFormat) {
+  size_t bufferSize = 0;
+  uint8_t* buffer = GetPngBuffer(bufferSize);
+  bool result = adapter_->Decode(buffer, bufferSize,
+                                 AllocatorType::kDmaAlloc, false);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(ImageDecoderAdapterImplTest, Decode_WithDownsampleFactor_SetDesiredSize) {
+  // Force the downsampleFactor_ != 1 branch by pre-setting the cached values.
+  adapter_->downsampleFactorComputed_ = true;
+  adapter_->downsampleFactor_ = 2;
+  size_t bufferSize = 0;
+  uint8_t* buffer = GetPngBuffer(bufferSize);
+  bool result = adapter_->Decode(buffer, bufferSize,
+                                 AllocatorType::kDmaAlloc, false);
+  EXPECT_TRUE(result);
 }
 
 } // namespace OHOS::NWeb
