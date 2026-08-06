@@ -14,6 +14,7 @@
  */
 
 #include "base/test/task_environment.h"
+#include "media/base/mock_media_log.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #define private public
@@ -27,8 +28,9 @@ class MojoVideoDecoderIncludeTest : public ::testing::Test {
   void SetUp() override {
     mojo::PendingRemote<mojom::VideoDecoder> pending;
     task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+    media_log_ = std::make_unique<MockMediaLog>();
     decoder_ = std::make_unique<MojoVideoDecoder>(task_runner_,
-        nullptr, nullptr, std::move(pending), RequestOverlayInfoCB(), gfx::ColorSpace());
+        nullptr, media_log_.get(), std::move(pending), RequestOverlayInfoCB(), gfx::ColorSpace());
   }
   void TearDown() override {
     decoder_.reset();
@@ -36,6 +38,7 @@ class MojoVideoDecoderIncludeTest : public ::testing::Test {
   
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   base::test::TaskEnvironment task_environment_;
+  std::unique_ptr<MockMediaLog> media_log_;
   std::unique_ptr<MojoVideoDecoder> decoder_;
 };
 
@@ -86,5 +89,20 @@ TEST_F(MojoVideoDecoderIncludeTest, ResumeDmaBuffer) {
   EXPECT_FALSE(decoder_->remote_decoder_.is_bound());
 }
 #endif  // ARKWEB_MEDIA_DMABUF
+
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+TEST_F(MojoVideoDecoderIncludeTest, SetPreciseSeekTarget) {
+  decoder_->has_connection_error_ = true;
+  EXPECT_NO_FATAL_FAILURE(decoder_->SetPreciseSeekTarget(123));
+  decoder_->has_connection_error_ = false;
+  mojo::PendingRemote<media::mojom::VideoDecoder> pending;
+  auto receiver = pending.InitWithNewPipeAndPassReceiver();
+  EXPECT_TRUE(receiver.is_valid());
+  decoder_->remote_decoder_.Bind(std::move(pending));
+  decoder_->remote_decoder_.set_disconnect_handler(base::DoNothing());
+  EXPECT_NO_FATAL_FAILURE(decoder_->SetPreciseSeekTarget(456));
+  decoder_->remote_decoder_.reset();
+}
+#endif  // ARKWEB_VIDEO_ASSISTANT
 
 }  // namespace media
