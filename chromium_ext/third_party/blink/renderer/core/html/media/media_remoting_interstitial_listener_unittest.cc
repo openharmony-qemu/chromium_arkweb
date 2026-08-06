@@ -124,10 +124,6 @@ TEST_F(ProgressBarEventListenerFullCoverageTest, TouchEmptyLists) {
   listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchcancel));
 }
 
-TEST_F(ProgressBarEventListenerFullCoverageTest, NullEventHandling) {
-  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, nullptr));
-}
-
 TEST_F(ProgressBarEventListenerFullCoverageTest, NormalWidthPercentage) {
   testing::internal::CaptureStderr();
   listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 50.0f));
@@ -189,6 +185,258 @@ TEST_F(ProgressBarEventListenerFullCoverageTest, NullInterstitial) {
       null_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 50.0f, 1)));
   EXPECT_NO_FATAL_FAILURE(
       null_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousemove, 80.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, NullProgressBar) {
+  auto* null_bar_listener = MakeGarbageCollected<ProgressBarEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_), nullptr);
+  EXPECT_NO_FATAL_FAILURE(
+      null_bar_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 50.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      null_bar_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 50.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchStartIgnoresWhenDragging) {
+  listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 50.0f, 1));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchStartWhenAlreadyTouchDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchMoveWithoutTouchStart) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchmove)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchEndWithoutTouchStart) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchend)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchCancelWhenDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchcancel)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchCancelWhenNotDragging) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchcancel)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseDownIgnoresWhenTouchDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 60.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseMoveIgnoresWhenNotDragging) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousemove, 80.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseMoveIgnoresWhenTouchDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousemove, 80.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseUpIgnoresWhenNotDragging) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMouseup, 80.0f, 0)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseUpIgnoresWhenTouchDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMouseup, 80.0f, 0)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseLeaveWhenNotDragging) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMouseleave, 90.0f, 0)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseLeaveWhenTouchDragging) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kMouseleave, 90.0f, 0)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, ProgressBarWithZeroWidth) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<div id='zero_width' style='width:0px;'></div>");
+  UpdateAllLifecyclePhasesForTest();
+  auto* zero_width_bar = GetDocument().getElementById(AtomicString("zero_width"));
+
+  auto zero_width_listener = MakeGarbageCollected<ProgressBarEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_), zero_width_bar);
+
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 50.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 50.0f, 1)));
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousemove, 80.0f, 1)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, ClickAtBoundaries) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 10.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 210.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, -100.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 500.0f)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, ComplexTouchSequence) {
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchmove));
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchmove));
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchend));
+
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchstart));
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchmove));
+  listener_->Invoke(nullptr, CreateEmptyTouchEvent(event_type_names::kTouchcancel));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, TouchEventWithEmptyTargetAndChangedTouches) {
+  TouchEvent* event = TouchEvent::Create();
+  event->SetType(event_type_names::kTouchstart);
+  event->SetTargetTouches(TouchList::Create());
+  event->SetChangedTouches(TouchList::Create());
+
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, event));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, DragWithZeroWidthProgressBar) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<div id='zero_width_progress' style='width:0px; height:10px;'></div>");
+  UpdateAllLifecyclePhasesForTest();
+  auto* zero_width_bar = GetDocument().getElementById(AtomicString("zero_width_progress"));
+
+  auto zero_width_listener = MakeGarbageCollected<ProgressBarEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_), zero_width_bar);
+
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousedown, 50.0f, 1)));
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMousemove, 80.0f, 1)));
+  EXPECT_NO_FATAL_FAILURE(
+      zero_width_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kMouseup, 100.0f, 0)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, DragWithHiddenProgressBar) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<div id='hidden_progress' style='display:none;'></div>");
+  UpdateAllLifecyclePhasesForTest();
+  auto* hidden_bar = GetDocument().getElementById(AtomicString("hidden_progress"));
+
+  auto hidden_listener = MakeGarbageCollected<ProgressBarEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_), hidden_bar);
+
+  EXPECT_NO_FATAL_FAILURE(
+      hidden_listener->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 50.0f)));
+}
+
+TEST_F(ProgressBarEventListenerFullCoverageTest, MouseEventAtExactProgressBoundaries) {
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 10.0f)));
+  EXPECT_NO_FATAL_FAILURE(
+      listener_->Invoke(nullptr, CreateMouseEvent(event_type_names::kClick, 210.0f)));
+}
+
+class RemotingButtonEventListenerTest : public PageTestBase {
+ protected:
+  void SetUp() override {
+    PageTestBase::SetUp();
+    GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+        "<video id='video'></video>");
+    UpdateAllLifecyclePhasesForTest();
+
+    auto* video = GetDocument().getElementById(AtomicString("video"));
+    video_element_ = DynamicTo<HTMLVideoElement>(video);
+    ASSERT_TRUE(video_element_);
+
+    interstitial_ = MakeGarbageCollected<MediaRemotingInterstitial>(*video_element_);
+  }
+
+  void TearDown() override {
+    listener_ = nullptr;
+    interstitial_ = nullptr;
+    video_element_ = nullptr;
+    PageTestBase::TearDown();
+  }
+
+  Persistent<HTMLVideoElement> video_element_;
+  Persistent<MediaRemotingInterstitial> interstitial_;
+  Persistent<RemotingButtonEventListener> listener_;
+};
+
+TEST_F(RemotingButtonEventListenerTest, StopCastingButton) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_),
+      RemotingButtonType::kStopCasting);
+
+  Event* click_event = Event::Create(event_type_names::kClick);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, click_event));
+}
+
+TEST_F(RemotingButtonEventListenerTest, SwitchDeviceButton) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_),
+      RemotingButtonType::kSwitchDevice);
+
+  Event* click_event = Event::Create(event_type_names::kClick);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, click_event));
+}
+
+TEST_F(RemotingButtonEventListenerTest, PlayPauseButton) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_),
+      RemotingButtonType::kPlayPause);
+
+  Event* click_event = Event::Create(event_type_names::kClick);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, click_event));
+}
+
+TEST_F(RemotingButtonEventListenerTest, NullInterstitial) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(),
+      RemotingButtonType::kStopCasting);
+
+  Event* click_event = Event::Create(event_type_names::kClick);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, click_event));
+}
+
+TEST_F(RemotingButtonEventListenerTest, NonClickEvent) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_),
+      RemotingButtonType::kStopCasting);
+
+  Event* mouseover_event = Event::Create(event_type_names::kMouseover);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, mouseover_event));
+}
+
+TEST_F(RemotingButtonEventListenerTest, PlayPauseButtonUpdatesPlayingState) {
+  listener_ = MakeGarbageCollected<RemotingButtonEventListener>(
+      WeakMember<MediaRemotingInterstitial>(interstitial_),
+      RemotingButtonType::kPlayPause);
+
+  interstitial_->UpdateUiPlayState(true);
+  bool initial_state = interstitial_->GetPlayingState();
+
+  Event* click_event = Event::Create(event_type_names::kClick);
+  EXPECT_NO_FATAL_FAILURE(listener_->Invoke(nullptr, click_event));
+
+  EXPECT_NE(interstitial_->GetPlayingState(), initial_state);
 }
 
 }  // namespace blink
