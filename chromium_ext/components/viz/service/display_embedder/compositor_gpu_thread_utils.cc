@@ -33,7 +33,7 @@ void CompositorGpuThreadUtils::CompositorGpuThreadDestruct(base::Thread* thread_
   auto type = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       kProcessType);
   if (type == kGpuProcess) {
-    NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+    NWebNativeWindowTracker::Get()->ReportThread(
         ResSchedStatusAdapter::THREAD_DESTROYED, base::GetCurrentRealPid(),
         thread_ptr->GetThreadRealId().raw(), ResSchedRoleAdapter::IMPORTANT_DISPLAY);
     return;
@@ -57,7 +57,7 @@ void CompositorGpuThreadUtils::CompositorGptThreadInitializeUtils(base::Thread* 
   auto type = base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
       kProcessType);
   if (type == kGpuProcess) {
-      NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+      NWebNativeWindowTracker::Get()->ReportThread(
           ResSchedStatusAdapter::THREAD_CREATED, base::GetCurrentRealPid(),
           thread_ptr->GetThreadRealId().raw(), ResSchedRoleAdapter::IMPORTANT_DISPLAY);
       return;

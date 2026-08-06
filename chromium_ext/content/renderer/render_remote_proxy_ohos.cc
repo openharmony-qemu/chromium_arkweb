@@ -140,7 +140,7 @@ void RenderRemoteProxy::NotifyBrowser(
     RenderRemoteProxy::browser_fd_cv_.notify_one();
     if (clientAdapter) {
       LOG(DEBUG) << "NWebNativeWindowTracker set g_browser_client_";
-      NWebNativeWindowTracker::Get()->g_browser_client_ = clientAdapter;
+      NWebNativeWindowTracker::Get()->SetBrowserClient(clientAdapter);
     }
     return;
   }
@@ -157,7 +157,7 @@ void RenderRemoteProxy::NotifyBrowser(
     RenderRemoteProxy::is_browser_fd_received_ = true;
     RenderRemoteProxy::browser_fd_cv_.notify_one();
     LOG(DEBUG) << "NWebNativeWindowTracker set g_browser_client_";
-    NWebNativeWindowTracker::Get()->g_browser_client_ = clientAdapter;
+    NWebNativeWindowTracker::Get()->SetBrowserClient(clientAdapter);
   }
 }
 

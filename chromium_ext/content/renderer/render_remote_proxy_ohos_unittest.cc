@@ -99,7 +99,7 @@ TEST_F(RenderRemoteProxyUnitTest, NotifyBrowserWithNegative) {
   EXPECT_EQ(g_fds->Get(kMojoIPCChannel), -1);
   EXPECT_EQ(g_fds->Get(kFieldTrialDescriptor), -1);
   EXPECT_EQ(g_fds->Get(kCrashDumpSignal), -1);
-  EXPECT_EQ(NWebNativeWindowTracker::Get()->g_browser_client_, nullptr);
+  EXPECT_EQ(NWebNativeWindowTracker::Get()->GetBrowserClient(), nullptr);
 }
 
 TEST_F(RenderRemoteProxyUnitTest, NotifyBrowserWithZero) {
@@ -114,7 +114,7 @@ TEST_F(RenderRemoteProxyUnitTest, NotifyBrowserWithZero) {
   EXPECT_GE(g_fds->Get(kMojoIPCChannel), 0);
   EXPECT_GE(g_fds->Get(kFieldTrialDescriptor), 0);
   EXPECT_GE(g_fds->Get(kCrashDumpSignal), 0);
-  EXPECT_EQ(NWebNativeWindowTracker::Get()->g_browser_client_, nullptr);
+  EXPECT_EQ(NWebNativeWindowTracker::Get()->GetBrowserClient(), nullptr);
 }
 
 TEST_F(RenderRemoteProxyUnitTest, NotifyBrowserWithNormalParam) {
@@ -131,7 +131,7 @@ TEST_F(RenderRemoteProxyUnitTest, NotifyBrowserWithNormalParam) {
   EXPECT_GE(g_fds->Get(kMojoIPCChannel), 0);
   EXPECT_GE(g_fds->Get(kFieldTrialDescriptor), 0);
   EXPECT_GE(g_fds->Get(kCrashDumpSignal), 0);
-  EXPECT_EQ(NWebNativeWindowTracker::Get()->g_browser_client_, clientAdapter);
+  EXPECT_EQ(NWebNativeWindowTracker::Get()->GetBrowserClient(), clientAdapter);
 }
 
 TEST_F(RenderRemoteProxyUnitTest, WaitForBrowserFdWhenIsForTest) {

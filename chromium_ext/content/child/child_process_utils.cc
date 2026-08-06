@@ -53,12 +53,11 @@ void ChildProcessUtils::ReportIoThreadStatus(bool is_created, bool is_in_browser
   }
 #if BUILDFLAG(ARKWEB_OOP_GPU_PROCESS)
   else if (type == switches::kGpuProcess) {
-    if (NWebNativeWindowTracker::Get() &&
-        NWebNativeWindowTracker::Get()->g_browser_client_) {
+    if (NWebNativeWindowTracker::Get()) {
       LOG(DEBUG) << "get native window success pid:"
                  << base::GetCurrentRealPid()
                  << ", tid = " << childProcess->io_thread_->GetThreadRealId().raw();
-      NWebNativeWindowTracker::Get()->g_browser_client_->ReportThread(
+      NWebNativeWindowTracker::Get()->ReportThread(
           status, base::GetCurrentRealPid(), childProcess->io_thread_->GetThreadRealId().raw(),
           ResSchedRoleAdapter::USER_INTERACT);
     }

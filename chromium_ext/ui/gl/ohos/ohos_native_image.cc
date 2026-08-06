@@ -108,7 +108,7 @@ void OhosNativeImage::GetSurfaceId(uint64_t* surface_id) {
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(kProcessType);
   if (type == kGpuProcess) {
     LOG(INFO) << "dxlog GetSurfaceId : " << *surface_id;
-    NWebNativeWindowTracker::GetInstance()->g_browser_client_->PassSurface(
+    NWebNativeWindowTracker::GetInstance()->PassSurface(
         *surface_id);
   }
 }
