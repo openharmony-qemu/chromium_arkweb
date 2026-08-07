@@ -274,8 +274,7 @@ std::string LogUtils::ConvertUrlWithMask(const std::string& url) {
   std::string_view truncated_url = std::string_view(url).substr(0, kMaxUrlLen);
   size_t url_length = truncated_url.length();
 
-  if (truncated_url.starts_with(kSchemeNotParseOne) ||
-      truncated_url.starts_with(kSchemeNotParseTwo)) {
+  if (truncated_url.starts_with(kSchemeNotParseOne)) {
     return std::string(truncated_url);
   }
 
