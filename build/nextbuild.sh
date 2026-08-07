@@ -26,16 +26,15 @@ export CCACHE_BASEDIR=${WORKSPACE}
 export CCACHE_NOHASHDIR=true
 export USE_CCACHE=0
 
-
 if [ ! -f $NEXT_BUILD_SHELL ];then
-  echo "===Sorry!=== $NEXT_BUILD_SHELL not exist!"
-  cd $WORKSPACE
-  build_arkweb.sh "$@"
+  echo "===Sorry!=== $NEXT_BUILD_SHELL not exist!"
+  cd $WORKSPACE
+  build_arkweb.sh "$@"
 fi
 
 if [ ! -d $CCACHE_DIR ];then
-  echo "mkdir -p $CCACHE_DIR"
-  mkdir -p $CCACHE_DIR
+  echo "mkdir -p $CCACHE_DIR"
+  mkdir -p $CCACHE_DIR
 fi
 
 echo -e "======== NextBuild build start. ========"
@@ -55,6 +54,6 @@ for ((attempt = 1; attempt <= 3; attempt++)); do
     exit 0
   fi
 done
- 
+
 echo "retry 3 times failed"
 exit 1

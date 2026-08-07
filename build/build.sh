@@ -218,7 +218,7 @@ while [ "$1" != "" ]; do
       build_asan=1
       ;;
     "-nolto")
-      use_thin_lto=1
+      use_thin_lto=0
       ;;
     "-ex")
       with_nweb_ex=1
@@ -436,7 +436,7 @@ if [ ${build_v8} -eq 1 ]; then
   GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = true v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false use_allocator_shim = false enable_backup_ref_ptr_support = false v8_enable_jitfort = true arkweb_test = true"
 fi
 
-if [ ${use_thin_lto} -eq 1 ]; then
+if [ ${use_thin_lto} -eq 0 ]; then
   GN_ARGS="${GN_ARGS} use_thin_lto=false"
 fi
 if [ ${is_official_build} -eq 0 ]; then
@@ -568,7 +568,7 @@ if [ $buildgn = 1 ]; then
   echo "generating args list:"
   echo "$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS $debug_args symbol_level=$SYMBOL_LEVEL $additional_gn_args"
 
-  third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS symbol_level=$SYMBOL_LEVEL $additional_gn_args"
+  third_party/depot_tools/gn gen $build_dir --export-compile-commands --args="$buildargs $buildarg_cpu $buildarg_musl $build_sysroot $build_product_name $GN_ARGS $debug_args symbol_level=$SYMBOL_LEVEL $additional_gn_args"
   if [ "${build_target}" = "ohos_nweb_hap" ]; then
     echo "extract build_metadata file and generate arkweb_prebuild.gni"
     python3 ${ROOT_DIR}/arkweb/build/collect_prebuild_targets.py --search-root ${ROOT_DIR}/${build_dir} --output ${ROOT_DIR}/${build_dir}arkweb_prebuild.gni --threads 10
