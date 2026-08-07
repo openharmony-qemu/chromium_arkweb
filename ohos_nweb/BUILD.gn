@@ -624,6 +624,13 @@ static_library("nweb_sources") {
     sources += [ "src/capi/nweb_navigation_info.h" ]
   }
 
+  if (defined(arkweb_devtools) && arkweb_devtools) {
+    sources += [
+      "//arkweb/chromium_ext/chrome/browser/devtools/devtools_nweb_tab_factory.cc",
+      "//arkweb/chromium_ext/chrome/browser/devtools/devtools_nweb_tab_factory.h",
+    ]
+  }
+
   deps = [
     ":cef_nweb",
     ":nweb_hilog",
@@ -633,6 +640,7 @@ static_library("nweb_sources") {
     "//ohos_glue:ohos_nweb_glue_source",
     "//cef/libcef/features:buildflags",
     "//arkweb/build/features",
+    "//v8:v8_headers",
   ]
 
   if (defined(arkweb_no_state_prefetch) && arkweb_no_state_prefetch) {

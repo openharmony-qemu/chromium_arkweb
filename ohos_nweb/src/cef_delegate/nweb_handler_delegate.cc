@@ -197,6 +197,9 @@
 #endif
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+#include "cef/ohos_cef_ext/libcef/browser/alloy/alloy_browser_host_impl_ext.h"
+#include "cef/libcef/browser/browser_info_manager.h"
+#include "cef/libcef/common/net/url_util.h"
 #include "ohos_nweb/src/nweb_window_new_event_info_impl.h"
 #endif
 
@@ -815,6 +818,175 @@ void NWebHandlerDelegate::RegisterNWebHandler(
     render_handler_->RegisterNWebHandler(handler);
   }
 }
+
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+void NWebHandlerDelegate::TriggerWindowNewByJS(
+    const std::string& target_url,
+    bool is_alert,
+    bool is_user_trigger,
+    CefRefPtr<CefCallback> callback) {
+  if (!nweb_handler_) {
+    if (callback) {
+      callback->Cancel();
+    }
+    return;
+  }
+
+  popIndex_++;
+
+  // Store the callback so that NotifyPopupWindowResult can invoke
+  // Continue()/Cancel() when ArkTS responds.
+  popupWindowCallback_ = callback;
+
+  // Phase 1 (OnPreBeforePopup): fire isFirst=true callbacks.
+  auto first_handler =
+      std::make_shared<NWebControllerHandlerImpl>(popIndex_, true);
+  nweb_handler_->OnWindowNewByJS(target_url, is_alert, is_user_trigger,
+                                 first_handler);
+  auto first_event_info = std::make_shared<NWebWindowNewEventInfoImpl>(
+      target_url, is_alert, is_user_trigger, first_handler,
+      NavigationPolicy::NEW_FOREGROUND_TAB,
+      0, 0, 0, 0);
+  nweb_handler_->OnWindowNewExtByJS(first_event_info);
+}
+
+content::WebContents* NWebHandlerDelegate::CompletePopupCreation(
+    const std::string& url,
+    bool is_alert,
+    bool is_user_trigger) {
+  if (!nweb_handler_) {
+    return nullptr;
+  }
+  // Phase 2 (OnBeforePopup): create second handler (isFirst=false) and fire
+  // callbacks, same as the real OnBeforePopup does.
+  auto handler =
+      std::make_shared<NWebControllerHandlerImpl>(popIndex_, false);
+  nweb_handler_->OnWindowNewByJS(url, is_alert, is_user_trigger, handler);
+  auto event_info = std::make_shared<NWebWindowNewEventInfoImpl>(
+      url, is_alert, is_user_trigger, handler,
+      NavigationPolicy::NEW_FOREGROUND_TAB,
+      0, 0, 0, 0);
+  nweb_handler_->OnWindowNewExtByJS(event_info);
+
+  // Obtain the popup's CefClient from its NWebImpl via the nweb_id set by
+  // ArkTS. The popup NWeb was created by ArkTS during Phase 1; its
+  // InitializeCef(popup=true) only creates the NWebHandlerDelegate without
+  // a browser. We create the browser here, following the same pattern as
+  // CefBrowserInfoManager::CanCreateWindow.
+  int32_t nweb_id = handler->GetNWebHandlerId();
+  LOG(INFO) << "CompletePopupCreation: nweb_id=" << nweb_id;
+  NWebImpl* nweb = NWebImpl::FromID(nweb_id);
+  if (!nweb) {
+    LOG(ERROR) << "CompletePopupCreation: NWebImpl::FromID returned null";
+    return nullptr;
+  }
+  CefRefPtr<CefClient> client = nweb->GetCefClient();
+  if (!client) {
+    LOG(ERROR) << "CompletePopupCreation: GetCefClient returned null";
+    return nullptr;
+  }
+
+  // Initialize window_info from the opener browser, same as CanCreateWindow.
+  // The popup uses OSR (windowless) mode, same as normal NWeb browsers.
+  CefWindowInfo window_info;
+  CefRefPtr<ArkWebBrowserExt> opener_browser = GetBrowser();
+  CefRefPtr<CefBrowserHostBase> opener_host;
+  if (opener_browser) {
+    opener_host = opener_browser->AsCefBrowserHostBase();
+    CefBrowserCreateParams::InitWindowInfo(&window_info, opener_host.get());
+    // Use windowless mode — all NWeb browsers use OSR rendering on OH.
+    window_info.SetAsWindowless(kNullWindowHandle);
+  }
+
+  // Start with the opener's settings, then let the popup's preference
+  // delegate override.
+  CefBrowserSettings settings;
+  if (opener_browser) {
+    settings = opener_browser->AsCefBrowserHostBase()->settings();
+  }
+  auto preference = nweb->GetPreference();
+  if (preference) {
+    static_cast<NWebPreferenceDelegate*>(preference.get())
+        ->ComputeBrowserSettings(settings);
+  } else if (preference_delegate_) {
+    preference_delegate_->ComputeBrowserSettings(settings);
+  }
+
+  CefRefPtr<CefDictionaryValue> extra_info = CefDictionaryValue::Create();
+#if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
+  static const char kNWebId[] = "nweb_id";
+  extra_info->SetInt(kNWebId, static_cast<int>(nweb_id));
+#endif
+
+  // Create a CefBrowserCreateParams to obtain a platform delegate.
+  CefBrowserCreateParams create_params;
+  create_params.window_info = std::make_unique<CefWindowInfo>(window_info);
+  create_params.client = client;
+  create_params.url = url;
+  create_params.settings = settings;
+  create_params.extra_info = extra_info;
+  create_params.request_context = CefRequestContext::GetGlobalContext();
+  // Match CanCreateWindow: opener is Alloy style without a View.
+  if (opener_browser) {
+    create_params.popup_with_alloy_style_opener =
+        opener_browser->AsCefBrowserHostBase()->IsAlloyStyle();
+  }
+
+  // Create the platform delegate (needed for CreateInternal).
+  std::unique_ptr<CefBrowserPlatformDelegate> platform_delegate =
+      CefBrowserPlatformDelegate::Create(create_params);
+  CHECK(platform_delegate);
+
+  // Create a popup browser info so that browser->IsPopup() returns true.
+  // This is what the normal CEF popup flow does via
+  // CefBrowserInfoManager::CreatePopupBrowserInfo, which sets is_popup=true.
+  // Without this, OnAfterCreated would skip the popup setup branch and
+  // SetNativeWindow would not be called, causing the page not to render.
+  bool own_web_contents = false;
+  auto web_contents =
+      platform_delegate->CreateWebContents(create_params, own_web_contents);
+
+  auto request_context_impl =
+      static_cast<CefRequestContextImpl*>(create_params.request_context.get());
+
+  scoped_refptr<CefBrowserInfo> browser_info =
+      CefBrowserInfoManager::GetInstance()->CreatePopupBrowserInfo(
+          web_contents, platform_delegate->GetBrowserConfig(), extra_info);
+
+  // Find the opener AlloyBrowserHostImpl for CreateInternal.
+  CefRefPtr<AlloyBrowserHostImpl> alloy_opener;
+  if (opener_host) {
+    alloy_opener = AlloyBrowserHostImpl::GetBrowserForContents(
+        opener_host->GetWebContents());
+  }
+
+  // Create the popup browser using CreateInternal with the opener set.
+  // This mirrors what CefBrowserInfoManager::WebContentsCreated does for
+  // normal popups.
+  CefRefPtr<AlloyBrowserHostImpl> browser =
+      AlloyBrowserHostImplExt::CreatePopupInternal(
+          settings, client, web_contents, own_web_contents, browser_info,
+          alloy_opener, request_context_impl, std::move(platform_delegate));
+  if (!browser) {
+    LOG(ERROR) << "CompletePopupCreation: AlloyBrowserHostImplExt::CreatePopupInternal "
+                  "failed";
+    return nullptr;
+  }
+
+  // Load the URL — CreateInternal does not call LoadMainFrameURL when
+  // called directly (unlike AlloyBrowserHostImpl::Create).
+  GURL gurl = url_util::MakeGURL(url, /*fixup=*/true);
+  if (!gurl.is_empty()) {
+    content::OpenURLParams params(gurl, content::Referrer(),
+                                  ::WindowOpenDisposition::CURRENT_TAB,
+                                  CefFrameHostImpl::kPageTransitionExplicit,
+                                  /*is_renderer_initiated=*/false);
+    browser->LoadMainFrameURL(params);
+  }
+
+  return browser->GetWebContents();
+}
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 
 #if BUILDFLAG(ARKWEB_AI)
 void NWebHandlerDelegate::RegisterNWebAgentHandler(
