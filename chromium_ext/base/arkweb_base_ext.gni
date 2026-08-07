@@ -93,6 +93,7 @@ arkweb_base_ohos_ltpo_sources = [
 arkweb_base_ohos_ltpo_unittests_sources = [
   "//arkweb/chromium_ext/base/ohos/ltpo/src/dynamic_frame_rate_decision_unittest.cc",
   "//arkweb/chromium_ext/base/ohos/ltpo/src/sliding_observer_unittest.cc",
+  "//arkweb/chromium_ext/base/ohos/ltpo/src/invisible_rendering_throttler_unittest.cc",
 ]
 
 arkweb_base_ohos_d_vsync_sources = [
