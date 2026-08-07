@@ -560,12 +560,17 @@ TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_ReceiveData002) {
   loader_client_->SetFifo(&request_buffers);
   loader_client_->Start();
 
-  std::vector<char> buffer(0, 0);
+  // Use a NON-empty span: DidReceiveData has DCHECK_GT(data.size(), 0u) at
+  // source L452, which BRK-kills the test binary under dcheck_always_on if the
+  // span is empty. With 5 bytes and bytes_to_discard_=10, the partial-discard
+  // path runs (discards all 5, data exhausted -> early return at L458), leaving
+  // bytes_to_discard_=5.
+  std::vector<char> buffer(5, 0);
   base::span<const char> data_span(buffer.data(), buffer.size());
 
   loader_client_->bytes_to_discard_ = 10;
   loader_client_->DidReceiveData(data_span);
-  EXPECT_EQ(loader_client_->bytes_to_discard_, 10);
+  EXPECT_EQ(loader_client_->bytes_to_discard_, 5);
   StopWhenLoad();
 }
 
@@ -656,6 +661,382 @@ TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidReStart001) {
   loader_client_->Start();
 
   loader_client_->DidReStart();
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_ParseContentRange_ValidCases) {
+  int64_t first = -1;
+  int64_t last = -1;
+  int64_t instance = -1;
+  EXPECT_TRUE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-99/100", &first, &last, &instance));
+  EXPECT_EQ(first, 0);
+  EXPECT_EQ(last, 99);
+  EXPECT_EQ(instance, 100);
+
+  first = last = instance = -1;
+  EXPECT_TRUE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-10/*", &first, &last, &instance));
+  EXPECT_EQ(first, 0);
+  EXPECT_EQ(last, 10);
+  EXPECT_EQ(instance, kPositionNotSpecified);
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_ParseContentRange_FormatErrors) {
+  int64_t first = -1;
+  int64_t last = -1;
+  int64_t instance = -1;
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "range 0-9/100", &first, &last, &instance));   // wrong prefix
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 01234/100", &first, &last, &instance));  // no dash
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-10", &first, &last, &instance));       // no slash
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0/10-20", &first, &last, &instance));    // slash before dash
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-10/", &first, &last, &instance));      // trailing slash only
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_ParseContentRange_NumberErrors) {
+  int64_t first = -1;
+  int64_t last = -1;
+  int64_t instance = -1;
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes x-10/100", &first, &last, &instance));
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-x/100", &first, &last, &instance));
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-10/xx", &first, &last, &instance));
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_ParseContentRange_RangeErrors) {
+  int64_t first = -1;
+  int64_t last = -1;
+  int64_t instance = -1;
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 20-10/100", &first, &last, &instance));
+  EXPECT_FALSE(VideoRangeURLLoaderClient::ParseContentRange(
+      "bytes 0-2000/100", &first, &last, &instance));
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_VerifyPartialResponse_GarbageRange) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  WebURLResponse response(url_);
+  response.SetHttpHeaderField(WebString::FromUTF8("Content-Range"),
+                              WebString::FromUTF8("garbage"));
+
+  EXPECT_FALSE(loader_client_->VerifyPartialResponse(response, url_data_));
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_VerifyPartialResponse_LengthPreset) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  url_data_->set_length(1000);      // already known -> L556 branch skipped
+  WebURLResponse response(url_);
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Content-Range"),
+      WebString::FromUTF8("bytes 0-99/2048"));
+  EXPECT_TRUE(loader_client_->VerifyPartialResponse(response, url_data_));
+
+  EXPECT_EQ(url_data_->length(), 1000);
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_VerifyPartialResponse_FirstGtBytePos) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  WebURLResponse response(url_);
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Content-Range"),
+      WebString::FromUTF8("bytes 10-20/100"));
+
+  EXPECT_FALSE(loader_client_->VerifyPartialResponse(response, url_data_));
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_VerifyPartialResponse_LastLtBytePos) {
+  Initialize(kHttpUrl, 0, 100, 200);
+  WebURLResponse response(url_);
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Content-Range"),
+      WebString::FromUTF8("bytes 0-50/200"));
+
+  EXPECT_FALSE(loader_client_->VerifyPartialResponse(response, url_data_));
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_VerifyPartialResponse_Success) {
+  Initialize(kHttpUrl, 0, 0, 100);  // byte_pos() = 0, length unknown
+  EXPECT_EQ(url_data_->length(), kPositionNotSpecified);
+  WebURLResponse response(url_);
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Content-Range"),
+      WebString::FromUTF8("bytes 0-99/100"));
+  EXPECT_TRUE(loader_client_->VerifyPartialResponse(response, url_data_));
+  EXPECT_EQ(url_data_->length(), 100);  // L556 set length from instance size.
+  EXPECT_EQ(loader_client_->bytes_to_discard_, 0u);  // byte_pos - first = 0.
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_WillFollowRedirect_CorsSpecified) {
+  Initialize(kHttpUrl, 0, 0, 100, UrlData::CORS_ANONYMOUS);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURL new_url{KURL(kHttpRedirect)};
+  WebURLResponse redirect_response(url_);
+  EXPECT_TRUE(loader_client_->WillFollowRedirect(new_url, redirect_response));
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_WillFollowRedirect_SameOrigin) {
+  Initialize(kHttpUrl, 0, 0, 100);  // CORS_UNSPECIFIED
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURL new_url{KURL("http://foo.bar.com/elsewhere")};  // same origin
+  WebURLResponse redirect_response(url_);
+  EXPECT_TRUE(loader_client_->WillFollowRedirect(new_url, redirect_response));
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_WillFollowRedirect_CrossOriginWithData) {
+  Initialize(kHttpUrl, 0, 0, 100);  // CORS_UNSPECIFIED
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  bufs.push_back(media::DataBuffer::CreateEOSBuffer());  // fifo non-empty
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURL new_url{KURL(kHttpRedirect)};  // cross origin
+  WebURLResponse redirect_response(url_);
+  // Cross-origin  (map non-empty OR fifo non-empty) -> Fail  return false.
+  EXPECT_FALSE(loader_client_->WillFollowRedirect(new_url, redirect_response));
+  // "this" may be invalidated by Fail(); reset and do not reuse loader_client_.
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveResponse_HttpVersions) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  // Exercise every arm of the DCHECK_IS_ON HttpVersion switch.
+  const WebURLResponse::HTTPVersion versions[] = {
+      WebURLResponse::kHTTPVersion_0_9, WebURLResponse::kHTTPVersion_1_0,
+      WebURLResponse::kHTTPVersion_1_1, WebURLResponse::kHTTPVersion_2_0,
+      WebURLResponse::kHTTPVersionUnknown};
+  for (auto version : versions) {
+    WebURLResponse response(url_);
+    response.SetHttpVersion(version);
+    response.SetHttpStatusCode(kHttpPartialContent_VideoOpt);
+    response.SetHttpHeaderField(WebString::FromUTF8("Content-Range"),
+                                WebString::FromUTF8("bytes 0-99/100"));
+    response.SetExpectedContentLength(100);
+    loader_client_->DidReceiveResponse(response);
+  }
+  EXPECT_EQ(url_data_->length(), 100);
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveResponse_LastModifiedHeader) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURLResponse response(url_);
+  response.SetHttpStatusCode(kHttpPartialContent_VideoOpt);
+  response.SetHttpHeaderField(WebString::FromUTF8("Content-Range"),
+                              WebString::FromUTF8("bytes 0-99/100"));
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Last-Modified"),
+      WebString::FromUTF8("Wed, 21 Oct 2015 07:28:00 GMT"));
+  loader_client_->DidReceiveResponse(response);  // parses Last-Modified
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveResponse_AcaoHeader) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURLResponse response(url_);
+  response.SetHttpStatusCode(kHttpPartialContent_VideoOpt);
+  response.SetHttpHeaderField(WebString::FromUTF8("Content-Range"),
+                              WebString::FromUTF8("bytes 0-99/100"));
+  response.SetHttpHeaderField(
+      WebString::FromUTF8("Access-Control-Allow-Origin"),
+      WebString::FromUTF8("*"));
+  loader_client_->DidReceiveResponse(response);  // set_has_access_control()
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveResponse_ServiceWorker) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURLResponse response(url_);
+  response.SetHttpStatusCode(kHttpPartialContent_VideoOpt);
+  response.SetHttpHeaderField(WebString::FromUTF8("Content-Range"),
+                              WebString::FromUTF8("bytes 0-99/100"));
+  response.SetWasFetchedViaServiceWorker(true);
+  std::vector<WebURL> url_list{WebURL{url_}};
+  response.SetUrlListViaServiceWorker(url_list);  // HasUrlList -> use ResponseUrl
+  loader_client_->DidReceiveResponse(response);
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidReceiveResponse_416) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURLResponse response(url_);
+  response.SetHttpStatusCode(416);  // kHttpRangeNotSatisfiable -> end_of_file
+  loader_client_->DidReceiveResponse(response);
+  EXPECT_EQ(bufs.size(), 1u);  // EOS buffer pushed at end of DidReceiveResponse.
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveData_DiscardThenProcess) {
+  Initialize(kHttpUrl, 0, 0, 3276800 - 1);
+  url_data_->set_length(3276800);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  loader_client_->bytes_to_discard_ = 10;
+  std::vector<char> buffer(100, 0);  // size >= 1 (DCHECK_GT at L452)
+  base::span<const char> data_span(buffer.data(), buffer.size());
+  loader_client_->DidReceiveData(data_span);
+  EXPECT_EQ(loader_client_->bytes_to_discard_, 0u);  // 10 consumed
+  EXPECT_EQ(bufs.size(), 1u);                         // 90 bytes buffered
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidReceiveData_ProviderNotInRange) {
+  Initialize(kHttpUrl, 2, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  std::vector<char> buffer(50, 0);  // size >= 1
+  base::span<const char> data_span(buffer.data(), buffer.size());
+  loader_client_->DidReceiveData(data_span);
+  // Data is still buffered; only OnDataProviderEvent is skipped.
+  EXPECT_EQ(bufs.size(), 1u);
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidFail_BytePosZero) {
+  Initialize(kHttpUrl, 0, 0, 100);  // byte_pos() = 0 -> "&& byte_pos()!=0" false
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  WebURL web_url(url_);
+  blink::WebURLError error(net::ERR_FAILED, web_url);
+  loader_client_->DidFail(error);  // NotifyMediaWebURLError (null-cb no-op)Fail
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidFail_MaxRetries) {
+  Initialize(kHttpUrl, 0, 100, 200);  // byte_pos() = 100 != 0
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  loader_client_->retries_ = VideoRangeURLLoaderClient::kMaxRetries;
+  WebURL web_url(url_);
+  blink::WebURLError error(net::ERR_FAILED, web_url);
+  loader_client_->DidFail(error);  // retries < kMax false -> else branch
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_DidFinishLoading_EndUnboundedRetry) {
+  Initialize(kHttpUrl, 0, 0, -1);  // end_ = -1
+  url_data_->set_length(1024);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  loader_client_->DidFinishLoading();  // pos(0) < length(1024), end_ == -1
+  EXPECT_EQ(loader_client_->retries_, 1);  // retry scheduled
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_Start_LengthGuardTerminate) {
+  Initialize(kHttpUrl, 0, 100, -1);  // byte_pos() = 100
+  url_data_->set_length(50);         // 100 >= 50 -> right conjunct of Start guard
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+
+  loader_client_->Start();  // posts Terminate (active_loader_ left null)
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(bufs.size(), 1u);  // Terminate pushed an EOS buffer.
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_SetDefersLoading_ActiveLoader) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();  // sets active_loader_
+
+  loader_client_->SetDefersLoading(true);   // forwarded to active_loader_
+  loader_client_->SetDefersLoading(false);
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest,
+       VideoOpt_SetDefersLoading_NoLoader) {
+  Initialize(kHttpUrl, 0, 0, 100);  // no Start -> active_loader_ is null
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+
+  loader_client_->SetDefersLoading(true);  // null guard -> no-op
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidSendData) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  loader_client_->DidSendData(0, 0);
+  StopWhenLoad();
+}
+
+TEST_F(VideoRangeURLLoaderClientTest, VideoOpt_DidDownloadData) {
+  Initialize(kHttpUrl, 0, 0, 100);
+  std::list<scoped_refptr<media::DataBuffer>> bufs;
+  loader_client_->SetFifo(&bufs);
+  loader_client_->Start();
+
+  loader_client_->DidDownloadData(0);
   StopWhenLoad();
 }
 
