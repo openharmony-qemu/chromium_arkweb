@@ -360,6 +360,11 @@ void NWebExtensionManagerCefDelegate::EnableWebExtension(
 
   extensions::ExtensionRegistrar* registrar =
       extensions::ExtensionRegistrar::Get(browser_context);
+  if (!registrar) {
+    LOG(ERROR) << "EnableWebExtension failed: null extension registrar";
+    callback(std::nullopt);
+    return;
+  }
   registrar->EnableExtension(extension_id);
   callback(registrar->IsExtensionEnabled(extension_id));
 }

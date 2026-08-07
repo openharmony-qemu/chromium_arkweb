@@ -343,10 +343,10 @@ void GpuServiceImpl::RequestSnapshotOnce() {
 }
  
 bool GpuServiceImpl::TakeIsAllowSnapshot(){
+  std::lock_guard<std::mutex> lck(allow_snapshot_mtx_);  
   if(!allow_snapshot_){
     return false;
   }
-  std::lock_guard<std::mutex> lck(allow_snapshot_mtx_);
   allow_snapshot_ = false;
   return true;
 }

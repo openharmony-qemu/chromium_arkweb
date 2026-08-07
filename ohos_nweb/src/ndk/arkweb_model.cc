@@ -65,7 +65,7 @@ CreateProxyCallback(ArkWeb_OnJavaScriptProxyCallbackWithResult callback,
       if (result->type == ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_BOOL) {
         WVLOG_D("result is bool type");
         bool boolVal = (*(bool*)(result->data));
-        delete (bool*)(result->data);
+        OHOS::NWeb::free_wrapper((bool*)(result->data));
         delete result;
         nwebValue->SetType(OHOS::NWeb::NWebValue::Type::BOOLEAN);
         nwebValue->SetBoolean(boolVal);
@@ -73,7 +73,7 @@ CreateProxyCallback(ArkWeb_OnJavaScriptProxyCallbackWithResult callback,
                  ArkWeb_JavaScriptValueType::ARKWEB_JAVASCRIPT_STRING) {
         WVLOG_D("result is string type");
         std::string strVal = std::string(((char*)(result->data)));
-        delete[] (char*)(result->data);
+        OHOS::NWeb::free_wrapper((char*)(result->data));
         delete result;
         nwebValue->SetType(OHOS::NWeb::NWebValue::Type::STRING);
         nwebValue->SetString(strVal);
@@ -564,19 +564,19 @@ ARKWEB_NDK_EXPORT void OH_ArkWeb_DestroyWebMessagePorts(
   }
   for (unsigned int i = 0; i < size; i++) {
     if ((*port)[i] && (*port)[i]->webTag) {
-      delete[] (*port)[i]->webTag;
+      OHOS::NWeb::free_wrapper((*port)[i]->webTag);
       (*port)[i]->webTag = nullptr;
     }
     if ((*port)[i] && (*port)[i]->portHandle) {
-      delete[] (*port)[i]->portHandle;
+      OHOS::NWeb::free_wrapper((*port)[i]->portHandle);
       (*port)[i]->portHandle = nullptr;
     }
     if ((*port)[i]) {
-      delete (*port)[i];
+      OHOS::NWeb::free_wrapper((*port)[i]);
       (*port)[i] = nullptr;
     }
   }
-  delete[] (*port);
+  OHOS::NWeb::free_wrapper(*port);
   *port = nullptr;
 }
 
@@ -788,11 +788,11 @@ ARKWEB_NDK_EXPORT void OH_WebMessage_DestroyWebMessage(
   }
 
   if ((*message)->data) {
-    delete[] (char*)((*message)->data);
+    OHOS::NWeb::free_wrapper((char*)((*message)->data));
     (*message)->data = nullptr;
   }
 
-  delete (*message);
+  OHOS::NWeb::free_wrapper(*message);
   *message = nullptr;
 }
 
