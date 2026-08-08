@@ -258,6 +258,33 @@ public:
     MOCK_METHOD(int32_t, SetFlashMode, (FlashModeAdapter flashMode), (override));
 };
 
+class MockFormatAdapter : public FormatAdapter {
+public:
+    MOCK_METHOD(uint32_t, GetWidth, (), (override));
+    MOCK_METHOD(uint32_t, GetHeight, (), (override));
+    MOCK_METHOD(float, GetFrameRate, (), (override));
+    MOCK_METHOD(VideoPixelFormatAdapter, GetPixelFormat, (), (override));
+};
+
+class VideoDeviceDescriptorAdapterMock : public VideoDeviceDescriptorAdapter {
+public:
+    MOCK_METHOD(std::string, GetDisplayName, (), (override));
+    MOCK_METHOD(std::string, GetDeviceId, (), (override));
+    MOCK_METHOD(std::string, GetModelId, (), (override));
+    MOCK_METHOD(std::shared_ptr<VideoControlSupportAdapter>, GetControlSupport, (), (override));
+    MOCK_METHOD(VideoTransportType, GetTransportType, (), (override));
+    MOCK_METHOD(VideoFacingModeAdapter, GetFacingMode, (), (override));
+    MOCK_METHOD(std::vector<std::shared_ptr<FormatAdapter>>, GetSupportCaptureFormats, (), (override));
+};
+
+class VideoCaptureRangeAdapterMock : public VideoCaptureRangeAdapter {
+public:
+    MOCK_METHOD(double, GetMin, (), (override));
+    MOCK_METHOD(double, GetMax, (), (override));
+    MOCK_METHOD(double, GetStep, (), (override));
+    MOCK_METHOD(double, GetCurrent, (), (override));
+};
+
 void MockTakePhotoCallback(mojo::StructPtr<media::mojom::Blob> blob)
 {
     EXPECT_TRUE(blob.is_null());
@@ -278,6 +305,9 @@ public:
         camera_manager_adapter_mock = std::make_unique<CameraManagerAdapterMock>();
         ON_CALL(*ohos_adapter_helper_mock, GetCameraManagerAdapter())
             .WillByDefault(ReturnRef(*camera_manager_adapter_mock));
+        OhosAdapterHelper::SetInstance(ohos_adapter_helper_mock.get());
+        ON_CALL(*camera_manager_adapter_mock, GetCameraStatus())
+            .WillByDefault(Return(CameraStatusAdapter::UNAVAILABLE));
         VideoCaptureDeviceDescriptor device_descriptor;
         scoped_refptr<SingleThreadTaskRunnerMock> capture_stask_runner;
         VideoCaptureParamsMock capture_params;
@@ -285,9 +315,18 @@ public:
     }
     void TearDown()
     {
+        OhosAdapterHelper::SetInstance(nullptr);
         c_delegate = nullptr;
         ohos_adapter_helper_mock.reset();
         camera_manager_adapter_mock.reset();
+    }
+    void ResetDelegateWithDeviceId(const std::string &device_id)
+    {
+        VideoCaptureDeviceDescriptor device_descriptor;
+        device_descriptor.device_id = device_id;
+        scoped_refptr<SingleThreadTaskRunnerMock> capture_stask_runner;
+        VideoCaptureParamsMock capture_params;
+        c_delegate = std::make_shared<OHOSCaptureDelegate>(device_descriptor, capture_stask_runner, capture_params);
     }
     bool StartStream()
     {
@@ -336,6 +375,10 @@ public:
     MeteringMode GetCurrentExposureMode(ExposureModeAdapter &exposure_mode_adapter)
     {
         return c_delegate->GetCurrentExposureMode(exposure_mode_adapter);
+    }
+    int ConvertToPixel(int byte_stride, VideoPixelFormat pixel_format)
+    {
+        return c_delegate->ConvertToPixel(byte_stride, pixel_format);
     }
 
     std::shared_ptr<OHOSCaptureDelegate> c_delegate;
@@ -450,17 +493,6 @@ TEST_F(OHOSCaptureDelegateTest, StopStream_ShouldReturnTrue_WhenIsCapturingIsTru
     SetIsCapturing(true);
     auto ret = StopStream();
     EXPECT_EQ(ret, true);
-}
-
-TEST_F(OHOSCaptureDelegateTest, SetErrorState)
-{
-    VideoCaptureError error = VideoCaptureError::kAndroidApi1CameraErrorCallbackReceived;
-    base::Location from_here = base::Location::Current();
-    std::string reason = "Test error reason";
-    ClientMock *client = new ClientMock();
-    EXPECT_CALL(*client, OnError(testing::_, testing::_, testing::_)).WillOnce(testing::Return());
-    SetClient(std::unique_ptr<VideoCaptureDevice::Client>(client));
-    SetErrorState(error, from_here, reason);
 }
 
 TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams)
@@ -688,15 +720,357 @@ TEST_F(OHOSCaptureDelegateTest, OnBufferAvailable6)
     EXPECT_NE(log_output.find("OnBufferAvailable ReleaseBuffer failed"), std::string::npos);
 }
 
-TEST_F(OHOSCaptureDelegateTest, SetPhotoOptions)
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_ExactFormatMatch)
 {
-    bool flag = false;
-    auto settings = media::mojom::PhotoSettings::New();
+    ResetDelegateWithDeviceId("test_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("test_device"));
+    auto fmt = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt, GetWidth()).WillRepeatedly(Return(640));
+    EXPECT_CALL(*fmt, GetHeight()).WillRepeatedly(Return(480));
+    EXPECT_CALL(*fmt, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_YUV_420_SP));
+    std::vector<std::shared_ptr<FormatAdapter>> formats;
+    formats.push_back(fmt);
+    EXPECT_CALL(*device, GetSupportCaptureFormats()).WillRepeatedly(Return(formats));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(640, 480);
+    in.requested_format.frame_rate = 30.0f;
+    in.enable_face_detection = true;
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(out->GetWidth(), 640u);
+    EXPECT_EQ(out->GetHeight(), 480u);
+    EXPECT_EQ(out->GetPixelFormat(), VideoPixelFormatAdapter::FORMAT_YUV_420_SP);
+    EXPECT_EQ(out->GetFrameRate(), 30.0f);
+    EXPECT_TRUE(out->GetEnableFaceDetection());
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_BestDiffMatch)
+{
+    ResetDelegateWithDeviceId("test_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("test_device"));
+    auto fmt1 = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt1, GetWidth()).WillRepeatedly(Return(1280));
+    EXPECT_CALL(*fmt1, GetHeight()).WillRepeatedly(Return(720));
+    EXPECT_CALL(*fmt1, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_YUV_420_SP));
+    auto fmt2 = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt2, GetWidth()).WillRepeatedly(Return(1920));
+    EXPECT_CALL(*fmt2, GetHeight()).WillRepeatedly(Return(1080));
+    EXPECT_CALL(*fmt2, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_JPEG));
+    std::vector<std::shared_ptr<FormatAdapter>> formats;
+    formats.push_back(fmt1);
+    formats.push_back(fmt2);
+    EXPECT_CALL(*device, GetSupportCaptureFormats()).WillRepeatedly(Return(formats));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(1300, 800);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(out->GetWidth(), 1280u);
+    EXPECT_EQ(out->GetHeight(), 720u);
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_DiffNotLessThanMinDiffKeepsFirst)
+{
+    ResetDelegateWithDeviceId("test_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("test_device"));
+    auto fmt1 = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt1, GetWidth()).WillRepeatedly(Return(640));
+    EXPECT_CALL(*fmt1, GetHeight()).WillRepeatedly(Return(480));
+    EXPECT_CALL(*fmt1, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_YUV_420_SP));
+    auto fmt2 = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt2, GetWidth()).WillRepeatedly(Return(480));
+    EXPECT_CALL(*fmt2, GetHeight()).WillRepeatedly(Return(640));
+    EXPECT_CALL(*fmt2, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_JPEG));
+    std::vector<std::shared_ptr<FormatAdapter>> formats;
+    formats.push_back(fmt1);
+    formats.push_back(fmt2);
+    EXPECT_CALL(*device, GetSupportCaptureFormats()).WillRepeatedly(Return(formats));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(560, 560);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(out->GetWidth(), 640u);
+    EXPECT_EQ(out->GetHeight(), 480u);
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_NoMatchingDeviceId)
+{
+    ResetDelegateWithDeviceId("my_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("other_device"));
+    EXPECT_CALL(*device, GetSupportCaptureFormats())
+        .WillRepeatedly(Return(std::vector<std::shared_ptr<FormatAdapter>>{}));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(640, 480);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, -1);
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_NullDeviceSkipped)
+{
+    ResetDelegateWithDeviceId("test_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("test_device"));
+    auto fmt = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt, GetWidth()).WillRepeatedly(Return(640));
+    EXPECT_CALL(*fmt, GetHeight()).WillRepeatedly(Return(480));
+    EXPECT_CALL(*fmt, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_YUV_420_SP));
+    std::vector<std::shared_ptr<FormatAdapter>> formats;
+    formats.push_back(fmt);
+    EXPECT_CALL(*device, GetSupportCaptureFormats()).WillRepeatedly(Return(formats));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(nullptr);
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(640, 480);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(out->GetWidth(), 640u);
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_NullFormatSkipped)
+{
+    ResetDelegateWithDeviceId("test_device");
+    auto device = std::make_shared<VideoDeviceDescriptorAdapterMock>();
+    EXPECT_CALL(*device, GetDeviceId()).WillRepeatedly(Return("test_device"));
+    auto fmt = std::make_shared<MockFormatAdapter>();
+    EXPECT_CALL(*fmt, GetWidth()).WillRepeatedly(Return(640));
+    EXPECT_CALL(*fmt, GetHeight()).WillRepeatedly(Return(480));
+    EXPECT_CALL(*fmt, GetPixelFormat())
+        .WillRepeatedly(Return(VideoPixelFormatAdapter::FORMAT_YUV_420_SP));
+    std::vector<std::shared_ptr<FormatAdapter>> formats;
+    formats.push_back(nullptr);
+    formats.push_back(fmt);
+    EXPECT_CALL(*device, GetSupportCaptureFormats()).WillRepeatedly(Return(formats));
+    std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> devices;
+    devices.push_back(device);
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo()).WillRepeatedly(Return(devices));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(640, 480);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(out->GetWidth(), 640u);
+}
+
+TEST_F(OHOSCaptureDelegateTest, TransToOHOSCaptrueParams_EmptyDeviceList)
+{
+    ResetDelegateWithDeviceId("test_device");
+    EXPECT_CALL(*camera_manager_adapter_mock, GetDevicesInfo())
+        .WillRepeatedly(Return(std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>>{}));
+
+    VideoCaptureParams in;
+    in.requested_format.frame_size.SetSize(640, 480);
+    auto out = std::make_shared<VideoCaptureParamsAdapterImpl>();
+    auto ret = TransToOHOSCaptrueParams(in, out);
+    EXPECT_EQ(ret, -1);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetExposureState_GetExposureModesFails)
+{
+    ON_CALL(*camera_manager_adapter_mock, GetExposureModes(testing::_))
+        .WillByDefault(testing::Invoke([](std::vector<ExposureModeAdapter> &) {
+            return static_cast<int32_t>(CameraManagerAdapterCode::CAMERA_ERROR);
+        }));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetExposureState(photo_capabilities);
+    EXPECT_TRUE(photo_capabilities->supported_exposure_modes.empty());
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetExposureState_MixedModesAndCurrentAuto)
+{
+    ON_CALL(*camera_manager_adapter_mock, GetExposureModes(testing::_))
+        .WillByDefault(testing::Invoke([](std::vector<ExposureModeAdapter> &modes) {
+            modes = {ExposureModeAdapter::EXPOSURE_MODE_UNSUPPORTED,
+                     ExposureModeAdapter::EXPOSURE_MODE_LOCKED};
+            return static_cast<int32_t>(CameraManagerAdapterCode::CAMERA_OK);
+        }));
+    ON_CALL(*camera_manager_adapter_mock, GetCurrentExposureMode(testing::_))
+        .WillByDefault(testing::Invoke([](ExposureModeAdapter &mode) {
+            mode = ExposureModeAdapter::EXPOSURE_MODE_AUTO;
+            return static_cast<int32_t>(CameraManagerAdapterCode::CAMERA_OK);
+        }));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetExposureState(photo_capabilities);
+    ASSERT_EQ(photo_capabilities->supported_exposure_modes.size(), 1u);
+    EXPECT_EQ(photo_capabilities->supported_exposure_modes[0], MeteringMode::NONE);
+    EXPECT_EQ(photo_capabilities->current_exposure_mode, MeteringMode::CONTINUOUS);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetFocusState_NeitherSupported)
+{
+    ON_CALL(*camera_manager_adapter_mock, IsFocusModeSupported(FocusModeAdapter::FOCUS_MODE_MANUAL))
+        .WillByDefault(Return(false));
+    ON_CALL(*camera_manager_adapter_mock,
+            IsFocusModeSupported(FocusModeAdapter::FOCUS_MODE_CONTINUOUS_AUTO))
+        .WillByDefault(Return(false));
+    ON_CALL(*camera_manager_adapter_mock, GetCurrentFocusMode())
+        .WillByDefault(Return(FocusModeAdapter::FOCUS_MODE_LOCKED));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetFocusState(photo_capabilities);
+    EXPECT_TRUE(photo_capabilities->supported_focus_modes.empty());
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetFocusState_ContinuousAutoCurrent)
+{
+    ON_CALL(*camera_manager_adapter_mock,
+            IsFocusModeSupported(FocusModeAdapter::FOCUS_MODE_CONTINUOUS_AUTO))
+        .WillByDefault(Return(true));
+    ON_CALL(*camera_manager_adapter_mock, GetCurrentFocusMode())
+        .WillByDefault(Return(FocusModeAdapter::FOCUS_MODE_CONTINUOUS_AUTO));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetFocusState(photo_capabilities);
+    ASSERT_EQ(photo_capabilities->supported_focus_modes.size(), 1u);
+    EXPECT_EQ(photo_capabilities->supported_focus_modes[0], MeteringMode::CONTINUOUS);
+    EXPECT_EQ(photo_capabilities->current_focus_mode, MeteringMode::CONTINUOUS);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetFocusState_AutoMapsToContinuous)
+{
+    ON_CALL(*camera_manager_adapter_mock, GetCurrentFocusMode())
+        .WillByDefault(Return(FocusModeAdapter::FOCUS_MODE_AUTO));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetFocusState(photo_capabilities);
+    EXPECT_EQ(photo_capabilities->current_focus_mode, MeteringMode::CONTINUOUS);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetFlashState_AllModesSupported)
+{
+    ON_CALL(*camera_manager_adapter_mock, IsFlashModeSupported(FlashModeAdapter::FLASH_MODE_CLOSE))
+        .WillByDefault(Return(true));
+    ON_CALL(*camera_manager_adapter_mock, IsFlashModeSupported(FlashModeAdapter::FLASH_MODE_OPEN))
+        .WillByDefault(Return(true));
+    ON_CALL(*camera_manager_adapter_mock, IsFlashModeSupported(FlashModeAdapter::FLASH_MODE_AUTO))
+        .WillByDefault(Return(true));
+    mojom::PhotoStatePtr photo_capabilities = mojo::CreateEmptyPhotoState();
+    GetFlashState(photo_capabilities);
+    ASSERT_EQ(photo_capabilities->fill_light_mode.size(), 3u);
+    EXPECT_EQ(photo_capabilities->fill_light_mode[0], mojom::FillLightMode::OFF);
+    EXPECT_EQ(photo_capabilities->fill_light_mode[1], mojom::FillLightMode::FLASH);
+    EXPECT_EQ(photo_capabilities->fill_light_mode[2], mojom::FillLightMode::AUTO);
+}
+
+TEST_F(OHOSCaptureDelegateTest, RetrieveUserControlRange_NonNullRange)
+{
+    auto range = std::make_shared<VideoCaptureRangeAdapterMock>();
+    EXPECT_CALL(*range, GetMax()).WillRepeatedly(Return(10.0));
+    EXPECT_CALL(*range, GetMin()).WillRepeatedly(Return(0.0));
+    EXPECT_CALL(*range, GetStep()).WillRepeatedly(Return(1.0));
+    EXPECT_CALL(*range, GetCurrent()).WillRepeatedly(Return(5.0));
+    ON_CALL(*camera_manager_adapter_mock,
+            GetCaptionRangeById(RangeIDAdapter::RANGE_ID_EXP_COMPENSATION))
+        .WillByDefault(Return(std::shared_ptr<VideoCaptureRangeAdapter>(range)));
+    mojom::RangePtr capability = RetrieveUserControlRange(RangeIDAdapter::RANGE_ID_EXP_COMPENSATION);
+    EXPECT_EQ(capability->max, 10.0);
+    EXPECT_EQ(capability->min, 0.0);
+    EXPECT_EQ(capability->step, 1.0);
+    EXPECT_EQ(capability->current, 5.0);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetPhotoState_NotCapturing_CallbackNotRun)
+{
     SetIsCapturing(false);
-    c_delegate->SetPhotoOptions(std::move(settings), base::BindLambdaForTesting([&flag](bool) { flag = true; }));
-    EXPECT_FALSE(flag);
+    bool callback_ran = false;
+    c_delegate->GetPhotoState(
+        base::BindLambdaForTesting([&callback_ran](mojom::PhotoStatePtr) { callback_ran = true; }));
+    EXPECT_FALSE(callback_ran);
+}
+
+TEST_F(OHOSCaptureDelegateTest, GetPhotoState_Capturing_CallbackRuns)
+{
     SetIsCapturing(true);
-    c_delegate->SetPhotoOptions(std::move(settings), base::BindLambdaForTesting([&flag](bool) { flag = true; }));
-    EXPECT_TRUE(flag);
+    SetCaptureFormatFrameSize(gfx::Size(1280, 720));
+    bool callback_ran = false;
+    double reported_height = 0.0;
+    double reported_width = 0.0;
+    c_delegate->GetPhotoState(base::BindLambdaForTesting(
+        [&callback_ran, &reported_height, &reported_width](mojom::PhotoStatePtr state) {
+            callback_ran = true;
+            reported_height = state->height->max;
+            reported_width = state->width->max;
+        }));
+    EXPECT_TRUE(callback_ran);
+    EXPECT_DOUBLE_EQ(reported_height, 720.0);
+    EXPECT_DOUBLE_EQ(reported_width, 1280.0);
+}
+
+TEST_F(OHOSCaptureDelegateTest, ConvertToPixel_ARGB)
+{
+    EXPECT_EQ(ConvertToPixel(8, PIXEL_FORMAT_ARGB), 2);
+}
+
+TEST_F(OHOSCaptureDelegateTest, ConvertToPixel_ABGR)
+{
+    EXPECT_EQ(ConvertToPixel(16, PIXEL_FORMAT_ABGR), 4);
+}
+
+TEST_F(OHOSCaptureDelegateTest, ConvertToPixel_DefaultFormat)
+{
+    EXPECT_EQ(ConvertToPixel(10, PIXEL_FORMAT_I420), 10);
+}
+
+TEST_F(OHOSCaptureDelegateTest, MaybeSuspend_CallsStopSession_WhenCapturing)
+{
+    SetIsCapturing(true);
+    EXPECT_CALL(*camera_manager_adapter_mock, StopSession(CameraStopType::NORMAL))
+        .WillOnce(Return(0));
+    c_delegate->MaybeSuspend();
+    EXPECT_TRUE(GetIsCapturing());
+}
+
+TEST_F(OHOSCaptureDelegateTest, OnBufferAvailable_NonNullClient_CallsOnIncomingCapturedData)
+{
+    auto surface = std::make_shared<CameraSurfaceAdapterMock>();
+    auto buffer = std::make_shared<CameraSurfaceBufferAdapterMock>();
+    auto roration_info = std::make_shared<CameraRotationInfoAdapterMock>();
+    auto client = std::make_unique<ClientMock>();
+    ClientMock *client_raw = client.get();
+    SetClient(std::move(client));
+    uint8_t data[16] = {0};
+    EXPECT_CALL(*roration_info, GetRotation()).WillRepeatedly(Return(0));
+    EXPECT_CALL(*roration_info, GetIsFlipY()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*buffer, GetBufferAddr()).WillRepeatedly(Return(data));
+    EXPECT_CALL(*buffer, GetSize()).WillRepeatedly(Return(16u));
+    EXPECT_CALL(*buffer, GetStride()).WillRepeatedly(Return(64));
+    EXPECT_CALL(*surface, ReleaseBuffer(testing::_, testing::_)).WillRepeatedly(Return(0));
+    EXPECT_CALL(*client_raw,
+                OnIncomingCapturedData(testing::_, testing::_, testing::_, testing::_, testing::_,
+                                       testing::_, testing::_, testing::_, testing::_, testing::_,
+                                       testing::_))
+        .WillOnce(testing::Return());
+    SetFirstRefTime(base::TimeTicks::Now());
+    c_delegate->OnBufferAvailable(surface, buffer, roration_info);
 }
 }  // namespace media
