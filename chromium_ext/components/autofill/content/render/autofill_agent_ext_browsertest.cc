@@ -419,25 +419,25 @@ TEST_F(AutofillAgentTestWithFeatures, IsAutofillEnabled_EnabledTrue) {
 }
  
  
-// Priority 1: Test OhAutoFillFormControlElementClicked() - All Branches
+// Priority 1: Test OhAutoFillEditableElementClicked() - All Branches
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_NullNode) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillEditableElementClicked_NullNode) {
   LoadHTML(R"(<body><form><input id="test"></form></body>)");
   blink::WebNode null_node;
-  autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(null_node);
+  autofill_agent().AsAutofillAgentExt()->OhAutoFillEditableElementClicked(null_node);
 }
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_NotFocused) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillEditableElementClicked_NotFocused) {
   LoadHTML(R"(<body><form><input id="test"></form></body>)");
   blink::WebInputElement element = GetWebElementById("test").DynamicTo<blink::WebInputElement>();
   ASSERT_TRUE(element);
   // Note: This test covers the code path when an element is clicked but not focused.
   // Direct focus state verification is limited in the test environment, but the code
   // path is exercised through the ElementClicked call.
-  autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
+  autofill_agent().AsAutofillAgentExt()->OhAutoFillEditableElementClicked(element);
 }
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_NormalCase) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillEditableElementClicked_NormalCase) {
   // Note: This test assumes BUILDFLAG(ARKWEB_AUTOFILL) and BUILDFLAG(ARKWEB_UNITTESTS)
   // are properly defined. The test fixture should handle feature flag setup.
   LoadHTML(R"(<body><form><input type="text" id="test"></form></body>)");
@@ -449,14 +449,15 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_Normal
   ExecuteJavaScriptForTests(R"(document.getElementById('test').focus();)");
   blink::WebInputElement element = GetWebElementById("test").DynamicTo<blink::WebInputElement>();
   ASSERT_TRUE(element);
-  autofill_agent().AsAutofillAgentExt()->SetIsPopupCreatedByFocusChange(false);
  
   EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
-  autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
-  EXPECT_TRUE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
+  autofill_agent().AsAutofillAgentExt()->OhAutoFillEditableElementClicked(element);
+  EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->position_request_state_,
+      AutofillAgentExt::PositionRequestState::kWaitingForPositionChange);
+  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
 }
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_IsPasswordAutofill) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillEditableElementClicked_IsPasswordAutofill) {
   LoadHTML(R"(<body><form>
     <input type="text" id="username"/>
     <input type="password" id="password"/>
@@ -484,11 +485,11 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_IsPass
   ASSERT_TRUE(element);
  
   bool initial_popup_state = autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_;
-  autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
+  autofill_agent().AsAutofillAgentExt()->OhAutoFillEditableElementClicked(element);
   EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_, initial_popup_state);
 }
  
-TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_PopupCreatedByFocusChange) {
+TEST_F(AutofillAgentTestWithFeatures, OhAutoFillEditableElementClicked_RepeatedWhileWaiting) {
   LoadHTML(R"(<body><form><input type="text" id="test"></form></body>)");
   FieldRendererId field_id = GetFieldRendererIdById("test");
   autofill_agent().TriggerSuggestions(
@@ -498,10 +499,11 @@ TEST_F(AutofillAgentTestWithFeatures, OhAutoFillFormControlElementClicked_PopupC
   ExecuteJavaScriptForTests(R"(document.getElementById('test').focus();)");
   blink::WebInputElement element = GetWebElementById("test").DynamicTo<blink::WebInputElement>();
   ASSERT_TRUE(element);
-  autofill_agent().AsAutofillAgentExt()->SetIsPopupCreatedByFocusChange(true);
  
-  autofill_agent().AsAutofillAgentExt()->OhAutoFillFormControlElementClicked(element);
-  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_popup_created_by_focus_change_);
+  autofill_agent().AsAutofillAgentExt()->OhAutoFillEditableElementClicked(element);
+  EXPECT_EQ(autofill_agent().AsAutofillAgentExt()->position_request_state_,
+      AutofillAgentExt::PositionRequestState::kWaitingForPositionChange);
+  EXPECT_FALSE(autofill_agent().AsAutofillAgentExt()->is_need_to_created_popup_);
 }
  
 // Priority 1: Test OhFormControlElementClicked() - All Branches
