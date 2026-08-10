@@ -602,6 +602,103 @@ TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_ShortDomainFallback) {
   EXPECT_NE(index_offset.o, 0);
 }
 
+// Test excluded domain with short name causing fallback through excluded path
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_ExcludedDomainFallback) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Rule with a valid included domain but a short excluded domain ("a.b")
+  // that can't produce ngrams, triggering should_fallback through excluded path
+  proto::CssRule rule;
+  rule.set_css_selector(".ad-short-excl");
+  auto* included = rule.add_domains();
+  included->set_domain("adserver.com");
+  included->set_exclude(false);
+  auto* excluded = rule.add_domains();
+  excluded->set_domain("a.b");
+  excluded->set_exclude(true);
+
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  // Short excluded domain should produce fallback rules
+  EXPECT_GT(index_builder.GetFallbackRuleListSize(), 0);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  EXPECT_NE(index_offset.o, 0);
+}
+
+// Test deduplication: same rule found via multiple ngrams appears only once
+TEST_F(UrlPatternIndexExtTest, FindMatchAmongCandidates_Deduplication) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add a rule with two different included domains that will produce
+  // different ngrams, so the same rule can be found via multiple ngram lookups
+  proto::CssRule rule;
+  rule.set_css_selector(".ad-dedup");
+  auto* domain1 = rule.add_domains();
+  domain1->set_domain("adserver.com");
+  domain1->set_exclude(false);
+  auto* domain2 = rule.add_domains();
+  domain2->set_domain("adnetwork.org");
+  domain2->set_exclude(false);
+
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetTemporaryPointer(builder, index_offset);
+  CssPatternIndexMatcher matcher(index);
+
+  // URL matching both included domains should find the rule but only once
+  GURL test_url("http://adserver.com");
+  auto result = matcher.FindMatchInSpecialRules(test_url);
+  // The rule should be found at most once despite being indexed under
+  // multiple ngrams
+  int count = 0;
+  for (const auto* r : result) {
+    if (std::string(r->css_selector()->c_str()) == ".ad-dedup") {
+      count++;
+    }
+  }
+  EXPECT_LE(count, 1);
+}
+
+// Test DoesOriginMatchDomainList where excluded domain is a longer match
+// than included domain (e.g. subdomain excluded matches more specifically)
+TEST_F(UrlPatternIndexExtTest,
+       DoesOriginMatchDomainList_ExcludedLongerThanIncluded) {
+  // Rule applies to com but excludes sub.example.com
+  // When checking sub.example.com: included matches "com" (length 3+1),
+  // excluded matches "sub.example.com" (longer), so excluded wins => false
+  auto rule = CreateFlatCssRule(".test", {"com"}, {"sub.example.com"});
+  ASSERT_NE(rule, nullptr);
+
+  // The origin host is "sub.example.com"
+  // Included domain "com" matches with length 4 (".com")
+  // Excluded domain "sub.example.com" matches with length 16
+  // Excluded is longer => return false
+  url::Origin origin = url::Origin::Create(GURL("https://sub.example.com"));
+  bool result = DoesOriginMatchDomainList(origin, *rule);
+  EXPECT_FALSE(result);
+
+  // The origin host is just "example.com"
+  // Included domain "com" matches with length 4
+  // Excluded domain "sub.example.com" does NOT match "example.com"
+  // So result is true
+  url::Origin origin2 = url::Origin::Create(GURL("https://example.com"));
+  bool result2 = DoesOriginMatchDomainList(origin2, *rule);
+  EXPECT_TRUE(result2);
+}
+
 #endif  // BUILDFLAG(ARKWEB_ADBLOCK)
 
 }  // namespace url_pattern_index

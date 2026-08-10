@@ -19,8 +19,10 @@
 namespace extensions {
 std::string GetTypeStr(extensions::MenuItem::Type type);
 std::string GetContextStr(extensions::MenuItem::Context context);
-std::vector<std::string> ContextListToStrVector(const extensions::MenuItem::ContextList& contextList);
+std::vector<std::string> ContextListToStrVector(
+    const extensions::MenuItem::ContextList& contextList);
 NWebExtensionState UnloadedReasonToState(UnloadedExtensionReason reason);
-}
+void DeleteExtensionActionInfoIcon(WebExtensionActionInfo& action_info);
+}  // namespace extensions
 
 #endif

@@ -26,16 +26,17 @@
 #include "components/subresource_filter/content/renderer/user_unverified_ruleset_dealer.h"
 #include "components/subresource_filter/core/common/memory_mapped_ruleset.h"
 #include "components/subresource_filter/core/common/test_ruleset_creator.h"
+// clang-format off
 #define private public
 #define protected public
 #include "components/subresource_filter/content/renderer/subresource_filter_agent.h"
 #include "arkweb/chromium_ext/components/subresource_filter/core/common/document_subresource_filter_ext.h"
-#include "components/subresource_filter/content/renderer/arkweb_subresource_filter_agent_ext.h"
 #include "components/subresource_filter/content/renderer/user_subresource_filter_agent.h"
 #include "components/subresource_filter/content/renderer/web_document_subresource_filter_impl.h"
 #include "content/public/renderer/render_frame.h"
 #undef protected
 #undef private
+// clang-format on
 #include "content/test/test_render_frame.h"
 #include "url/gurl.h"
 #include "user_subresource_filter_agent_test.h"
@@ -293,29 +294,28 @@ TEST_F(UserSubresourceFilterAgentTest,
   tester.CreateSubresourceFilterAgent(cond, "http://example.com/iframe");
   auto agent = tester.GetAgent();
   EXPECT_NE(agent, nullptr);
-  
+
   // 模拟主帧开启adblock
   auto web_frame = tester.GetWebLocalFrame();
   EXPECT_NE(web_frame, nullptr);
-  
+
   // 验证UpdateAdBlockEnabledToRender可以被调用
   EXPECT_NO_FATAL_FAILURE(web_frame->UpdateAdBlockEnabledToRender(true));
   EXPECT_NO_FATAL_FAILURE(web_frame->UpdateAdBlockEnabledToRender(false));
 }
 
 // 测试主帧的adblock状态更新
-TEST_F(UserSubresourceFilterAgentTest,
-       UpdateAdBlockEnabledToRender_MainFrame) {
+TEST_F(UserSubresourceFilterAgentTest, UpdateAdBlockEnabledToRender_MainFrame) {
   UserSubresourceFilterAgentTester tester;
   TestRenderFrameCondition cond;
   cond.is_main_frame = true;
   tester.CreateSubresourceFilterAgent(cond, "http://example.com/main");
   auto agent = tester.GetAgent();
   EXPECT_NE(agent, nullptr);
-  
+
   auto web_frame = tester.GetWebLocalFrame();
   EXPECT_NE(web_frame, nullptr);
-  
+
   // 验证主帧可以更新adblock状态
   EXPECT_NO_FATAL_FAILURE(web_frame->UpdateAdBlockEnabledToRender(true));
   EXPECT_NO_FATAL_FAILURE(web_frame->UpdateAdBlockEnabledToRender(false));
@@ -332,17 +332,17 @@ TEST_F(UserSubresourceFilterAgentTest,
   tester.CreateSubresourceFilterAgent(cond, "http://example.com/iframe");
   auto agent = tester.GetAgent();
   EXPECT_NE(agent, nullptr);
-  
+
   // 获取父帧和当前帧
   auto parent_frame = tester.GetWebParentFrame();
   auto current_frame = tester.GetWebLocalFrame();
   EXPECT_NE(parent_frame, nullptr);
   EXPECT_NE(current_frame, nullptr);
-  
+
   // 验证父帧和当前帧都可以更新adblock状态
   EXPECT_NO_FATAL_FAILURE(parent_frame->UpdateAdBlockEnabledToRender(true));
   EXPECT_NO_FATAL_FAILURE(current_frame->UpdateAdBlockEnabledToRender(true));
-  
+
   EXPECT_NO_FATAL_FAILURE(parent_frame->UpdateAdBlockEnabledToRender(false));
   EXPECT_NO_FATAL_FAILURE(current_frame->UpdateAdBlockEnabledToRender(false));
 }

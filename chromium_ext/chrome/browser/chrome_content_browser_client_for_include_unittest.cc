@@ -295,3 +295,61 @@ TEST_F(ChromeContentBrowserClientForIncludeTest,
       client_->UpdateAdBlockEnabledForSite(main_rfh(), empty_url));
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
+// ---------- ShouldOverrideUrlLoading additional branch tests ----------
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       ShouldOverrideUrlLoading_HttpNonOutermostMainFrame) {
+  bool ignore_navigation = true;
+
+  bool result = TestShouldOverrideUrlLoading(
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("http://example.com"),
+      "GET", true, false, false, false, ui::PAGE_TRANSITION_LINK,
+      &ignore_navigation);
+
+  // Non-outermost-main-frame HTTP should return true without setting
+  // ignore_navigation
+  EXPECT_TRUE(result);
+  EXPECT_FALSE(ignore_navigation);
+}
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       ShouldOverrideUrlLoading_HttpsNonOutermostMainFrame) {
+  bool ignore_navigation = true;
+
+  bool result = TestShouldOverrideUrlLoading(
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("https://example.com"),
+      "GET", true, false, false, false, ui::PAGE_TRANSITION_LINK,
+      &ignore_navigation);
+
+  EXPECT_TRUE(result);
+  EXPECT_FALSE(ignore_navigation);
+}
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       ShouldOverrideUrlLoading_AboutNonOutermostMainFrame) {
+  bool ignore_navigation = true;
+
+  bool result = TestShouldOverrideUrlLoading(
+      main_rfh()->GetFrameTreeNodeId(), false, GURL("about:blank"), "GET", true,
+      false, false, false, ui::PAGE_TRANSITION_LINK, &ignore_navigation);
+
+  EXPECT_TRUE(result);
+  EXPECT_FALSE(ignore_navigation);
+}
+
+TEST_F(ChromeContentBrowserClientForIncludeTest,
+       ShouldOverrideUrlLoading_BrowserInitiatedNoRedirect) {
+  bool ignore_navigation = true;
+
+  bool result = TestShouldOverrideUrlLoading(
+      main_rfh()->GetFrameTreeNodeId(), true, GURL("https://example.com"),
+      "GET", true, false, true, false, ui::PAGE_TRANSITION_LINK,
+      &ignore_navigation);
+
+  // Browser-initiated without redirect should return true
+  EXPECT_TRUE(result);
+  EXPECT_FALSE(ignore_navigation);
+}
+#endif  // BUILDFLAG(ARKWEB_NETWORK_LOAD)

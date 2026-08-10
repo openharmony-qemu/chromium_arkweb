@@ -333,10 +333,10 @@ TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionInstalled) {
   ASSERT_TRUE(extension);
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  ((ArkWebExtensionManagerCallBack*)callback_)->OnArkWebExtensionInstalledFun =
-      [](const char* extensionId, int createFlag, int location) {
-        g_expect_reason++;
-      };
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionInstalledFun = [](const char* extensionId,
+                                           int createFlag,
+                                           int location) { g_expect_reason++; };
 #endif
 
   // ShouldDisplayInExtensionSettings, no process
@@ -357,10 +357,11 @@ TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionUnloaded_DisableReason) {
   scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
   ASSERT_TRUE(extension);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  ((ArkWebExtensionManagerCallBack*)callback_)->OnArkWebExtensionUnLoadedFunV2 =
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFunV2 =
       [](const char* extensionId, int reason) { g_expect_reason = reason; };
-  ((ArkWebExtensionManagerCallBack*)callback_)->OnArkWebExtensionUnLoadedFun =
-      [](const char* extensionId) {};
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFun = [](const char* extensionId) {};
 #endif
 
   // by reason
@@ -801,5 +802,178 @@ TEST_F(ExtensionRegistryInfoManagerTest, UnloadedReasonToState_Test) {
   EXPECT_EQ(
       UnloadedReasonToState(UnloadedExtensionReason::MIGRATED_TO_COMPONENT),
       NWebExtensionState::DISABLED);
+}
+
+static int g_state_changed = -1;
+static int g_uninstalled_reason = -1;
+static int g_state_changed_count = 0;
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       GetExtensionManifestInfo_OmniboxWithKeyword) {
+  // Note: OmniboxHandler is not registered in TestExtensionsClient, so
+  // OmniboxInfo::GetKeyword() returns empty and GetManifestOmnibox returns
+  // nullopt. This test verifies that the omnibox parsing path is hit without
+  // crashing, even when the handler is not registered.
+  const std::string extension_id = "test-omnibox-extension";
+  const std::string keyword = "testkw";
+  auto manifest_tmp =
+      base::Value::Dict()
+          .Set("name", extension_id)
+          .Set("version", "1")
+          .Set("manifest_version", 2)
+          .Set("omnibox", base::Value::Dict().Set("keyword", keyword));
+  scoped_refptr<Extension> extension(
+      CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+  ASSERT_TRUE(extension);
+  WebExtensionManifestInfo manifest;
+  GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
+  // OmniboxHandler not registered in test context, so keyword is empty
+  EXPECT_FALSE(manifest.omnibox.has_value());
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       GetExtensionManifestInfo_OmniboxNoKeyword) {
+  const std::string extension_id = "test-no-omnibox-extension";
+  auto manifest_tmp = base::Value::Dict()
+                          .Set("name", extension_id)
+                          .Set("version", "1")
+                          .Set("manifest_version", 2);
+  scoped_refptr<Extension> extension(
+      CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+  ASSERT_TRUE(extension);
+  WebExtensionManifestInfo manifest;
+  GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
+  EXPECT_FALSE(manifest.omnibox.has_value());
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionLoaded_Test) {
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  g_state_changed = -1;
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionStateChangedFun = [](const char* extensionId,
+                                              int32_t state) {
+    g_state_changed = static_cast<int>(state);
+  };
+#endif
+  ASSERT_NO_FATAL_FAILURE(
+      GetInfoManager()->OnExtensionLoaded(browser_context(), extension.get()));
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  EXPECT_EQ(g_state_changed, static_cast<int>(NWebExtensionState::ENABLED));
+#endif
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionUninstalled_Test) {
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  g_state_changed = -1;
+  g_uninstalled_reason = -1;
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionStateChangedFun = [](const char* extensionId,
+                                              int32_t state) {
+    g_state_changed = static_cast<int>(state);
+  };
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUninstalledFun = [](const char* extensionId,
+                                             int reason) {
+    g_uninstalled_reason = reason;
+  };
+#endif
+  ASSERT_NO_FATAL_FAILURE(GetInfoManager()->OnExtensionUninstalled(
+      browser_context(), extension.get(),
+      UninstallReason::UNINSTALL_REASON_USER_INITIATED));
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  EXPECT_EQ(g_state_changed, static_cast<int>(NWebExtensionState::UNINSTALLED));
+  EXPECT_EQ(g_uninstalled_reason,
+            static_cast<int>(UninstallReason::UNINSTALL_REASON_USER_INITIATED));
+#endif
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, Loaded_UnknownExtension) {
+  ASSERT_NO_FATAL_FAILURE(GetInfoManager()->Loaded("nonexistent_extension_id"));
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, StartAndStopInitialLoad) {
+  ExtensionRegistryInfoManager::StartInitialLoad();
+  ExtensionRegistryInfoManager::StopInitialLoad();
+  ASSERT_NO_FATAL_FAILURE(ExtensionRegistryInfoManager::StopInitialLoad());
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, DeleteExtensionActionInfoIcon_NoIcon) {
+  WebExtensionActionInfo action_info;
+  action_info.extensionId = "test_id";
+  action_info.icon = std::nullopt;
+  DeleteExtensionActionInfoIcon(action_info);
+  EXPECT_FALSE(action_info.icon.has_value());
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       GetExtensionSidePanelInfo_NullService) {
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+  WebExtensionSidePanelInfo side_panel_info =
+      GetInfoManager()->GetExtensionSidePanelInfo(*extension.get(),
+                                                  std::nullopt);
+  EXPECT_FALSE(side_panel_info.enable.has_value());
+  EXPECT_FALSE(side_panel_info.path.has_value());
+}
+
+// GetAllExtensionContextMenus/V2 tests skipped: MenuManager::Get() crashes
+// because Profile::IsRegularProfile() hits profile_metrics not initialized
+// in ExtensionsTest context.
+
+TEST_F(ExtensionRegistryInfoManagerTest, RegisterAndUnregisterListener) {
+  auto listener = std::make_shared<NWebExtensionManagerCallBack>();
+  EXPECT_NE(listener, nullptr);
+  ExtensionRegistryInfoManager::RegisterWebExtensionManagerListener(listener);
+  ExtensionRegistryInfoManager::UnRegisterWebExtensionManagerListener();
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       OnExtensionUnloaded_UninstallReason_StateNotNotified) {
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  g_state_changed_count = 0;
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionStateChangedFun =
+      [](const char* extensionId, int32_t state) { g_state_changed_count++; };
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFun = [](const char* extensionId) {};
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFunV2 = [](const char* extensionId,
+                                            int reason) {};
+#endif
+  GetInfoManager()->OnExtensionUnloaded(browser_context(), extension.get(),
+                                        UnloadedExtensionReason::UNINSTALL);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  EXPECT_EQ(g_state_changed_count, 0);
+#endif
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       OnExtensionUnloaded_NonUninstallReason_StateNotified) {
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  g_state_changed = -1;
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionStateChangedFun = [](const char* extensionId,
+                                              int32_t state) {
+    g_state_changed = static_cast<int>(state);
+  };
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFun = [](const char* extensionId) {};
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionUnLoadedFunV2 = [](const char* extensionId,
+                                            int reason) {};
+#endif
+  GetInfoManager()->OnExtensionUnloaded(browser_context(), extension.get(),
+                                        UnloadedExtensionReason::DISABLE);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  EXPECT_EQ(g_state_changed, static_cast<int>(NWebExtensionState::DISABLED));
+#endif
 }
 }  // namespace extensions
