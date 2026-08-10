@@ -121,6 +121,7 @@
 #include "cef/include/cef_devtools_message_handler_delegate.h"
 #include "ohos_cef_ext/libcef/common/cef_open_devtools_ext_opt.h"
 #include "ohos_nweb/src/nweb_common.h"
+#include "content/public/browser/browser_context.h"
 #endif // BUILDFLAG(ARKWEB_DEVTOOLS)
 
 #include "nweb_core_value.h"
@@ -6644,6 +6645,19 @@ void NWebDelegate::OpenDevtoolsWithByPb(
   }
   NWebDelegate* devtools_delegate =
       static_cast<NWebDelegate*>(nweb_delegate.get());
+
+#if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+  auto* arkweb_host_ext = static_cast<ArkWebBrowserHostExtImpl*>(GetBrowser()->GetHost().get());
+  if (arkweb_host_ext) {
+    auto alloy_host = arkweb_host_ext->AsAlloyBrowserHostImpl();
+    if (alloy_host && alloy_host->GetBrowserContext() &&
+        alloy_host->GetBrowserContext()->IsOffTheRecord()) {
+      if (devtools_delegate && devtools_delegate->GetPreferenceDelegate()) {
+        devtools_delegate->GetPreferenceDelegate()->SetDarkSchemeForceDark(true);
+      }
+    }
+  }
+#endif // #if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
 
   CefRefPtr<NWebDevToolsMessageHandlerImpl> devtools_message_handler;
   devtools_message_handler = CefRefPtr<NWebDevToolsMessageHandlerImpl>(
