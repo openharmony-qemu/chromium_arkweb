@@ -56,3 +56,15 @@ void LogMessage::ArkWebLoggingSeverity(const std::string& str_newline) {
   g_logger_callback(priority_, ohos_tag_, policy, str_newline);
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+void SetFatalMessageAndAbort(const char* message) {
+  set_fatal_message(message);
+  abort();
+}
+
+void SetFatalMessageAndAbort(const std::string& message) {
+  set_fatal_message(message.c_str());
+  abort();
+}
+#endif

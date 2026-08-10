@@ -68,6 +68,10 @@
 #include "third_party/blink/public/common/loader/loader_constants.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+#include "net/http/http_util.h"
+#endif
+
 namespace content {
 
 WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
@@ -1093,6 +1097,10 @@ void WebContentsImplExt::SelectRangeV2(const gfx::Point& position,
 #endif
 #if BUILDFLAG(ARKWEB_USERAGENT)
 void WebContentsImplExt::SetCustomUA(std::string custom_user_agent) {
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+  net::HttpUtil::EnsureValidHeaderValue(custom_user_agent,
+                                        "setCustomUserAgent");
+#endif
   custom_user_agent_ = custom_user_agent;
 }
 
