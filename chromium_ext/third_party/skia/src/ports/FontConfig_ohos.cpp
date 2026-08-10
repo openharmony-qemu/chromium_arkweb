@@ -52,14 +52,17 @@ void BindHostReceiverOnMainThread(
 FontConfig_OHOS::FontConfig_OHOS(const SkFontScanner& fontScanner,
                                  const char* fname)
 {
-  if (base::ohos::IsMobileDevice() || base::ohos::IsWearableDevice()) {
-    LOG(DEBUG) << "The program follows the old font engine path.";
-    int err = parseConfig(fname);
-    if (err != NO_ERROR) {
-      return;
-    }
-    scanFontsBackup(fontScanner);
+  LOG(DEBUG) << "The program follows the old font engine path.";
+  int err = parseConfig(fname);
+  if (err != NO_ERROR) {
+    return;
   }
+  scanFontsBackup(fontScanner);
+
+  if (base::ohos::IsTabletDevice() || base::ohos::IsPcDevice()) {
+    scanFonts(fontScanner, OHOS_FONT_INSTALL_DIR, true);
+  }
+
   resetGenericValue();
   resetFallbackValue();
 }
@@ -87,6 +90,9 @@ int FontConfig_OHOS::checkNewFontengineISOK()
 
 void FontConfig_OHOS::PrepareFontConfig(const SkFontScanner& fontScanner) {
   if (base::ohos::IsMobileDevice() || base::ohos::IsWearableDevice()) {
+    return;
+  }
+  if (!genericFamilySet.empty() || !fallbackSet.empty()) {
     return;
   }
   main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
