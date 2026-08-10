@@ -72,8 +72,14 @@ void SystemPropertiesChangeCallback(void *context, const OH_PreferencesPair *pai
                 WVLOG_E("failed to get preferences string");
                 continue;
             }
-            WVLOG_D("sys prop change key: %{public}s ,value : %{public}s ", key,  value);
-            SystemPropertiesAdapterImpl::GetInstance().DispatchAllWatcherInfo(key, value);
+            if (value == nullptr) {
+                WVLOG_E("failed to get preferences string, value is nullptr");
+                continue;
+            }
+            std::string str = value;
+            OH_Preferences_FreeString(value);
+            WVLOG_D("sys prop change key: %{public}s ,value : %{public}s ", key,  str.c_str());
+            SystemPropertiesAdapterImpl::GetInstance().DispatchAllWatcherInfo(key, str.c_str());
         }
     }
 }
