@@ -17,9 +17,15 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "arkweb/build/features/features.h"
+#include "base/functional/bind.h"
+#if BUILDFLAG(ARKWEB_AI)
+#include "nweb_agent_handler.h"
+#endif
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #endif
@@ -252,6 +258,35 @@ class MockCefBrowser : public ArkWebBrowserExt {
   void CancelAllPrerendering() override {};
 #endif
 };
+
+#if BUILDFLAG(ARKWEB_AI)
+class MockNWebAgentHandler : public NWebAgentHandler {
+ public:
+  void OnCreateAISession(
+      AISessionType,
+      const std::string&,
+      const std::string&,
+      std::shared_ptr<NWebStringVectorValueCallback> callback) override {
+    callback_ = std::move(callback);
+  }
+
+  std::shared_ptr<NWebStringVectorValueCallback> callback_;
+};
+
+struct AISessionCallbackResult {
+  int call_count = 0;
+  content::AISessionResultType state = content::AISessionResultType::FAILURE;
+  std::string content;
+};
+
+void CaptureAISessionCallbackResult(AISessionCallbackResult* result,
+                                    content::AISessionResultType state,
+                                    const std::string& content) {
+  ++result->call_count;
+  result->state = state;
+  result->content = content;
+}
+#endif  // BUILDFLAG(ARKWEB_AI)
 
 class NWebHandlerDelegateTest : public ::testing::Test {
  protected:
@@ -681,6 +716,76 @@ TEST_F(NWebHandlerDelegateTest, RegisterOnLoadStartedCbForContentChange_TEST003)
   delegate->RegisterOnLoadStartedCbForContentChange(std::move(empty_callback));
 
   EXPECT_EQ(delegate->onLoadStartedCbForContentChange_, nullptr);
+}
+
+TEST_F(NWebHandlerDelegateTest, AISessionCallbackAcceptsDefinedStates) {
+  auto agent_handler = std::make_shared<MockNWebAgentHandler>();
+  delegate->RegisterNWebAgentHandler(agent_handler);
+  const std::vector<std::pair<std::string, content::AISessionResultType>>
+      test_cases = {
+          {"0", content::AISessionResultType::SUCCESS},
+          {"1", content::AISessionResultType::FAILURE},
+          {"2", content::AISessionResultType::RUNNING},
+      };
+
+  for (const auto& [state_string, expected_state] : test_cases) {
+    SCOPED_TRACE(state_string);
+    AISessionCallbackResult result;
+    delegate->OnCreateAISession(
+        content::AISessionType::TRANSLATOR, "session", "params",
+        base::BindRepeating(&CaptureAISessionCallbackResult, &result));
+    ASSERT_NE(agent_handler->callback_, nullptr);
+
+    agent_handler->callback_->OnReceiveValue({state_string, "content"});
+
+    EXPECT_EQ(result.call_count, 1);
+    EXPECT_EQ(result.state, expected_state);
+    EXPECT_EQ(result.content, "content");
+  }
+}
+
+TEST_F(NWebHandlerDelegateTest, AISessionCallbackRejectsInvalidStates) {
+  auto agent_handler = std::make_shared<MockNWebAgentHandler>();
+  delegate->RegisterNWebAgentHandler(agent_handler);
+  const std::vector<std::string> invalid_states = {
+      "",   "invalid", "1invalid",   " 1",        "+1",
+      "-1", "3",       "2147483648", "4294967295"};
+
+  for (const auto& state_string : invalid_states) {
+    SCOPED_TRACE(state_string);
+    AISessionCallbackResult result;
+    delegate->OnCreateAISession(
+        content::AISessionType::TRANSLATOR, "session", "params",
+        base::BindRepeating(&CaptureAISessionCallbackResult, &result));
+    ASSERT_NE(agent_handler->callback_, nullptr);
+
+    agent_handler->callback_->OnReceiveValue({state_string, "content"});
+
+    EXPECT_EQ(result.call_count, 1);
+    EXPECT_EQ(result.state, content::AISessionResultType::FAILURE);
+    EXPECT_EQ(result.content, "content");
+  }
+}
+
+TEST_F(NWebHandlerDelegateTest, AISessionCallbackRejectsIncompleteResults) {
+  auto agent_handler = std::make_shared<MockNWebAgentHandler>();
+  delegate->RegisterNWebAgentHandler(agent_handler);
+  const std::vector<std::vector<std::string>> incomplete_results = {{}, {"0"}};
+
+  for (const auto& callback_value : incomplete_results) {
+    SCOPED_TRACE(callback_value.size());
+    AISessionCallbackResult result;
+    delegate->OnCreateAISession(
+        content::AISessionType::TRANSLATOR, "session", "params",
+        base::BindRepeating(&CaptureAISessionCallbackResult, &result));
+    ASSERT_NE(agent_handler->callback_, nullptr);
+
+    agent_handler->callback_->OnReceiveValue(callback_value);
+
+    EXPECT_EQ(result.call_count, 1);
+    EXPECT_EQ(result.state, content::AISessionResultType::FAILURE);
+    EXPECT_TRUE(result.content.empty());
+  }
 }
 #endif  // BUILDFLAG(ARKWEB_AI)
 
