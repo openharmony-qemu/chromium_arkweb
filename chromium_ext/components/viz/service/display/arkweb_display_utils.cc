@@ -15,6 +15,7 @@
 
 #include "arkweb/chromium_ext/components/viz/service/display/arkweb_display_utils.h"
 #include "arkweb/chromium_ext/base/ohos/render_uid_define.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
@@ -99,7 +100,13 @@ class DumpFrameObserver : public OHOS::NWeb::SystemPropertiesObserver {
     std::lock_guard<std::mutex> lock(mutex_);
     int32_t dumpFreq = DUMP_FRAME_FREQ;
     if (dump_param_list_.size() > 1) {
-      dumpFreq = std::stoi(dump_param_list_[1]);
+      int32_t parsed = 0;
+      if (base::StringToInt(dump_param_list_[1], &parsed) && parsed > 0) {
+        dumpFreq = parsed;
+      } else {
+        LOG(ERROR) << "Invalid dump frequency: " << dump_param_list_[1]
+                   << ", falling back to default " << DUMP_FRAME_FREQ;
+      }
     }
 
     if (is_dump_force_) {

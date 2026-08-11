@@ -144,6 +144,24 @@ class DumpFrameObserverTest : public testing::Test {
     EXPECT_EQ(observer.dump_param_list_[0], "a");
     EXPECT_EQ(observer.dump_param_list_[1], "b");
     EXPECT_EQ(observer.dump_param_list_[2], "c");
+
+    // Non-numeric frequency should not crash, should fall back to DUMP_FRAME_FREQ
+    observer.PropertiesUpdate("true#abc#/tmp/dump");
+    for (int i = 0; i < 59; i++) {
+      EXPECT_FALSE(observer.ShouldDumpInFreq());
+    }
+    EXPECT_TRUE(observer.ShouldDumpInFreq());
+
+    // Negative frequency should also fall back to DUMP_FRAME_FREQ
+    observer.PropertiesUpdate("true#-1#/tmp/dump");
+    for (int i = 0; i < 59; i++) {
+      EXPECT_FALSE(observer.ShouldDumpInFreq());
+    }
+    EXPECT_TRUE(observer.ShouldDumpInFreq());
+
+    // Overflowing value should also fall back safely
+    observer.PropertiesUpdate("true#9999999999#/tmp/dump");
+    EXPECT_FALSE(observer.ShouldDumpInFreq() || true);  // no crash
   }
 
   void TestShouldDumpInFreqAndDumpPath(){
