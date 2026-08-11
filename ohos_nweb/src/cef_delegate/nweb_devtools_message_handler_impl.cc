@@ -24,6 +24,7 @@
 
 extern "C" {
 void* __real_malloc(size_t);
+void __real_free(void*);
 }  // extern "C"
 
 namespace OHOS::NWeb {
@@ -166,8 +167,16 @@ bool NWebDevToolsMessageHandlerImpl::ShowFileChooser(
     FileSelectorParamsImpl* tmp = new (addr)
         FileSelectorParamsImpl(file_mode, file_selector_title, accept_filters,
                                default_file_path.ToString(), capture);
+    auto deleter = [](NWebFileSelectorParams* p) {
+      p->~NWebFileSelectorParams();
+      __real_free(p);
+    };
 #endif
+#if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
     std::shared_ptr<NWebFileSelectorParams> param(tmp);
+#else
+    std::shared_ptr<NWebFileSelectorParams> param(tmp, deleter);
+#endif
 
     std::shared_ptr<NWebStringVectorValueCallback> file_path_callback =
         std::make_shared<FileSelectorCallbackImpl>(callback);
