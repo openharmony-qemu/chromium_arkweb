@@ -39,20 +39,13 @@ class MockFrameClient : public LocalFrameClientImplUtils {
 
 class MockCcLayer : public cc::Layer {
  public:
-  explicit MockCcLayer() : cc::Layer() {
-    layer_utils_ = std::make_unique<cc::LayerUtils>(this);
-  }
+  explicit MockCcLayer() : cc::Layer() {}
 
   MOCK_METHOD1(SetNativeEmbedOverlayInfinity, void(bool));
   MOCK_METHOD1(SetNativeEmbedOverlay, void(bool));
   MOCK_METHOD0(SetNeedsCommit, void());
   MOCK_METHOD0(SetNeedsPushProperties, void());
   MOCK_METHOD0(SetNeedsDisplay, void());
-
-  cc::LayerUtils* layer_utils() const { return layer_utils_.get(); }
-
- private:
-  std::unique_ptr<cc::LayerUtils> layer_utils_;
 };
 
 class MockWebNativeBridge : public WebNativeBridge {
@@ -78,6 +71,7 @@ class NativeLoaderTest : public PageTestBase {
   }
 
   void TearDown() override {
+    loader_->SetCcLayer(nullptr);
     web_view_helper_.Reset();
   }
 
@@ -806,5 +800,50 @@ TEST_F(NativeLoaderTest, SetStretchContentToFillBounds_False) {
   loader_->SetStretchContentToFillBounds(false);
   bool result = loader_->GetStretchContentToFillBounds();
   EXPECT_FALSE(result);
+}
+
+// Repaint (line 299): the `if (layout_object)` true arm. Existing Repaint tests
+// do not update layout, so plugin_element has no LayoutObject and the arm is
+// never taken. Note: SetNeedsDisplay() is non-virtual in cc::Layer and early-
+// returns when the layer is not attached, so we cannot mock it. Just verify the
+// code path executes without crash.
+TEST_F(NativeLoaderTest, Repaint_WithLayoutObject) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  loader_->SetCcLayer(&mock_cc_layer_);
+  loader_->Repaint();
+}
+
+// SetCcLayer (line 322): the `if (plugin_element_client)` true arm. Existing
+// SetCcLayer tests do not update layout, so GetLayoutObject() is null.
+// SetNeedsPushProperties() is non-virtual and early-returns when unattached,
+// so we cannot mock it.
+TEST_F(NativeLoaderTest, SetCcLayer_WithLayoutObject) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  loader_->SetCcLayer(&mock_cc_layer_);
+}
+
+// OnCreateNativeSurface (lines 221/222): GetTypeAttribute()/GetIdAttribute()
+// IsNull true arms. The fixture element has type='test/native' and id, so the
+// existing calls only hit the non-null arms; removing both attributes covers
+// the null arms. SetNeedsCommit() is non-virtual and early-returns when
+// unattached, so we cannot mock it.
+TEST_F(NativeLoaderTest, OnCreateNativeSurface_NoTypeNoId) {
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->removeAttribute(html_names::kTypeAttr);
+  embed->removeAttribute(html_names::kIdAttr);
+  loader_->SetCcLayer(&mock_cc_layer_);
+  loader_->OnCreateNativeSurface(123, base::DoNothing());
+}
+
+// OnCreateNativeSurface (line 223): GetSrcAttribute().IsNull() false arm. The
+// fixture element has no src, so IsNull is always true; adding a src covers the
+// non-null arm.
+TEST_F(NativeLoaderTest, OnCreateNativeSurface_WithSrc) {
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->setAttribute(html_names::kSrcAttr, AtomicString("native/test.src"));
+  loader_->SetCcLayer(&mock_cc_layer_);
+  loader_->OnCreateNativeSurface(123, base::DoNothing());
 }
 }  // namespace blink

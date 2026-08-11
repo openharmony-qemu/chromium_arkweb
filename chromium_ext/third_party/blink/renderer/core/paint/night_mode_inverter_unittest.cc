@@ -196,5 +196,133 @@ TEST_F(NightModeInverterTest, IsLowChromaFalseBoundary) {
   Color high_chroma(255, 100, 100);
   EXPECT_FALSE(IsLowChroma(high_chroma.Rgb()));
 }
+
+// ---- Additional branch-coverage tests ----
+// Each configures the singleton via its public setters; toggles set in one test
+// are reset at the end of that test to avoid affecting later ones.
+
+// InvertElementColor (line 119): kGradient case -> ComputeRoleColor. Also
+// covers ComputeRoleColor's `brightness <= threshold` true sub-condition (line
+// 193, is_foreground=false) and DecreaseBrightnessColor's background/else arm.
+TEST_F(NightModeInverterTest, InvertElementColorGradientRole) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  Color c(200, 200, 200);
+  Color result = inverter.InvertElementColor(
+      c, NightModeInverter::ElementRole::kGradient);
+  EXPECT_NE(result, Color());
+}
+
+// BlendColorFilterForImage (line 130): ShouldUseGrayImage() true arm.
+// SetColorFilterWithZeroSaturation() only modifies an existing color filter;
+// on a fresh PaintFlags (no filter set), it is a no-op, so getColorFilter()
+// remains false.
+TEST_F(NightModeInverterTest, BlendColorFilterForImageGrayImage) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetTurnImageGray(true);
+  cc::PaintFlags flags;
+  inverter.BlendColorFilterForImage(flags);
+  inverter.SetTurnImageGray(false);
+  EXPECT_FALSE(flags.getColorFilter());
+}
+
+// BlendColorFilterForImage (line 134 false + 141-144): blend path taken when
+// image_brightness_scale_ > 0 and images are not skipped, divisor > epsilon.
+TEST_F(NightModeInverterTest, BlendColorFilterForImageBlendPath) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetSkipProcessImages(false);
+  inverter.SetImageBrightnessScale(1.0f);
+  cc::PaintFlags flags;
+  inverter.BlendColorFilterForImage(flags, 1.0f);
+  inverter.SetImageBrightnessScale(0.0f);
+  EXPECT_TRUE(flags.getColorFilter());
+}
+
+// BlendColorFilterForImage (line 137 true): divisor < kEpsilon -> early return.
+TEST_F(NightModeInverterTest, BlendColorFilterForImageDivisorZero) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetSkipProcessImages(false);
+  inverter.SetImageBrightnessScale(1.0f);
+  cc::PaintFlags flags;
+  inverter.BlendColorFilterForImage(flags, 0.0f);
+  inverter.SetImageBrightnessScale(0.0f);
+  EXPECT_FALSE(flags.getColorFilter());
+}
+
+// LinkHighlight (line 156 false): NightModeForceOverride() true -> color.Dark().
+TEST_F(NightModeInverterTest, LinkHighlightForceOverrideEnabled) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetImageBrightnessScale(1.0f);
+  Color link(200, 200, 200);
+  Color result = inverter.InvertElementColor(
+      link, NightModeInverter::ElementRole::kLinkHighlight);
+  inverter.SetImageBrightnessScale(0.0f);
+  EXPECT_NE(result, link);
+}
+
+// BorderColor (line 163 second arm): color == border_color_ -> return color.
+TEST_F(NightModeInverterTest, BorderColorEqualToSetBorder) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  Color border(60, 70, 80);
+  inverter.SetBorderColor(border);
+  Color result = inverter.InvertElementColor(
+      border, NightModeInverter::ElementRole::kBorder);
+  EXPECT_EQ(result, border);
+}
+
+// BorderColor (line 167 true, 168 true): no force override + gray border ->
+// AdjustBrightness.
+TEST_F(NightModeInverterTest, BorderColorGrayNoOverride) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetImageBrightnessScale(0.0f);
+  inverter.SetBorderColor(Color(40, 40, 40));
+  Color gray(180, 180, 180);
+  Color result = inverter.InvertElementColor(
+      gray, NightModeInverter::ElementRole::kBorder);
+  EXPECT_NE(result, gray);
+}
+
+// BorderColor (line 167 true, 168 false): no force override + non-gray border
+// -> return color unchanged.
+TEST_F(NightModeInverterTest, BorderColorNonGrayNoOverride) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetImageBrightnessScale(0.0f);
+  inverter.SetBorderColor(Color(40, 40, 40));
+  Color colored(255, 50, 50);
+  Color result = inverter.InvertElementColor(
+      colored, NightModeInverter::ElementRole::kBorder);
+  EXPECT_EQ(result, colored);
+}
+
+// BorderColor (line 167 false, 182): force override + opaque color ->
+// border_color_. The result carries the border_color_'s RGB channels.
+TEST_F(NightModeInverterTest, BorderColorOverrideOpaque) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetImageBrightnessScale(1.0f);
+  Color border(40, 40, 40);
+  inverter.SetBorderColor(border);
+  Color input(180, 180, 180);
+  Color result = inverter.InvertElementColor(
+      input, NightModeInverter::ElementRole::kBorder);
+  inverter.SetImageBrightnessScale(0.0f);
+  EXPECT_EQ(result.Red(), border.Red());
+  EXPECT_EQ(result.Green(), border.Green());
+  EXPECT_EQ(result.Blue(), border.Blue());
+}
+
+// BorderColor (line 177 true): force override + non-opaque color ->
+// Color(border rgb, input alpha). Verify RGB channels come from border_color_.
+TEST_F(NightModeInverterTest, BorderColorOverrideNonOpaque) {
+  NightModeInverter& inverter = NightModeInverter::GetInverter();
+  inverter.SetImageBrightnessScale(1.0f);
+  Color border(40, 40, 40);
+  inverter.SetBorderColor(border);
+  Color input(180, 180, 180, 0x80);
+  Color result = inverter.InvertElementColor(
+      input, NightModeInverter::ElementRole::kBorder);
+  inverter.SetImageBrightnessScale(0.0f);
+  EXPECT_EQ(result.Red(), border.Red());
+  EXPECT_EQ(result.Green(), border.Green());
+  EXPECT_EQ(result.Blue(), border.Blue());
+}
 #endif
 }
