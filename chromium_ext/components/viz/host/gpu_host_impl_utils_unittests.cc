@@ -424,4 +424,41 @@ TEST_F(GpuHostImplTest, SendAntiFraudSnapshotInfo) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
+TEST_F(GpuHostImplTest, ReportDynamicFrameLossWithNullData) {
+  auto env = std::make_unique<TestEnvironment>();
+  ASSERT_NO_FATAL_FAILURE(env->gpu_host->ReportDynamicFrameLoss(nullptr));
+}
+
+TEST_F(GpuHostImplTest, ReportDynamicFrameLossBelowThreshold) {
+  auto env = std::make_unique<TestEnvironment>();
+  auto data = mojom::DynamicFrameDropData::New();
+  data->start_time = 1000;
+  data->duration = 500;
+  data->max_app_frame_time = 30;  // < 50ms threshold
+  data->web_id = 1;
+  ASSERT_NO_FATAL_FAILURE(env->gpu_host->ReportDynamicFrameLoss(std::move(data)));
+}
+
+TEST_F(GpuHostImplTest, ReportDynamicFrameLossAboveThreshold) {
+  auto env = std::make_unique<TestEnvironment>();
+  auto data = mojom::DynamicFrameDropData::New();
+  data->start_time = 1000;
+  data->duration = 500;
+  data->max_app_frame_time = 100;  // >= 50ms threshold
+  data->web_id = 1;
+  ASSERT_NO_FATAL_FAILURE(env->gpu_host->ReportDynamicFrameLoss(std::move(data)));
+}
+
+TEST_F(GpuHostImplTest, ReportDynamicFrameLossWithMaxValues) {
+  auto env = std::make_unique<TestEnvironment>();
+  auto data = mojom::DynamicFrameDropData::New();
+  data->start_time = INT64_MAX;
+  data->duration = INT32_MAX;
+  data->max_app_frame_time = INT32_MAX;
+  data->web_id = INT32_MAX;
+  ASSERT_NO_FATAL_FAILURE(env->gpu_host->ReportDynamicFrameLoss(std::move(data)));
+}
+#endif
+
 } // namespace viz

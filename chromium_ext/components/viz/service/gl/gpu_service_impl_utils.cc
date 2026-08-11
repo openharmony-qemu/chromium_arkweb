@@ -23,6 +23,7 @@
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
 #include "arkweb/chromium_ext/base/ohos/dynamic_frame_loss_monitor.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_SLIDE_LTPO)
@@ -97,9 +98,33 @@ void GpuServiceImpl::Discard(uint32_t native_window_id)
 #endif
 
 //LCOV_EXCL_START
+
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
 void GpuServiceImpl::StartMonitor(int32_t nweb_id) {
   base::ohos::DynamicFrameLossMonitor::GetInstance().StartMonitor(nweb_id);
+}
+
+void GpuServiceImpl::ReportDynamicFrameLoss(
+    const OHOS::NWeb::HiAppeventAdapter::DynamicFrameDropInfo& info) {
+  mojom::DynamicFrameDropDataPtr data = mojom::DynamicFrameDropData::New();
+  data->start_time = info.start_time;
+  data->duration = static_cast<int32_t>(info.duration);
+  data->max_app_frame_time = static_cast<int32_t>(info.max_app_frame_time);
+  data->web_id = info.web_id;
+  gpu_host_->ReportDynamicFrameLoss(std::move(data));
+}
+
+void GpuServiceImpl::InitFrameLossMonitor() {
+  oop_gpu_enabled_ =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance()
+          .GetSystemPropertiesInstance()
+          .GetOOPGPUStatus() == "true";
+  if (oop_gpu_enabled_) {
+    auto& monitor = base::ohos::DynamicFrameLossMonitor::GetInstance();
+    monitor.SetHiAppEventCallback(
+        base::BindRepeating(&GpuServiceImpl::ReportDynamicFrameLoss,
+                            weak_ptr_));
+  }
 }
 
 void GpuServiceImpl::StopMonitor() {
