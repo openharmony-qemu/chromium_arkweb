@@ -37,6 +37,7 @@ void SurfaceLayer::SetVideoRectChangeCallback(RectChangeCallback callback) {
 void SurfaceLayer::OnLayerRectUpdate(const gfx::Rect& rect) {
   if (video_rect_change_callback_) {
     video_rect_change_callback_.Run(rect);
+    return;
   }
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   if (!rect_change_callback_.is_null()) {
