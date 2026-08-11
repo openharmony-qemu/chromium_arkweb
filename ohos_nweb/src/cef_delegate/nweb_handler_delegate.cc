@@ -17,6 +17,7 @@
 
 #include <sys/mman.h>
 
+#include <charconv>
 #include <thread>
 
 #include "base/hash/hash.h"
@@ -6208,15 +6209,43 @@ class AISessionCallbackImpl : public NWebStringVectorValueCallback {
       : callback_(std::move(callback)) {}
 
   void OnReceiveValue(const std::vector<std::string>& value) override {
-    if (value.size() < 2) {
+    if (!callback_) {
       return;
     }
-    int state_int = std::stoi(value[0]);
-    content::AISessionResultType state =
-        static_cast<content::AISessionResultType>(state_int);
-    if (callback_) {
-      callback_.Run(state, value[1]);
+    if (value.size() < 2) {
+      LOG(ERROR) << "Invalid AI session callback result";
+      callback_.Run(content::AISessionResultType::FAILURE, std::string());
+      return;
     }
+
+    int state_int = -1;
+    const std::string& state_str = value[0];
+    auto result = std::from_chars(state_str.data(),
+                                  state_str.data() + state_str.size(), state_int);
+    if (result.ec != std::errc() ||
+        result.ptr != state_str.data() + state_str.size()) {
+      LOG(ERROR) << "Invalid AI session callback state";
+      callback_.Run(content::AISessionResultType::FAILURE, value[1]);
+      return;
+    }
+
+    content::AISessionResultType state;
+    switch (state_int) {
+      case static_cast<int>(content::AISessionResultType::SUCCESS):
+        state = content::AISessionResultType::SUCCESS;
+        break;
+      case static_cast<int>(content::AISessionResultType::FAILURE):
+        state = content::AISessionResultType::FAILURE;
+        break;
+      case static_cast<int>(content::AISessionResultType::RUNNING):
+        state = content::AISessionResultType::RUNNING;
+        break;
+      default:
+        LOG(ERROR) << "AI session callback state is out of range";
+        callback_.Run(content::AISessionResultType::FAILURE, value[1]);
+        return;
+    }
+    callback_.Run(state, value[1]);
   }
 
  private:
