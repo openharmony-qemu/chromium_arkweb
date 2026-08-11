@@ -117,4 +117,16 @@ BASE_EXPORT extern const char kHttpsUpgrades[];
   BASE_LOG_FEEDBACK(level) << ::logging::module << " "
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+#define ARKWEB_SET_FATAL_AND_ABORT(message) \
+  ::logging::SetFatalMessageAndAbort(message)
+#endif
+
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+// Sets a fatal message via the Arkweb DFX set_fatal_message() API and then
+// aborts the process. 
+[[noreturn]] void SetFatalMessageAndAbort(const std::string& message);
+[[noreturn]] void SetFatalMessageAndAbort(const char* message);
+#endif
+
 #endif
