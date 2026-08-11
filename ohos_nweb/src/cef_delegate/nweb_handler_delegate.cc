@@ -5853,6 +5853,10 @@ NWebHandlerDelegate::OnFullScreenOverlayEnter(
   return std::make_unique<NWebMediaPlayerListenerForVAST>(
       std::unique_ptr<NWebMediaPlayerCallback>(listener));
 #endif  // ARKWEB_NWEB_EX
+
+#if !BUILDFLAG(ARKWEB_NWEB_EX) && BUILDFLAG(ARKWEB_FULLSCREEN_VIDEO_OVERLAY)
+  return nullptr;
+#endif
 }
 
 CefOwnPtr<CefMediaPlayerListenerForVAST>
