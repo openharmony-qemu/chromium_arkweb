@@ -15,7 +15,7 @@
 
 static void PushCreateWorkersTids(scoped_refptr<base::internal::WorkerThread>& worker,
                                   std::vector<int32_t>& create_workers_thread_ids_,
-                                  std::vector<scoped_refptr<base::internal::WorkerThread>> remain_workers) {
+                                  std::vector<scoped_refptr<base::internal::WorkerThread>>& remain_workers) {
   auto tid = worker->GetRealTid();
   if (tid != base::kInvalidThreadId) {
     create_workers_thread_ids_.push_back(tid.raw());
