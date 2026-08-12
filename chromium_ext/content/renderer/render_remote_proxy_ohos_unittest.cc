@@ -34,6 +34,8 @@ class MockAafwkBrowserClientAdapter
   void PassSurface(int64_t surface_id) override {}
 
   void DestroyRenderSurface(int32_t surface_id) override {}
+
+  std::string QueryBufferTypeLeak(int32_t surface_id) override {}
 };
 
 class RenderRemoteProxyUnitTest : public testing::Test {
