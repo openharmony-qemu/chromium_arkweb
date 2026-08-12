@@ -29,6 +29,9 @@
 #include <sys/socket.h>
 #include <time.h>
 
+// The following struct and macro definitions are not provided by the Chromium
+// <linux/android/binder.h> header but are required by the OHOS IPC layer.
+// They must be kept in sync with foundation/communication/ipc/.../sys_binder.h.
 struct access_token {
   __u64 sender_tokenid;
   __u64 first_tokenid;
@@ -39,6 +42,9 @@ struct binder_sender_info {
   struct access_token tokens;
   __u64 sender_pid_nr;
 };
+
+// BINDER_GET_CALLING_USER_INFO: ROM IPC caller user info query.
+// Added for explicit EPERM control in the renderer sandbox.
 struct binder_calling_user_info {
     __u64 tokenid;
     __u64 ftokenid;
@@ -49,7 +55,11 @@ struct binder_calling_user_info {
 };
 #define BINDER_ENABLE_ONEWAY_SPAM_DETECTION _IOW('b', 16, __u32)
 #define BINDER_FEATURE_SET _IOWR('b', 30, __u64)
+// BINDER_GET_ACCESS_TOKEN: ROM IPC access token retrieval on /dev/binder.
+// Explicitly controlled to block/allow this ioctl in the sandbox.
+#define BINDER_GET_ACCESS_TOKEN _IOWR('b', 31, struct access_token)
 #define BINDER_GET_SENDER_INFO	_IOWR('b', 32, struct binder_sender_info)
+// ACCESS_TOKENID_GET_TOKENID operates on /dev/access_token_id (not /dev/binder).
 #define ACCESS_TOKENID_GET_TOKENID _IOR('A', 1, unsigned long long)
 #define BINDER_GET_CALLING_USER_INFO _IOWR('b', 170, struct binder_calling_user_info)
 
@@ -315,13 +325,21 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
                     ASHMEM_GET_SIZE, ASHMEM_SET_PROT_MASK, ASHMEM_GET_PROT_MASK,
                     ASHMEM_PIN, ASHMEM_UNPIN, ASHMEM_GET_PIN_STATUS},
                     Allow())
-            .Cases({kBinderWriteRead32, kBinderWriteRead64, BINDER_SET_MAX_THREADS, BINDER_GET_CALLING_USER_INFO,
+            .Cases({kBinderWriteRead32, kBinderWriteRead64, BINDER_SET_MAX_THREADS,
+                    BINDER_GET_CALLING_USER_INFO,
                     BINDER_THREAD_EXIT, BINDER_VERSION, BINDER_ENABLE_ONEWAY_SPAM_DETECTION,
                     BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ,
-                    ACCESS_TOKENID_GET_TOKENID},
+                    ACCESS_TOKENID_GET_TOKENID, BINDER_GET_ACCESS_TOKEN},
                     Error(EPERM))
             .Default(RestrictIoctl());
 #else
+        // BINDER_GET_ACCESS_TOKEN occupies ioctl slot (b, 31) in the OHOS
+        // kernel. This is a read-only access token query that aligns with the
+        // renderer's existing binder privileges. Note: upstream Chromium uses
+        // the same (b, 31) slot for BINDER_GET_EXTENDED_ERROR (_IOR), but the
+        // encoded request values differ due to direction and size bits. The
+        // Allow() decision is based on the OHOS operation's semantics, not
+        // direct upstream equivalence.
         return Switch(request)
             .Cases({
                         ASHMEM_SET_NAME, ASHMEM_GET_NAME, ASHMEM_SET_SIZE,
@@ -329,7 +347,8 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
                         ASHMEM_PIN, ASHMEM_UNPIN, ASHMEM_GET_PIN_STATUS,
                         kBinderWriteRead32, kBinderWriteRead64, BINDER_SET_MAX_THREADS,
                         BINDER_THREAD_EXIT, BINDER_VERSION, BINDER_ENABLE_ONEWAY_SPAM_DETECTION,
-                        BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, BINDER_GET_CALLING_USER_INFO},
+                        BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, BINDER_GET_CALLING_USER_INFO,
+                        BINDER_GET_ACCESS_TOKEN},
                     Allow())
             .Cases({QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ},
                     Error(EPERM))
