@@ -42,6 +42,7 @@ using blink::mojom::ReaderModeConfig;
 #if BUILDFLAG(ARKWEB_RENDER_PROCESS_MODE)
 #include "base/functional/bind.h"
 #include "base/ohos/sys_info_utils_ext.h"
+#include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
 #include "arkweb/ohos_nweb/src/sysevent/event_reporter.h"
 #endif
@@ -72,12 +73,15 @@ ArkwebRenderProcessHostImplExt::ArkwebRenderProcessHostImplExt(
 namespace {
 constexpr int kChannelConnectedCheckTimeoutNormalSeconds = 6;
 constexpr int kChannelConnectedCheckTimeoutWearableSeconds = 12;
+constexpr int kLowRamThresholdGb = 6;
 
-// Wearable devices are slower to launch the render process and to set up the
-// IPC channel. Therefore, they need a longer timeout to avoid killing the render
-// process by mistake.
+
+// Wearable devices and low-memory devices (<=6GB RAM) are slower to launch the
+// render process and to set up the IPC channel. Therefore, they need a longer
+// timeout to avoid killing the render process by mistake.
 int GetChannelConnectedCheckTimeoutSeconds() {
-  return base::ohos::IsWearableDevice()
+  return (base::ohos::IsWearableDevice() ||
+          base::SysInfo::AmountOfPhysicalMemory() <= base::GiB(kLowRamThresholdGb))
              ? kChannelConnectedCheckTimeoutWearableSeconds
              : kChannelConnectedCheckTimeoutNormalSeconds;
 }
