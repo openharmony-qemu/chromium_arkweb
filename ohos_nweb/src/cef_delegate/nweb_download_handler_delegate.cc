@@ -114,6 +114,22 @@ bool NWebDownloadHandlerDelegate::OnBeforeDownload(
                   "download cancel";
     return false;
   }
+
+  // Generate and cache suggested filename in OnBeforeDownload so that
+  // charset can be resolved with the NWeb preference available at this point.
+  // Previously, CreateNWebDownloadItem generated and cached the filename, but
+  // GenerateSuggestedFilename fell back to "utf-8" when nweb->GetPreference()
+  // was null during the first call, causing garbled filenames for non-UTF-8
+  // content-disposition headers.
+  std::string guid = download_item->AsArkDownloadItem()->GetGuid().ToString();
+  if (suggested_file_name_for_guid_map.find(guid) ==
+      suggested_file_name_for_guid_map.end()) {
+    std::string suggested = GenerateSuggestedFilename(download_item);
+    suggested_file_name_for_guid_map[guid] = suggested;
+    LOG(INFO) << "OnBeforeDownload cache suggested_file_name, guid:"
+              << guid << ", suggested:" << DesensitizeStr(suggested);
+  }
+
   if (web_download_delegate_listener_ != nullptr) {
     NWebBeforeDownloadCallbackWrapper* web_before_download_callback_wrapper =
         new NWebBeforeDownloadCallbackWrapper();
@@ -164,9 +180,7 @@ NWebDownloadItem* NWebDownloadHandlerDelegate::CreateNWebDownloadItem(
   if (it != suggested_file_name_for_guid_map.end()) {
     item->suggested_file_name = strdup(it->second.c_str());
   } else {
-    // generate suggested filename
     item->suggested_file_name = strdup(GenerateSuggestedFilename(download_item).c_str());
-    suggested_file_name_for_guid_map[item->guid] = item->suggested_file_name;
   }
   LOG(INFO) << "web_download_item params, nweb_id:" << item->nweb_id
             << ",id:" << item->download_item_id << ",guid:" << item->guid
