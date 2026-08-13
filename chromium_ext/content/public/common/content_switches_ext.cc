@@ -117,4 +117,8 @@ const char  kEnableWebAudioBackgroundTask[] = "enable-web-audio-background-task"
 const char  kEnableReportCookieMonsterClient[] = "ohos-enable-report-cookie-monster-client";
 const char  kEnableReportThreadPoolForeg[] = "ohos-enable-report-thread-pool-foreg";
 #endif // BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+const char kEnableSafeBrowserOptimize[] = "enable-safe-browser-optimize";
+#endif
 }  // namespace switches
