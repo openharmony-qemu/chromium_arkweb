@@ -262,12 +262,13 @@ handle_translate_commond() {
   done
 }
 
-handle_xweb_compat_patch() {
+handle_decoupled_engine_compat_patch() {
   local nweb_bridge_file=${OHOS_GLUE_DIR}/ohos_nweb/bridge/ark_web_nweb_webcore_bridge_helper.cpp
   local adapter_bridge_file=${OHOS_GLUE_DIR}/ohos_adapter/bridge/ark_web_adapter_webcore_bridge_helper.cpp
+  local glue_build_file=${OHOS_GLUE_DIR}/BUILD.gn
 
-  # XWeb loads libarkweb_engine.so from the application namespace. Avoid
-  # reverse-loading system glue libraries that are not visible in that namespace.
+  # The decoupled engine is loaded from the application namespace. Avoid
+  # reverse-loading system glue libraries that are not visible there.
   if [ -f ${nweb_bridge_file} ]; then
     sed -i '/^[[:space:]]*CHECK(LoadLibFile(RTLD_LAZY, NWEB_LIB_FILE_NAME, false));[[:space:]]*$/d' \
       ${nweb_bridge_file}
@@ -275,6 +276,12 @@ handle_xweb_compat_patch() {
   if [ -f ${adapter_bridge_file} ]; then
     sed -i '/^[[:space:]]*CHECK(LoadLibFile(RTLD_LAZY, kAdapterLibFileName, false));[[:space:]]*$/d' \
       ${adapter_bridge_file}
+  fi
+
+  # Location is provided by adapter_ndk. Keep the generated bridge declaration,
+  # but do not compile its duplicate implementation into the glue target.
+  if [ -f ${glue_build_file} ]; then
+    sed -i '/ark_location_instance_wrapper.cpp/d' ${glue_build_file}
   fi
 }
 
@@ -298,4 +305,4 @@ if [ "$NEED_PROCESS" -eq 1 ]; then
   update_local_revision
 fi
 
-handle_xweb_compat_patch
+handle_decoupled_engine_compat_patch
