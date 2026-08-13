@@ -44,6 +44,8 @@ class AafwkBrowserClientAdapterTest
     NWebNativeWindowTracker::GetInstance()->SetBrowserClient(nullptr);
   }
 
+  std::string QueryBufferTypeLeak(int32_t surface_id) override {}
+
  private:
   VoidClassTest* vct_ = nullptr;
 };
