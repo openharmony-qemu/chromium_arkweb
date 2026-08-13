@@ -20,6 +20,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ohos_resources/content_change_detection/grit/content_change_detection_resources.h"
 #include "ohos_resources/dom_tree_extractor/grit/dom_tree_extractor_resources.h"
+#include "ohos_resources/page_scene_query/grit/page_scene_query_resources.h"
 
 namespace features {
 BASE_FEATURE(kReportDomTreeAsync,
@@ -35,6 +36,19 @@ constexpr std::string_view kRequestWebDomTemplate = "window.__arkWebDomTree.getW
 constexpr std::string_view kWebDomReportedTemplate = "window.__arkWebDomTree.addDomTreeReported();";
 constexpr std::string_view kWebDomReportedAsyncTemplate = "window.__arkWebDomTree.addDomTreeReportedAsync();";
 constexpr std::string_view kRemoveWebDomReportedTemplate = "window.__arkWebDomTree.removeDomTreeReported();";
+// clang-format off
+constexpr std::string_view kPageSceneQueryTemplate =
+    "(function(){"
+    "if(!window.__pageSceneQuery){window.__pageSceneQueryLoaded=false;}"
+    "try{"
+    "if(!window.__pageSceneQuery){"
+    "return JSON.stringify({errorCode:3,controls:[],"
+    "error:'__pageSceneQuery not defined after IIFE'});}"
+    "return window.__pageSceneQuery.request('$1','$2','$3');}"
+    "catch(e){return JSON.stringify({errorCode:2,controls:[],"
+    "error:e.message||String(e)});}"
+    "})();";
+// clang-format on
 
 NWebContentChangeDetection::NWebContentChangeDetection(
     base::WeakPtr<NWebDelegateInterface> nweb_delegate)
@@ -142,6 +156,53 @@ void NWebContentChangeDetection::StartRunDomExtraction() {
   }
 
   nweb_delegate_->ExecuteJavaScript(dom_final_js);
+}
+
+void NWebContentChangeDetection::RequestPageSceneQuery(
+    const std::string& ruleJson,
+    const std::string& ruleId,
+    const std::vector<std::string>& nodeTypes,
+    std::shared_ptr<NWebMessageValueCallback> callback) {
+  LOG(INFO) << "NWebContentChangeDetection::RequestPageSceneQuery"
+            << ", ruleId: " << ruleId
+            << ", nodeTypes: " << nodeTypes.size();
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "RequestPageSceneQuery, nweb_delegate_ is nullptr";
+    return;
+  }
+  const auto& rb = ui::ResourceBundle::GetSharedInstance();
+  std::string_view js_resource = rb.GetRawDataResource(IDR_PAGE_SCENE_QUERY_JS);
+  if (js_resource.empty()) {
+    LOG(ERROR) << "get page scene query script failed";
+    return;
+  }
+  std::string escapedRuleJson = ruleJson;
+  base::ReplaceChars(ruleJson, "'", "\\'", &escapedRuleJson);
+  base::ReplaceChars(escapedRuleJson, "\n", "\\n", &escapedRuleJson);
+  base::ReplaceChars(escapedRuleJson, "\r", "\\r", &escapedRuleJson);
+
+  std::string escapedRuleId = ruleId;
+  base::ReplaceChars(ruleId, "'", "\\'", &escapedRuleId);
+
+  // Build nodeTypes JSON array string ([] when empty → JS side skips observer)
+  std::string nodeTypesJson = "[";
+  for (size_t i = 0; i < nodeTypes.size(); i++) {
+    if (i > 0) {
+      nodeTypesJson += ",";
+    }
+    std::string escapedNodeType = nodeTypes[i];
+    base::ReplaceChars(nodeTypes[i], "\\", "\\\\", &escapedNodeType);
+    base::ReplaceChars(escapedNodeType, "\"", "\\\"", &escapedNodeType);
+    nodeTypesJson += "\"" + escapedNodeType + "\"";
+  }
+  nodeTypesJson += "]";
+
+  std::string call_js = base::ReplaceStringPlaceholders(
+      kPageSceneQueryTemplate,
+      {escapedRuleJson, escapedRuleId, nodeTypesJson},
+      nullptr);
+  std::string final_js = std::string(js_resource) + call_js;
+  nweb_delegate_->ExecuteJavaScript(final_js, callback, false);
 }
 
 } // namespace OHOS::NWeb
