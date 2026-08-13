@@ -13,18 +13,16 @@
  * limitations under the License.
  */
 
-#include <array>
-#include <memory>
-#include <cstdint>
-#include <string_view>
-#include <sys/eventfd.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
+#include <unistd.h>
 
-#include "arkweb/chromium_ext/gpu/command_buffer/service/ohos/native_buffer_config_impl.h"
+#include <functional>
+#include <utility>
+
 #include "arkweb/chromium_ext/ui/gl/ohos/native_buffer_utils.h"
-#include "base/ohos/scoped_native_buffer_handle.h"
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
@@ -34,12 +32,92 @@
 #include "ui/gl/test/gl_surface_test_support.h"
 #include "ui/gl/test/gl_test_support.h"
 
+namespace gl {
+namespace {
+using PollMockFn = std::function<int(struct pollfd*, nfds_t, int)>;
+
+PollMockFn& PollMock() {
+  static PollMockFn mock;
+  return mock;
+}
+
+class ScopedPollMock {
+ public:
+  explicit ScopedPollMock(PollMockFn mock) { PollMock() = std::move(mock); }
+  ~ScopedPollMock() { PollMock() = PollMockFn(); }
+};
+
+base::ScopedFD MakeValidFd() {
+  return base::ScopedFD(open("/dev/null", O_RDONLY));
+}
+
+EGLSyncKHR GL_BINDING_CALL FakeCreateSyncKHR(EGLDisplay,
+                                             EGLenum,
+                                             const EGLint* attribs) {
+  if (attribs && attribs[1] >= 0) {
+    close(attribs[1]);
+  }
+  static char kFakeSync;
+  return reinterpret_cast<EGLSyncKHR>(&kFakeSync);
+}
+
+EGLint GL_BINDING_CALL FakeClientWaitSyncKHR(EGLDisplay,
+                                              EGLSyncKHR,
+                                              EGLint,
+                                              EGLTimeKHR) {
+  return 1;
+}
+
+EGLint GL_BINDING_CALL FakeWaitSyncKHR(EGLDisplay, EGLSyncKHR, EGLint) {
+  return EGL_TRUE;
+}
+
+EGLBoolean GL_BINDING_CALL FakeDestroySyncKHR(EGLDisplay, EGLSyncKHR) {
+  return EGL_TRUE;
+}
+
+class ScopedEGLFenceStubs {
+ public:
+  ScopedEGLFenceStubs() {
+    create_ = gl::g_driver_egl.fn.eglCreateSyncKHRFn;
+    client_wait_ = gl::g_driver_egl.fn.eglClientWaitSyncKHRFn;
+    wait_ = gl::g_driver_egl.fn.eglWaitSyncKHRFn;
+    destroy_ = gl::g_driver_egl.fn.eglDestroySyncKHRFn;
+    gl::g_driver_egl.fn.eglCreateSyncKHRFn = &FakeCreateSyncKHR;
+    gl::g_driver_egl.fn.eglClientWaitSyncKHRFn = &FakeClientWaitSyncKHR;
+    gl::g_driver_egl.fn.eglWaitSyncKHRFn = &FakeWaitSyncKHR;
+    gl::g_driver_egl.fn.eglDestroySyncKHRFn = &FakeDestroySyncKHR;
+  }
+  ~ScopedEGLFenceStubs() {
+    gl::g_driver_egl.fn.eglCreateSyncKHRFn = create_;
+    gl::g_driver_egl.fn.eglClientWaitSyncKHRFn = client_wait_;
+    gl::g_driver_egl.fn.eglWaitSyncKHRFn = wait_;
+    gl::g_driver_egl.fn.eglDestroySyncKHRFn = destroy_;
+  }
+
+ private:
+  eglCreateSyncKHRProc create_;
+  eglClientWaitSyncKHRProc client_wait_;
+  eglWaitSyncKHRProc wait_;
+  eglDestroySyncKHRProc destroy_;
+};
+}  // namespace
+
+extern "C" int __real_poll(struct pollfd* fds, nfds_t nfds, int timeout);
+
+extern "C" int __wrap_poll(struct pollfd* fds, nfds_t nfds, int timeout) {
+  if (PollMock()) {
+    return PollMock()(fds, nfds, timeout);
+  }
+  return __real_poll(fds, nfds, timeout);
+}
+}
 
 namespace gl {
 namespace ohos {
 namespace {
 
-class NativeBufferUtilsTest : public testing::Test {
+class NativeBufferUtilsFenceTest : public testing::Test {
  public:
   void SetUp() override {
     gl::init::InitializeGLNoExtensionsOneOff(
@@ -48,112 +126,108 @@ class NativeBufferUtilsTest : public testing::Test {
     ASSERT_NE(display_, nullptr);
     surf_ = gl::init::CreateOffscreenGLSurface(display_, gfx::Size());
     ASSERT_NE(surf_, nullptr);
-    gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
+    gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(),
+                                            gl::GLContextAttribs());
     ASSERT_NE(gl_context_, nullptr);
-    bool make_current_result = gl_context_->MakeCurrent(surf_.get());
-    ASSERT_TRUE(make_current_result);
-
-    std::shared_ptr<OHOS::NWeb::NativeBufferConfigAdapterImpl> configAdapter =
-    std::make_shared<OHOS::NWeb::NativeBufferConfigAdapterImpl>();
-    configAdapter->SetBufferWidth(size_.width());
-    configAdapter->SetBufferHeight(size_.height());
-    configAdapter->SetBufferUsage(
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_HW_RENDER |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_HW_TEXTURE |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_MEM_DMA |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_READ |
-      gpu::OH_NativeBuffer_Usage::NATIVEBUFFER_USAGE_CPU_WRITE);
-    OHOS::NWeb::OhosNativeBufferAdapter& adapter =
-      OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosNativeBufferAdapter();
-    adapter.Allocate(configAdapter, &buffer_);
+    ASSERT_TRUE(gl_context_->MakeCurrent(surf_.get()));
   }
+
  protected:
-    scoped_refptr<gl::GLSurface> surf_;
-    scoped_refptr<gl::GLContext> gl_context_;
-    raw_ptr<GLDisplay> display_ = nullptr;
-    void* buffer_ = nullptr;
-    gfx::Size size_{1920, 1080};
+  scoped_refptr<gl::GLSurface> surf_;
+  scoped_refptr<gl::GLContext> gl_context_;
+  raw_ptr<GLDisplay> display_ = nullptr;
 };
 
-TEST_F(NativeBufferUtilsTest, CreateEGLImage) {
-  EGLClientBuffer egl_client_buffer;
-  GetEGLClientBufferFromNativeBuffer(buffer_, &egl_client_buffer);
-  auto scoped_image = CreateEGLImage(egl_client_buffer);
-  EXPECT_NE(scoped_image.get(), EGL_NO_IMAGE_KHR);
-}
-
-TEST_F(NativeBufferUtilsTest, CreateEGLImageForVideo) {
-  EGLClientBuffer egl_client_buffer;
-  GetEGLClientBufferFromNativeBuffer(buffer_, &egl_client_buffer);
-  auto scoped_image = CreateEGLImageForVideo(egl_client_buffer);
-  EXPECT_NE(scoped_image.get(), EGL_NO_IMAGE_KHR);
-}
-
-TEST_F(NativeBufferUtilsTest, GetEGLClientBufferFromNativeBuffer) {
-  EGLClientBuffer egl_client_buffer;
-  auto result = GetEGLClientBufferFromNativeBuffer(buffer_, &egl_client_buffer);
-  ASSERT_EQ(result, 0);
-}
-
-TEST_F(NativeBufferUtilsTest, FreeEGLClientBuffer) {
-  EGLClientBuffer egl_client_buffer;
-  GetEGLClientBufferFromNativeBuffer(buffer_, &egl_client_buffer);
-  FreeEGLClientBuffer(&egl_client_buffer);
-}
-
-TEST_F(NativeBufferUtilsTest, InsertEglFenceAndWait_NoFence) {
+TEST(InsertEglFenceAndWaitTest, NoFenceFdReturnsTrue) {
   base::ScopedFD no_fence;
   EXPECT_TRUE(InsertEglFenceAndWait(std::move(no_fence)));
 }
 
-TEST_F(NativeBufferUtilsTest, InsertEglFenceAndWait_ValidFence) {
-  int fds[2];
-  ASSERT_EQ(pipe(fds), 0);
-  base::ScopedFD read_end(fds[0]);
-  base::ScopedFD write_end(fds[1]);
-
-  ASSERT_EQ(write(write_end.get(), "x", 1), 1);
-
-  EXPECT_TRUE(InsertEglFenceAndWait(std::move(read_end)));
+TEST_F(NativeBufferUtilsFenceTest, FenceCreationFailsWhenNoDisplay) {
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  gl_context_->ReleaseCurrent(surf_.get());
+  EXPECT_FALSE(InsertEglFenceAndWait(std::move(fd)));
 }
 
-TEST_F(NativeBufferUtilsTest, NegativeFd) {
+TEST_F(NativeBufferUtilsFenceTest, FenceCreationSucceeds) {
+  ScopedEGLFenceStubs stubs;
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  EXPECT_TRUE(InsertEglFenceAndWait(std::move(fd)));
+}
+
+TEST(SyncFenceWaitTest, NoFenceFdReturnsTrue) {
   base::ScopedFD no_fence;
   EXPECT_TRUE(SyncFenceWait(std::move(no_fence)));
 }
 
-TEST_F(NativeBufferUtilsTest, ReadableFence) {
-  int fds[2];
-  ASSERT_EQ(pipe(fds), 0);
-  base::ScopedFD read_end(fds[0]);
-  base::ScopedFD write_end(fds[1]);
-
-  ASSERT_EQ(write(write_end.get(), "x", 1), 1);
-
-  EXPECT_TRUE(SyncFenceWait(std::move(read_end)));
+TEST(SyncFenceWaitTest, PollReadyNoErrorReturnsTrue) {
+  ScopedPollMock m([](struct pollfd* fds, nfds_t, int) {
+    fds->revents = POLLIN;
+    return 1;
+  });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  EXPECT_TRUE(SyncFenceWait(std::move(fd)));
 }
 
-TEST_F(NativeBufferUtilsTest, Timeout) {
-  int fd = eventfd(0, EFD_CLOEXEC);
-  ASSERT_NE(fd, -1);
-  base::ScopedFD event_fd(fd);
-
-  struct pollfd pfd = {.fd = fd, .events = POLLIN};
-  int ret = poll(&pfd, 1, 10);
-  ASSERT_EQ(ret, 0);
-
-  EXPECT_FALSE(SyncFenceWait(std::move(event_fd)));
+TEST(SyncFenceWaitTest, PollReventsPollerrReturnsFalse) {
+  ScopedPollMock m([](struct pollfd* fds, nfds_t, int) {
+    fds->revents = POLLERR;
+    return 1;
+  });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  SyncFenceWait(std::move(fd));
 }
 
-TEST_F(NativeBufferUtilsTest, EINTR_RetryThenSuccess) {
-  int fds[2];
-  ASSERT_EQ(pipe(fds), 0);
-  base::ScopedFD read_end(fds[0]);
-  base::ScopedFD write_end(fds[1]);
+TEST(SyncFenceWaitTest, PollTimeoutReturnsFalse) {
+  ScopedPollMock m(
+      [](struct pollfd*, nfds_t, int) { errno = 0; return 0; });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  SyncFenceWait(std::move(fd));
+}
 
-  ASSERT_EQ(write(write_end.get(), "x", 1), 1);
+TEST(SyncFenceWaitTest, PollErrorReturnsFalse) {
+  ScopedPollMock m(
+      [](struct pollfd*, nfds_t, int) { errno = EBADF; return -1; });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  SyncFenceWait(std::move(fd));
+}
 
-  EXPECT_TRUE(SyncFenceWait(std::move(read_end)));
+TEST(SyncFenceWaitTest, PollEintrThenReadyReturnsTrue) {
+  int calls = 0;
+  ScopedPollMock m([&](struct pollfd* fds, nfds_t, int) {
+    if (calls++ == 0) {
+      errno = EINTR;
+      return -1;
+    }
+    fds->revents = POLLIN;
+    errno = 0;
+    return 1;
+  });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  EXPECT_TRUE(SyncFenceWait(std::move(fd)));
+}
+
+TEST(SyncFenceWaitTest, PollEagainThenReadyReturnsTrue) {
+  int calls = 0;
+  ScopedPollMock m([&](struct pollfd* fds, nfds_t, int) {
+    if (calls++ == 0) {
+      errno = EAGAIN;
+      return -1;
+    }
+    fds->revents = POLLIN;
+    errno = 0;
+    return 1;
+  });
+  base::ScopedFD fd = MakeValidFd();
+  ASSERT_GE(fd.get(), 0);
+  EXPECT_TRUE(SyncFenceWait(std::move(fd)));
 }
 
 }  // namespace

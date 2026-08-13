@@ -19,11 +19,13 @@
 #include "ui/gfx/extension_set.h"
 #define private public
 #define protected public
-#include "ui/gl/gl_implementation.h"
 #include "arkweb/chromium_ext/ui/gl/gl_surface_egl_ohos.cc"
+#include "ui/gl/gl_implementation.h"
 #undef private
 #undef protected
 
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_codec_decoder_adapter.h"
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_ndk_api.h"
 #include "base/command_line.h"
 #include "base/functional/callback_helpers.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -34,8 +36,6 @@
 #include "ui/gl/init/gl_factory.h"
 #include "ui/gl/test/gl_surface_test_support.h"
 #include "ui/gl/test/gl_test_support.h"
-#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_ndk_api.h"
-#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_codec_decoder_adapter.h"
 
 namespace gl {
 namespace {
@@ -50,14 +50,13 @@ void DummyPresentationCallback(const gfx::PresentationFeedback& feedback) {}
 class GlSurfaceEglOhosTest : public testing::Test {
  public:
   void SetUp() override {
-    gl::init::InitializeGLNoExtensionsOneOff(
-        true, gl::GpuPreference::kDefault);
+    gl::init::InitializeGLNoExtensionsOneOff(true, gl::GpuPreference::kDefault);
     display_ = gl::GLTestSupport::InitializeGL(std::nullopt);
     ASSERT_TRUE(display_ != nullptr);
     surf_ = gl::init::CreateOffscreenGLSurface(display_, gfx::Size());
     ASSERT_TRUE(surf_ != nullptr);
-    gl_context_ = gl::init::CreateGLContext(nullptr, surf_.get(),
-                                            gl::GLContextAttribs());
+    gl_context_ =
+        gl::init::CreateGLContext(nullptr, surf_.get(), gl::GLContextAttribs());
     ASSERT_TRUE(gl_context_ != nullptr);
     ASSERT_TRUE(gl_context_->MakeCurrent(surf_.get()));
   }
@@ -83,8 +82,8 @@ class GlSurfaceEglOhosTest : public testing::Test {
     }
 
     EGLint pbuffer_attribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
-    EGLSurface temp_surface = eglCreatePbufferSurface(
-        egl_display, config, pbuffer_attribs);
+    EGLSurface temp_surface =
+        eglCreatePbufferSurface(egl_display, config, pbuffer_attribs);
     if (temp_surface == EGL_NO_SURFACE) {
       return false;
     }
@@ -100,9 +99,7 @@ class GlSurfaceEglOhosTest : public testing::Test {
     return true;
   }
 
-  void RestoreContext() {
-    gl_context_->MakeCurrent(surf_.get());
-  }
+  void RestoreContext() { gl_context_->MakeCurrent(surf_.get()); }
 
   scoped_refptr<gl::GLSurface> surf_;
   scoped_refptr<gl::GLContext> gl_context_;
@@ -171,8 +168,8 @@ TEST_F(GlSurfaceEglOhosTest, SwapBuffers_FirstSwapBuffers) {
   EXPECT_TRUE(surface->is_first_swapbuffers_);
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
 
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
@@ -202,8 +199,8 @@ TEST_F(GlSurfaceEglOhosTest, SwapBuffers_ExplicitNotFirst) {
   surface->is_first_swapbuffers_ = false;
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
 }
@@ -216,8 +213,8 @@ TEST_F(GlSurfaceEglOhosTest, SwapBuffers_EnableReplaceBufferOutput) {
   surface->enable_replace_swap_buffer_output_ = true;
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
 }
@@ -231,8 +228,8 @@ TEST_F(GlSurfaceEglOhosTest, SwapBuffers_EnableReplace_NotFirst) {
   surface->is_first_swapbuffers_ = false;
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
 }
@@ -378,8 +375,8 @@ TEST_F(GlSurfaceEglOhosTest, SwapBuffers_AfterResize) {
   RestoreContext();
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
 }
@@ -636,8 +633,8 @@ TEST_F(GlSurfaceEglOhosTest, Combined_ResizeSwapBuffersSetBackbuffer) {
   }
 
   gfx::FrameData frame_data;
-  auto result = surface->SwapBuffers(
-      base::BindOnce(&DummyPresentationCallback), frame_data);
+  auto result = surface->SwapBuffers(base::BindOnce(&DummyPresentationCallback),
+                                     frame_data);
   EXPECT_TRUE(result == gfx::SwapResult::SWAP_ACK ||
               result == gfx::SwapResult::SWAP_FAILED);
 
@@ -647,15 +644,17 @@ TEST_F(GlSurfaceEglOhosTest, Combined_ResizeSwapBuffersSetBackbuffer) {
 #if BUILDFLAG(ARKWEB_VSYNC_SCHEDULE)
 
 TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopAllSuccess) {
-  g_mock_OH_NativeWindow_NativeObjectReference =
-      [](void* obj) -> int32_t { return 0; };
-  g_mock_OH_NativeWindow_NativeObjectUnreference =
-      [](void* obj) -> int32_t { return 0; };
+  g_mock_OH_NativeWindow_NativeObjectReference = [](void* obj) -> int32_t {
+    return 0;
+  };
+  g_mock_OH_NativeWindow_NativeObjectUnreference = [](void* obj) -> int32_t {
+    return 0;
+  };
 
   OHOS::NWeb::OhosInterfaceMock::nativeWindowHandleOpt = true;
-  EXPECT_CALL(OHOS::NWeb::OhosInterfaceMock::GetInstance(),
-              OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_,
-                                                    testing::_))
+  EXPECT_CALL(
+      OHOS::NWeb::OhosInterfaceMock::GetInstance(),
+      OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](OHNativeWindow* window, int32_t code, uint64_t value) -> int32_t {
             if (code == GET_BUFFERQUEUE_SIZE) {
@@ -666,8 +665,7 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopAllSuccess) {
 
   int request_count = 0;
   g_mock_OH_NativeWindow_NativeWindowRequestBuffer =
-      [&request_count](OHNativeWindow* window,
-                       OHNativeWindowBuffer** buffer,
+      [&request_count](OHNativeWindow* window, OHNativeWindowBuffer** buffer,
                        int* fenceFd) -> int32_t {
     *buffer = reinterpret_cast<OHNativeWindowBuffer*>(0x1000 + request_count);
     *fenceFd = -1;
@@ -710,15 +708,17 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopAllSuccess) {
 }
 
 TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopWithFence) {
-  g_mock_OH_NativeWindow_NativeObjectReference =
-      [](void* obj) -> int32_t { return 0; };
-  g_mock_OH_NativeWindow_NativeObjectUnreference =
-      [](void* obj) -> int32_t { return 0; };
+  g_mock_OH_NativeWindow_NativeObjectReference = [](void* obj) -> int32_t {
+    return 0;
+  };
+  g_mock_OH_NativeWindow_NativeObjectUnreference = [](void* obj) -> int32_t {
+    return 0;
+  };
 
   OHOS::NWeb::OhosInterfaceMock::nativeWindowHandleOpt = true;
-  EXPECT_CALL(OHOS::NWeb::OhosInterfaceMock::GetInstance(),
-              OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_,
-                                                    testing::_))
+  EXPECT_CALL(
+      OHOS::NWeb::OhosInterfaceMock::GetInstance(),
+      OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](OHNativeWindow* window, int32_t code, uint64_t value) -> int32_t {
             if (code == GET_BUFFERQUEUE_SIZE) {
@@ -729,8 +729,7 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopWithFence) {
 
   int request_count = 0;
   g_mock_OH_NativeWindow_NativeWindowRequestBuffer =
-      [&request_count](OHNativeWindow* window,
-                       OHNativeWindowBuffer** buffer,
+      [&request_count](OHNativeWindow* window, OHNativeWindowBuffer** buffer,
                        int* fenceFd) -> int32_t {
     *buffer = reinterpret_cast<OHNativeWindowBuffer*>(0x2000 + request_count);
     if (request_count == 0) {
@@ -777,15 +776,17 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferLoopWithFence) {
 }
 
 TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestFails) {
-  g_mock_OH_NativeWindow_NativeObjectReference =
-      [](void* obj) -> int32_t { return 0; };
-  g_mock_OH_NativeWindow_NativeObjectUnreference =
-      [](void* obj) -> int32_t { return 0; };
+  g_mock_OH_NativeWindow_NativeObjectReference = [](void* obj) -> int32_t {
+    return 0;
+  };
+  g_mock_OH_NativeWindow_NativeObjectUnreference = [](void* obj) -> int32_t {
+    return 0;
+  };
 
   OHOS::NWeb::OhosInterfaceMock::nativeWindowHandleOpt = true;
-  EXPECT_CALL(OHOS::NWeb::OhosInterfaceMock::GetInstance(),
-              OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_,
-                                                    testing::_))
+  EXPECT_CALL(
+      OHOS::NWeb::OhosInterfaceMock::GetInstance(),
+      OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](OHNativeWindow* window, int32_t code, uint64_t value) -> int32_t {
             if (code == GET_BUFFERQUEUE_SIZE) {
@@ -795,8 +796,7 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestFails) {
           }));
 
   g_mock_OH_NativeWindow_NativeWindowRequestBuffer =
-      [](OHNativeWindow* window,
-         OHNativeWindowBuffer** buffer,
+      [](OHNativeWindow* window, OHNativeWindowBuffer** buffer,
          int* fenceFd) -> int32_t {
     *buffer = nullptr;
     *fenceFd = -1;
@@ -838,15 +838,17 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestFails) {
 }
 
 TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestPartialFail) {
-  g_mock_OH_NativeWindow_NativeObjectReference =
-      [](void* obj) -> int32_t { return 0; };
-  g_mock_OH_NativeWindow_NativeObjectUnreference =
-      [](void* obj) -> int32_t { return 0; };
+  g_mock_OH_NativeWindow_NativeObjectReference = [](void* obj) -> int32_t {
+    return 0;
+  };
+  g_mock_OH_NativeWindow_NativeObjectUnreference = [](void* obj) -> int32_t {
+    return 0;
+  };
 
   OHOS::NWeb::OhosInterfaceMock::nativeWindowHandleOpt = true;
-  EXPECT_CALL(OHOS::NWeb::OhosInterfaceMock::GetInstance(),
-              OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_,
-                                                    testing::_))
+  EXPECT_CALL(
+      OHOS::NWeb::OhosInterfaceMock::GetInstance(),
+      OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](OHNativeWindow* window, int32_t code, uint64_t value) -> int32_t {
             if (code == GET_BUFFERQUEUE_SIZE) {
@@ -857,8 +859,7 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestPartialFail) {
 
   int request_count = 0;
   g_mock_OH_NativeWindow_NativeWindowRequestBuffer =
-      [&request_count](OHNativeWindow* window,
-                       OHNativeWindowBuffer** buffer,
+      [&request_count](OHNativeWindow* window, OHNativeWindowBuffer** buffer,
                        int* fenceFd) -> int32_t {
     if (request_count == 0) {
       *buffer = reinterpret_cast<OHNativeWindowBuffer*>(0x3000);
@@ -907,15 +908,17 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferRequestPartialFail) {
 }
 
 TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferNumOne) {
-  g_mock_OH_NativeWindow_NativeObjectReference =
-      [](void* obj) -> int32_t { return 0; };
-  g_mock_OH_NativeWindow_NativeObjectUnreference =
-      [](void* obj) -> int32_t { return 0; };
+  g_mock_OH_NativeWindow_NativeObjectReference = [](void* obj) -> int32_t {
+    return 0;
+  };
+  g_mock_OH_NativeWindow_NativeObjectUnreference = [](void* obj) -> int32_t {
+    return 0;
+  };
 
   OHOS::NWeb::OhosInterfaceMock::nativeWindowHandleOpt = true;
-  EXPECT_CALL(OHOS::NWeb::OhosInterfaceMock::GetInstance(),
-              OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_,
-                                                    testing::_))
+  EXPECT_CALL(
+      OHOS::NWeb::OhosInterfaceMock::GetInstance(),
+      OH_NativeWindow_NativeWindowHandleOpt(testing::_, testing::_, testing::_))
       .WillOnce(testing::Invoke(
           [](OHNativeWindow* window, int32_t code, uint64_t value) -> int32_t {
             if (code == GET_BUFFERQUEUE_SIZE) {
@@ -925,8 +928,7 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferNumOne) {
           }));
 
   g_mock_OH_NativeWindow_NativeWindowRequestBuffer =
-      [](OHNativeWindow* window,
-         OHNativeWindowBuffer** buffer,
+      [](OHNativeWindow* window, OHNativeWindowBuffer** buffer,
          int* fenceFd) -> int32_t {
     *buffer = reinterpret_cast<OHNativeWindowBuffer*>(0x4000);
     *fenceFd = -1;
@@ -967,6 +969,73 @@ TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_BufferNumOne) {
   delete info;
 }
 #endif
+
+TEST_F(GlSurfaceEglOhosTest, SwapBuffers_EnableReplaceOutput) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kOhosHanceSurface);
+  auto surface = NativeViewGLSurfaceEGLOhos::CreateNativeViewGLSurfaceEGLOhos(
+      display_, kMockAcceleratedWidget);
+  ASSERT_TRUE(surface);
+  surface->enable_replace_swap_buffer_output_ = true;
+  gfx::FrameData frame_data;
+  surface->SwapBuffers(base::DoNothing(), frame_data);
+}
+
+TEST_F(GlSurfaceEglOhosTest, SwapBuffers_NotFirstSwap) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kOhosHanceSurface);
+  auto surface = NativeViewGLSurfaceEGLOhos::CreateNativeViewGLSurfaceEGLOhos(
+      display_, kMockAcceleratedWidget);
+  ASSERT_TRUE(surface);
+  surface->is_first_swapbuffers_ = false;
+  gfx::FrameData frame_data;
+  surface->SwapBuffers(base::DoNothing(), frame_data);
+}
+
+TEST_F(GlSurfaceEglOhosTest, SetBackbufferAllocation_AllocatedTrue002) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kOhosHanceSurface);
+  auto* info = new WindowsSurfaceInfo();
+  info->display = eglGetCurrentDisplay();
+  info->surface = eglGetCurrentSurface(EGL_DRAW);
+  info->context = eglGetCurrentContext();
+  info->window = reinterpret_cast<void*>(0x5555);
+  auto res = NWebNativeWindowTracker::GetInstance()->AddNativeWindow(
+      static_cast<void*>(info));
+  void* window = NWebNativeWindowTracker::GetInstance()->GetNativeWindow(res);
+  NativeViewGLSurfaceEGLOhos* surface = new NativeViewGLSurfaceEGLOhos(
+      display_->GetAs<gl::GLDisplayEGL>(),
+      reinterpret_cast<EGLNativeWindowType>(window));
+  surface->SetBackbufferAllocation(true);
+}
+
+TEST_F(GlSurfaceEglOhosTest, SetBackbufferAllocation_ConditionNonZero) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kOhosHanceSurface);
+  auto* info = new WindowsSurfaceInfo();
+  info->display = eglGetCurrentDisplay();
+  info->surface = eglGetCurrentSurface(EGL_DRAW);
+  info->context = eglGetCurrentContext();
+  info->window = reinterpret_cast<void*>(0x6666);
+  auto res = NWebNativeWindowTracker::GetInstance()->AddNativeWindow(
+      static_cast<void*>(info));
+  void* window = NWebNativeWindowTracker::GetInstance()->GetNativeWindow(res);
+  NativeViewGLSurfaceEGLOhos* surface = new NativeViewGLSurfaceEGLOhos(
+      display_->GetAs<gl::GLDisplayEGL>(),
+      reinterpret_cast<EGLNativeWindowType>(window));
+  surface->condition_ = 5;
+  surface->SetBackbufferAllocation(false);
+}
+
+TEST_F(GlSurfaceEglOhosTest, SetBypassVsyncCondition_ConditionAlreadyOne) {
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kOhosHanceSurface);
+  auto surface = NativeViewGLSurfaceEGLOhos::CreateNativeViewGLSurfaceEGLOhos(
+      display_, kMockAcceleratedWidget);
+  ASSERT_TRUE(surface);
+  surface->SetBypassVsyncCondition(1);
+  surface->SetBypassVsyncCondition(1);
+}
 
 }  // namespace
 }  // namespace gl
