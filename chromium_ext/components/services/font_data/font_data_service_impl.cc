@@ -143,4 +143,77 @@ void FontDataServiceImpl::GetFontConfigInfo(GetFontConfigInfoCallback callback){
       .DestroySystemFontConfigInfo(fontconfig);
   fontconfig = nullptr;
 }
+
+void FontDataServiceImpl::GetStylishFontList(
+    int32_t fontType, GetStylishFontListCallback callback) {
+  TRACE_EVENT0("fonts", "FontDataServiceImpl::GetStylishFontList");
+
+  // Validate fontType: ArkWeb_Drawing_SystemFontType values are powers of 2
+  // (ALL=1, GENERIC=2, STYLISH=4, INSTALLED=8). Accept only single defined
+  // enum values — reject zero, combinations, and out-of-range powers.
+  constexpr int32_t kMaxFontType = 1 << 3;  // INSTALLED
+  if (fontType <= 0 || (fontType & (fontType - 1)) != 0 || fontType > kMaxFontType) {
+    LOG(ERROR) << "GetStylishFontList: invalid fontType " << fontType;
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  
+  void* fontList = nullptr;
+  OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetOhosDrawingTextFontAdapter()
+      .GetSystemFontFullNamesByType(
+          static_cast<OHOS::NWeb::ArkWeb_Drawing_SystemFontType>(fontType),
+          reinterpret_cast<void**>(&fontList));
+
+  if (!fontList) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  int32_t size = 0;
+  OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetOhosDrawingTextTypographyAdapter()
+      .GetDrawingArraySize(fontList, size);
+
+  std::vector<mojom::FontStylishInfoPtr> result;
+  for (int32_t index = 0; index < size; ++index) {
+    const void* fontFullName = nullptr;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetOhosDrawingTextFontAdapter()
+        .GetSystemFontFullNameByIndex(fontList, index, &fontFullName);
+
+    const OHOS::NWeb::ArkWeb_Drawing_String* drawingString =
+        static_cast<const OHOS::NWeb::ArkWeb_Drawing_String*>(fontFullName);
+    OHOS::NWeb::ArkWeb_Drawing_String* nonConstDrawingString =
+        const_cast<OHOS::NWeb::ArkWeb_Drawing_String*>(drawingString);
+
+    OHOS::NWeb::ArkWeb_Drawing_FontDescriptor* description = nullptr;
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetOhosDrawingTextFontAdapter()
+        .GetFontDescriptorByFullName(
+            nonConstDrawingString,
+            static_cast<OHOS::NWeb::ArkWeb_Drawing_SystemFontType>(fontType),
+            reinterpret_cast<void**>(&description));
+
+    if (!description || !description->fontFamily || !description->path) {
+      LOG(ERROR) << "one font description was empty at index:" << index;
+      continue;
+    }
+
+    auto info = mojom::FontStylishInfo::New();
+    info->familyName = description->fontFamily;
+    info->path = description->path;
+    result.push_back(std::move(info));
+
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetOhosDrawingTextFontAdapter()
+        .DestroyFontDescriptor(description);
+  }
+
+  OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetOhosDrawingTextFontAdapter()
+      .DestroySystemFontFullNames(fontList);
+
+  std::move(callback).Run(std::move(result));
+}
 }  // namespace font_data_service
