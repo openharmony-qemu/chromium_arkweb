@@ -194,11 +194,13 @@ bool ReadDirFilesByPid(const int& pid, std::vector<std::string>& files) {
     return false;
   }
 
-  char realPath[PATH_MAX];
-  if (!realpath(path, realPath)) {
-    return false;
-  }
-  return ReadDirFiles(realPath, files);
+  // /proc is a kernel virtual filesystem; its paths do not contain symlinks
+  // that require realpath() resolution. Avoid realpath() here because it
+  // allocates a PATH_MAX (4096-byte) buffer on the stack, which is
+  // problematic when this code runs in a signal handler context with a
+  // limited alternate signal stack (~28KB). Directly using the /proc path
+  // is safe and eliminates the large stack allocation.
+  return ReadDirFiles(path, files);
 }
 
 bool GetTidsByPidWithFunc(const int pid,
