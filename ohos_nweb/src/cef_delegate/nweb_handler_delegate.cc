@@ -1966,7 +1966,7 @@ void NWebHandlerDelegate::OnFirstMeaningfulPaint(
             details->GetNavigationStartTime(),
             details->GetFirstMeaningfulPaintTime());
     nweb_handler_->OnFirstMeaningfulPaint(web_details);
-#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+#if BUILDFLAG(ARKWEB_SAFEBROWSING) && BUILDFLAG(IS_ARKWEB_EXT)
     ohos_safe_browsing::SafeBrowsingSnapshotManager::GetInstance().SetFMP(
         fmp_url_, nweb_id_);
     auto browser = GetBrowser();
