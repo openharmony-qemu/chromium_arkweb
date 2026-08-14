@@ -12,16 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 #include "ohos_nweb/src/ndk/common/mem_hook.h"
- 
+
 extern "C" {
 void* __real_malloc(size_t);
 void* __real_memalign(size_t, size_t);
+void __real_free(void*);
 }  // extern "C"
- 
+
 namespace OHOS::NWeb {
- 
+
 char* malloc_wrapper(size_t size) {
 #if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
   return (char*)malloc(size);
@@ -29,12 +30,20 @@ char* malloc_wrapper(size_t size) {
   return (char*)__real_malloc(size);
 #endif  // ADDRESS_SANITIZER
 }
- 
+
 void* memalign_wrapper(size_t alignment, size_t size) {
 #if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
   return (void*)memalign(alignment, size);
 #else
   return (void*)__real_memalign(alignment, size);
+#endif  // ADDRESS_SANITIZER
+}
+
+void free_wrapper(void* ptr) {
+#if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
+  free(ptr);
+#else
+  __real_free(ptr);
 #endif  // ADDRESS_SANITIZER
 }
 
