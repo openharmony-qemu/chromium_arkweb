@@ -39,7 +39,7 @@ int32_t IsPartialDrawEnable() {
 
     auto& system_properties = OHOS::NWeb::OhosAdapterHelper::GetInstance()
                                 .GetSystemPropertiesInstance();
-    std::string policy = system_properties.GetStringParameter("web.gpu.partial.draw", "none");
+    std::string policy = system_properties.GetStringParameter("web.gpu.partial.draw1", "none");
     if (policy == "single") {
         flag = CtlPolicy::SINGLE;
     } else if (policy == "multi") {
