@@ -49,9 +49,12 @@ class SkiaOutputDeviceGLUtils {
   bool need_clean_buffers_ = false;
   bool do_clean_buffers_ = false;
   base::TimeTicks prev_clean_buffers_time_ = base::TimeTicks::Now();
+  base::TimeTicks prev_do_clean_buffers_time_ = base::TimeTicks::Now();
   bool has_delay_clean_buffer_task_ = false;
   std::unique_ptr<base::CancelableOnceClosure> delay_clean_buffer_task_closure_;
+  uint32_t frequently_clean_buffer_count_ = 0;
   void DoCleanBuffers();
+  bool CleanBuffersTooFrequently();
 #endif
   base::WeakPtrFactory<SkiaOutputDeviceGLUtils> weak_ptr_factory_{this};
 };
