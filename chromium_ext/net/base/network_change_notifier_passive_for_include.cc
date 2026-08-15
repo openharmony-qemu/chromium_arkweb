@@ -90,6 +90,10 @@ class NetConnCallbackImpl : public OHOS::NWeb::NetConnCallback {
       OHOS::NWeb::NetConnectSubtype::SUBTYPE_UNKNOWN;
   bool IsSameAddrList(const std::vector<std::string>& newList,
                       const std::vector<std::string>& oldList);
+  bool IsOnlyIPv6Added(const std::vector<std::string>& new_list,
+                       const std::vector<std::string>& old_list);
+  bool skip_ip_changed_for_ipv6_slaac_ = false;
+  void MaybeNotifyIPAddressChanged();
 };
 
 int32_t NetConnCallbackImpl::NetAvailable() {
@@ -116,9 +120,19 @@ int32_t NetConnCallbackImpl::NetCapabilitiesChange(
 
 int32_t NetConnCallbackImpl::NetConnectionPropertiesChange() {
   if (network_change_notifier_posix_) {
+    skip_ip_changed_for_ipv6_slaac_ = false;
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION) && \
+    BUILDFLAG(ARKWEB_NETWORK_IPV6_SLAAC_FILTER)
+    auto cur_addr_list = network_change_notifier_posix_->GetDefaultAddrList();
+    auto new_addr_list = network_change_notifier_posix_->GetNetAddrListByNetId(net_id_);
+    if (!IsSameAddrList(new_addr_list, cur_addr_list) &&
+        IsOnlyIPv6Added(new_addr_list, cur_addr_list)) {
+      skip_ip_changed_for_ipv6_slaac_ = true;
+      LOG(INFO) << "NetConnectionPropertiesChange: only IPv6 added, skip OnIPAddressChanged.";
+    }
+#endif
     network_change_notifier_posix_->OnDNSChanged();
-    network_change_notifier_posix_->OnIPAddressChanged(
-        net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
+    MaybeNotifyIPAddressChanged();
   }
   return 0;
 }
@@ -207,8 +221,58 @@ bool NetConnCallbackImpl::IsSameAddrList(const std::vector<std::string>& newList
   return sortedNewList == sortedOldList;
 }
 
+bool NetConnCallbackImpl::IsOnlyIPv6Added(
+    const std::vector<std::string>& new_list,
+    const std::vector<std::string>& old_list) {
+  if (new_list.size() <= old_list.size() || old_list.empty()) {
+    return false;
+  }
+
+  std::vector<std::string> new_v4;
+  std::vector<std::string> new_v6;
+  std::vector<std::string> old_v4;
+  std::vector<std::string> old_v6;
+
+  for (const auto& ip : new_list) {
+    (ip.find(':') != std::string::npos ? new_v6 : new_v4).push_back(ip);
+  }
+
+  for (const auto& ip : old_list) {
+    (ip.find(':') != std::string::npos ? old_v6 : old_v4).push_back(ip);
+  }
+
+  std::sort(new_v4.begin(), new_v4.end());
+  std::sort(old_v4.begin(), old_v4.end());
+  std::sort(new_v6.begin(), new_v6.end());
+  std::sort(old_v6.begin(), old_v6.end());
+
+  if (new_v4 != old_v4) {
+    return false;
+  }
+
+  return std::includes(new_v6.begin(), new_v6.end(),
+                       old_v6.begin(), old_v6.end());
+}
+
+void NetConnCallbackImpl::MaybeNotifyIPAddressChanged() {
+  bool skip = false;
+#if BUILDFLAG(ARKWEB_NETWORK_IPV6_SLAAC_FILTER)
+  skip = skip_ip_changed_for_ipv6_slaac_ &&
+      base::FeatureList::IsEnabled(net::features::kArkWebIPv6SlaacFilter);
+  skip_ip_changed_for_ipv6_slaac_ = false;
+#endif
+  if (!skip) {
+    network_change_notifier_posix_->OnIPAddressChanged(
+        net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
+  } else {
+    LOG(INFO) << "Only IPv6 added, skip OnIPAddressChanged.";
+  }
+}
+
 // Check if the link properties has changed(IP/Nameserver).
 bool NetConnCallbackImpl::HasLinkPropertiesChanged() {
+  skip_ip_changed_for_ipv6_slaac_ = false;
+
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
   std::vector<std::string> cur_addr_list;
   // Use addrlist for binded network if network_for_dns_ is not -1.
@@ -219,17 +283,30 @@ bool NetConnCallbackImpl::HasLinkPropertiesChanged() {
   }
   auto new_addr_list = network_change_notifier_posix_->GetNetAddrListByNetId(net_id_);
   if (!IsSameAddrList(new_addr_list, cur_addr_list)) {
+#if BUILDFLAG(ARKWEB_NETWORK_IPV6_SLAAC_FILTER)
+    if (IsOnlyIPv6Added(new_addr_list, cur_addr_list)) {
+      skip_ip_changed_for_ipv6_slaac_ = true;
+      LOG(INFO) << "HasLinkPropertiesChanged: only IPv6 addresses added";
+    }
+#endif
     return true;
   }
- 
+
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableNwebExHttpDnsFallback)) {
     return false;
   }
- 
+
   if (!IsSameAddrList(network_change_notifier_posix_->GetCurrentDnsServers(),
       network_change_notifier_posix_->GetActiveDnsServers())) {
+#if BUILDFLAG(ARKWEB_NETWORK_IPV6_SLAAC_FILTER)
+    if (IsOnlyIPv6Added(network_change_notifier_posix_->GetActiveDnsServers(),
+                        network_change_notifier_posix_->GetCurrentDnsServers())) {
+      skip_ip_changed_for_ipv6_slaac_ = true;
+      LOG(INFO) << "HasLinkPropertiesChanged: only IPv6 DNS servers added";
+    }
+#endif
     return true;
   }
 #endif  // ARKWEB_EXT_HTTP_DNS_FALLBACK && IS_ARKWEB_EXT
@@ -265,25 +342,20 @@ void NetConnCallbackImpl::ConnectionTypeChangedTo(
     if (network_for_dns != -1) {
       auto addr_list_for_binded_network = network_change_notifier_posix_->GetAddrListForBindedNetwork();
       if (!IsSameAddrList(new_addr_list, addr_list_for_binded_network)) {
-        LOG(INFO) << "The current addr_list_for_binded_network is different from the new net_addr_list, "
-                  << "which will trigger OnIPAddressChanged event.";
-        network_change_notifier_posix_->OnIPAddressChanged(
-            net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
+        MaybeNotifyIPAddressChanged();
         network_change_notifier_posix_->SetDefaultAddrList(new_addr_list);
       } else {
         LOG(INFO) << "The current addr_list_for_binded_network is same with the new net_addr_list, "
                   << "which will not trigger OnIPAddressChanged event.";
       }
     } else {
-      network_change_notifier_posix_->OnIPAddressChanged(
-          net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
+      MaybeNotifyIPAddressChanged();
       network_change_notifier_posix_->SetDefaultAddrList(new_addr_list);
     }
     network_change_notifier_posix_->OnConnectionChanged(
         ConvertOhosConnTypeToNetBaseConnType(type));
 #else
-    network_change_notifier_posix_->OnIPAddressChanged(
-        net::NetworkChangeNotifier::IP_ADDRESS_CHANGE_NORMAL);
+    MaybeNotifyIPAddressChanged();
     network_change_notifier_posix_->OnConnectionChanged(
                                     ConvertOhosConnTypeToNetBaseConnType(type));
 #endif

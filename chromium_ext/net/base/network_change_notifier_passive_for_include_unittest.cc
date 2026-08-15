@@ -44,6 +44,8 @@
 #define private public
 #define BIND_DNS_TEST
 #include "net/base/network_change_notifier_passive.h"
+#include "base/feature_list.h"
+#include "net/base/features.h"
 #include "net/base/network_change_notifier_passive_for_include.cc"
 #undef BIND_DNS_TEST
 #undef private
