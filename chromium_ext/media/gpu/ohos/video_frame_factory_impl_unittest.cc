@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include <cstdint>
-
 #include <memory>
 #include <utility>
 
@@ -17,6 +16,10 @@
 #include "media/gpu/ohos/video_frame_factory_impl.cc"
 #include "ui/gfx/color_space.h"
 #undef private
+#include "arkweb/chromium_ext/gpu/config/gpu_finch_features_ext.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -406,6 +409,7 @@ TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_zerocopy) {
   delete instance;
 }
 
+// kOneCopy: switch arm ~112 forces copy_required=true.
 TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_onecopy) {
   OHOS::NWeb::MockOhosAdapterHelper* instance =
       new OHOS::NWeb::MockOhosAdapterHelper();
@@ -424,6 +428,8 @@ TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_onecopy) {
   delete instance;
 }
 
+// default fallthrough: a value not in {kZeroCopy,kOneCopy,kDefault} (e.g. 3)
+// hits switch default (~122) and leaves copy_required unchanged (false here).
 TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_default_fallthrough) {
   OHOS::NWeb::MockOhosAdapterHelper* instance =
       new OHOS::NWeb::MockOhosAdapterHelper();
@@ -439,5 +445,92 @@ TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_default_fallthrough) {
   EXPECT_FALSE(r);
   OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
   delete instance;
+}
+
+// ---- Phase 2 — Additional branch-coverage tests ----
+
+// PipEnable public method: verify it sets pip_enable_ to true (L274-277).
+TEST_F(VideoFrameFactoryImplTest, PipEnable_true) {
+  impl_->PipEnable(true);
+  EXPECT_TRUE(impl_->pip_enable_);
+}
+
+// PipEnable public method: verify it sets pip_enable_ to false (L274-277).
+TEST_F(VideoFrameFactoryImplTest, PipEnable_false) {
+  impl_->PipEnable(true);
+  impl_->PipEnable(false);
+  EXPECT_FALSE(impl_->pip_enable_);
+}
+
+// GetVideoFrameCopyStatus kDefault arm with copy_required=false,
+// kVulkanVideoZeroCopy enabled, delegatedValue=false → result is true
+// (line 125: copy_required || !delegatedValue → false || true = true).
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_kdefault_delegated_false) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  EXPECT_CALL(adapter, GetBoolParameter("web.delegatedCompositing.enable", _))
+      .WillRepeatedly(testing::Return(false));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+// GetVideoFrameCopyStatus kDefault arm with copy_required=false,
+// kVulkanVideoZeroCopy enabled, delegatedValue=true → result is false
+// (line 125: copy_required || !delegatedValue → false || false = false).
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_kdefault_delegated_true) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  EXPECT_CALL(adapter, GetBoolParameter("web.delegatedCompositing.enable", _))
+      .WillRepeatedly(testing::Return(true));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest,
+       CreateVideoFrame_OnFrameInfoReady_with_renderer) {
+  base::MockCallback<VideoFrameFactoryImpl::ImageWithInfoReadyCB>
+      image_ready_cb;
+  scoped_refptr<CodecWrapperImpl> codec;
+  auto output_buffer = std::make_unique<CodecOutputBuffer>(
+      std::move(codec), 0, gfx::Size(100, 100),
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      false,
+#endif
+      gfx::ColorSpace::CreateSRGB());
+  auto renderer = std::make_unique<CodecOutputBufferRenderer>(
+      std::move(output_buffer), nullptr, nullptr);
+  FrameInfoHelper::FrameInfo frame_info;
+  frame_info.coded_size = gfx::Size(100, 100);
+  impl_->CreateVideoFrame_OnFrameInfoReady(image_ready_cb.Get(),
+                                           std::move(renderer), frame_info);
+  EXPECT_EQ(impl_->image_spec_.coded_size, gfx::Size(100, 100));
 }
 }  // namespace media
