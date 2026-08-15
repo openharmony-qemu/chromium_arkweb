@@ -88,6 +88,11 @@ TEST_F(RootCompositorFrameSinkImplExtTest, RootCompositorFrameSinkImplExtTest01)
     ASSERT_NO_FATAL_FAILURE(sinkImplExt->SetIsOfflineWebComponentInactive(false));
     ASSERT_NO_FATAL_FAILURE(sinkImplExt->SetIsOfflineWebComponentInactive(true));
     ASSERT_NO_FATAL_FAILURE(sinkImplExt->DisableSwapUntilMaximized());
+    ASSERT_NO_FATAL_FAILURE(sinkImplExt->DiscardCompositingResources());
+    ASSERT_NO_FATAL_FAILURE(sinkImplExt->UpdateFocusAndScreenStatus(true, true));
+    ASSERT_NO_FATAL_FAILURE(sinkImplExt->UpdateFocusAndScreenStatus(true, false));
+    ASSERT_NO_FATAL_FAILURE(sinkImplExt->UpdateFocusAndScreenStatus(false, true));
+    ASSERT_NO_FATAL_FAILURE(sinkImplExt->UpdateFocusAndScreenStatus(false, false));
   }
 }
 

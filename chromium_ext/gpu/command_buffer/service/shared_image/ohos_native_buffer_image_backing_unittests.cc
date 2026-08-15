@@ -230,4 +230,13 @@ TEST_F(OhosNativeBufferImageBackingTest, ProduceGLTexturePassthrough)
     representation = backing->ProduceGLTexturePassthrough(&manager_, tracker_.get());
     EXPECT_NE(representation, nullptr);
 }
+
+TEST_F(OhosNativeBufferImageBackingTest, ProduceOverlay) {
+    auto handle = CreateHandle();
+    auto backing = std::make_unique<OhosNativeBufferImageBacking>(
+        mailbox_, format_, size_, color_space_, surface_origin_, alpha_type_, usage_, debug_label_,
+        std::move(handle), estimated_size_, is_thread_safe_, base::ScopedFD(), false, gl_format_caps_);
+    auto representation = backing->ProduceOverlay(&manager_, tracker_.get());
+    EXPECT_NE(representation, nullptr);
+}
 }  // namespace gpu

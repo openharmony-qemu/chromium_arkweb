@@ -316,6 +316,8 @@ class MockNWebEngineInitArgs : public NWebEngineInitArgs {
   MOCK_METHOD(bool, GetIsPopup, (), (override));
   MOCK_METHOD(std::string, GetSharedRenderProcessToken, (), (override));
   MOCK_METHOD(bool, GetEmulateTouchFromMouseEvent, (), (override));
+  MOCK_METHOD(uint64_t, GetSurfaceNodeId, (), (override));
+  MOCK_METHOD(uint64_t, GetSurfaceRSHandle, (), (override));
 };
 #endif
 
@@ -14286,4 +14288,9 @@ TEST_F(NWebImplTest, AIPageCommandDispatcher023) {
             callback->value_);
 }
 
+TEST_F(NWebImplTest, IsDelegatedEnabled_Default) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  // IsDelegatedCompositingEnabledOhos() returns false in unit test environment
+  EXPECT_FALSE(nweb_impl_->is_delegated_enabled_);
+}
 }  // namespace OHOS::NWeb

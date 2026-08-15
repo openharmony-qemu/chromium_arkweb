@@ -340,4 +340,39 @@ TEST_F(HostFrameSinkManagerUtilsTest, UtilsRestoreRenderFit_003) {
   EXPECT_CALL(*HostClient(), RestoreRenderFit).Times(1);
   utils.UtilsRestoreRenderFit(sink_id.client_id(), sink_id.sink_id());
 }
+
+// DiscardCompositingResources: frame_sink_manager_ is nullptr -> no call
+TEST_F(HostFrameSinkManagerUtilsTest, DiscardCompositingResources_NoManager) {
+  HostFrameSinkManager host_manager;
+  HostFrameSinkManagerUtils utils(&host_manager);
+  const FrameSinkId sink_id(0, 0);
+  EXPECT_CALL(*FrameSinkManager(), DiscardCompositingResources).Times(0);
+  utils.DiscardCompositingResources(sink_id);
+}
+
+// DiscardCompositingResources: frame_sink_manager_ exists -> delegates
+TEST_F(HostFrameSinkManagerUtilsTest, DiscardCompositingResources_WithManager) {
+  HostFrameSinkManagerUtils utils(HostManager());
+  const FrameSinkId sink_id(0, 0);
+  EXPECT_CALL(*FrameSinkManager(), DiscardCompositingResources);
+  utils.DiscardCompositingResources(sink_id);
+}
+
+// UpdateFocusAndScreenStatus: frame_sink_manager_ is nullptr -> no call
+TEST_F(HostFrameSinkManagerUtilsTest, UpdateFocusAndScreenStatus_NoManager) {
+  HostFrameSinkManager host_manager;
+  HostFrameSinkManagerUtils utils(&host_manager);
+  const FrameSinkId sink_id(0, 0);
+  EXPECT_CALL(*FrameSinkManager(), UpdateFocusAndScreenStatus).Times(0);
+  utils.UpdateFocusAndScreenStatus(true, true, sink_id);
+}
+
+// UpdateFocusAndScreenStatus: frame_sink_manager_ exists -> delegates
+TEST_F(HostFrameSinkManagerUtilsTest, UpdateFocusAndScreenStatus_WithManager) {
+  HostFrameSinkManagerUtils utils(HostManager());
+  const FrameSinkId sink_id(0, 0);
+  EXPECT_CALL(*FrameSinkManager(), UpdateFocusAndScreenStatus);
+  utils.UpdateFocusAndScreenStatus(true, true, sink_id);
+}
+
 }  // namespace viz

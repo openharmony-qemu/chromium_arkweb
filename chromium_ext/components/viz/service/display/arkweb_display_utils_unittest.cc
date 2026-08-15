@@ -1122,4 +1122,38 @@ TEST_F(ArkwebDisplayUtilsBranchTest, DumpSnapshotForBlankLess_GpuServiceImplNull
   utils.DumpSnapshotForBlankLess(frame);
 }
 #endif
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DiscardCompositingResources_NullOutputSurface) {
+  auto display = CreateTestDisplay();
+  display->output_surface_.reset();
+  ArkwebDisplayUtils utils(display.get());
+  ASSERT_EQ(display->output_surface_, nullptr);
+  utils.DiscardCompositingResources();
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, DiscardCompositingResources_WithOutputSurface) {
+  auto display = CreateTestDisplay();
+  ASSERT_NE(display->output_surface_, nullptr);
+  ArkwebDisplayUtils utils(display.get());
+  utils.DiscardCompositingResources();
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, UpdateFocusAndScreenStatus_NullRenderer) {
+  auto display = CreateTestDisplay();
+  display->renderer_.reset();
+  ArkwebDisplayUtils utils(display.get());
+  ASSERT_EQ(display->renderer_, nullptr);
+  utils.UpdateFocusAndScreenStatus(true, true);
+}
+
+TEST_F(ArkwebDisplayUtilsBranchTest, UpdateFocusAndScreenStatus_WithRenderer) {
+  auto display = CreateTestDisplay();
+  ASSERT_NE(display->renderer_, nullptr);
+  ArkwebDisplayUtils utils(display.get());
+  utils.UpdateFocusAndScreenStatus(true, true);
+  utils.UpdateFocusAndScreenStatus(true, false);
+  utils.UpdateFocusAndScreenStatus(false, true);
+  utils.UpdateFocusAndScreenStatus(false, false);
+}
+
 }  // namespace viz

@@ -281,4 +281,16 @@ TEST_F(ArkOhosAdapterHelperWrapperTest, CreateBackgroundTaskAdapter) {
     EXPECT_NE(wrapper->CreateBackgroundTaskAdapter(), nullptr);
     EXPECT_EQ(testWrapper->CreateBackgroundTaskAdapter(), nullptr);
 }
+
+TEST_F(ArkOhosAdapterHelperWrapperTest, GetSurfaceControlAdapter) {
+    ASSERT_NE(wrapper, nullptr);
+    EXPECT_NE(&wrapper->GetSurfaceControlAdapter(), nullptr);
+    EXPECT_NE(&testWrapper->GetSurfaceControlAdapter(), nullptr);
+}
+ 
+TEST_F(ArkOhosAdapterHelperWrapperTest, GetSurfaceTransactionAdapter) {
+    ASSERT_NE(wrapper, nullptr);
+    EXPECT_NE(&wrapper->GetSurfaceTransactionAdapter(), nullptr);
+    EXPECT_NE(&testWrapper->GetSurfaceTransactionAdapter(), nullptr);
+}
 }   // namespace OHOS::Nweb
