@@ -64,4 +64,12 @@ void SkiaOutputSurfaceImplOnGpu::ClosePostSubBuffer() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void SkiaOutputSurfaceImplOnGpu::SetAsyncStackId(uint64_t stackId) {
+  if (output_device_) {
+    output_device_->SetAsyncStackId(stackId);
+  }
+}
+#endif
+
 } // namespace viz

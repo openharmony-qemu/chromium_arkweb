@@ -69,4 +69,11 @@ void SkiaOutputSurfaceImpl::ClosePostSubBuffer() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void SkiaOutputSurfaceImpl::SetAsyncStackId(uint64_t stackId) {
+  auto task = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::SetAsyncStackId,
+                             base::Unretained(impl_on_gpu_.get()), stackId);
+  EnqueueGpuTask(std::move(task), {}, true, !dependency_->IsOffscreen());
+}
+#endif
 } // namespace viz
