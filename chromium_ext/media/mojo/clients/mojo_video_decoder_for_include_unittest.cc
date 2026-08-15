@@ -17,9 +17,11 @@
 #include "media/base/mock_media_log.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "testing/gtest/include/gtest/gtest.h"
+// clang-format off
 #define private public
 #include "media/mojo/clients/mojo_video_decoder.h"
 #undef private
+// clang-format on
 
 namespace media {
 
@@ -29,13 +31,12 @@ class MojoVideoDecoderIncludeTest : public ::testing::Test {
     mojo::PendingRemote<mojom::VideoDecoder> pending;
     task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
     media_log_ = std::make_unique<MockMediaLog>();
-    decoder_ = std::make_unique<MojoVideoDecoder>(task_runner_,
-        nullptr, media_log_.get(), std::move(pending), RequestOverlayInfoCB(), gfx::ColorSpace());
+    decoder_ = std::make_unique<MojoVideoDecoder>(
+        task_runner_, nullptr, media_log_.get(), std::move(pending),
+        RequestOverlayInfoCB(), gfx::ColorSpace());
   }
-  void TearDown() override {
-    decoder_.reset();
-  }
-  
+  void TearDown() override { decoder_.reset(); }
+
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   base::test::TaskEnvironment task_environment_;
   std::unique_ptr<MockMediaLog> media_log_;
