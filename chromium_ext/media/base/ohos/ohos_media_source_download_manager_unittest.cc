@@ -29,11 +29,13 @@
 // OnDownloadComplete, downloads_ map) for branch coverage that cannot be
 // driven purely through the public API (e.g. direct OnDownloadComplete on an
 // unknown uuid, loader==null state).
+// clang-format off
 #define private public
 #define protected public
 #include "media/base/ohos/ohos_media_source_download_manager.h"
 #undef protected
 #undef private
+// clang-format on
 
 using namespace media;
 using namespace testing;
@@ -49,8 +51,10 @@ namespace {
 // ohos_media_source_download_manager.cc (LoadingRequestError as seen by the
 // HiStreamer player framework). Kept as plain ints to assert the wire contract.
 constexpr int32_t kErrOk = 0;
-constexpr int32_t kErrTimeout = -2;    // net::ERR_TIMED_OUT / ERR_CONNECTION_TIMED_OUT
-constexpr int32_t kErrNetwork = -3;    // generic / connection / loader==null / http>=400
+constexpr int32_t kErrTimeout =
+    -2;  // net::ERR_TIMED_OUT / ERR_CONNECTION_TIMED_OUT
+constexpr int32_t kErrNetwork =
+    -3;  // generic / connection / loader==null / http>=400
 constexpr int32_t kErrAbort = -4;      // net::ERR_ABORTED
 constexpr int32_t kErrForbidden = -5;  // HTTP 403
 constexpr int32_t kErrNotFound = -6;   // HTTP 404
@@ -62,8 +66,9 @@ constexpr const char* kFtpUrl = "ftp://media.test/segment.ts";
 // Builds a URLResponseHead carrying an HTTP status line (and optional extra
 // header lines). |http_status| <= 0 yields a head with null headers, mirroring
 // a transport error that produced no response head.
-network::mojom::URLResponseHeadPtr BuildHead(int http_status,
-                                             const std::string& extra_headers = "") {
+network::mojom::URLResponseHeadPtr BuildHead(
+    int http_status,
+    const std::string& extra_headers = "") {
   auto head = network::mojom::URLResponseHead::New();
   if (http_status > 0) {
     // Assemble headers via the canonical path used by CreateURLResponseHead()
@@ -74,8 +79,8 @@ network::mojom::URLResponseHeadPtr BuildHead(int http_status,
     // SimpleURLLoader::ResponseInfo()->headers; feeding a \r\n raw string
     // straight to the HttpResponseHeaders constructor was observed on
     // real-device builds to yield an empty header map in OnDataRespondHeader.
-    std::string raw =
-        "HTTP/1.1 " + std::to_string(http_status) + " OK\n" + extra_headers + "\n";
+    std::string raw = "HTTP/1.1 " + std::to_string(http_status) + " OK\n" +
+                      extra_headers + "\n";
     head->headers = base::MakeRefCounted<net::HttpResponseHeaders>(
         net::HttpUtil::AssembleRawHeaders(raw));
   }
@@ -110,7 +115,9 @@ class MockPlayerAdapter : public PlayerAdapter {
   MOCK_METHOD(int32_t, SetVideoSurfaceNew, (void*), (override));
   MOCK_METHOD(void,
               OnDataRespondHeader,
-              (int64_t, (const std::map<std::string, std::string>&), const std::string&),
+              (int64_t,
+               (const std::map<std::string, std::string>&),
+               const std::string&),
               (override));
   MOCK_METHOD(void,
               OnDataRespondData,
@@ -145,7 +152,8 @@ class MediaSourceDownloadManagerTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
   void SetUp() override {
-    site_for_cookies_ = net::SiteForCookies::FromUrl(GURL("https://example.test/"));
+    site_for_cookies_ =
+        net::SiteForCookies::FromUrl(GURL("https://example.test/"));
     top_frame_origin_ = url::Origin::Create(GURL("https://example.test/"));
     mock_player_ = std::make_unique<testing::NiceMock<MockPlayerAdapter>>();
     mock_devtools_sink_ =
@@ -180,8 +188,7 @@ class MediaSourceDownloadManagerTest : public testing::Test {
         with_player ? mock_player_.get() : nullptr,
         base::SingleThreadTaskRunner::GetCurrentDefault(),
         test_factory_.GetSafeWeakWrapper(),
-        with_devtools ? mock_devtools_sink_.get() : nullptr,
-        site_for_cookies_,
+        with_devtools ? mock_devtools_sink_.get() : nullptr, site_for_cookies_,
         top_frame_origin_);
   }
 
@@ -191,8 +198,8 @@ class MediaSourceDownloadManagerTest : public testing::Test {
                      int http_status = 200,
                      const std::string& extra_headers = "") {
     network::URLLoaderCompletionStatus status;  // default error_code = net::OK
-    test_factory_.AddResponse(GURL(url), BuildHead(http_status, extra_headers), body,
-                              status);
+    test_factory_.AddResponse(GURL(url), BuildHead(http_status, extra_headers),
+                              body, status);
   }
 
   // Presets a response that completes with a transport/HTTP-level state the
@@ -305,7 +312,8 @@ TEST_F(MediaSourceDownloadManagerTest, Close_AfterComplete) {
 // (B) StartDownload pre-flight validation
 // =============================================================================
 
-TEST_F(MediaSourceDownloadManagerTest, StartDownload_NullFactory_CallsFinishLoadingError) {
+TEST_F(MediaSourceDownloadManagerTest,
+       StartDownload_NullFactory_CallsFinishLoadingError) {
   manager_->url_loader_factory_ = nullptr;
   EXPECT_CALL(*mock_player_, OnDataFinishLoading(kUuid, kErrNetwork));
   manager_->Open(kUuid, kHttpUrl, {});
@@ -316,7 +324,8 @@ TEST_F(MediaSourceDownloadManagerTest, StartDownload_NullFactory_CallsFinishLoad
 // file:// local files are out of scope: this component only ever fetches
 // online (HTTP/HTTPS) media URLs. ftp:// below still exercises the non-HTTP
 // rejection / failure outcome.
-TEST_F(MediaSourceDownloadManagerTest, StartDownload_FtpUrl_CallsFinishLoadingError) {
+TEST_F(MediaSourceDownloadManagerTest,
+       StartDownload_FtpUrl_CallsFinishLoadingError) {
   EXPECT_CALL(*mock_player_, OnDataFinishLoading(kUuid, kErrNetwork));
   manager_->Open(kUuid, kFtpUrl, {});
   manager_->Read(kUuid, 0, -1);
@@ -342,7 +351,8 @@ TEST_F(MediaSourceDownloadManagerTest, StartDownload_InactiveUuidInMap_Noop) {
 // (C) Success path (driven through TestURLLoaderFactory)
 // =============================================================================
 
-TEST_F(MediaSourceDownloadManagerTest, Download_Success_RespondsHeaderDataFinish) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_Success_RespondsHeaderDataFinish) {
   const std::string kBody = "segment-bytes";
   EXPECT_CALL(*mock_player_, OnDataRespondHeader(kUuid, _, _));
   EXPECT_CALL(*mock_player_, OnDataRespondData(kUuid, 0, _));
@@ -381,7 +391,8 @@ TEST_F(MediaSourceDownloadManagerTest, Download_Success_OpenEndedRange) {
   EXPECT_EQ(*range, "bytes=10-");
 }
 
-TEST_F(MediaSourceDownloadManagerTest, Download_Success_NoRangeWhenOffsetZeroAndLengthNeg) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_Success_NoRangeWhenOffsetZeroAndLengthNeg) {
   network::ResourceRequest captured;
   EXPECT_CALL(*mock_devtools_sink_, NotifyRequestWillBeSent(_, _))
       .WillOnce(SaveArg<1>(&captured));
@@ -407,7 +418,8 @@ TEST_F(MediaSourceDownloadManagerTest, Download_Success_HeaderSentOnlyOnce) {
   task_environment_.RunUntilIdle();
 }
 
-TEST_F(MediaSourceDownloadManagerTest, Download_Success_ExtraHeader_RefererSpecial) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_Success_ExtraHeader_RefererSpecial) {
   network::ResourceRequest captured;
   EXPECT_CALL(*mock_devtools_sink_, NotifyRequestWillBeSent(_, _))
       .WillOnce(SaveArg<1>(&captured));
@@ -423,7 +435,8 @@ TEST_F(MediaSourceDownloadManagerTest, Download_Success_ExtraHeader_RefererSpeci
   EXPECT_FALSE(captured.headers.HasHeader(net::HttpRequestHeaders::kReferer));
 }
 
-TEST_F(MediaSourceDownloadManagerTest, Download_Success_ExtraHeader_CookieSkipped) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_Success_ExtraHeader_CookieSkipped) {
   network::ResourceRequest captured;
   EXPECT_CALL(*mock_devtools_sink_, NotifyRequestWillBeSent(_, _))
       .WillOnce(SaveArg<1>(&captured));
@@ -443,7 +456,8 @@ TEST_F(MediaSourceDownloadManagerTest, Download_Success_ExtraHeader_CookieSkippe
   EXPECT_EQ(*keep, "yes");
 }
 
-TEST_F(MediaSourceDownloadManagerTest, Download_Success_ExtraHeader_PlainHeader) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_Success_ExtraHeader_PlainHeader) {
   network::ResourceRequest captured;
   EXPECT_CALL(*mock_devtools_sink_, NotifyRequestWillBeSent(_, _))
       .WillOnce(SaveArg<1>(&captured));
@@ -533,7 +547,8 @@ TEST_F(MediaSourceDownloadManagerTest, Download_NetTimeout_MapsToTimeout) {
   task_environment_.RunUntilIdle();
 }
 
-TEST_F(MediaSourceDownloadManagerTest, Download_NetConnectionTimeout_MapsToTimeout) {
+TEST_F(MediaSourceDownloadManagerTest,
+       Download_NetConnectionTimeout_MapsToTimeout) {
   EXPECT_CALL(*mock_player_, OnDataFinishLoading(kUuid, kErrTimeout));
   AddResponseWith(kHttpUrl, net::ERR_CONNECTION_TIMED_OUT, /*http_status=*/0);
   manager_->Open(kUuid, kHttpUrl, {});
@@ -596,7 +611,8 @@ TEST_F(MediaSourceDownloadManagerTest, OnDownloadComplete_InactiveUuid_Noop) {
   manager_->OnDownloadComplete(kUuid, std::make_unique<std::string>("late"));
 }
 
-TEST_F(MediaSourceDownloadManagerTest, OnDownloadComplete_ResponseInfoNull_HttpStatusZero) {
+TEST_F(MediaSourceDownloadManagerTest,
+       OnDownloadComplete_ResponseInfoNull_HttpStatusZero) {
   // Loader absent: ResponseInfo()/headers cannot be read, so http_status stays
   // 0 and NetError() defaults to net::ERR_FAILED. The failure-branch guard
   // (`net_error != net::OK`) fires even though a body was delivered.
@@ -622,7 +638,8 @@ TEST_F(MediaSourceDownloadManagerTest, OnDownloadComplete_HeadersNotPresent) {
   EXPECT_TRUE(manager_->downloads_[kUuid].header_sent);
 }
 
-TEST_F(MediaSourceDownloadManagerTest, OnDownloadComplete_ResponseHeadersDelivered) {
+TEST_F(MediaSourceDownloadManagerTest,
+       OnDownloadComplete_ResponseHeadersDelivered) {
   // Deterministic counterpart of the empty-headers case: a 200 response with
   // real header lines must surface them verbatim via OnDataRespondHeader
   // (exercises HttpResponseHeaders::EnumerateHeaderLines).
@@ -638,4 +655,32 @@ TEST_F(MediaSourceDownloadManagerTest, OnDownloadComplete_ResponseHeadersDeliver
   task_environment_.RunUntilIdle();
   EXPECT_EQ(captured["Content-Type"], "video/mp2t");
   EXPECT_EQ(captured["X-Id"], "7");
+}
+
+// =============================================================================
+// (F) Additional branch coverage
+// =============================================================================
+
+TEST_F(MediaSourceDownloadManagerTest,
+       OnDownloadComplete_FailureNullDevToolsSink_SilentlySwallowed) {
+  // Null DevTools sink with a download failure: the devtools notifications are
+  // silently skipped (the `if (devtools_sink_)` guards). No crash.
+  NewManager(/*with_player=*/true, /*with_devtools=*/false);
+  EXPECT_CALL(*mock_player_, OnDataFinishLoading(kUuid, kErrNetwork));
+  AddResponseWith(kHttpUrl, net::ERR_FAILED, /*http_status=*/0);
+  manager_->Open(kUuid, kHttpUrl, {});
+  manager_->Read(kUuid, 0, -1);
+  task_environment_.RunUntilIdle();
+}
+
+TEST_F(MediaSourceDownloadManagerTest,
+       OnDownloadComplete_FailureNullPlayer_SilentlySwallowed) {
+  // Null player with a download failure: the error is silently swallowed
+  // (the `if (player_)` guard skips the callback). No crash.
+  NewManager(/*with_player=*/false, /*with_devtools=*/true);
+  EXPECT_CALL(*mock_devtools_sink_, NotifyLoadingComplete(_, _, _));
+  AddResponseWith(kHttpUrl, net::ERR_FAILED, /*http_status=*/0);
+  manager_->Open(kUuid, kHttpUrl, {});
+  manager_->Read(kUuid, 0, -1);
+  task_environment_.RunUntilIdle();
 }

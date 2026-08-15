@@ -19,15 +19,29 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 // Expose private members (factory_, frame_) for white-box assertions.
+// clang-format off
 #define private public
 #include "modules/desktop_capture/ohos/desktop_capture_frame.h"
 #undef private
+// clang-format on
 
 #include "modules/desktop_capture/shared_memory.h"
 
 using ::testing::Return;
 
 namespace webrtc {
+
+// Concrete SharedMemory subclass for testing the factory success path.
+class FakeSharedMemory : public SharedMemory {
+ public:
+  explicit FakeSharedMemory(size_t size)
+      : SharedMemory(new char[size](), size, 0, 0), buffer_(data()) {}
+
+  ~FakeSharedMemory() override { delete[] static_cast<char*>(buffer_); }
+
+ private:
+  void* buffer_;
+};
 
 // SharedMemoryFactory stand-in whose CreateSharedMemory() yields nullptr, used
 // to drive the "cannot create a new DesktopFrame" failure branch in Prepare().
@@ -37,6 +51,14 @@ class MockSharedMemoryFactory : public SharedMemoryFactory {
               CreateSharedMemory,
               (size_t size),
               (override));
+};
+
+// Concrete factory that returns real SharedMemory objects (success path).
+class FakeSharedMemoryFactory : public SharedMemoryFactory {
+ public:
+  std::unique_ptr<SharedMemory> CreateSharedMemory(size_t size) override {
+    return std::make_unique<FakeSharedMemory>(size);
+  }
 };
 
 // ---------------------------------------------------------------------------
@@ -105,6 +127,32 @@ TEST(DesktopCaptureFrameTest, Prepare_FactoryCreateReturnsNull_ReturnsFalse) {
   EXPECT_FALSE(frame.Prepare(DesktopSize(10, 10)));
   // frame_ is never assigned because creation failed.
   EXPECT_EQ(frame.frame_, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// Prepare tests — factory_ != nullptr, Create succeeds (SharedMemory path)
+// ---------------------------------------------------------------------------
+
+TEST(DesktopCaptureFrameTest, Prepare_FactorySuccess_CreatesSharedMemoryFrame) {
+  FakeSharedMemoryFactory factory;
+  DesktopCaptureFrame frame(&factory);
+  EXPECT_TRUE(frame.Prepare(DesktopSize(10, 10)));
+  EXPECT_NE(frame.frame(), nullptr);
+  EXPECT_EQ(frame.frame()->size().width(), 10);
+  EXPECT_EQ(frame.frame()->size().height(), 10);
+}
+
+TEST(DesktopCaptureFrameTest, Prepare_FactorySuccess_DifferentSize_Recreates) {
+  FakeSharedMemoryFactory factory;
+  DesktopCaptureFrame frame(&factory);
+  ASSERT_TRUE(frame.Prepare(DesktopSize(10, 10)));
+  SharedDesktopFrame* first = frame.frame();
+  ASSERT_NE(first, nullptr);
+
+  // Resolution change triggers rebuild even with a working factory.
+  EXPECT_TRUE(frame.Prepare(DesktopSize(20, 20)));
+  EXPECT_NE(frame.frame(), nullptr);
+  EXPECT_EQ(frame.frame()->size().width(), 20);
 }
 
 }  // namespace webrtc

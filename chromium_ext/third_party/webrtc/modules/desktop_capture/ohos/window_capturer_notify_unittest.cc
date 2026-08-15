@@ -22,9 +22,11 @@
 // Expose callback_map_ for white-box injection/inspection. The header pulls in
 // native_avscreen_capture.h transitively; C OH headers contain no `private`
 // token, so the macro is safe around this include.
+// clang-format off
 #define private public
 #include "modules/desktop_capture/ohos/window_capturer_notify.h"
 #undef private
+// clang-format on
 
 namespace webrtc {
 
@@ -49,13 +51,10 @@ class MockCapturerEventCallBack : public CapturerEventCallBack {
               OnStateChange,
               (OH_AVScreenCaptureStateCode stateCode, void* userData),
               (override));
-  MOCK_METHOD(void,
-              OnError,
-              (int32_t errorCode, void* userData),
-              (override));
+  MOCK_METHOD(void, OnError, (int32_t errorCode, void* userData), (override));
   MOCK_METHOD(void,
               OnBufferAvailable,
-              (OH_AVBuffer* buffer,
+              (OH_AVBuffer * buffer,
                OH_AVScreenCaptureBufferType bufferType,
                int64_t timestamp,
                void* userData),
@@ -182,8 +181,7 @@ TEST_F(WindowCapturerNotifyTest, OnStateChange_Hit_Dispatches) {
 
   int ud_value = 7;
   void* ud = &ud_value;
-  EXPECT_CALL(*mock_cb,
-              OnStateChange(OH_SCREEN_CAPTURE_STATE_STARTED, ud))
+  EXPECT_CALL(*mock_cb, OnStateChange(OH_SCREEN_CAPTURE_STATE_STARTED, ud))
       .Times(1);
   OnStateChange(dummy, OH_SCREEN_CAPTURE_STATE_STARTED, ud);
 }
@@ -207,9 +205,9 @@ TEST_F(WindowCapturerNotifyTest, OnBufferAvailable_Hit_Dispatches) {
   auto* dummy_buffer = reinterpret_cast<OH_AVBuffer*>(0x8888);
   int ud_value = 9;
   void* ud = &ud_value;
-  EXPECT_CALL(*mock_cb,
-              OnBufferAvailable(dummy_buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
-                                /*timestamp=*/1234, ud))
+  EXPECT_CALL(*mock_cb, OnBufferAvailable(dummy_buffer,
+                                          OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
+                                          /*timestamp=*/1234, ud))
       .Times(1);
   OnBufferAvailable(dummy, dummy_buffer, OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO,
                     1234, ud);

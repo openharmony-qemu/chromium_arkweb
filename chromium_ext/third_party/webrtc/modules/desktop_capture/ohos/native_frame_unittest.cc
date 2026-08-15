@@ -15,9 +15,11 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 
+// clang-format off
 #define private public
 #include "modules/desktop_capture/ohos/native_frame.h"
 #undef private
+// clang-format on
 
 namespace webrtc {
 
@@ -114,6 +116,28 @@ TEST(NativeFrameTest, UnMap_WithNullNativeBuffer_NoOp) {
   NativeFrame frame(dummy);
   // native_buffer_ is nullptr; UnMap should be a no-op.
   ASSERT_NO_FATAL_FAILURE(frame.UnMap());
+}
+
+// ---------------------------------------------------------------------------
+// Constructor with null OH_AVBuffer*
+// ---------------------------------------------------------------------------
+
+TEST(NativeFrameTest, Constructor_NullBuffer) {
+  NativeFrame frame(static_cast<OH_AVBuffer*>(nullptr));
+  EXPECT_EQ(frame.buffer_, nullptr);
+  EXPECT_EQ(frame.screen_capture_, nullptr);
+  EXPECT_EQ(frame.native_buffer_, nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// Init with null buffer_ (both screen_capture_ and buffer_ are null)
+// via the OH_AVBuffer constructor
+// ---------------------------------------------------------------------------
+
+TEST(NativeFrameTest, Init_NullBuffer_ReturnsFalse) {
+  NativeFrame frame(static_cast<OH_AVBuffer*>(nullptr));
+  // Both screen_capture_ and buffer_ are null, so Init returns false.
+  EXPECT_FALSE(frame.Init());
 }
 
 }  // namespace webrtc

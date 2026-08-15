@@ -13,20 +13,21 @@
  * limitations under the License.
  */
 
-#include "content/public/test/browser_task_environment.h"
+#include "arkweb/build/features/features.h"
 #include "base/unguessable_token.h"
+#include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#include "arkweb/build/features/features.h"
 // NOTE: do NOT #include video_capture_host.h (nor anything that pulls in
 // video_capture_host_utils.h) before the #define private public below.
 // video_capture_host.h includes video_capture_host_utils.h, which would set
 // its include guard and turn the private->public rewrite into a no-op.
 
+// clang-format off
 #define private public
 #include "arkweb/chromium_ext/content/browser/renderer_host/media/video_capture_host_utils.h"
 #undef private
+// clang-format on
 // video_capture_host_utils.h transitively brings in global_routing_id.h,
 // video_capture_controller_event_handler.h and video_capture_host.h.
 
@@ -81,8 +82,9 @@ TEST_F(VideoCaptureHostUtilsTest,
        OnCameraCaptureStateChangedBind_SameState_ReturnsEarly) {
   GlobalRenderFrameHostId id;
   // When camera_state == new_state the function returns immediately.
-  ASSERT_NO_FATAL_FAILURE(VideoCaptureHostUtils::OnCameraCaptureStateChangedBind(
-      CameraCaptureState::NONE, CameraCaptureState::NONE, id));
+  ASSERT_NO_FATAL_FAILURE(
+      VideoCaptureHostUtils::OnCameraCaptureStateChangedBind(
+          CameraCaptureState::NONE, CameraCaptureState::NONE, id));
 }
 
 TEST_F(VideoCaptureHostUtilsTest,
@@ -93,8 +95,9 @@ TEST_F(VideoCaptureHostUtilsTest,
   // the off-UI PostTask branch. It calls RenderFrameHost::FromID({0,0}), which
   // returns null -> early return. Deterministic, no tasks posted.
   GlobalRenderFrameHostId id;
-  ASSERT_NO_FATAL_FAILURE(VideoCaptureHostUtils::OnCameraCaptureStateChangedBind(
-      CameraCaptureState::NONE, CameraCaptureState::ACTIVE, id));
+  ASSERT_NO_FATAL_FAILURE(
+      VideoCaptureHostUtils::OnCameraCaptureStateChangedBind(
+          CameraCaptureState::NONE, CameraCaptureState::ACTIVE, id));
   // Drain, in case any task ever gets posted; should be a no-op today.
   task_environment_.RunUntilIdle();
 }
@@ -113,7 +116,8 @@ TEST_F(VideoCaptureHostUtilsTest,
   ASSERT_NO_FATAL_FAILURE(utils.OnCameraCaptureStarted(controller_id));
 }
 
-TEST_F(VideoCaptureHostUtilsTest, OnCameraCaptureStateChanged_UpdatesCameraState) {
+TEST_F(VideoCaptureHostUtilsTest,
+       OnCameraCaptureStateChanged_UpdatesCameraState) {
   VideoCaptureHostUtils utils(nullptr);
   EXPECT_EQ(utils.camera_state_, CameraCaptureState::NONE);
   utils.OnCameraCaptureStateChanged(CameraCaptureState::ACTIVE);
