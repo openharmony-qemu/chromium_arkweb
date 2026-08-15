@@ -288,6 +288,7 @@ declare_args() {
   arkweb_web_app = true
   arkweb_warmup_spare_render_process = true
   arkweb_histogram_dfx = true
+  arkweb_network_ipv6_slaac_filter = true
 
   if (!enable_arkweb_ext) {
     arkweb_ext_download = true
