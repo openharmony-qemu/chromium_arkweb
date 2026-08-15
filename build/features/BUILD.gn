@@ -647,6 +647,7 @@ buildflag_header("features") {
     "ARKWEB_WEB_APP=$arkweb_web_app",
     "ARKWEB_WARMUP_SPARE_RENDER_PROCESS=$arkweb_warmup_spare_render_process",
     "ARKWEB_HISTOGRAM_DFX=$arkweb_histogram_dfx",
+    "ARKWEB_NETWORK_IPV6_SLAAC_FILTER=$arkweb_network_ipv6_slaac_filter",
   ]
 
 
