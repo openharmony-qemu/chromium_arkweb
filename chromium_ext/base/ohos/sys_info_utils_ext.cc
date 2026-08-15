@@ -21,6 +21,7 @@
 #include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "base/system/sys_info.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 namespace base {
@@ -316,6 +317,28 @@ const std::string GetOSDistVersion() {
 }
 
 #endif
+
+BASE_EXPORT bool IsOhosLowEndDevice() {
+  static bool is_low_end_device = []() -> bool {
+    int ohos_device_end_type = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                 .GetSystemPropertiesInstance()
+                                 .GetIntParameter("web.device_end.type", 0);
+    // CCM low-end mode switch controlled by cloud configuration.
+    // - 0: Default (auto-detected based on physical memory size)
+    // - 1: Low-end device
+    // - 2: High-end device
+    if (ohos_device_end_type == 1) {
+      return true;
+    }
+    if (ohos_device_end_type == 2) {
+      return false;
+    }
+
+    // Set phone device which physical memory under 6G as Low-end
+    return IsMobileDevice() && SysInfo::AmountOfPhysicalMemory() <= base::GiB(6);
+  }();
+  return is_low_end_device;
+}
 
 BASE_EXPORT bool IsDelegatedCompositingEnabledOhos() {
   static const bool is_delegated_enabled =
