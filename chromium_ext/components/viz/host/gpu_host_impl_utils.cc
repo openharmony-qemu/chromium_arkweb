@@ -18,7 +18,7 @@
 #include "base/task/thread_pool.h"
 #endif
 
-#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+#if BUILDFLAG(ARKWEB_SAFEBROWSING) && BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/chromium_ext/components/viz/host/safebrowsing_data_controller.h"
 #include "base/task/thread_pool.h"
 #endif
@@ -205,10 +205,12 @@ void GpuHostImpl::DumpAntiFraudSnapshot(mojo::ScopedSharedBufferHandle buffer,
     LOG(WARNING) << "safebrowsing GpuHostImpl::DumpAntiFraudSnapshot invalid snapshot info";
     return;
   }
- 
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
   TRACE_EVENT0("io", "safebrowsing GpuHostImpl::DumpAntiFraudSnapshot");
   auto& databaseAdapter = base::ohos::SafeBrowsingDataController::GetInstance();
   databaseAdapter.DumpAntiFraudSnapshot(std::move(buffer), std::move(metadata));
+#endif
 }
  
 void GpuHostImpl::RequestSnapshotOnce() {
