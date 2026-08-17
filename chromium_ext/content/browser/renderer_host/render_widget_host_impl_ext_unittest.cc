@@ -340,5 +340,14 @@ TEST_F(RenderWidgetHostImplExtTest, SetScrollable) {
   ASSERT_NO_FATAL_FAILURE(host_->SetScrollable(false));
 }
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+// ForceRedraw (line 227): previously 0 coverage. blink_widget_ is unbound by
+// default, so the `if (!blink_widget_)` true arm (early return) is taken. The
+// non-null arm needs a bound mojo Widget remote and is not reachable here.
+TEST_F(RenderWidgetHostImplExtTest, ForceRedraw_NoWidget) {
+  ASSERT_NO_FATAL_FAILURE(host_->ForceRedraw());
+}
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
+
 }  // namespace
 }  // namespace content
