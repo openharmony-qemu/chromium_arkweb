@@ -8289,6 +8289,10 @@ void NWebImpl::DragResize(uint32_t width,
   }
   LOG(DEBUG) << "====== drag resize orign width ======= " << width
              << "=== drag resize orign height ===" << height;
+  if (is_pause_) {
+    LOG(DEBUG) << "web kernel in pause state, don't resize, nweb_id = " << nweb_id_;
+    return;
+  }
   OHOS::NWeb::NWebResizeHelper::GetInstance().SetDragResizeStart(true);
   if (pre_height > 0) {
     drag_bigger_height = true;
