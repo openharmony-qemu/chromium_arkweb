@@ -99,6 +99,7 @@
 #include "color_picker_adapter/color_picker_adapter_impl.h"
 #include "pasteboard_adapter/include/pasteboard_client_adapter_impl.h"
 #include "hiviewdfx_adapter/hiappevent_adapter_impl.h"
+#include "ohos_adapter/bridge/ark_hiviewdfx_adapter_wrapper.h"
 
 namespace OHOS::NWeb {
 #if BUILDFLAG(ARKWEB_TEST)
@@ -631,6 +632,17 @@ ArkOhosAdapterHelperWrapper::GetSurfaceTransactionAdapter() {
   }
 
   static ArkSurfaceTransactionAdapterWrapper instance(ref);
+  return instance;
+}
+
+NWeb::HiViewDfxAdapter&
+ArkOhosAdapterHelperWrapper::GetHiViewDfxAdapterInstance() {
+  ArkWebRefPtr<ArkHiViewDfxAdapter> ref = nullptr;
+  if (!CHECK_REF_PTR_IS_NULL(ctocpp_)) {
+    ref = ctocpp_->GetHiViewDfxAdapterInstance();
+  }
+
+  static ArkHiViewDfxAdapterWrapper instance(ref);
   return instance;
 }
 }  // namespace OHOS::ArkWeb

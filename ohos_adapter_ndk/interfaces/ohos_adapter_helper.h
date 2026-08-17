@@ -66,6 +66,7 @@
 #include "third_party/ohos_ndk/includes/ohos_adapter/background_task_adapter.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/hiviewdfx_adapter.h"
 
 namespace OHOS::NWeb {
 
@@ -189,6 +190,8 @@ public:
     virtual SurfaceControlAdapter& GetSurfaceControlAdapter() = 0;
 
     virtual SurfaceTransactionAdapter& GetSurfaceTransactionAdapter() = 0;
+
+    virtual HiViewDfxAdapter& GetHiViewDfxAdapterInstance() = 0;
 };
 
 } // namespace OHOS::NWeb

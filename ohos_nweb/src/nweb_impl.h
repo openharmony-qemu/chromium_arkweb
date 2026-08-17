@@ -1621,6 +1621,9 @@ void SetVisibility(bool isVisible) override;
 
   bool is_delegated_enabled_ = false;
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  uint64_t async_stack_id_ = 0;
+#endif
   base::WeakPtrFactory<NWebImpl> weak_factory_{this};
 };
 }  // namespace OHOS::NWeb

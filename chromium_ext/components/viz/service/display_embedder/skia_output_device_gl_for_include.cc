@@ -65,4 +65,14 @@ void SkiaOutputDeviceGL::ClosePostSubBuffer() {
   }
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void SkiaOutputDeviceGL::SetAsyncStackId(uint64_t stackId) {
+  stackId_ = stackId;
+}
+
+uint64_t SkiaOutputDeviceGL::GetAsyncStackId() {
+  return stackId_;
+}
+#endif
 } // namespace viz

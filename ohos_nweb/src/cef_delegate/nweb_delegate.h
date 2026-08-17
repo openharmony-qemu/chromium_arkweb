@@ -1067,6 +1067,9 @@ void AbortDistill() override;
   std::shared_ptr<NWebUserAgentMetadata> GetUserAgentMetadata(
       const std::string& user_agent) override;
 #endif
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId) override;
+#endif
 
  public:
   int argc_;

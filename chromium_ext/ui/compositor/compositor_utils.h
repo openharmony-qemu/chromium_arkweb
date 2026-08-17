@@ -94,6 +94,11 @@ void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
   void SetPipActive(bool active);
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId);
+  uint64_t stackId_ = 0;
+#endif
+
  private:
   raw_ptr<Compositor> compositor_;
 };

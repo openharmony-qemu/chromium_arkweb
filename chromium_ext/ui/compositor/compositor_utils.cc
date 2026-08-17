@@ -184,6 +184,15 @@ void CompositorUtils::SetPipActive(bool active) {
     active, compositor_->frame_sink_id());
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void CompositorUtils::SetAsyncStackId(uint64_t stackId) {
+  stackId_ = stackId;
+  if (compositor_->display_private_) {
+    compositor_->display_private_->SetAsyncStackId(stackId);
+  }
+}
+#endif
 //LCOV_EXCL_STOP
 
 } // namespace ui

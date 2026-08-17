@@ -22,4 +22,5 @@
       SetShouldFrameSubmissionBeforeDrawCallback callback) override {} \
   void DisableSwapUntilMaximized() override {} \
   void SetNativeInnerWeb(bool isInnerWeb) override {} \
-  void SetBypassVsyncCondition(int32_t condition) override {}
+  void SetBypassVsyncCondition(int32_t condition) override {} \
+  void SetAsyncStackId(uint64_t stackId) override {}

@@ -1089,6 +1089,9 @@ class NWebDelegateInterface
   virtual void ExecuteAIPageCommand(
       const std::string& command,
       std::shared_ptr<NWebStringValueCallback> callback) = 0;
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  virtual void SetAsyncStackId(uint64_t stackId) = 0;
+#endif
 };
 }  // namespace OHOS::NWeb
 

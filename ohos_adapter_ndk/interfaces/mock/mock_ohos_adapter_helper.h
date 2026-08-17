@@ -79,6 +79,7 @@ public:
     MOCK_METHOD(HiAppeventAdapter&, GetHiAppeventAdapterInstance, (), (override));
     MOCK_METHOD(SurfaceControlAdapter&, GetSurfaceControlAdapter, (), (override));
     MOCK_METHOD(SurfaceTransactionAdapter&, GetSurfaceTransactionAdapter, (), (override));
+    MOCK_METHOD(HiViewDfxAdapter&, GetHiViewDfxAdapterInstance, (), (override));
 };
 
 } // namespace OHOS::NWeb

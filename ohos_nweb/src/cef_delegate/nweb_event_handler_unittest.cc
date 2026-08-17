@@ -497,6 +497,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   std::string GetDataDetectorSelectText() override { return std::string(); }
   void SetBypassVsyncCondition(int32_t condition) override {}
 #endif
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId) override {}
+#endif
 
 #if BUILDFLAG(ARKWEB_JSPROXY)
   void JavaScriptOnHeadReady(
