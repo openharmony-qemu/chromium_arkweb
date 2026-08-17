@@ -240,6 +240,16 @@ class ArkWebRenderFrameImplTest : public RenderFrameImplTest {
     GetMainRenderFrame()->frame_ = frame;
   }
 #endif
+#if BUILDFLAG(ARKWEB_READER_MODE)
+  // ReportDistillableResult is private; reach it through this fixture helper.
+  // ArkWebRenderFrameImplTest is a friend of RenderFrameImpl (declared in
+  // render_frame_impl.h), but TEST_F bodies run in a derived, non-friend class,
+  // so private access must go through a member of the fixture itself.
+  void TestReportDistillableResult(const std::string& event_type,
+                                   const std::string& value) {
+    GetMainRenderFrame()->ReportDistillableResult(event_type, value);
+  }
+#endif
 };
 
 TEST_F(ArkWebRenderFrameImplTest, RunScriptsAtHeadReady_WithContentClient) {
@@ -451,6 +461,78 @@ TEST_F(ArkWebRenderFrameImplTest, GetOverScrollOffset) {
   EXPECT_EQ(result2.y(), 0);
 }
 
+// The following six tests share the `if (!web_frame_widget)` branch shape used by
+// SetOverscrollMode/GetOverScrollOffset: a null local-root widget hits the early
+// return, a real widget forwards to WebFrameWidget (whose base virtual returns
+// false for IsElementExist and FAILED=11 / PAGE_NOT_READY=160 for the command
+// helpers). No concrete widget overrides these, so the forward arm is safe.
+
+// IsElementExist (line 97): null widget -> false; non-null -> base default false.
+TEST_F(ArkWebRenderFrameImplTest, IsElementExist) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  EXPECT_FALSE(GetMainRenderFrame()->IsElementExist("//div"));
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  EXPECT_FALSE(GetMainRenderFrame()->IsElementExist("//div"));
+}
+
+// ExecuteInputCommand (line 105): null widget -> PAGE_NOT_READY; non-null forwards.
+TEST_F(ArkWebRenderFrameImplTest, ExecuteInputCommand) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  EXPECT_EQ(GetMainRenderFrame()->ExecuteInputCommand("//input", "v", "click"),
+            160);  // OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  GetMainRenderFrame()->ExecuteInputCommand("//input", "v", "click");
+}
+
+// ExecuteAIPageInputCommandByXPath (line 116): same branch shape.
+TEST_F(ArkWebRenderFrameImplTest, ExecuteAIPageInputCommandByXPath) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  EXPECT_EQ(GetMainRenderFrame()->ExecuteAIPageInputCommandByXPath("//input",
+                                                                   "v", "text"),
+            160);  // PAGE_NOT_READY
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  GetMainRenderFrame()->ExecuteAIPageInputCommandByXPath("//input", "v", "text");
+}
+
+// ExecuteAIPageInputCommandById (line 129): same branch shape, keyed by id.
+TEST_F(ArkWebRenderFrameImplTest, ExecuteAIPageInputCommandById) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  EXPECT_EQ(GetMainRenderFrame()->ExecuteAIPageInputCommandById("id1", "v", "text"),
+            160);  // PAGE_NOT_READY
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  GetMainRenderFrame()->ExecuteAIPageInputCommandById("id1", "v", "text");
+}
+
+// ExecuteSelectCommand (line 142): same branch shape.
+TEST_F(ArkWebRenderFrameImplTest, ExecuteSelectCommand) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  std::vector<int32_t> indexes = {0};
+  std::vector<std::string> values = {"a"};
+  EXPECT_EQ(GetMainRenderFrame()->ExecuteSelectCommand("//select", indexes,
+                                                       values),
+            160);  // PAGE_NOT_READY
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  GetMainRenderFrame()->ExecuteSelectCommand("//select", indexes, values);
+}
+
+// ExecuteSelectCommandById (line 154): same branch shape, keyed by id.
+TEST_F(ArkWebRenderFrameImplTest, ExecuteSelectCommandById) {
+  auto* web_frame_widget = GetMainRenderFrame()->GetLocalRootWebFrameWidget();
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(nullptr);
+  std::vector<int32_t> indexes = {0};
+  std::vector<std::string> values = {"a"};
+  EXPECT_EQ(GetMainRenderFrame()->ExecuteSelectCommandById("sel1", indexes,
+                                                           values),
+            160);  // PAGE_NOT_READY
+  GetMainRenderFrame()->SetLocalRootWebFrameWidgetForTest(web_frame_widget);
+  GetMainRenderFrame()->ExecuteSelectCommandById("sel1", indexes, values);
+}
+
 TEST_F(ArkWebRenderFrameImplTest, MouseSelectMenuShow) {
   auto* frame_host = TestGetFrameHost();
   SetFrameHostForTest(nullptr);
@@ -465,6 +547,17 @@ TEST_F(ArkWebRenderFrameImplTest, ChangeVisibilityOfQuickMenu) {
   GetMainRenderFrame()->ChangeVisibilityOfQuickMenu();
   SetFrameHostForTest(frame_host);
   GetMainRenderFrame()->ChangeVisibilityOfQuickMenu();
+}
+
+// HideQuickMenu (line 193): branch `if (GetFrameHost())`. Mirrors the
+// MouseSelectMenuShow / ChangeVisibilityOfQuickMenu tests: null frame host ->
+// skip, real frame host -> forward the mojom call.
+TEST_F(ArkWebRenderFrameImplTest, HideQuickMenu) {
+  auto* frame_host = TestGetFrameHost();
+  SetFrameHostForTest(nullptr);
+  GetMainRenderFrame()->HideQuickMenu();
+  SetFrameHostForTest(frame_host);
+  GetMainRenderFrame()->HideQuickMenu();
 }
 
 TEST_F(ArkWebRenderFrameImplTest, OnPdfScrollAtBottom) {
@@ -658,5 +751,18 @@ TEST_F(ArkWebRenderFrameImplTest, ArkWebUserAgentOverride_NullFrame) {
   auto result = ArkWebUserAgentOverride(nullptr);
   EXPECT_FALSE(result.has_value());
 }
+
+#if BUILDFLAG(ARKWEB_READER_MODE)
+// ReportDistillableResult (line 288): branch `if (!render_thread_impl)`. In this
+// renderer unit-test harness RenderThreadImpl::current() is null (same as the
+// GetVideo*Default siblings which only reach the null arm), so the call logs and
+// returns early. The thread-non-null arms are not reachable without a fully
+// initialized RenderThreadImpl, so only the early-return arm is exercised here.
+// Called via the TestReportDistillableResult fixture helper because the method
+// is private (friend access is on the fixture, not the TEST_F-derived class).
+TEST_F(ArkWebRenderFrameImplTest, ReportDistillableResult) {
+  TestReportDistillableResult("event", "value");
+}
+#endif  // BUILDFLAG(ARKWEB_READER_MODE)
 
 }  // namespace content

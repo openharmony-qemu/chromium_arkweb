@@ -636,5 +636,69 @@ TEST_F(WebFrameWidgetImplExtSimTest,
       OHOS::NWeb::WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
 }
 
+// ===== Additional branch-coverage tests =====
+// Each targets a branch arm left uncovered per web_frame_widget_impl_ext-cov.log.
+
+// ExecuteAIPageInputCommandByXPath (line 153): previously 0 calls. A non-existent
+// xpath makes CommandActionDOMHelper::FindElementByXPath return null ->
+// ELEMENT_NOT_FOUND, covering the local_root_/document null-check false arms and
+// the helper call (line 166).
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteAIPageInputCommandByXPath_NotFound) {
+  int32_t result = MockMainFrameWidget()->ExecuteAIPageInputCommandByXPath(
+      "//input[@id='nonexistent']", "hello", "default");
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::ELEMENT_NOT_FOUND));
+}
+
+// ExecuteAIPageInputCommandById (line 170): previously 0 calls. FindElementById
+// parses the id as "frame|scope|domNodeId"; a plain string fails parsing ->
+// PARAM_INVALID, covering the null-check false arms and the helper call (line 183).
+TEST_F(WebFrameWidgetImplExtSimTest,
+       ExecuteAIPageInputCommandById_ParamInvalid) {
+  int32_t result = MockMainFrameWidget()->ExecuteAIPageInputCommandById(
+      "invalid_id", "hello", "default");
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::PARAM_INVALID));
+}
+
+// ExecuteSelectCommandById (line 203): previously 0 calls. Same id-parsing
+// failure -> PARAM_INVALID, covering the null-check false arms and helper call.
+TEST_F(WebFrameWidgetImplExtSimTest, ExecuteSelectCommandById_ParamInvalid) {
+  int32_t result = MockMainFrameWidget()->ExecuteSelectCommandById(
+      "invalid_id", std::vector<int32_t>{0}, std::vector<std::string>{});
+  EXPECT_EQ(result, static_cast<int32_t>(
+      OHOS::NWeb::WebCommandErrorCode::PARAM_INVALID));
+}
+
+// GetImageRectInner (line 404): the get_rect_callback_ null arm. With the
+// callback unset (default null) abs_rect stays empty -> returns gfx::Rect().
+TEST_F(WebFrameWidgetImplExtSimTest, GetImageRectInner_NullCallback) {
+  gfx::Rect rect = MockMainFrameWidget()->GetImageRectInner();
+  EXPECT_TRUE(rect.IsEmpty());
+}
+
+// OnTextRecognized (line 347): the on_text_recognize_callback_ null arm. With the
+// callback unset the loop is skipped (empty input) and the Run() is not called.
+TEST_F(WebFrameWidgetImplExtSimTest, OnTextRecognized_NullCallback) {
+  Vector<mojom::blink::TextRecognizeResultPtr> results;
+  MockMainFrameWidget()->OnTextRecognizedForTest(std::move(results), 1.0f);
+}
+
+// GetImageRectInner: the !widget_base_ true arm. With widget_base_ null and an
+// empty abs_rect (no callback set), GetImageRectInner returns an empty rect
+// without touching the size-calculation block. Note: the !widget_base_ guard
+// (line 414) sits *after* view->FrameToScreen() (line 413), so a non-empty
+// abs_rect would crash before reaching that guard. Testing with an empty rect
+// is the only safe way to exercise the null-widget_base path with the current
+// implementation. widget_base_ is restored afterwards for safe teardown.
+TEST_F(WebFrameWidgetImplExtSimTest, GetImageRectInner_WidgetBaseNull) {
+  auto widget_base = std::move(MockMainFrameWidget()->widget_base_);
+  SetWidgetBaseForTesting(nullptr);
+  gfx::Rect rect = MockMainFrameWidget()->GetImageRectInner();
+  EXPECT_TRUE(rect.IsEmpty());
+  SetWidgetBaseForTesting(std::move(widget_base));
+}
+
 }  // namespace
 }  // namespace blink
