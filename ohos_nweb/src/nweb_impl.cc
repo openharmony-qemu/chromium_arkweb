@@ -49,6 +49,7 @@
 #include "base/files/file_path.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 
 #if BUILDFLAG(ARKWEB_PERFORMANCE_MEMORY_THRESHOLD)
 #include "base/memory/memory_pressure_listener.h"
@@ -4217,6 +4218,30 @@ void NWebImpl::UnRegisterScreenLockFunction(int32_t windowId) {
 }
 #endif  // #if BUILDFLAG(ARKWEB_SCREEN_LOCK)
 
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+void NWebImpl::ForwardMemoryPressureToRenderers(
+    base::MemoryPressureLevel memory_pressure_level) {
+  static int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                           .GetSystemPropertiesInstance()
+                           .GetIntParameter("web.debug.memtest", 0);
+  if (base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2)) {
+    // Forward memory pressure to all renderer processes.
+    for (auto iter = content::RenderProcessHost::AllHostsIterator();
+         !iter.IsAtEnd(); iter.Advance()) {
+      content::RenderProcessHost* host = iter.GetCurrentValue();
+      if (!host || !host->IsInitializedAndNotDead() ||
+          !host->GetProcess().IsValid()) {
+        continue;
+      }
+      LOG(INFO) << "NotifyMemoryPressureToRenderer memory_pressure_level:"
+                << memory_pressure_level;
+      static_cast<content::RenderProcessHostImpl*>(host)
+          ->NotifyMemoryPressureToRenderer(memory_pressure_level);
+    }
+  }
+}
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
+
 void NWebImpl::NotifyMemoryLevel(int32_t level) {
 #if BUILDFLAG(ARKWEB_PERFORMANCE_MEMORY_THRESHOLD)
   using MemoryPressureLevel = base::MemoryPressureLevel;
@@ -4227,10 +4252,29 @@ void NWebImpl::NotifyMemoryLevel(int32_t level) {
       MemoryPressureLevel::MEMORY_PRESSURE_LEVEL_NONE;
   static base::Time last_notify_time;
 
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  static const int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                 .GetSystemPropertiesInstance()
+                                 .GetIntParameter("web.debug.memtest", 0);
+  bool should_notify_ui_hidden_level =
+      base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2);
+  if (should_notify_ui_hidden_level) {
+    if (level > kMemoryLevelMax) {
+      LOG(WARNING) << "The memory level > kMemoryLevelMax(3), not supported";
+      return;
+    }
+  } else {
+    if (level >= kMemoryLevelMax) {
+      LOG(WARNING) << "The memory level >= kMemoryLevelMax(3), not supported";
+      return;
+    }
+  }
+#else
   if (level >= kMemoryLevelMax) {
     LOG(WARNING) << "The memory level >= kMemoryLevelMax(3), not supported";
     return;
   }
+#endif // ARKWEB_TRIM_RENDER_PROCESS_MEMORYv
 
   base::Time now = base::Time::Now();
   MemoryPressureLevel memory_pressure_level;
@@ -4257,6 +4301,9 @@ void NWebImpl::NotifyMemoryLevel(int32_t level) {
                     ? "MEMORY_PRESSURE_LEVEL_MODERATE"
                     : "MEMORY_PRESSURE_LEVEL_CRITICAL");
   base::MemoryPressureListener::NotifyMemoryPressure(memory_pressure_level);
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  ForwardMemoryPressureToRenderers(memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
 #endif  // ARKWEB_PERFORMANCE_MEMORY_THRESHOLD
 }
 
@@ -8135,6 +8182,9 @@ void NWebImpl::TrimMemoryByPressureLevel(int32_t memoryLevel) {
                     ? "MEMORY_PRESSURE_LEVEL_MODERATE"
                     : "MEMORY_PRESSURE_LEVEL_CRITICAL");
   base::MemoryPressureListener::NotifyMemoryPressure(memory_pressure_level);
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  ForwardMemoryPressureToRenderers(memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
 #endif  // ARKWEB_PERFORMANCE_MEMORY_THRESHOLD
 }
 
