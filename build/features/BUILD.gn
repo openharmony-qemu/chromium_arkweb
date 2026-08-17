@@ -115,6 +115,7 @@ if (!enable_arkweb) {
   arkweb_cache = false
   arkweb_clipboard = false
   arkweb_clipped_image_scaling = false
+  arkweb_gpu_image_persistent_cache_limit = false
   arkweb_close_steps = false
   arkweb_cloud_control = false
   arkweb_composite_render = true
@@ -601,6 +602,7 @@ buildflag_header("features") {
     "ARKWEB_SWAP_BUFFER_TRACE=$arkweb_swap_buffer_trace",
     "ARKWEB_SAFEBROWSING=$arkweb_safebrowsing",
     "ARKWEB_PERMISSION=$arkweb_permission",
+    "ARKWEB_GPU_IMAGE_PERSISTENT_CACHE_LIMIT=$arkweb_gpu_image_persistent_cache_limit",
     "ARKWEB_HEIF_SUPPORT=$arkweb_heif_support",
     "ARKWEB_CLIPPED_IMAGE_SCALING=$arkweb_clipped_image_scaling",
     "ARKWEB_ADVANCED_SECURITY_MODE=$arkweb_advanced_security_mode",
