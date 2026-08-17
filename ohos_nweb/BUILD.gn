@@ -681,6 +681,7 @@ static_library("nweb_sources") {
       "//ohos_resources/content_change_detection:content_change_detection_resources",
       "//ohos_resources/image_change_detection:image_change_detection_resources",
       "//ohos_resources/dom_tree_extractor:dom_tree_extractor_resources",
+      "//ohos_resources/page_scene_query:page_scene_query_resources",
     ]
   }
 
