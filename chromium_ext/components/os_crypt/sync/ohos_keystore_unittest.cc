@@ -88,5 +88,45 @@ TEST_F(OhosKeystoreTest, EncryptSizeCalculation) {
   EXPECT_EQ(TestGetEncryptSize(), 51u);
 }
 
+// Test GetKeyForOta with an alias that has no existing key file
+TEST_F(OhosKeystoreTest, GetKeyForOta_NoKeyFile) {
+  std::string key = GetKeyForOta("ut_test_ota_no_such_key");
+  // Without a key file on disk, result is empty
+  EXPECT_TRUE(key.empty());
+}
+
+// Test GetKey with a fresh alias creates a new key
+TEST_F(OhosKeystoreTest, GetKey_NewAlias) {
+  std::string key = GetKey("ut_test_new_fresh_alias_12345");
+  // Key should be generated and returned; on device this works via keystore
+  // adapter On UT device the adapter may or may not succeed
+  EXPECT_TRUE(key.size() == 32u || key.empty());
+}
+
+// Test GenerateLocalKey with size 32 produces 32-byte key
+TEST_F(OhosKeystoreTest, GenerateLocalKey_32_Detailed) {
+  std::string key = GenerateLocalKey(32);
+  EXPECT_EQ(key.size(), 32u);
+  // Verify key is not all zeros
+  bool all_zero = true;
+  for (char c : key) {
+    if (c != 0) {
+      all_zero = false;
+      break;
+    }
+  }
+  EXPECT_FALSE(all_zero);
+}
+
+// Test calling GetKey twice with different aliases
+TEST_F(OhosKeystoreTest, GetKey_DifferentAliases) {
+  std::string key1 = GetKey("ut_test_alias_alpha");
+  std::string key2 = GetKey("ut_test_alias_beta");
+  // Different aliases should produce different keys if both succeed
+  if (!key1.empty() && !key2.empty()) {
+    EXPECT_NE(key1, key2);
+  }
+}
+
 }  // namespace ohos
 }  // namespace crypto

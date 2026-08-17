@@ -153,10 +153,10 @@ TEST_F(KeyCacheTest, get_symmetric_key_256_FromCache) {
 }
 
 TEST_F(KeyCacheTest, get_symmetric_key_256_noAdd) {
-std::string key_name = "test_new_key";
-std::string key_value = _generate_key(key_name);
-auto result = get_symmetric_key_256(key_name);
-EXPECT_EQ(result, key_value);
+  std::string key_name = "test_new_key";
+  std::string key_value = _generate_key(key_name);
+  auto result = get_symmetric_key_256(key_name);
+  EXPECT_EQ(result, key_value);
 }
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
@@ -238,6 +238,76 @@ TEST_F(KeyCacheTest, get_symmetric_key_256_for_ota_FromCache) {
   crypto::ohos::inst_ota.Get().add_key(key_name, key_value);
   auto result = crypto::ohos::get_symmetric_key_256_for_ota(key_name);
   EXPECT_EQ(result, key_value);
+}
+
+// Test KeyCache::get_key returns false when key not found and key_value is
+// nullptr
+TEST_F(KeyCacheTest, get_key_not_found_nullptr) {
+  ASSERT_NE(key_cache_, nullptr);
+  key_cache_->key_map_.clear();
+  auto result = key_cache_->get_key("nonexistent", nullptr);
+  EXPECT_FALSE(result);
+}
+
+// Test KeyCache LRU eviction: verify the newest key survives after overflow
+TEST_F(KeyCacheTest, AddKeyLRUPreservesNewest) {
+  std::string key_name = "lrutest";
+  std::string key_value = "value";
+  ASSERT_NE(key_cache_, nullptr);
+  key_cache_->key_map_.clear();
+
+  // Add 256 entries
+  for (int i = 0; i < 256; i++) {
+    key_cache_->key_map_.emplace(key_name + std::to_string(i), key_value);
+  }
+
+  // Access the last key to refresh its time
+  key_cache_->get_key(key_name + "255", nullptr);
+
+  // Add one more key to trigger eviction
+  key_cache_->add_key("overflow_key", "overflow_value");
+
+  // The overflow_key should exist
+  EXPECT_EQ(key_cache_->key_map_.count("overflow_key"), 1u);
+  // The recently accessed key should survive
+  EXPECT_EQ(key_cache_->key_map_.count(key_name + "255"), 1u);
+  // Map should remain at max size
+  EXPECT_EQ(key_cache_->key_map_.size(), MAX_KEY_MAP_SIZE);
+}
+
+// Test get_iv with various sizes
+TEST_F(KeyCacheTest, get_iv_various_sizes) {
+  auto result8 = get_iv(8);
+  EXPECT_EQ(result8.size(), 8U);
+
+  auto result16 = get_iv(16);
+  EXPECT_EQ(result16.size(), 16U);
+}
+
+// Test get_symmetric_key_256 returns consistent results on repeated calls
+TEST_F(KeyCacheTest, get_symmetric_key_256_consistent) {
+  std::string key_name = "consistent_test_key";
+  std::string result1 = get_symmetric_key_256(key_name);
+  std::string result2 = get_symmetric_key_256(key_name);
+  EXPECT_EQ(result1, result2);
+}
+
+// Test that add_key overwrites existing key with updated time
+TEST_F(KeyCacheTest, add_key_overwrite_updates_time) {
+  std::string key_name = "overwrite_key";
+  std::string key_value1 = "value1";
+  std::string key_value2 = "value2";
+  ASSERT_NE(key_cache_, nullptr);
+  key_cache_->key_map_.clear();
+
+  key_cache_->add_key(key_name, key_value1);
+  uint64_t time1 = key_cache_->key_map_[key_name].time_;
+
+  key_cache_->add_key(key_name, key_value2);
+  uint64_t time2 = key_cache_->key_map_[key_name].time_;
+
+  EXPECT_GT(time2, time1);
+  EXPECT_EQ(key_cache_->key_map_[key_name].value_, key_value2);
 }
 
 }  // namespace ohos

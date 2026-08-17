@@ -488,4 +488,112 @@ TEST_F(JsCommunicationUtilsTest, AddHeadReadyScript_Multiple) {
   EXPECT_EQ(js_communication_utils_->head_ready_scripts_[0]->script_id, 1);
   EXPECT_EQ(js_communication_utils_->head_ready_scripts_[1]->script_id, 2);
 }
+
+// Test MatchUrlRegex with valid regex patterns
+TEST_F(JsCommunicationUtilsTest, MatchUrlRegex_ValidPatterns) {
+  EXPECT_TRUE(
+      MatchUrlRegex("http://example.com/script.js", "example\\.com/.*\\.js$"));
+  EXPECT_TRUE(MatchUrlRegex("https://test.org/page.html", "test\\.org"));
+  EXPECT_TRUE(
+      MatchUrlRegex("http://sub.example.com/path", "sub\\.example\\.com"));
+  EXPECT_FALSE(MatchUrlRegex("http://other.com/path", "^example$"));
+}
+
+// Test MatchUrlRegex with edge cases
+TEST_F(JsCommunicationUtilsTest, MatchUrlRegex_EdgeCases) {
+  // Single character regex
+  EXPECT_TRUE(MatchUrlRegex("http://example.com", "e"));
+  // Regex that matches the entire string
+  EXPECT_TRUE(MatchUrlRegex("abc", "abc"));
+  // Regex with special chars
+  EXPECT_FALSE(MatchUrlRegex("http://example.com", "["));
+}
+
+// Test RemoveDocumentEndScript removes middle element
+TEST_F(JsCommunicationUtilsTest, RemoveDocumentEndScript_Middle) {
+  auto script1 = CreateEndScript(1, u"script1");
+  auto script2 = CreateEndScript(2, u"script2");
+  auto script3 = CreateEndScript(3, u"script3");
+  js_communication_utils_->AddDocumentEndScript(script1);
+  js_communication_utils_->AddDocumentEndScript(script2);
+  js_communication_utils_->AddDocumentEndScript(script3);
+
+  ASSERT_EQ(js_communication_utils_->document_end_scripts_.size(), 3u);
+
+  js_communication_utils_->RemoveDocumentEndScript(2);
+
+  ASSERT_EQ(js_communication_utils_->document_end_scripts_.size(), 2u);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_[1]->script_id, 3);
+}
+
+// Test RemoveHeadReadyScript removes middle element
+TEST_F(JsCommunicationUtilsTest, RemoveHeadReadyScript_Middle) {
+  auto script1 = CreateStartScript(1, u"head1");
+  auto script2 = CreateStartScript(2, u"head2");
+  auto script3 = CreateStartScript(3, u"head3");
+  js_communication_utils_->AddHeadReadyScript(script1);
+  js_communication_utils_->AddHeadReadyScript(script2);
+  js_communication_utils_->AddHeadReadyScript(script3);
+
+  ASSERT_EQ(js_communication_utils_->head_ready_scripts_.size(), 3u);
+
+  js_communication_utils_->RemoveHeadReadyScript(2);
+
+  ASSERT_EQ(js_communication_utils_->head_ready_scripts_.size(), 2u);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[0]->script_id, 1);
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_[1]->script_id, 3);
+}
+
+// Test CommitPendingJavascriptsAtDocumentEnd with multiple pending scripts
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtDocumentEnd_MultiplePending) {
+  auto script1 = CreateEndScript(1, u"pending1");
+  auto regex1 = CreateRegexRules(1, u"regex1", {{"h1.com", ".*"}});
+  js_communication_utils_->AddPendingJavascriptAtDocumentEnd(script1, regex1);
+
+  auto script2 = CreateEndScript(2, u"pending2");
+  auto regex2 = CreateRegexRules(2, u"regex2", {{"h2.com", ".*"}});
+  js_communication_utils_->AddPendingJavascriptAtDocumentEnd(script2, regex2);
+
+  ASSERT_EQ(js_communication_utils_->swap_document_end_scripts_.size(), 2u);
+  ASSERT_EQ(js_communication_utils_->swap_end_scripts_regex_rules_.size(), 2u);
+
+  js_communication_utils_->CommitPendingJavascriptsAtDocumentEnd();
+
+  EXPECT_EQ(js_communication_utils_->document_end_scripts_.size(), 2u);
+  EXPECT_EQ(js_communication_utils_->end_scripts_regex_rules_.size(), 2u);
+  EXPECT_TRUE(js_communication_utils_->swap_document_end_scripts_.empty());
+  EXPECT_TRUE(js_communication_utils_->swap_end_scripts_regex_rules_.empty());
+}
+
+// Test CommitPendingJavascriptsAtHeadReady with multiple pending scripts
+TEST_F(JsCommunicationUtilsTest,
+       CommitPendingJavascriptsAtHeadReady_MultiplePending) {
+  auto script1 = CreateStartScript(1, u"head_pending1");
+  auto regex1 = CreateRegexRules(1, u"head_regex1");
+  js_communication_utils_->AddPendingJavascriptAtHeadReady(script1, regex1);
+
+  auto script2 = CreateStartScript(2, u"head_pending2");
+  auto regex2 = CreateRegexRules(2, u"head_regex2");
+  js_communication_utils_->AddPendingJavascriptAtHeadReady(script2, regex2);
+
+  ASSERT_EQ(js_communication_utils_->swap_head_ready_scripts_.size(), 2u);
+  ASSERT_EQ(js_communication_utils_->swap_head_ready_regex_rules_.size(), 2u);
+
+  js_communication_utils_->CommitPendingJavascriptsAtHeadReady();
+
+  EXPECT_EQ(js_communication_utils_->head_ready_scripts_.size(), 2u);
+  EXPECT_EQ(js_communication_utils_->head_ready_regex_rules_.size(), 2u);
+  EXPECT_TRUE(js_communication_utils_->swap_head_ready_scripts_.empty());
+  EXPECT_TRUE(js_communication_utils_->swap_head_ready_regex_rules_.empty());
+}
+
+// Test that JsCommunicationUtils constructor stores the impl pointer
+TEST_F(JsCommunicationUtilsTest, Constructor_StoresImpl) {
+  EXPECT_EQ(js_communication_utils_->jsCommunication_, nullptr);
+  JsCommunication* mock_impl = reinterpret_cast<JsCommunication*>(0x1);
+  auto utils = std::make_unique<JsCommunicationUtils>(mock_impl);
+  EXPECT_EQ(utils->jsCommunication_, mock_impl);
+}
 }  // namespace js_injection

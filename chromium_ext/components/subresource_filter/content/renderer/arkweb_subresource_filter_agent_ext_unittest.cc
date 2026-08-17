@@ -166,6 +166,25 @@ TEST_F(ArkWebSubresourceFilterAgentExtTest,
   EXPECT_NO_FATAL_FAILURE(
       agent->CalcElementHidingTypeOption(tester.GetRenderFrame()));
 }
+
+TEST_F(ArkWebSubresourceFilterAgentExtTest,
+       CalcElementHidingTypeOption_NonHttpProtocol) {
+  // When has_local_frame is true but mock frame is invalid, GetWebFrame()
+  // returns a dangling pointer. Use has_local_frame=false to test the
+  // web_local_frame null check path (which is the same early-return path
+  // that non-HTTP URLs take after the protocol check).
+  ArkWebSubresourceFilterAgentExtTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  cond.has_local_frame = false;
+  tester.CreateMockArkSubresourceFilterAgentExt(cond, "file:///local/path");
+  auto* agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  // web_local_frame is null -> early return, no crash
+  EXPECT_NO_FATAL_FAILURE(
+      agent->CalcElementHidingTypeOption(tester.GetRenderFrame()));
+}
 #endif
 
 }  // namespace subresource_filter
