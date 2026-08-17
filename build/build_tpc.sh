@@ -90,7 +90,7 @@ build_asan=0
 build_hwasan=0
 build_release=0
 build_fuzz=0
-use_thin_lto=0
+use_thin_lto=1
 additional_gn_args=""
 build_hmp=0
 build_hap=0
@@ -355,9 +355,12 @@ if [ ${build_v8} -eq 1 ]; then
   GN_ARGS="${GN_ARGS} v8_component_build = true use_custom_libcxx = false use_custom_libcxx_for_host = false v8_enable_pointer_compression = true v8_enable_pointer_compression_shared_cage = true v8_enable_sandbox = false v8_use_external_startup_data = false v8_deprecation_warnings = false v8_use_libm_trig_functions = false v8_enable_i18n_support = false cppgc_enable_slim_write_barrier = false v8_enable_pointer_compression_8gb = false"
 fi
 
-if [ ${use_thin_lto} -eq 0 ]; then
+if [[ ${use_thin_lto} -eq 1 ]] && [[ ${build_hwasan} -ne 1 ]] && [[ ${build_fuzz} -ne 1 ]]; then
+  GN_ARGS="${GN_ARGS} use_thin_lto=true"
+else
   GN_ARGS="${GN_ARGS} use_thin_lto=false"
 fi
+
 if [ ${is_official_build} -eq 0 ]; then
   GN_ARGS="${GN_ARGS} is_official_build=false"
 else
