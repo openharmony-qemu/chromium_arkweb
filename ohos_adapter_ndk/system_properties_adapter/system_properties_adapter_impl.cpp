@@ -234,7 +234,7 @@ ProductDeviceType SystemPropertiesAdapterImpl::AnalysisFromConfig()
     }
     return ProductDeviceType::DEVICE_TYPE_UNKNOWN;
 #else
-    return ProductDeviceType::DEVICE_TYPE_MOBILE;
+    return ProductDeviceType::DEVICE_TYPE_UNKNOWN;
 #endif
 }
 

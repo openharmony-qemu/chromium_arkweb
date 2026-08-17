@@ -680,6 +680,28 @@ class NWebDateTimeChooserCallbackImpl : public NWebDateTimeChooserCallback {
   DateTimeChooserType type_;
   CefRefPtr<CefDateTimeChooserCallback> callback_ = nullptr;
 };
+
+class NWebColorChooserCallbackImpl : public NWebColorChooserCallback {
+ public:
+  explicit NWebColorChooserCallbackImpl(
+      CefRefPtr<CefColorChooserCallback> callback)
+      : callback_(callback) {}
+
+  void Continue(int color) override {
+    if (callback_) {
+      callback_->Continue(static_cast<uint32_t>(color));
+    }
+  }
+
+  void Cancel() override {
+    if (callback_) {
+      callback_->Cancel();
+    }
+  }
+
+ private:
+  CefRefPtr<CefColorChooserCallback> callback_;
+};
 #endif  // #if BUILDFLAG(ARKWEB_CSS_INPUT_TIME)
 
 class NWebAppLinkCallbackImpl : public NWebAppLinkCallback {
@@ -3862,6 +3884,21 @@ void NWebHandlerDelegate::OnDateTimeChooserClose() {
   }
 
   nweb_handler_->OnDateTimeChooserClose();
+}
+
+void NWebHandlerDelegate::OnColorChooserShow(
+    uint32_t initial_color,
+    CefRefPtr<CefColorChooserCallback> callback) {
+  if (!nweb_handler_ || !callback) {
+    return;
+  }
+
+  bool result = nweb_handler_->OnColorChooserShow(
+      initial_color, std::make_shared<NWebColorChooserCallbackImpl>(callback));
+  if (!result) {
+    callback->Cancel();
+  }
+  WVLOG_I("OnColorChooserShow initial color: %{public}u", initial_color);
 }
 #endif  // #if BUILDFLAG(ARKWEB_CSS_INPUT_TIME)
 /* CefDialogHandler method end */
