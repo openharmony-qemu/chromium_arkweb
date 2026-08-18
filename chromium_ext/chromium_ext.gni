@@ -26,9 +26,7 @@ arkweb_components_os_crpty_sync_test_source = [
   "//arkweb/chromium_ext/components/os_crypt/sync/ohos_keystore_unittest.cc",
 ]
 
-arkweb_components_os_crpty_include_test_source = [
-  #"//arkweb/chromium_ext/components/os_crypt/sync/os_crypt_linux_for_include_unittest.cc",
-]
+arkweb_components_os_crpty_include_test_source = [ "//arkweb/chromium_ext/components/os_crypt/sync/os_crypt_linux_for_include_unittest.cc" ]
 
 arkweb_native_scroller_test_source =
     [ "//arkweb/chromium_ext/ui/gl/events/native_scroller_ohos_unittest.cc" ]
@@ -272,9 +270,7 @@ arkweb_content_public_browser_sources = [
   "//arkweb/chromium_ext/content/public/browser/render_process_host_ohos.h",
 ]
 
-arkweb_content_public_browser_fullscreen_overlay_sources = [
-  "//arkweb/chromium_ext/content/public/browser/fullscreen_overlay_media_player_controller.h",
-]
+arkweb_content_public_browser_fullscreen_overlay_sources = [ "//arkweb/chromium_ext/content/public/browser/fullscreen_overlay_media_player_controller.h" ]
 
 arkweb_content_render_sources = []
 if (arkweb_renderer_anr_dump) {
@@ -369,8 +365,8 @@ arkweb_media_third_party_unittest_sources = [
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_audio_capturer_source_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_screen_capture_source_bridge_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/base_window_capturer_unittest.cc",
-  "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/native_frame_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/desktop_capture_frame_unittest.cc",
+  "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/native_frame_unittest.cc",
   "//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/window_capturer_notify_unittest.cc",
 ]
 
@@ -669,7 +665,10 @@ arkweb_components_subresource_filter_content_browser_sources = [
   "//arkweb/chromium_ext/components/subresource_filter/core/common/arkweb_indexed_ruleset_ext.h",
 ]
 
-arkweb_components_subresource_filter_content_browser_unitest_sources = [ "//arkweb/chromium_ext/components/subresource_filter/content/browser/safe_browsing_user_ruleset_publisher_unittest.cc" ]
+arkweb_components_subresource_filter_content_browser_unitest_sources = [
+  "//arkweb/chromium_ext/components/subresource_filter/content/browser/profile_interaction_manager_for_include_unittest.cc",
+  "//arkweb/chromium_ext/components/subresource_filter/content/browser/safe_browsing_user_ruleset_publisher_unittest.cc",
+]
 
 arkweb_components_permissions_contexts_sources = [
   "//arkweb/chromium_ext/components/permissions/contexts/geolocation_permission_context_ohos.cc",
@@ -1334,15 +1333,15 @@ arkweb_content_browser_test_sources = [
   "//arkweb/chromium_ext/content/browser/renderer_host/ark_web_render_frame_host_manager_test.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/arkweb_navigation_controller_impl_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/arkweb_render_process_host_impl_ext_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/renderer_host/media/video_capture_host_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/navigation_request_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_impl_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_view_child_frame_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_ext_test.cc",
   "//arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/content/public/browser/spare_render_process_manager_ohos_unittest.cc",
-  "//arkweb/chromium_ext/content/renderer/stream_texture_host_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/renderer/media/renderer_web_native_delegate_unittest.cc",
-  "//arkweb/chromium_ext/content/browser/renderer_host/media/video_capture_host_utils_unittest.cc",
+  "//arkweb/chromium_ext/content/renderer/stream_texture_host_ohos_unittest.cc",
 ]
 
 arkweb_fuzzer_test_sources = [

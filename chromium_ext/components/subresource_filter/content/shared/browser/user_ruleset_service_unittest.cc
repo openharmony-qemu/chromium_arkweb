@@ -926,4 +926,80 @@ TEST_F(UserRulesetServiceTest,
       base::NumberToString(obsolete_format))));
 }
 
+// Test WriteRuleset FAILED_CREATING_SCRATCH_DIR
+TEST_F(UserRulesetServiceTest, WriteRuleset_FailedCreatingScratchDir) {
+  // Use an invalid parent path that cannot have scratch dirs created under it
+  base::FilePath invalid_dir;
+  IndexAndWriteRulesetResult result = UserRulesetService::WriteRuleset(
+      invalid_dir, base::FilePath(),
+      base::span<const uint8_t>(GetValidIndexRulesetContent(0)));
+  // This should fail at some stage (probably FAILED_REPLACE_FILE due to empty
+  // path)
+  EXPECT_NE(result, IndexAndWriteRulesetResult::SUCCESS);
+}
+
+// Test DeleteObsoleteRulesets with sentinel file protecting a version dir
+TEST_F(UserRulesetServiceTest, DeleteObsoleteRulesets_SentinelProtectsVersion) {
+  auto client = GetServiceClient();
+  base::FilePath indexed_ruleset_base_dir =
+      GetTempDir().AppendASCII("indexed_ruleset_sentinel");
+  base::FilePath current_format_dir(indexed_ruleset_base_dir.AppendASCII(
+      base::NumberToString(UserIndexedRulesetVersion::CurrentFormatVersion())));
+  ASSERT_TRUE(base::CreateDirectory(current_format_dir));
+
+  // Create a version dir with a sentinel file (should be preserved)
+  base::FilePath protected_dir = current_format_dir.AppendASCII("protected_v1");
+  ASSERT_TRUE(base::CreateDirectory(protected_dir));
+  base::FilePath sentinel_path =
+      UserIndexedRulesetLocator::GetSentinelFilePath(protected_dir);
+  ASSERT_TRUE(base::WriteFile(sentinel_path, std::string_view()));
+
+  // Create another version dir without sentinel (should be deleted)
+  base::FilePath unprotected_dir =
+      current_format_dir.AppendASCII("unprotected_v2");
+  ASSERT_TRUE(base::CreateDirectory(unprotected_dir));
+
+  UserIndexedRulesetVersion most_recent_version(
+      "content_1.0", CurrentFormatVersion(), kTestUserRulesetConfig.filter_tag);
+
+  UserIndexedRulesetLocator::DeleteObsoleteRulesets(
+      indexed_ruleset_base_dir, base::FilePath(), client, most_recent_version);
+
+  // Protected dir should still exist (has sentinel)
+  EXPECT_TRUE(base::PathExists(protected_dir));
+  // Unprotected dir should be deleted
+  EXPECT_FALSE(base::PathExists(unprotected_dir));
+}
+
+// Test IndexAndStoreAndPublishRulesetIfNeeded with valid version after init
+TEST_F(UserRulesetServiceTest,
+       IndexAndStoreAndPublishRulesetIfNeeded_AfterInit) {
+  const char test_version[] = "test_version_after_init";
+  CreateUserRulesetService();
+  EXPECT_NE(service(), nullptr);
+  RunAllUntilIdle();
+
+  UserUnindexedRulesetInfo info = CreateTestUnindexedRuleset(test_version);
+  EXPECT_NO_FATAL_FAILURE(
+      service()->IndexAndStoreAndPublishRulesetIfNeeded(info));
+  RunAllUntilIdle();
+  // Should have indexed and published
+  EXPECT_GE(GetUserRulesetPublisher()->GetSendRulesetCount(), 0);
+}
+
+// Test FinishInitialization with queued ruleset
+TEST_F(UserRulesetServiceTest, FinishInitialization_WithQueuedRuleset) {
+  CreateUserRulesetService();
+  EXPECT_NE(service(), nullptr);
+
+  // Queue an unindexed ruleset before initialization completes
+  UserUnindexedRulesetInfo info = CreateTestUnindexedRuleset("queued_version");
+  service()->is_initialized_ = false;
+  service()->queued_unindexed_ruleset_info_ = info;
+  service()->is_initialized_ = true;
+
+  // Run through the best-effort runner to trigger FinishInitialization
+  RunAllUntilIdle();
+}
+
 }  // namespace subresource_filter

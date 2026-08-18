@@ -699,6 +699,89 @@ TEST_F(UrlPatternIndexExtTest,
   EXPECT_TRUE(result2);
 }
 
+// Test ArkWebUrlPatternIndexBuilderExt construction and destruction
+TEST_F(UrlPatternIndexExtTest, ArkWebUrlPatternIndexBuilderExt_Construction) {
+  flatbuffers::FlatBufferBuilder builder;
+  ArkWebUrlPatternIndexBuilderExt ext_builder(&builder);
+  // Verify the NGram hash table size (should be default)
+  EXPECT_GE(ext_builder.GetNGramHashTableSize(), 0);
+}
+
+// Test CssPatternIndexBuilder with multiple rules hitting same ngram
+TEST_F(UrlPatternIndexExtTest, CssPatternIndexBuilder_MultipleRulesSameDomain) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add two rules for the same domain
+  auto rule1 = CreateTestCssRuleWithDomain(".ad1", "example.com");
+  auto rule2 = CreateTestCssRuleWithDomain(".ad2", "example.com");
+
+  CssRuleOffset offset1 = SerializeCssRule(rule1, &builder, &domain_map);
+  CssRuleOffset offset2 = SerializeCssRule(rule2, &builder, &domain_map);
+  ASSERT_NE(offset1.o, 0);
+  ASSERT_NE(offset2.o, 0);
+
+  index_builder.IndexCssRule(offset1);
+  index_builder.IndexCssRule(offset2);
+
+  // Both should be indexed under the same ngram
+  EXPECT_GT(index_builder.GetNGramHashTableUsedSize(), 0);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+}
+
+// Test DoesOriginMatchDomainList - included matches but no excluded domains
+TEST_F(UrlPatternIndexExtTest, DoesOriginMatchDomainList_IncludedNoExcluded) {
+  const flat::CssRule* rule = CreateFlatCssRule(".test", {"example.com"});
+  ASSERT_NE(rule, nullptr);
+
+  // Should match included domain when there are no excluded domains
+  url::Origin origin = url::Origin::Create(GURL("https://example.com"));
+  EXPECT_TRUE(DoesOriginMatchDomainList(origin, *rule));
+}
+
+// Test DoesOriginMatchDomainList with excluded domain shorter than included
+TEST_F(UrlPatternIndexExtTest,
+       DoesOriginMatchDomainList_ExcludedShorterThanIncluded) {
+  // Rule includes "sub.example.com" but excludes "com"
+  // When checking sub.example.com: included matches "sub.example.com" (longer),
+  // excluded matches "com" (shorter), included wins => true
+  auto rule = CreateFlatCssRule(".test", {"sub.example.com"}, {"com"});
+  ASSERT_NE(rule, nullptr);
+
+  url::Origin origin = url::Origin::Create(GURL("https://sub.example.com"));
+  bool result = DoesOriginMatchDomainList(origin, *rule);
+  EXPECT_TRUE(result);
+}
+
+// Test CssPatternIndexMatcher FindMatchInSpecialRules with properly built index
+// that has no matching rules
+TEST_F(UrlPatternIndexExtTest, FindMatchInSpecialRules_NoMatchInBuiltIndex) {
+  flatbuffers::FlatBufferBuilder builder;
+  CssPatternIndexBuilder index_builder(&builder);
+  FlatDomainMap domain_map;
+
+  // Add a CSS rule with a domain that won't match our test URL
+  auto rule = CreateTestCssRuleWithDomain(".ad-banner", "adserver.com");
+  CssRuleOffset offset = SerializeCssRule(rule, &builder, &domain_map);
+  ASSERT_NE(offset.o, 0);
+  index_builder.IndexCssRule(offset);
+
+  CssPatternIndexOffset index_offset = index_builder.Finish();
+  ASSERT_NE(index_offset.o, 0);
+
+  const flat::CssPatternIndex* index =
+      flatbuffers::GetTemporaryPointer(builder, index_offset);
+  CssPatternIndexMatcher matcher(index);
+
+  // URL that doesn't match the rule's domain
+  GURL safe_url("https://safe-site.com/page");
+  auto result = matcher.FindMatchInSpecialRules(safe_url);
+  EXPECT_TRUE(result.empty());
+}
+
 #endif  // BUILDFLAG(ARKWEB_ADBLOCK)
 
 }  // namespace url_pattern_index

@@ -283,6 +283,125 @@ TEST_F(UserSubresourceFilterAgentTest, DidSubresourceFiltered) {
   EXPECT_NO_FATAL_FAILURE(agent->DidSubresourceFiltered());
 }
 
+TEST_F(UserSubresourceFilterAgentTest,
+       GetInheritedActivationState_FencedFrameRoot) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = true;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  // Fenced frame root returns default (disabled) state
+  auto state = UserSubresourceFilterAgent::GetInheritedActivationState(
+      tester.GetRenderFrame());
+  EXPECT_EQ(state.activation_level, mojom::ActivationLevel::kDisabled);
+}
+
+TEST_F(UserSubresourceFilterAgentTest, WillCreateWorkerFetchContext_NoFilter) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  // No filter_for_last_created_document_ -> early return
+  EXPECT_NO_FATAL_FAILURE(agent->WillCreateWorkerFetchContext(nullptr));
+}
+
+TEST_F(UserSubresourceFilterAgentTest,
+       ActivateForNextCommittedLoad_SubresourceFilterChild) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = false;
+  cond.is_in_fenced_frame_tree = true;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+
+  mojom::ActivationState state;
+  state.activation_level = mojom::ActivationLevel::kEnabled;
+  blink::FrameAdEvidence ad_evidence(false);
+  ad_evidence.set_created_by_ad_script(
+      blink::mojom::FrameCreationStackEvidence::kNotCreatedByAdScript);
+  ad_evidence.set_is_complete();
+  EXPECT_NO_FATAL_FAILURE(
+      agent->ActivateForNextCommittedLoad(state.Clone(), ad_evidence));
+}
+
+TEST_F(UserSubresourceFilterAgentTest,
+       SetAdEvidenceForInitialEmptySubframe_AdFrame) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  cond.local_frame_conditions[0].is_frame_created_by_ad_script = true;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  EXPECT_NO_FATAL_FAILURE(agent->SetAdEvidenceForInitialEmptySubframe());
+}
+
+TEST_F(UserSubresourceFilterAgentTest, ConstructFilter_NoRuleset) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = false;
+  cond.is_in_fenced_frame_tree = true;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+
+  mojom::ActivationState state;
+  state.activation_level = mojom::ActivationLevel::kEnabled;
+  const char url[] = "https://example.com/test";
+  blink::WebURL test_url = {GURL(url)};
+  // With no ruleset available, ConstructFilter should return early
+  EXPECT_NO_FATAL_FAILURE(agent->ConstructFilter(state, test_url));
+}
+
+TEST_F(UserSubresourceFilterAgentTest, DidFinishLoad_NoFilter) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  // No filter -> early return
+  EXPECT_NO_FATAL_FAILURE(agent->DidFinishLoad());
+}
+
+TEST_F(UserSubresourceFilterAgentTest, DidFailProvisionalLoad) {
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  tester.CreateSubresourceFilterAgent(cond, "http://example.com/test");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  EXPECT_NO_FATAL_FAILURE(agent->DidFailProvisionalLoad());
+}
+
+#if BUILDFLAG(ARKWEB_ADBLOCK)
+TEST_F(UserSubresourceFilterAgentTest,
+       CalcElementHidingTypeOption_NonHttpProtocol) {
+  // When has_local_frame=true, mock GetWebFrame() returns a dangling pointer.
+  // Use has_local_frame=false to test web_local_frame null check path.
+  UserSubresourceFilterAgentTester tester;
+  TestRenderFrameCondition cond;
+  cond.is_main_frame = true;
+  cond.is_in_fenced_frame_tree = false;
+  cond.has_local_frame = false;
+  tester.CreateSubresourceFilterAgent(cond, "file:///local/path");
+  auto agent = tester.GetAgent();
+  EXPECT_NE(agent, nullptr);
+  // web_local_frame is null -> early return, no crash
+  EXPECT_NO_FATAL_FAILURE(
+      agent->CalcElementHidingTypeOption(tester.GetRenderFrame()));
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_ADBLOCK)
 // 测试iframe继承主帧的adblock状态
 TEST_F(UserSubresourceFilterAgentTest,

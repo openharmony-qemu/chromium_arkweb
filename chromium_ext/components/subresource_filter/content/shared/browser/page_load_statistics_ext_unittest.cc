@@ -177,5 +177,117 @@ TEST_F(PageLoadStatisticsExtTest,
   auto& agg = stats.aggregated_document_after_load_statistics_;
   CheckStatistics(agg, mojom::DocumentLoadStatistics());
 }
+
+TEST_F(PageLoadStatisticsExtTest,
+       OnStatisticsAfterDocumentLoad_AccumulatesFields) {
+  mojom::DocumentLoadStatistics statistics;
+  auto web_contents = CreateTestWebContents();
+  PageLoadStatisticsExt stats(activation_state_, web_contents.get());
+
+  // First call with URL map - triggers NotifyAndResetStatistics (clears)
+  statistics.num_loads_total = 5;
+  statistics.num_loads_evaluated = 8;
+  statistics.num_loads_matching_rules = 3;
+  statistics.num_loads_disallowed = 2;
+  statistics.loads_disallowed_url_map = {{"url1", 1}};
+  stats.OnStatisticsAfterDocumentLoad(statistics);
+  // After notify+clear, the aggregated stats are reset
+  auto& agg = stats.aggregated_document_after_load_statistics_;
+  EXPECT_EQ(agg.num_loads_total, 0);
+  EXPECT_EQ(agg.num_loads_disallowed, 0);
+}
+
+TEST_F(PageLoadStatisticsExtTest, OnUserDocumentLoadStatistics_Accumulates) {
+  mojom::DocumentLoadStatistics statistics;
+  auto web_contents = CreateTestWebContents();
+  PageLoadStatisticsExt stats(activation_state_, web_contents.get());
+
+  statistics.num_loads_total = 10;
+  statistics.num_loads_evaluated = 20;
+  statistics.num_loads_matching_rules = 30;
+  statistics.num_loads_disallowed = 40;
+  statistics.loads_disallowed_url_map = {{"url", 1}};
+  stats.OnUserDocumentLoadStatistics(statistics);
+
+  statistics.num_loads_total = 5;
+  statistics.num_loads_evaluated = 10;
+  statistics.num_loads_matching_rules = 15;
+  statistics.num_loads_disallowed = 20;
+  statistics.loads_disallowed_url_map = {{"url2", 2}};
+  stats.OnUserDocumentLoadStatistics(statistics);
+
+  auto agg = stats.getUserAggregatedDocumentStatistics();
+  EXPECT_EQ(agg.num_loads_total, 15);       // 10 + 5
+  EXPECT_EQ(agg.num_loads_evaluated, 30);   // 20 + 10
+  EXPECT_EQ(agg.num_loads_disallowed, 60);  // 40 + 20
+}
+
+TEST_F(PageLoadStatisticsExtTest,
+       getAggregatedDocumentStatistics_InitiallyEmpty) {
+  auto web_contents = CreateTestWebContents();
+  PageLoadStatisticsExt stats(activation_state_, web_contents.get());
+
+  auto agg = stats.getAggregatedDocumentStatistics();
+  EXPECT_EQ(agg.num_loads_total, 0);
+  EXPECT_EQ(agg.num_loads_evaluated, 0);
+  EXPECT_EQ(agg.num_loads_matching_rules, 0);
+  EXPECT_EQ(agg.num_loads_disallowed, 0);
+  EXPECT_TRUE(agg.loads_disallowed_url_map.empty());
+}
+
+TEST_F(PageLoadStatisticsExtTest, SetReported_TwiceStaysFalse) {
+  auto web_contents = CreateTestWebContents();
+  PageLoadStatisticsExt stats(activation_state_, web_contents.get());
+  EXPECT_TRUE(stats.IsFirstReport());
+  stats.SetReported();
+  EXPECT_FALSE(stats.IsFirstReport());
+  stats.SetReported();
+  EXPECT_FALSE(stats.IsFirstReport());
+}
+
+TEST_F(PageLoadStatisticsExtTest, ClearStatistics_ClearsAllFields) {
+  mojom::DocumentLoadStatistics statistics;
+  statistics.num_loads_total = 100;
+  statistics.num_loads_evaluated = 200;
+  statistics.num_loads_matching_rules = 300;
+  statistics.num_loads_disallowed = 400;
+  statistics.loads_disallowed_url_map = {{"url1", 1}, {"url2", 2}};
+
+  auto web_contents = CreateTestWebContents();
+  PageLoadStatisticsExt stats(activation_state_, web_contents.get());
+  stats.ClearStatistics(statistics);
+
+  EXPECT_EQ(statistics.num_loads_total, 0);
+  EXPECT_EQ(statistics.num_loads_evaluated, 0);
+  EXPECT_EQ(statistics.num_loads_matching_rules, 0);
+  EXPECT_EQ(statistics.num_loads_disallowed, 0);
+  EXPECT_TRUE(statistics.loads_disallowed_url_map.empty());
+}
+
+TEST_F(PageLoadStatisticsExtTest, NotifyAndResetStatistics_NoWebContents) {
+  PageLoadStatisticsExt stats(activation_state_, nullptr);
+  // Set some data in aggregated_document_after_load_statistics_
+  stats.aggregated_document_after_load_statistics_.num_loads_total = 10;
+  stats.aggregated_document_after_load_statistics_.loads_disallowed_url_map = {
+      {"url", 1}};
+  // No crash without webcontents
+  EXPECT_NO_FATAL_FAILURE(stats.NotifyAndResetStatistics());
+  // web_contents_ is null so data is not cleared
+  EXPECT_EQ(stats.aggregated_document_after_load_statistics_.num_loads_total,
+            10);
+}
+
+TEST_F(PageLoadStatisticsExtTest, UserNotifyAndResetStatistics_NoWebContents) {
+  PageLoadStatisticsExt stats(activation_state_, nullptr);
+  stats.user_aggregated_document_after_load_statistics_.num_loads_total = 10;
+  stats.user_aggregated_document_after_load_statistics_
+      .loads_disallowed_url_map = {{"url", 1}};
+  // No crash without webcontents
+  EXPECT_NO_FATAL_FAILURE(stats.UserNotifyAndResetStatistics());
+  // web_contents_ is null so data is not cleared
+  EXPECT_EQ(
+      stats.user_aggregated_document_after_load_statistics_.num_loads_total,
+      10);
+}
 #endif
 }  // namespace subresource_filter

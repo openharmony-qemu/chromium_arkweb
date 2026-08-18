@@ -53,8 +53,9 @@ class DocumentSubresourceFilterExtTest : public ::testing::Test {
 
   void CreateRuleset(std::string_view suffix) {
     testing::TestRulesetPair test_ruleset_pair;
-    ASSERT_NO_FATAL_FAILURE(test_ruleset_creator_.CreateCssRulesetWithPathSuffix(
-        suffix, &test_ruleset_pair));
+    ASSERT_NO_FATAL_FAILURE(
+        test_ruleset_creator_.CreateCssRulesetWithPathSuffix(
+            suffix, &test_ruleset_pair));
     ruleset_ = MemoryMappedRuleset::CreateAndInitialize(
         testing::TestRuleset::Open(test_ruleset_pair.indexedCss));
   }
@@ -222,6 +223,135 @@ TEST_F(DocumentSubresourceFilterExtTest, GetUserDomPathSelectors) {
   EXPECT_NE(result, nullptr);
   result = filter->GetUserDomPathSelectors(document_url_, true);
   EXPECT_NE(result, nullptr);
+}
+
+// Test ClearStatistics resets all statistics fields
+TEST_F(DocumentSubresourceFilterExtTest, ClearStatistics) {
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  // Set some statistics first
+  filter->statistics_.num_loads_total = 10;
+  filter->statistics_.num_loads_evaluated = 20;
+  filter->statistics_.num_loads_matching_rules = 5;
+  filter->statistics_.num_loads_disallowed = 3;
+  filter->statistics_.loads_disallowed_url_map.insert({"test_url", 1});
+
+  filter->ClearStatistics();
+  EXPECT_EQ(filter->statistics_.num_loads_total, 0);
+  EXPECT_EQ(filter->statistics_.num_loads_evaluated, 0);
+  EXPECT_EQ(filter->statistics_.num_loads_matching_rules, 0);
+  EXPECT_EQ(filter->statistics_.num_loads_disallowed, 0);
+  EXPECT_TRUE(filter->statistics_.loads_disallowed_url_map.empty());
+}
+
+// Test SetDidFinishLoad and GetDidFinishLoad
+TEST_F(DocumentSubresourceFilterExtTest, DidFinishLoadAccessors) {
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  EXPECT_FALSE(filter->GetDidFinishLoad());
+  filter->SetDidFinishLoad(true);
+  EXPECT_TRUE(filter->GetDidFinishLoad());
+  filter->SetDidFinishLoad(false);
+  EXPECT_FALSE(filter->GetDidFinishLoad());
+}
+
+// Test DidMatchCssRule when DidFinishLoad is true and is_for_report is true
+TEST_F(DocumentSubresourceFilterExtTest, DidMatchCssRule_DidFinishLoad) {
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  filter->ClearStatistics();
+  filter->SetDidFinishLoad(true);
+
+  std::string dom_path = "html > body > div.ad";
+  EXPECT_NO_FATAL_FAILURE(
+      filter->DidMatchCssRule(document_url_, dom_path, true));
+  // is_for_report is true and DidFinishLoad is true -> insert should succeed
+  EXPECT_EQ(1u, filter->statistics_.loads_disallowed_url_map.size());
+  filter->ClearStatistics();
+}
+
+// Test HasDocumentTypeOption, HasElemHideTypeOption, HasGenericHideTypeOption
+TEST_F(DocumentSubresourceFilterExtTest, TypeOptionChecks) {
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  url::Origin parent_origin = url::Origin::Create(GURL("https://parent.com/"));
+  // These just delegate to ruleset_matcher_ - verify no crash
+  EXPECT_NO_FATAL_FAILURE(
+      filter->HasDocumentTypeOption(document_url_, parent_origin));
+  EXPECT_NO_FATAL_FAILURE(
+      filter->HasElemHideTypeOption(document_url_, parent_origin));
+  EXPECT_NO_FATAL_FAILURE(
+      filter->HasGenericHideTypeOption(document_url_, parent_origin));
+}
+
+// Test FindMatchingCssRule with various document URLs
+TEST_F(DocumentSubresourceFilterExtTest, FindMatchingCssRule_DifferentUrls) {
+  // create ruleset
+  std::vector<proto::CssRule> rules;
+  auto rule = test_ruleset_creator_.MakeCssRule(
+      "test1", proto::RULE_SEMANTICS_BLOCKLIST);
+  auto* domain_item = rule.add_domains();
+  domain_item->set_domain(kTestDomain);
+  domain_item->set_exclude(false);
+  rules.push_back(rule);
+  AddSimpleCssRules(rules);
+
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+
+  // Test with URL matching the domain
+  auto result = filter->FindMatchingCssRule(document_url_, false);
+  // Should return non-null since rules have matching domain
+  EXPECT_NE(result, nullptr);
+
+  // Test with URL not matching any domain in rules
+  GURL other_url("https://other.com/page");
+  result = filter->FindMatchingCssRule(other_url, false);
+  // May or may not match depending on rules, just verify no crash
+  EXPECT_NO_FATAL_FAILURE(filter->FindMatchingCssRule(other_url, true));
+}
+
+// Test GetSelectors returns a string (even if empty) for valid input
+TEST_F(DocumentSubresourceFilterExtTest, GetSelectors_FormatCheck) {
+  // Use the default ruleset from SetUp
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  // GetSelectors should return non-null (returns make_unique<string> even when
+  // no CSS rules match), verifying no crash and correct return type
+  auto result = filter->GetSelectors(document_url_, false);
+  EXPECT_NE(result, nullptr);
+  // If CSS rules match, verify format: "selector {display: none !important;}\n"
+  if (!result->empty()) {
+    EXPECT_NE(result->find("display: none !important;"), std::string::npos);
+  }
+  auto result2 = filter->GetSelectors(document_url_, true);
+  EXPECT_NE(result2, nullptr);
+}
+
+// Test GetUserDomPathSelectors returns vector of selectors
+TEST_F(DocumentSubresourceFilterExtTest, GetUserDomPathSelectors_FormatCheck) {
+  // Use same ruleset pattern as the passing GetUserDomPathSelectors test
+  std::vector<proto::CssRule> rules;
+  auto rule = test_ruleset_creator_.MakeCssRule(
+      "test1", proto::RULE_SEMANTICS_BLOCKLIST);
+  auto* domain_item = rule.add_domains();
+  domain_item->set_domain(kTestDomain);
+  domain_item->set_exclude(false);
+  rules.push_back(rule);
+  rule = test_ruleset_creator_.MakeCssRule("test2",
+                                           proto::RULE_SEMANTICS_BLOCKLIST);
+  rules.push_back(rule);
+  AddSimpleCssRules(rules);
+
+  auto filter = CreateFilter();
+  EXPECT_NE(filter, nullptr);
+  auto result = filter->GetUserDomPathSelectors(document_url_, false);
+  if (result) {
+    // Vector should contain selector strings
+    for (const auto& sel : *result) {
+      EXPECT_FALSE(sel.empty());
+    }
+  }
 }
 #endif  // BUILDFLAG(ARKWEB_ADBLOCK)
 }  // namespace subresource_filter

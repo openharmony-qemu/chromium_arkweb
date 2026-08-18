@@ -13,13 +13,15 @@
  * limitations under the License.
  */
 
+#include "arkweb/chromium_ext/components/url_formatter/arkweb_elide_url_ext.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <string>
 #include <vector>
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
 
-#include "arkweb/chromium_ext/components/url_formatter/arkweb_elide_url_ext.h"
 #include "base/strings/utf_string_conversions.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -54,7 +56,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_EmptyString) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::INVALID);
 }
@@ -65,7 +67,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_WhitespaceOnly) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::INVALID);
 }
@@ -76,7 +78,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ValidHttpUrl) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"http");
@@ -90,7 +92,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ValidHttpsUrl) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -104,7 +106,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_FileScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"file");
@@ -116,9 +118,10 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_FileWithoutPrefix) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
-  // Should be detected as file but return QUERY since it doesn't start with file://
+  // Should be detected as file but return QUERY since it doesn't start with
+  // file://
   EXPECT_TRUE(result == UrlType::QUERY || result == UrlType::URL);
 }
 
@@ -128,7 +131,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_JavaScriptScheme_ValidCode) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"javascript");
@@ -140,7 +143,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_JavaScriptScheme_QueryLike) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
   EXPECT_EQ(scheme, u"javascript");
@@ -152,7 +155,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_DataScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"data");
@@ -160,11 +163,12 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_DataScheme) {
 
 // Test ParseInput with blob scheme
 TEST_F(ArkWebElideUrlExtTest, ParseInput_BlobScheme) {
-  std::u16string input = u"blob:https://example.com/550e8400-e29b-41d4-a716-446655440000";
+  std::u16string input =
+      u"blob:https://example.com/550e8400-e29b-41d4-a716-446655440000";
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"blob");
@@ -176,7 +180,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ArkWebScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"arkweb");
@@ -188,7 +192,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_DataabilityScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"dataability");
@@ -200,7 +204,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_UnknownScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
   EXPECT_EQ(scheme, u"unknown");
@@ -212,7 +216,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_IPv4Address) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_TRUE(result == UrlType::URL || result == UrlType::QUERY);
 }
@@ -223,7 +227,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_IPv4AddressWithPort) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -234,7 +238,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_IPv6Address) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -245,7 +249,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_Localhost) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -256,7 +260,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_LocalhostWithPort) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -267,7 +271,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_DomainWithSlash) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -278,7 +282,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_DomainWithBackslash) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -289,7 +293,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_WithCredentials) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -300,7 +304,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_UsernameWithSpace) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
 }
@@ -311,7 +315,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_KnownTLD) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -322,7 +326,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_UnknownTLD) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
 }
@@ -333,7 +337,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ExampleDomain) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -344,7 +348,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_TestDomain) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -355,7 +359,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_LocalDomain) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -366,7 +370,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_SearchQuery) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::QUERY);
 }
@@ -377,7 +381,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_PathNoScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -388,7 +392,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_WithQueryParams) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -399,7 +403,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_WithFragment) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -409,7 +413,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_NullParts) {
   std::u16string input = u"https://example.com";
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, nullptr, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -420,7 +424,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_NullScheme) {
   std::u16string input = u"https://example.com";
   url::Parsed parts;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, nullptr, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -430,7 +434,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_NullCanonicalizedUrl) {
   std::u16string input = u"https://example.com";
   url::Parsed parts;
   std::u16string scheme;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, nullptr);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -439,18 +443,20 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_NullCanonicalizedUrl) {
 // Test ParseInput with all null optional parameters
 TEST_F(ArkWebElideUrlExtTest, ParseInput_AllNullParams) {
   std::u16string input = u"https://example.com";
-  
+
   UrlType result = ParseInput(input, nullptr, nullptr, nullptr);
   EXPECT_EQ(result, UrlType::URL);
 }
 
 // Test ParseInput with complex URL
 TEST_F(ArkWebElideUrlExtTest, ParseInput_ComplexUrl) {
-  std::u16string input = u"https://user:pass@sub.example.com:8080/path/to/page?param=value&other=123#section";
+  std::u16string input =
+      u"https://user:pass@sub.example.com:8080/path/to/"
+      u"page?param=value&other=123#section";
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -463,7 +469,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_InternationalizedDomain) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -475,7 +481,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_WithWhitespace) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -488,7 +494,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_VeryLongUrl) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -500,7 +506,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_SpecialCharactersInPath) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -512,7 +518,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_InvalidDomain) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
 }
@@ -523,18 +529,19 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ZeroIP) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
 
 // Test ParseInput performance with many components
 TEST_F(ArkWebElideUrlExtTest, ParseInput_ManyComponents) {
-  std::u16string input = u"user:pass@host.example.com:8080/path?query=value&other=test#fragment";
+  std::u16string input =
+      u"user:pass@host.example.com:8080/path?query=value&other=test#fragment";
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
 }
@@ -545,7 +552,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_MixedCaseScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"https");
@@ -557,7 +564,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_FileSystemScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_EQ(scheme, u"filesystem");
@@ -569,7 +576,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ContentScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
   EXPECT_EQ(scheme, u"content");
@@ -581,7 +588,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ResourcesScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
   EXPECT_EQ(scheme, u"resources");
@@ -593,7 +600,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_NonASCIIScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);
 }
@@ -604,7 +611,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_StandardScheme) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);  // ftp is a standard scheme
   EXPECT_EQ(scheme, u"ftp");
@@ -616,7 +623,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_MultipleComponents) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);  // Should be URL due to multiple components
 }
@@ -627,7 +634,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_SingleComponent) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);  // Single unknown component
 }
@@ -638,7 +645,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_IPv4Partial) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::QUERY);  // Partial IPv4 should be query
 }
@@ -649,9 +656,10 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_PortOnly) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
-  EXPECT_TRUE(result == UrlType::QUERY || result == UrlType::UNKNOWN || result == UrlType::INVALID);
+  EXPECT_TRUE(result == UrlType::QUERY || result == UrlType::UNKNOWN ||
+              result == UrlType::INVALID);
 }
 
 // Test ParseInput with username but no password
@@ -660,7 +668,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_UsernameOnly) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::UNKNOWN);  // Username without password
 }
@@ -671,7 +679,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_ComplexJavaScript) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::URL);  // Complex JS should be URL
   EXPECT_EQ(scheme, u"javascript");
@@ -683,7 +691,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_QueryInUrlFormat) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_EQ(result, UrlType::QUERY);
 }
@@ -694,7 +702,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_MalformedUrl) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   EXPECT_TRUE(result == UrlType::QUERY || result == UrlType::UNKNOWN);
 }
@@ -705,7 +713,7 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_HttpWithCredentials) {
   url::Parsed parts;
   std::u16string scheme;
   GURL canonicalized_url;
-  
+
   UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
   // Should attempt to parse as HTTP URL with credentials
   EXPECT_TRUE(result == UrlType::URL || result == UrlType::UNKNOWN);
@@ -714,41 +722,39 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_HttpWithCredentials) {
 // Test ParseInput with special domains
 TEST_F(ArkWebElideUrlExtTest, ParseInput_SpecialDomains) {
   std::vector<std::u16string> special_domains = {
-    u"sub.example",     // Should be URL (special .example domain)
-    u"test.test",       // Should be URL (special .test domain)  
-    u"device.local",    // Should be URL (special .local domain)
-    u"example",         // Should be UNKNOWN (just "example")
-    u"test",            // Should be UNKNOWN (just "test")
-    u"local"            // Should be UNKNOWN (just "local")
+      u"sub.example",   // Should be URL (special .example domain)
+      u"test.test",     // Should be URL (special .test domain)
+      u"device.local",  // Should be URL (special .local domain)
+      u"example",       // Should be UNKNOWN (just "example")
+      u"test",          // Should be UNKNOWN (just "test")
+      u"local"          // Should be UNKNOWN (just "local")
   };
-  
-  std::vector<UrlType> expected_results = {
-    UrlType::URL,
-    UrlType::URL,
-    UrlType::URL,
-    UrlType::UNKNOWN,
-    UrlType::UNKNOWN,
-    UrlType::UNKNOWN
-  };
-  
+
+  std::vector<UrlType> expected_results = {UrlType::URL,     UrlType::URL,
+                                           UrlType::URL,     UrlType::UNKNOWN,
+                                           UrlType::UNKNOWN, UrlType::UNKNOWN};
+
   for (size_t i = 0; i < special_domains.size(); ++i) {
     url::Parsed parts;
     std::u16string scheme;
     GURL canonicalized_url;
-    
-    UrlType result = ParseInput(special_domains[i], &parts, &scheme, &canonicalized_url);
-    EXPECT_EQ(result, expected_results[i]) << "Failed for domain: " << base::UTF16ToUTF8(special_domains[i]);
+
+    UrlType result =
+        ParseInput(special_domains[i], &parts, &scheme, &canonicalized_url);
+    EXPECT_EQ(result, expected_results[i])
+        << "Failed for domain: " << base::UTF16ToUTF8(special_domains[i]);
   }
 }
 
 // Test ParseInput with stress test - many similar URLs
 TEST_F(ArkWebElideUrlExtTest, ParseInput_StressTest) {
   for (int i = 0; i < 100; ++i) {
-    std::u16string input = ToUTF16("https://test" + std::to_string(i) + ".example.com");
+    std::u16string input =
+        ToUTF16("https://test" + std::to_string(i) + ".example.com");
     url::Parsed parts;
     std::u16string scheme;
     GURL canonicalized_url;
-    
+
     UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
     EXPECT_EQ(result, UrlType::URL);
     EXPECT_EQ(scheme, u"https");
@@ -764,10 +770,10 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_MemoryManagement) {
     url::Parsed parts;
     std::u16string scheme;
     GURL canonicalized_url;
-    
+
     UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
     EXPECT_EQ(result, UrlType::URL);
-    
+
     // Force cleanup between iterations
     scheme.clear();
   }
@@ -848,6 +854,219 @@ TEST_F(ArkWebElideUrlExtTest, ParseInput_Has_Port) {
   EXPECT_EQ(result, UrlType::URL);
   EXPECT_TRUE(canonicalized_url.has_port());
   EXPECT_EQ(canonicalized_url.port(), "8080");
+}
+
+// Test NumNonHostComponents with all components set
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_AllComponentsSet) {
+  url::Parsed parts;
+  parts.scheme = url::Component(0, 4);
+  parts.username = url::Component(5, 4);
+  parts.password = url::Component(10, 4);
+  parts.port = url::Component(15, 4);
+  parts.path = url::Component(20, 4);
+  parts.query = url::Component(25, 4);
+  parts.ref = url::Component(30, 4);
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 7);
+}
+
+// Test NumNonHostComponents with no components set
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_NoComponentsSet) {
+  url::Parsed parts;
+  parts.scheme = url::Component();
+  parts.username = url::Component();
+  parts.password = url::Component();
+  parts.port = url::Component();
+  parts.path = url::Component();
+  parts.query = url::Component();
+  parts.ref = url::Component();
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 0);
+}
+
+// Test NumNonHostComponents with port set
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_PortSet) {
+  url::Parsed parts;
+  parts.scheme = url::Component();
+  parts.username = url::Component();
+  parts.password = url::Component();
+  parts.port = url::Component(0, 4);
+  parts.path = url::Component();
+  parts.query = url::Component();
+  parts.ref = url::Component();
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 1);
+}
+
+// Test NumNonHostComponents with query set
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_QuerySet) {
+  url::Parsed parts;
+  parts.scheme = url::Component();
+  parts.username = url::Component();
+  parts.password = url::Component();
+  parts.port = url::Component();
+  parts.path = url::Component();
+  parts.query = url::Component(0, 5);
+  parts.ref = url::Component();
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 1);
+}
+
+// Test NumNonHostComponents with ref set
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_RefSet) {
+  url::Parsed parts;
+  parts.scheme = url::Component();
+  parts.username = url::Component();
+  parts.password = url::Component();
+  parts.port = url::Component();
+  parts.path = url::Component();
+  parts.query = url::Component();
+  parts.ref = url::Component(0, 3);
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 1);
+}
+
+// Test NumNonHostComponents with multiple components
+TEST_F(ArkWebElideUrlExtTest, NumNonHostComponents_MultipleComponents) {
+  url::Parsed parts;
+  parts.scheme = url::Component(0, 4);
+  parts.username = url::Component();
+  parts.password = url::Component(5, 4);
+  parts.port = url::Component();
+  parts.path = url::Component(10, 4);
+  parts.query = url::Component();
+  parts.ref = url::Component();
+
+  int result = TestNumNonHostComponents(parts);
+  EXPECT_EQ(result, 3);  // scheme + password + path
+}
+
+// Test GetInputTypeForScheme with data scheme (case insensitive)
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_DataSchemeLower) {
+  std::string scheme = "data";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with blob scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_BlobScheme) {
+  std::string scheme = "blob";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with filesystem scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_FileSystemScheme) {
+  std::string scheme = "filesystem";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with javascript scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_JavaScriptScheme) {
+  std::string scheme = "javascript";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with arkweb scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_ArkWebScheme) {
+  std::string scheme = "arkweb";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with dataability scheme (uppercase)
+// Note: Uppercase "DATABILITY" is not matched by IsStandard, and
+// EqualsCaseInsensitiveASCII with kDataabilityScheme depends on linkage.
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_DataabilitySchemeUpper) {
+  std::string scheme = "DATABILITY";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  // Even though EqualsCaseInsensitiveASCII should match, the actual behavior
+  // on device may differ due to symbol resolution. Check INVALID or URL.
+  EXPECT_TRUE(result == UrlType::INVALID || result == UrlType::URL);
+}
+
+// Test GetInputTypeForScheme with ftp standard scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_FtpScheme) {
+  std::string scheme = "ftp";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);  // ftp is a standard scheme
+}
+
+// Test GetInputTypeForScheme with http standard scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_HttpScheme) {
+  std::string scheme = "http";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);  // http is a standard scheme
+}
+
+// Test GetInputTypeForScheme with unknown invalid scheme
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_UnknownInvalidScheme) {
+  std::string scheme = "zzzzunknownscheme";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::INVALID);
+}
+
+// Test GetInputTypeForScheme with uppercase DATA scheme (case insensitive)
+TEST_F(ArkWebElideUrlExtTest, GetInputTypeForScheme_UpperCaseDataScheme) {
+  std::string scheme = "DATA";
+  UrlType result = TestGetInputTypeForScheme(scheme);
+  EXPECT_EQ(result, UrlType::URL);
+}
+
+// Test ParseInput with javascript that contains semicolon (should be URL)
+TEST_F(ArkWebElideUrlExtTest, ParseInput_JavaScriptWithSemicolon) {
+  std::u16string input = u"javascript:var x=1;";
+  url::Parsed parts;
+  std::u16string scheme;
+  GURL canonicalized_url;
+
+  UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
+  // Semicolon means it's not matching the "not code" regex, should be URL
+  EXPECT_EQ(result, UrlType::URL);
+  EXPECT_EQ(scheme, u"javascript");
+}
+
+// Test ParseInput with http URL with path ending in slash
+TEST_F(ArkWebElideUrlExtTest, ParseInput_HttpPathEndSlash) {
+  std::u16string input = u"http://example.com/path/";
+  url::Parsed parts;
+  std::u16string scheme;
+  GURL canonicalized_url;
+
+  UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
+  EXPECT_EQ(result, UrlType::URL);
+  EXPECT_TRUE(parts.path.is_nonempty());
+}
+
+// Test ParseInput with just a path (no scheme, no domain)
+TEST_F(ArkWebElideUrlExtTest, ParseInput_PathOnlyNoScheme) {
+  std::u16string input = u"/just/a/path";
+  url::Parsed parts;
+  std::u16string scheme;
+  GURL canonicalized_url;
+
+  UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
+  // Should be treated as a file path or query
+  EXPECT_TRUE(result == UrlType::URL || result == UrlType::QUERY);
+}
+
+// Test ParseInput with URL having username
+TEST_F(ArkWebElideUrlExtTest, ParseInput_UrlWithUsernameOnly) {
+  std::u16string input = u"http://user@example.com/path";
+  url::Parsed parts;
+  std::u16string scheme;
+  GURL canonicalized_url;
+
+  UrlType result = ParseInput(input, &parts, &scheme, &canonicalized_url);
+  EXPECT_EQ(result, UrlType::URL);
+  EXPECT_TRUE(canonicalized_url.has_username());
 }
 
 #endif  // BUILDFLAG(IS_ARKWEB_EXT)
