@@ -97,6 +97,10 @@ class RenderFrameHost;
 class GURL;
 #endif
 
+namespace content {
+class WebContents;
+}
+
 struct NativeWindow;
 
 namespace OHOS::NWeb {
@@ -158,6 +162,27 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void RegisterReleaseSurfaceListener(
       std::shared_ptr<NWebReleaseSurfaceCallback> releaseSurfaceListener);
   void RegisterNWebHandler(std::shared_ptr<NWebHandler> handler);
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+  // Triggers the NWeb popup flow: fires Phase 1 callbacks (OnWindowNewByJS
+  // isFirst=true + OnWindowNewExtByJS), then stores |callback| in
+  // popupWindowCallback_. When ArkTS calls NotifyPopupWindowResult,
+  // Continue()/Cancel() is invoked on the callback.
+  void TriggerWindowNewByJS(
+      const std::string& target_url,
+      bool is_alert,
+      bool is_user_trigger,
+      CefRefPtr<CefCallback> callback);
+
+  // Completes the popup creation after ArkTS has signaled readiness.
+  // Runs Phase 2 (OnWindowNewByJS isFirst=false + OnWindowNewExtByJS), then
+  // creates the CEF browser using the popup NWeb's CefClient (matching the
+  // OnBeforePopup flow). Must be called on the UI thread.
+  // Returns the WebContents of the created popup browser, or nullptr on failure.
+  content::WebContents* CompletePopupCreation(
+      const std::string& url,
+      bool is_alert,
+      bool is_user_trigger);
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   void RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback);
 #endif
