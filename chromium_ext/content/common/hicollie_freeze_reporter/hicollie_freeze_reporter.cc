@@ -17,17 +17,36 @@
 
 #include "hicollie_freeze_reporter.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
 #include "hicollie/hicollie.h"
 #include "third_party/bounds_checking_function/include/securec.h"
 
 namespace {
 
-std::string g_freezeMsg = "arkweb freeze";
-std::mutex g_msgMutex;
+base::NoDestructor<std::string>& FreezeMsgStorage() {
+  static base::NoDestructor<std::string> g_freezeMsg("arkweb freeze");
+  return g_freezeMsg;
+}
 
-bool g_isCallbackRegistered = false;
-bool g_isFreezeEvent = false;
-std::mutex g_hicollieMutex;
+std::mutex& MsgMutexStorage() {
+  static std::mutex g_msgMutex;
+  return g_msgMutex;
+}
+
+bool& IsCallbackRegisteredStorage() {
+  static bool g_isCallbackRegistered = false;
+  return g_isCallbackRegistered;
+}
+
+bool& IsFreezeEventStorage() {
+  static bool g_isFreezeEvent = false;
+  return g_isFreezeEvent;
+}
+
+std::mutex& HicollieMutexStorage() {
+  static std::mutex g_hicollieMutex;
+  return g_hicollieMutex;
+}
 
 size_t FreezeCallback(HiCollie_Freeze_Type type, void* buffer, size_t size) {
     if (!buffer || size == 0) {
@@ -54,34 +73,34 @@ size_t FreezeCallback(HiCollie_Freeze_Type type, void* buffer, size_t size) {
 namespace HicollieReporter {
 
 void SetFreezeMessage(const std::string& msg) {
-    std::lock_guard<std::mutex> lock(g_msgMutex);
-    g_freezeMsg = msg;
+    std::lock_guard<std::mutex> lock(MsgMutexStorage());
+    *FreezeMsgStorage() = msg;
 }
 
 std::string GetFreezeMessage() {
-    std::lock_guard<std::mutex> lock(g_msgMutex);
-    return g_freezeMsg;
+    std::lock_guard<std::mutex> lock(MsgMutexStorage());
+    return *FreezeMsgStorage();
 }
 
 void ReportFreezeToHicollie() {
-    std::lock_guard<std::mutex> lock(g_hicollieMutex);
+    std::lock_guard<std::mutex> lock(HicollieMutexStorage());
 
     static int reportCount = 2;
     if (reportCount <= 0) {
         return;
     }
 
-    if (!g_isCallbackRegistered) {
+    if (!IsCallbackRegisteredStorage()) {
         OH_HiCollie_SetFreezeCallback(&FreezeCallback);
-        g_isCallbackRegistered = true;
+        IsCallbackRegisteredStorage() = true;
     }
 
-    HiCollie_ErrorCode code = OH_HiCollie_AssociateProcessReport(g_isFreezeEvent);
+    HiCollie_ErrorCode code = OH_HiCollie_AssociateProcessReport(IsFreezeEventStorage());
     if (code != HICOLLIE_SUCCESS) {
         LOG(ERROR) << "HiCollie report failed, error: " << code;
     }
 
-    g_isFreezeEvent = !g_isFreezeEvent;
+    IsFreezeEventStorage() = !IsFreezeEventStorage();
     --reportCount;
 }
 

@@ -1601,11 +1601,11 @@ int32_t NWebInputMethodHandler::SetPreviewText(const std::u16string& text,
   if (composition_type_ == COMPOSITION_CANCEL) {
     LOG(DEBUG) << "NWebInputMethodHandler::COMPOSITION_CANCEL";
     if (browser_ == nullptr) {
-      return;
+      return ERROR;
     }
     CefRefPtr<ArkWebBrowserHostExt> host = browser_->GetHost();
     if (host == nullptr) {
-      return;
+      return ERROR;
     }
     CefRefPtr<CefTask> task = new InputMethodTask(base::BindOnce(
         &NWebInputMethodHandler::CancelPreviewHandlerOnUI, this));
