@@ -757,5 +757,62 @@ TEST_F(FirstScreenCalculatorTest, NotifyTextPaintNewTimestampNonEmpty) {
   EXPECT_EQ(calculator_->timer_.IsRunning(), true);
 }
 
+// GetPaintRects (line 417): background_image_id_ != 0 true arm. The existing
+// GetPaintRects test leaves background_image_id_ at 0 (false arm); this sets a
+// background id+rect so the final emplace_back branch is taken.
+TEST_F(FirstScreenCalculatorTest, GetPaintRectsWithBackgroundImage) {
+  gfx::Rect bg_rect(0, 0, 700, 700);
+  calculator_->background_image_id_ = 5;
+  calculator_->background_rect_ = bg_rect;
+  std::vector<gfx::Rect> paint_rects;
+  calculator_->GetPaintRects(paint_rects);
+  ASSERT_EQ(paint_rects.size(), 1u);
+  EXPECT_EQ(paint_rects[0], bg_rect);
+}
+
+// OnFirstScreenInvoked (line 53): navigation_start_time_ == navigation_start_time
+// false arm of the first condition. A first call (non-null paint time) records
+// navigation_start_time_; the second call hits the equal branch and skips the
+// OnFirstScreenPaint block. The existing OnFirstScreenInvoked test always has
+// navigation_start_time_ != navigation_start_time (true arm only).
+TEST_F(FirstScreenCalculatorTest, OnFirstScreenInvokedSameNavigationStart) {
+  calculator_->first_screen_paint_time_ = base::TimeTicks::Now();
+  calculator_->navigation_start_time_ = base::TimeTicks();
+  calculator_->OnFirstScreenInvoked();
+  ASSERT_NE(calculator_->navigation_start_time_, base::TimeTicks());
+  base::TimeTicks first_nav = calculator_->navigation_start_time_;
+  calculator_->OnFirstScreenInvoked();
+  EXPECT_EQ(calculator_->navigation_start_time_, first_nav);
+}
+
+// Null-local-frame guards: a calculator constructed without a LocalFrame reaches
+// the early-return arms that the main fixture (always with a frame) cannot:
+// OnFirstScreenInvoked `if (local_frame_)` false (line 48),
+// RestartTimerForFirstScreenDetection `if (!local_frame_)` true (line 115),
+// GetViewportAreaAndTrimRect local_frame_ short-circuit/else (line 360), and
+// OnUserScroll `if (local_frame_)` false (line 378). The constructor only stores
+// the pointer, so a nullptr frame is safe; every guard returns early.
+TEST_F(FirstScreenCalculatorTest, NullLocalFrameGuards) {
+  FirstScreenCalculator* calc =
+      MakeGarbageCollected<FirstScreenCalculator>(nullptr);
+  ASSERT_NE(calc, nullptr);
+
+  // line 48 false arm.
+  calc->OnFirstScreenInvoked();
+
+  // line 115 true arm (!local_frame_); timer stays stopped.
+  calc->user_scrolled_ = false;
+  calc->RestartTimerForFirstScreenDetection();
+  EXPECT_FALSE(calc->timer_.IsRunning());
+
+  // line 360 local_frame_ short-circuit -> else -> return false.
+  gfx::Rect rect(0, 0, 10, 10);
+  EXPECT_FALSE(calc->GetViewportAreaAndTrimRect(rect));
+
+  // line 378 false arm (blank-screen block skipped on null frame).
+  calc->OnUserScroll();
+  EXPECT_TRUE(calc->HasUserScrolled());
+}
+
 }  // namespace
 }  // namespace blink

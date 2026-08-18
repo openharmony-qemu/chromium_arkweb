@@ -1336,6 +1336,7 @@ arkweb_content_browser_test_sources = [
   "//arkweb/chromium_ext/content/browser/renderer_host/arkweb_render_process_host_impl_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/navigation_request_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_impl_ext_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_view_child_frame_ext_unittest.cc",
   "//arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_ext_test.cc",
   "//arkweb/chromium_ext/content/browser/web_contents/web_contents_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/content/public/browser/spare_render_process_manager_ohos_unittest.cc",

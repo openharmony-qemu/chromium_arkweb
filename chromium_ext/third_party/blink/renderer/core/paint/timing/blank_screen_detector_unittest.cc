@@ -202,5 +202,54 @@ TEST_F(BlankScreenDetectorTest, GenerateTestPointsByMethodDetection17) {
   detector_->GenerateTestPointsByMethodDetection17(0, 0);
   EXPECT_EQ(detector_->test_points_.size(), 17);
 }
+
+// RunDetectionTask (line 154): contentful_point_count > threshold false arm
+// (enough content -> not blank -> skip the detection block). A viewport-sized
+// paint rect covers all 17 generated test points -> count 17 > threshold 0.
+// detection_methods_ must be populated so GenerateTestPoints() produces points.
+// url_ must match the document's URL, otherwise CalculateContentfulCount()
+// early-returns 0.
+TEST_F(BlankScreenDetectorTest, RunDetectionTaskAboveThreshold) {
+  detector_->url_ =
+      local_frame_->GetDocument()->Url().GetString().GetString();
+  detector_->contentful_nodes_count_threshold_ = 0;
+  detector_->task_delays_ms_ = {1000};
+  detector_->current_task_index_ = 0;
+  detector_->detection_methods_.insert(
+      BlankScreenDetectionMethod::DETECTION_CONTENTFUL_NODES_SEVENTEEN);
+  local_frame_->View()
+      ->GetPaintTimingDetector()
+      .GetFirstScreenCalculator()
+      ->image_rects_map_.insert(
+          {0, {gfx::Rect(0, 0, 800, 600), base::TimeTicks::Now()}});
+  detector_->RunDetectionTask();
+  // Line 154 false: the blank-screen block is skipped, so ScheduleNextTask is
+  // not called and current_task_index_ stays 0 (had count <= threshold, the
+  // 0 < size branch would reschedule and bump it to 1).
+  EXPECT_EQ(detector_->current_task_index_, 0);
+}
+
+// RunDetectionTask (line 161): contentful_point_count > 0 true arm of the
+// SUB_THRESHOLD check. Existing cases reach this line with count 0 (false arm).
+// Here the centre test point is covered -> count 1, threshold 1, last task ->
+// SUB_THRESHOLD_CONTENTFUL_NODES reason. detection_enable_ stays false so
+// OnDetectedBlankScreen is not invoked.
+TEST_F(BlankScreenDetectorTest, RunDetectionTaskSubThreshold) {
+  detector_->url_ =
+      local_frame_->GetDocument()->Url().GetString().GetString();
+  detector_->contentful_nodes_count_threshold_ = 1;
+  detector_->task_delays_ms_ = {1000};
+  detector_->current_task_index_ = 1;
+  detector_->detection_enable_ = false;
+  detector_->detection_methods_.insert(
+      BlankScreenDetectionMethod::DETECTION_CONTENTFUL_NODES_SEVENTEEN);
+  local_frame_->View()
+      ->GetPaintTimingDetector()
+      .GetFirstScreenCalculator()
+      ->image_rects_map_.insert(
+          {0, {gfx::Rect(390, 290, 20, 20), base::TimeTicks::Now()}});
+  detector_->RunDetectionTask();
+  EXPECT_EQ(detector_->current_task_index_, 1);
+}
 }  // namespace
 }  // namespace blink
