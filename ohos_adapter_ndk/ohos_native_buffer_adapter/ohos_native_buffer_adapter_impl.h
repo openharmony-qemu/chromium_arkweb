@@ -59,6 +59,8 @@ public:
 
     int FreeNativeBuffer(void* nativeBuffer) override;
 
+    bool IsColorSpaceSupported(void* nativeBuffer) override;
+
 private:
     bool IsBufferLocked(OH_NativeBuffer* buffer) const;
 
