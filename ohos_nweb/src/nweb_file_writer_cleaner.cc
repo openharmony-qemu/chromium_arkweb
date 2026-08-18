@@ -36,22 +36,14 @@ static bool g_needsDelete = true;
 
 std::vector<base::FilePath> GetTempraryFiles(base::FilePath directory) {
   std::vector<base::FilePath> files;
-  // Temp
-  base::FileEnumerator file_enum(
-      directory, /*recursive=*/false, base::FileEnumerator::FILES,
-      base::FormatTemporaryFileName(FILE_PATH_LITERAL("*"), false).value());
-  for (base::FilePath path = file_enum.Next(); !path.empty();
-       path = file_enum.Next()) {
-    files.push_back(path);
-  }
   // Temp/Download
   directory = directory.AppendASCII("Download");
   if (base::DirectoryExists(directory)) {
-    base::FileEnumerator file_download_enum(
+    base::FileEnumerator file_enum(
         directory, /*recursive=*/false, base::FileEnumerator::FILES,
         base::FormatTemporaryFileName(FILE_PATH_LITERAL("*"), false).value());
-    for (base::FilePath path = file_download_enum.Next(); !path.empty();
-         path = file_download_enum.Next()) {
+    for (base::FilePath path = file_enum.Next(); !path.empty();
+         path = file_enum.Next()) {
       files.push_back(path);
     }
   }
