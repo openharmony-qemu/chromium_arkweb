@@ -150,13 +150,150 @@ TEST_F(DiskCacheBackendFactoryTest, IsInitedAtomicTest) {
 TEST_F(DiskCacheBackendFactoryTest, CacheCreatedCallbackErrorTest) {
   DiskCacheBackendFactory factory;
   factory.backend_complete_callback_list_.push_back(base::BindOnce([](){}));
-  
+
   disk_cache::BackendResult result;
   result.net_error = net::ERR_FAILED;
   result.backend = nullptr;
   factory.CacheCreatedCallback(std::move(result));
   EXPECT_FALSE(factory.is_inited_.load());
   EXPECT_EQ(factory.backend_complete_callback_list_.size(), 1);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CheckBackendAsyncMultipleCallbacksTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(false);
+
+  int callback_count = 0;
+
+  EXPECT_FALSE(factory.CheckBackendAsync(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count)));
+  EXPECT_FALSE(factory.CheckBackendAsync(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count)));
+  EXPECT_FALSE(factory.CheckBackendAsync(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count)));
+
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 3);
+  EXPECT_EQ(callback_count, 0);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CacheCreatedCallbackRunsMultipleCallbacksTest) {
+  DiskCacheBackendFactory factory;
+
+  int callback_count = 0;
+
+  factory.backend_complete_callback_list_.push_back(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count));
+  factory.backend_complete_callback_list_.push_back(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count));
+  factory.backend_complete_callback_list_.push_back(base::BindOnce(
+      [](int* count) { (*count)++; }, &callback_count));
+
+  disk_cache::BackendResult result;
+  result.net_error = net::OK;
+  result.backend = nullptr;
+  factory.CacheCreatedCallback(std::move(result));
+
+  EXPECT_TRUE(factory.is_inited_.load());
+  EXPECT_EQ(callback_count, 3);
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheWithEmptyTimeRangeTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(true);
+
+  base::Time now = base::Time::Now();
+  factory.RemoveCache(now, now);
+  EXPECT_FALSE(factory.is_inited_.load());
+}
+
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheWithFutureEndTimeTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(true);
+
+  base::Time now = base::Time::Now();
+  base::Time future = now + base::Days(30);
+  factory.RemoveCache(now, future);
+  EXPECT_FALSE(factory.is_inited_.load());
+}
+
+TEST_F(DiskCacheBackendFactoryTest, BackendReturnsCorrectValueTest) {
+  DiskCacheBackendFactory factory;
+  EXPECT_EQ(factory.Backend(), nullptr);
+
+  factory.is_inited_.store(true);
+  EXPECT_EQ(factory.Backend(), nullptr);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CreateBackendNotInitedInitiallyTest) {
+  DiskCacheBackendFactory factory;
+  EXPECT_FALSE(factory.is_inited_.load());
+  EXPECT_EQ(factory.cache_path_.value().size(), 0);
+
+  factory.CreateBackend();
+  EXPECT_FALSE(factory.is_inited_.load());
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CheckBackendAsyncNotInitedStillReturnsFalseTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(false);
+
+  bool result = factory.CheckBackendAsync(base::BindOnce([]() {}));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 1);
+
+  result = factory.CheckBackendAsync(base::BindOnce([]() {}));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 2);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheNotInitedClearsCallbacksImmediatelyTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(false);
+  factory.backend_complete_callback_list_.push_back(base::BindOnce([]() {}));
+  factory.backend_complete_callback_list_.push_back(base::BindOnce([]() {}));
+
+  factory.RemoveCache(base::Time::Now(), base::Time::Max());
+
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CallbackListHoldsMoveOnlyCallbacksTest) {
+  DiskCacheBackendFactory factory;
+
+  int value = 0;
+  auto callback = base::BindOnce([](int* ptr) { (*ptr)++; }, &value);
+
+  factory.backend_complete_callback_list_.push_back(std::move(callback));
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 1);
+
+  disk_cache::BackendResult result;
+  result.net_error = net::OK;
+  result.backend = nullptr;
+  factory.CacheCreatedCallback(std::move(result));
+
+  EXPECT_EQ(value, 1);
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, CheckBackendAsyncInitedReturnsTrueImmediatelyTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(true);
+
+  bool result = factory.CheckBackendAsync(base::BindOnce([]() {}));
+  EXPECT_TRUE(result);
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheClearsCallbackListAfterDoomAllEntriesTest) {
+  DiskCacheBackendFactory factory;
+  factory.is_inited_.store(true);
+  factory.backend_complete_callback_list_.push_back(base::BindOnce([]() {}));
+  factory.backend_complete_callback_list_.push_back(base::BindOnce([]() {}));
+
+  factory.RemoveCache(base::Time(), base::Time::Max());
+
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
 }
 
 } // namespace ohos_prp_preload
