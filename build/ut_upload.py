@@ -126,6 +126,7 @@ def main():
         dep_path = utpath + ".runtime_deps"
         copy_file(out_dir + utpath, saved_dir + out_dir + utpath)
         if "GERRIT_CHANGE_URL" not in os.environ:
+            copy_file(unstripped + "libarkweb_ex.so", saved_dir + unstripped + "libarkweb_ex.so")
             copy_file(unstripped + "libarkweb_engine.so", saved_dir + unstripped + "libarkweb_engine.so")
             copy_file(unstripped + "libarkweb_render.so", saved_dir + unstripped + "libarkweb_render.so")
             copy_file(unstripped + "libarkweb_crashpad_handler.so", saved_dir + unstripped + "libarkweb_crashpad_handler.so")

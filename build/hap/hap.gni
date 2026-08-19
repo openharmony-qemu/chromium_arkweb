@@ -5,18 +5,17 @@
 # Template to build HAP package.
 #
 # Variables:
-#   output:   Output hap file, required.
 #   sources:  List of files in the HAP project.
 #   entry_libs: List of shared library files in the output directory will be copied to entry/lib.
+#   entry_output: Output entry hap file, required.
 #   entry_raw_resources: List of raw resource files in the output directory will be copied to entry/resource.
+#   feature_libs: List of shared library files in the output directory will be copied to feature/lib.
+#   feature_output: Output feature hap file, optional.
 #   update_har: List of har files to update before build hap, optional.
 #   auto_signed: Whether hap package is auto-signed or not, default is false, optional.
 template("ohos_hap") {
   action(target_name) {
     script = "//arkweb/build/hap/build_hap.py"
-    if (!is_arkweb_ext) {
-      script = "//arkweb/build/hap/build_hap_rk.py"
-    }
     forward_variables_from(invoker, [ "deps" ])
 
     inputs = [ script ]
@@ -27,8 +26,11 @@ template("ohos_hap") {
     }
     inputs += sources
 
-    assert(defined(invoker.output), "output is required for ohos_hap.")
-    outputs = [ invoker.output ]
+    assert(defined(invoker.entry_output), "entry_output is required for ohos_hap.")
+    outputs = [ invoker.entry_output ]
+    if (defined(invoker.feature_output)) {
+      outputs += [ invoker.feature_output ]
+    }
 
     args = [
       "--abi",
@@ -48,11 +50,19 @@ template("ohos_hap") {
       rebase_path(depfile, root_build_dir),
       "--root",
       _project_root_dir,
-      "--output",
-      rebase_path(invoker.output, root_build_dir),
+      "--entry-output",
+      rebase_path(invoker.entry_output, root_build_dir),
     ]
 
-    if (defined(invoker.entry_libs) || defined(invoker.entry_raw_resources)) {
+    if (defined(invoker.feature_output)) {
+      args += [
+        "--feature-output",
+        rebase_path(invoker.feature_output, root_build_dir),
+      ]
+    }
+
+    if (defined(invoker.entry_libs) || defined(invoker.entry_raw_resources) ||
+        defined(invoker.feature_libs)) {
       args += [
         "--override",
         rebase_path(root_out_dir, root_build_dir),
@@ -63,6 +73,15 @@ template("ohos_hap") {
       foreach(_lib, invoker.entry_libs) {
         args += [
           "--entry-libs",
+          _lib,
+        ]
+      }
+    }
+
+    if (defined(invoker.feature_libs)) {
+      foreach(_lib, invoker.feature_libs) {
+        args += [
+          "--feature-libs",
           _lib,
         ]
       }
@@ -93,6 +112,10 @@ template("ohos_hap") {
     if (is_arkweb_ext && defined(invoker.is_component) && invoker.is_component) {
       args += [ "--component" ]
     }
+
+    if (!is_arkweb_ext) {
+      args += [ "--rk" ]
+    }
   }
 }
 
@@ -107,9 +130,6 @@ template("ohos_hap") {
 template("ohos_har") {
   action(target_name) {
     script = "//arkweb/build/hap/build_hap.py"
-    if (!is_arkweb_ext) {
-      script = "//arkweb/build/hap/build_hap_rk.py"
-    }
 
     forward_variables_from(invoker, [ "deps" ])
 
@@ -147,5 +167,9 @@ template("ohos_har") {
       "--output",
       rebase_path(invoker.output, root_build_dir),
     ]
+
+    if (!is_arkweb_ext) {
+      args += [ "--rk" ]
+    }
   }
 }
