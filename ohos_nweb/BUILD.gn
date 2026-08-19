@@ -421,6 +421,15 @@ static_library("cef_nweb") {
     "//chrome:strings",
     "//content/public/common",
   ]
+
+  if (defined(arkweb_ai) && arkweb_ai) {
+    deps += [
+      "//ohos_resources/content_change_detection:content_change_detection_resources",
+      "//ohos_resources/dom_tree_extractor:dom_tree_extractor_resources",
+      "//ohos_resources/page_scene_query:page_scene_query_resources",
+    ]
+  }
+
   if (!is_component_build) {
     deps += [ "//ui/events/keycodes:x11" ]
   }
