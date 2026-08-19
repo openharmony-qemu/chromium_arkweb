@@ -46,8 +46,16 @@ if [ -f "$ROOT_DIR/out/x86_64/NWeb-x86_64.hap" ]; then
     cp "$ROOT_DIR/out/x86_64/NWeb-x86_64.hap" "$ROOT_DIR/out/x86_64/ArkWebCore.hap"
 fi
 
+if [ -f "$ROOT_DIR/out/x86_64/NWebEx-x86_64.hap" ]; then
+    cp "$ROOT_DIR/out/x86_64/NWebEx-x86_64.hap" "$ROOT_DIR/out/x86_64/ArkWebCoreEx.hap"
+fi
+
 if [ -f "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWeb-musl_64.hap" ]; then
     mv "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWeb-musl_64.hap" "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWeb_HWASAN.hap"
+fi
+
+if [ -f "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWebEx-musl_64.hap" ]; then
+    mv "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWebEx-musl_64.hap" "$ROOT_DIR/arkweb/ohos_nweb_ex/signature_nweb/NWebEx_HWASAN.hap"
 fi
 
 if [ -f "$OUT_DIR/NWeb-musl_64.hap" ]; then
@@ -61,6 +69,19 @@ if [ -f "$OUT_DIR/NWeb-musl_64.hap" ]; then
     cp "$OUT_DIR/NWeb.hap" "$OUT_DIR/ArkWebCore.hap"
     cp "$OUT_DIR/NWeb.hap" "$OUT_DIR/ArkWebCoreLegacy.hap"
 fi
+
+if [ -f "$OUT_DIR/NWebEx-musl_64.hap" ]; then
+    md5=$(md5sum "$OUT_DIR/NWebEx-musl_64.hap" | awk '{print $1}')
+    echo "hap MD5: $md5"
+    sha1=$(sha1sum "$OUT_DIR/NWebEx-musl_64.hap" | awk '{print $1}')
+    echo "hap SHA-1: $sha1"
+    sha256=$(sha256sum "$OUT_DIR/NWebEx-musl_64.hap" | awk '{print $1}')
+    echo "hap SHA-256: $sha256"
+    mv "$OUT_DIR/NWebEx-musl_64.hap" "$OUT_DIR/NWebEx.hap"
+    cp "$OUT_DIR/NWebEx.hap" "$OUT_DIR/ArkWebCoreEx.hap"
+    cp "$OUT_DIR/NWebEx.hap" "$OUT_DIR/ArkWebCoreExLegacy.hap"
+fi
+
 if [ -f "$OUT_DIR/libarkweb_engine.so" ]; then
     md5=$(md5sum "$OUT_DIR/libarkweb_engine.so" | awk '{print $1}')
     echo "libarkweb_engine.so MD5: $md5"    
