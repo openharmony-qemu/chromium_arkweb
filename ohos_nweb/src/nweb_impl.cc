@@ -1809,8 +1809,11 @@ NWebImpl::~NWebImpl() {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   nweb_ex::NWebExtensionDelegateImpl::GetInstance().CheckDevtoolsNwebClosed(nweb_id_);
 #endif
+
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
-  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiViewDfxAdapterInstance().ReleaseAsyncContext(async_stack_id_);
+  if (async_stack_id_) {
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiViewDfxAdapterInstance().ReleaseAsyncContext(async_stack_id_);
+  }
 #endif
 }
 
