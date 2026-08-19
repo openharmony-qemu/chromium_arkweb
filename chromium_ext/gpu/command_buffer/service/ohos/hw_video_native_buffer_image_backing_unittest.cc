@@ -579,4 +579,10 @@ TEST_F(HwVideoNativeBufferImageBackingTest, DrDcLock_NotNull)
     EXPECT_NE(backing_->GetDrDcLock(), nullptr);
 }
 
+TEST_F(HwVideoNativeBufferImageBackingTest, ProduceOverlay) {
+    SharedImageManager manager;
+    auto representation = backing_->ProduceOverlay(&manager, tracker_.get());
+    EXPECT_NE(representation, nullptr);
+}
+
 }  // namespace gpu

@@ -354,4 +354,69 @@ TEST_F(FrameSinkManagerImplUtilsTest, ClearBlanklessSnapshotInfo) {
   TestClearBlanklessSnapshotInfo();
 }
 #endif
+
+TEST_F(FrameSinkManagerImplUtilsTest, DiscardCompositingResources_NoRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  managerImpl.root_sink_map_.clear();
+  ASSERT_NO_FATAL_FAILURE(utils_.DiscardCompositingResources(frameSinkId1));
+}
+
+TEST_F(FrameSinkManagerImplUtilsTest, DiscardCompositingResources_NullRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  managerImpl.root_sink_map_.try_emplace(frameSinkId1, nullptr);
+  ASSERT_NO_FATAL_FAILURE(utils_.DiscardCompositingResources(frameSinkId1));
+  managerImpl.root_sink_map_.clear();
+}
+
+TEST_F(FrameSinkManagerImplUtilsTest, DiscardCompositingResources_WithRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  RootCompositorFrameSinkData root_data;
+  managerImpl.CreateRootCompositorFrameSink(root_data.BuildParams(frameSinkId1));
+  for (auto &item : managerImpl.root_sink_map_) {
+    EXPECT_NE(item.second, nullptr);
+  }
+  ASSERT_NO_FATAL_FAILURE(utils_.DiscardCompositingResources(frameSinkId1));
+}
+
+TEST_F(FrameSinkManagerImplUtilsTest, UpdateFocusAndScreenStatus_NoRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  managerImpl.root_sink_map_.clear();
+  ASSERT_NO_FATAL_FAILURE(utils_.UpdateFocusAndScreenStatus(true, true, frameSinkId1));
+}
+
+TEST_F(FrameSinkManagerImplUtilsTest, UpdateFocusAndScreenStatus_NullRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  managerImpl.root_sink_map_.try_emplace(frameSinkId1, nullptr);
+  ASSERT_NO_FATAL_FAILURE(utils_.UpdateFocusAndScreenStatus(true, true, frameSinkId1));
+  managerImpl.root_sink_map_.clear();
+}
+
+TEST_F(FrameSinkManagerImplUtilsTest, UpdateFocusAndScreenStatus_WithRootSink) {
+  TestOutputSurfaceProvider output_surface_provider_;
+  FrameSinkManagerImpl managerImpl((FrameSinkManagerImpl::InitParams(&output_surface_provider_)));
+  FrameSinkManagerImplUtils utils_(&managerImpl);
+
+  RootCompositorFrameSinkData root_data;
+  managerImpl.CreateRootCompositorFrameSink(root_data.BuildParams(frameSinkId1));
+  for (auto &item : managerImpl.root_sink_map_) {
+    EXPECT_NE(item.second, nullptr);
+  }
+  ASSERT_NO_FATAL_FAILURE(utils_.UpdateFocusAndScreenStatus(true, true, frameSinkId1));
+}
+
 } // namespace viz

@@ -246,4 +246,10 @@ TEST_F(OHOSNativeBufferImageBackingFactoryTest, IsSupported) {
   EXPECT_FALSE(backing_factory_->IsSupported(kSupportedUsage, viz::SinglePlaneFormat::kALPHA_8,
     gfx::Size(), false, gfx::OHOS_NATIVE_BUFFER, GrContextType::kGL, data));
 }
+
+TEST_F(OHOSNativeBufferImageBackingFactoryTest, IsDelegatedEnabled_Default) {
+  // IsDelegatedCompositingEnabledOhos() returns false in unit test environment
+  EXPECT_FALSE(backing_factory_->is_delegated_enabled_);
+}
+
 }  // namespace gpu

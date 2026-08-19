@@ -161,5 +161,10 @@ TEST_F(SystemPropertiesTest, is_pc_mode004) {
   EXPECT_FALSE(properties_->is_compatible_mode());
   properties_->NotifyIsPcMode();
 }
+
+TEST_F(SystemPropertiesTest, IsDelegatedCompositingEnabledOhos_Default) {
+  EXPECT_FALSE(IsDelegatedCompositingEnabledOhos());
+}
+
 }  // namespace ohos
 }  // namespace base

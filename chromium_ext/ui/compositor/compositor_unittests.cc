@@ -481,7 +481,7 @@ TEST_F(CompositorTest, UtilsRestoreRenderFit_RegisteredIdWithClient)
     data.client = saved_client;
 }
 
-TEST_F(CompositorTest, IsValidManagerUtils_AllValid)
+TEST_F(CompositorTest, IsValidManagerUtils_IsValid)
 {
     ASSERT_NE(g_compositor, nullptr);
     ASSERT_NE(g_compositor->Utils(), nullptr);
@@ -552,6 +552,66 @@ TEST_F(CompositorTest, UpdateFocusAndScreenStatus_Invalid)
     CompositorUtils utils(nullptr);
     ASSERT_NO_FATAL_FAILURE(utils.UpdateFocusAndScreenStatus(true, true));
     ASSERT_NO_FATAL_FAILURE(utils.UpdateFocusAndScreenStatus(false, false));
+}
+
+TEST_F(CompositorTest, IsValidManagerUtils_AllNull) {
+  CompositorUtils utils(nullptr);
+  EXPECT_FALSE(utils.IsValidManagerUtils());
+}
+
+TEST_F(CompositorTest, IsValidManagerUtils_CompositorNull02) {
+  CompositorUtils utils(nullptr);
+  EXPECT_FALSE(utils.IsValidManagerUtils());
+}
+
+TEST_F(CompositorTest, IsValidManagerUtils_ContextFactoryNull02) {
+  ASSERT_NE(g_compositor, nullptr);
+  raw_ptr<ui::ContextFactory> saved_factory = g_compositor->context_factory_;
+  g_compositor->context_factory_ = nullptr;
+  EXPECT_FALSE(g_compositor->Utils()->IsValidManagerUtils());
+  g_compositor->context_factory_ = saved_factory;
+}
+
+TEST_F(CompositorTest, IsValidManagerUtils_ManagerUtilsNull02) {
+  ASSERT_NE(g_compositor, nullptr);
+  auto* host_manager = g_compositor->context_factory_->GetHostFrameSinkManager();
+  ASSERT_NE(host_manager, nullptr);
+  std::unique_ptr<viz::HostFrameSinkManagerUtils> saved_utils =
+      std::move(host_manager->managerUtils);
+  EXPECT_FALSE(g_compositor->Utils()->IsValidManagerUtils());
+  host_manager->managerUtils = std::move(saved_utils);
+}
+
+TEST_F(CompositorTest, IsValidManagerUtils_AllValid) {
+  ASSERT_NE(g_compositor, nullptr);
+  EXPECT_NE(g_compositor->context_factory_, nullptr);
+  auto* host_manager = g_compositor->context_factory_->GetHostFrameSinkManager();
+  ASSERT_NE(host_manager, nullptr);
+  ASSERT_NE(host_manager->managerUtils, nullptr);
+  EXPECT_TRUE(g_compositor->Utils()->IsValidManagerUtils());
+}
+
+TEST_F(CompositorTest, DiscardCompositingResources_InvalidManager) {
+  CompositorUtils utils(nullptr);
+  ASSERT_NO_FATAL_FAILURE(utils.DiscardCompositingResources());
+}
+
+TEST_F(CompositorTest, DiscardCompositingResources_ValidManager) {
+  ASSERT_NE(g_compositor, nullptr);
+  ASSERT_NO_FATAL_FAILURE(g_compositor->Utils()->DiscardCompositingResources());
+}
+
+TEST_F(CompositorTest, UpdateFocusAndScreenStatus_InvalidManager) {
+  CompositorUtils utils(nullptr);
+  ASSERT_NO_FATAL_FAILURE(utils.UpdateFocusAndScreenStatus(true, true));
+}
+
+TEST_F(CompositorTest, UpdateFocusAndScreenStatus_ValidManager) {
+  ASSERT_NE(g_compositor, nullptr);
+  ASSERT_NO_FATAL_FAILURE(g_compositor->Utils()->UpdateFocusAndScreenStatus(true, true));
+  ASSERT_NO_FATAL_FAILURE(g_compositor->Utils()->UpdateFocusAndScreenStatus(true, false));
+  ASSERT_NO_FATAL_FAILURE(g_compositor->Utils()->UpdateFocusAndScreenStatus(false, true));
+  ASSERT_NO_FATAL_FAILURE(g_compositor->Utils()->UpdateFocusAndScreenStatus(false, false));
 }
 
 }  // namespace ui

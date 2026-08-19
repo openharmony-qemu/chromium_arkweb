@@ -325,6 +325,44 @@ TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_InvalidConfig) {
   EXPECT_EQ(result_frame, nullptr);
 }
 
+TEST_F(VideoFrameFactoryImplTest, IsDelegatedEnabled_Default) {
+  // IsDelegatedCompositingEnabledOhos() returns false in unit test environment
+  EXPECT_FALSE(video_frame_factory_->is_delegated_enabled_);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_AllowOverlayMetadata) {
+  gfx::Size coded_size(100, 100);
+  gfx::Rect visible_rect(coded_size);
+  gfx::Size natural_size(coded_size);
+  gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGBLinear();
+  scoped_refptr<CodecWrapperImpl> codec;
+  auto output_buffer = std::make_unique<CodecOutputBuffer>(
+      std::move(codec), 0, coded_size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      false,
+#endif  // ARKWEB_VIDEO_ASSISTANT
+      color_space);
+  ASSERT_TRUE(VideoFrame::IsValidConfig(
+      PIXEL_FORMAT_ARGB, VideoFrame::STORAGE_OPAQUE,
+      coded_size, visible_rect, natural_size));
+
+  scoped_refptr<VideoFrame> result_frame;
+  VideoFrameFactoryImpl::OnceOutputCB output_cb = base::BindOnce(
+      [](scoped_refptr<VideoFrame>* frame_dest,
+         scoped_refptr<VideoFrame> frame) { *frame_dest = frame; },
+      &result_frame);
+
+  EXPECT_CALL(*image_provider_raw_, MockRequestImage());
+  impl_->CreateVideoFrame(std::move(output_buffer), base::TimeDelta(),
+                          natural_size, std::move(output_cb));
+  task_environment_.RunUntilIdle();
+
+  // With is_delegated_enabled_ = false, allow_overlay should be false
+  if (result_frame) {
+    EXPECT_FALSE(result_frame->metadata().allow_overlay);
+  }
+}
+
 TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_nonnull) {
   auto before = impl_->image_spec_.generation_id;
   impl_->SetSurfaceBundle(base::MakeRefCounted<CodecSurfaceBundle>());

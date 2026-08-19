@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/ohos/ohos_image_backing.h"
 #include "gpu/command_buffer/service/ohos/native_image_texture_owner.h"
 #include "gpu/gpu_gles2_export.h"
@@ -26,6 +27,8 @@ class StreamTextureSharedImageInterface;
 class SharedContextState;
 class ScopedNativeBufferFenceSync;
 class NativeImageTextureOwner;
+
+GPU_GLES2_EXPORT SharedImageUsageSet GetOhosVideoUsage();
 
 class GPU_GLES2_EXPORT OhosVideoImageBacking : public OhosImageBacking {
  public:
