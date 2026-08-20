@@ -401,8 +401,9 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
   // 如果是仅主动代理模式，不使用Fallback proxy进行重试
   ProxyDelegate* proxy_delegate = request_->proxy_delegate();
   if (proxy_delegate && proxy_delegate->IsAccelerateProxyConfig()) {
-      LOG(INFO) << "ActiveProxyAccelerate only mode enabled, skipping fallback retry for "
-                << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
+    LOG(INFO) << "ActiveProxyAccelerate only mode enabled, skipping fallback retry for "
+              << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
+    *unused_reason = ProxyUnusedReason::ACCELERATE_PROXY_MODE;
     return false;
   }
 
@@ -412,6 +413,7 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
     LOG(DEBUG)
         << "Can't retry with fallback proxy for used fallback proxy, url "
         << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
+    *unused_reason = ProxyUnusedReason::HAS_USED_FALLBACK_PROXY;
     return false;
   }
 
