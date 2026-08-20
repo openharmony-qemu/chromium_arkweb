@@ -361,6 +361,10 @@ class NWebPreferenceDelegate : public NWebPreference {
   bool SubframeErrorPageEnabled();
 #endif
 
+#if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+  void SetDarkSchemeForceDark(bool force) { dark_scheme_force_dark_ = force; }
+#endif // #if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+
  private:
   CefRefPtr<CefBrowser> browser_ = nullptr;
 
@@ -553,6 +557,11 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
   bool cast_enabled_ = false;
 #endif
+
+#if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+  bool dark_scheme_force_dark_{false};
+#endif // #if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+
 };
 }  // namespace OHOS::NWeb
 
