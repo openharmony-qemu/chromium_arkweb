@@ -32,6 +32,7 @@
 #include "perfetto/tracing/core/trace_config.h"
 #include "perfetto/tracing/internal/track_event_internal.h"
 #include "protos/perfetto/common/interceptor_descriptor.gen.h"
+#include "perfetto/protozero/proto_decoder.h"
 #include "protos/perfetto/trace/trace_packet.pbzero.h"
 #include "protos/perfetto/trace/track_event/track_event.pbzero.h"
 #include "protos/perfetto/trace/track_event/debug_annotation.pbzero.h"
@@ -260,6 +261,42 @@ void HiTraceInterceptor::OnTracePacket(InterceptorContext context) {
 #endif
 
   Delegate delegate(std::move(locked_self), tls.sequence_state);
+
+  // Defensive guard: a well-formed TrackEvent packet (event +
+  // interned data + clock snapshot) is a few hundred bytes at most. A packet
+  // larger than 1 MiB means the buffer is corrupted or stitched wrongly; feed
+  // it to TypedProtoDecoderBase::ParseAllFields() and repeated fields can
+  // drive ExpandHeapStorage() doubling up to >2GiB, which PartitionAlloc
+  // aborts on (PartitionExcessiveAllocationSize). Drop it and log instead.
+  constexpr size_t kMaxInterceptorPacketSize = 1 << 20;  // 1 MiB
+  if (context.packet_data.size > kMaxInterceptorPacketSize) {
+    LOG(ERROR) << "[HiTrace-Interceptor] dropping oversized packet: "
+               << context.packet_data.size << " bytes";
+    return;
+  }
+
+  {
+    protozero::ProtoDecoder packet_scan(context.packet_data.data,
+                                        context.packet_data.size);
+    protozero::Field track_event_field =
+        packet_scan.FindField(11 /* TracePacket::track_event */);
+    if (track_event_field.valid()) {
+      protozero::ProtoDecoder track_event_scan(
+          reinterpret_cast<const uint8_t*>(track_event_field.data()),
+          track_event_field.size());
+      protozero::Field type_field =
+          track_event_scan.FindField(9 /* TrackEvent::type */);
+      uint32_t event_type = type_field.valid() ? type_field.as_uint32() : 0u;
+      if (event_type ==
+              static_cast<uint32_t>(perfetto::protos::pbzero::TrackEvent::
+                                        TYPE_SLICE_BEGIN) ||
+          event_type ==
+              static_cast<uint32_t>(perfetto::protos::pbzero::TrackEvent::
+                                        TYPE_SLICE_END)) {
+        return;
+      }
+    }
+  }
 
   perfetto::protos::pbzero::TracePacket::Decoder packet(
       context.packet_data.data, context.packet_data.size);
