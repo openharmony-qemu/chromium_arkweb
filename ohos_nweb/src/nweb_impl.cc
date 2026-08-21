@@ -5478,6 +5478,21 @@ void NWebImpl::OnConfirmInfoBarConfigurationUpdated(
     std::shared_ptr<NWebSystemConfiguration> configuration,
     const std::string& language) {
   LOG(INFO) << " func:" << __FUNCTION__;
+
+  if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+        content::GetUIThreadTaskRunner();
+    if (!task_runner) {
+        LOG(ERROR) << "Failed to get UI thread task runner";
+        return;
+    }
+    task_runner->PostTask(
+        FROM_HERE,
+        base::BindOnce(&NWebImpl::OnConfirmInfoBarConfigurationUpdated,
+                       configuration, language));
+    return;
+  }
+
   static std::string lastLanguage = "";
   if (lastLanguage == language) {
     LOG(INFO) << " func:" << __FUNCTION__ << " same language:" << language;

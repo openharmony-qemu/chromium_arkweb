@@ -856,9 +856,20 @@ void ExtensionRegistryInfoManager::OnExtensionUnLoadedCallBack(const std::string
 void ExtensionRegistryInfoManager::OnExtensionIconImageChanged(
     IconImage* image) {
   LOG(INFO) << "ExtensionRegistryInfoManager OnExtensionIconImageChanged start";
-  std::shared_ptr<BrowserNotifier> notifier = pending_notifiers_[image];
-  notifier->HandleImageEvent(image);
-  pending_notifiers_.erase(image);
+ 
+  auto it = pending_notifiers_.find(image);
+  if (it == pending_notifiers_.end()) {
+    LOG(WARNING) << "ExtensionRegistryInfoManager OnExtensionIconImageChanged: "
+                    "image not found in pending_notifiers_, ignoring";
+    return;
+  }
+ 
+  std::shared_ptr<BrowserNotifier> notifier = it->second;
+  if (notifier) {
+    notifier->HandleImageEvent(image);
+  }
+ 
+  pending_notifiers_.erase(it);
 }
 
 void ExtensionRegistryInfoManager::AddIconImageObservation(

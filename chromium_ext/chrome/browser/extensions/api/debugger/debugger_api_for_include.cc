@@ -24,20 +24,35 @@ void ExtensionDevToolsClientHost::NotifyShowConfirmInfoBar() {
     LOG(WARNING) << " func:" << __FUNCTION__;
     return;
   }
-  if (WebContents* wc = agent_host_->GetWebContents()) {
-    if (ExtensionDevToolsInfoBarDelegate* infoBarDelegate =
-            ExtensionDevToolsInfoBarDelegate::GetDelegateById(extension_id())) {
-      LOG(INFO) << " func:" << __FUNCTION__ << " send notification.";
-      static_cast<content::WebContentsImplExt*>(wc)->OnShowConfirmInfoBar(
-          "", extension_id(),
-          base::UTF16ToUTF8(infoBarDelegate->GetMessageText()),
-          infoBarDelegate->GetButtons(),
-          base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
-              ExtensionDevToolsInfoBarDelegate::BUTTON_OK)),
-          base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
-              ExtensionDevToolsInfoBarDelegate::BUTTON_CANCEL)));
-    }
+  content::WebContents* wc = agent_host_->GetWebContents();
+  if (!wc) {
+    LOG(WARNING) << " func:" << __FUNCTION__ << " wc is null";
+    return;
   }
+  ExtensionDevToolsInfoBarDelegate* infoBarDelegate =
+      ExtensionDevToolsInfoBarDelegate::GetDelegateById(extension_id());
+  if (!infoBarDelegate) {
+    LOG(WARNING) << " func:" << __FUNCTION__ << " infoBarDelegate is null";
+    return;
+  }
+
+  content::WebContentsImpl* web_contents_impl =
+      static_cast<content::WebContentsImpl*>(wc);
+  content::WebContentsImplExt* ext = web_contents_impl->AsWebContentsImplExt();
+  if (!ext) {
+    LOG(ERROR) << " func:" << __FUNCTION__ << " wc is not WebContentsImplExt";
+    return;
+  }
+
+  LOG(INFO) << " func:" << __FUNCTION__ << " send notification.";
+  ext->OnShowConfirmInfoBar(
+      "", extension_id(),
+      base::UTF16ToUTF8(infoBarDelegate->GetMessageText()),
+      infoBarDelegate->GetButtons(),
+      base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
+          ExtensionDevToolsInfoBarDelegate::BUTTON_OK)),
+      base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
+          ExtensionDevToolsInfoBarDelegate::BUTTON_CANCEL)));
 }
 
 void ExtensionDevToolsClientHost::NotifyHideConfirmInfoBar() {
@@ -46,20 +61,35 @@ void ExtensionDevToolsClientHost::NotifyHideConfirmInfoBar() {
     LOG(WARNING) << " func:" << __FUNCTION__;
     return;
   }
-  if (WebContents* wc = agent_host_->GetWebContents()) {
-    if (ExtensionDevToolsInfoBarDelegate* infoBarDelegate =
-            ExtensionDevToolsInfoBarDelegate::GetDelegateById(extension_id())) {
-      LOG(INFO) << " func:" << __FUNCTION__ << " send notification.";
-      static_cast<content::WebContentsImplExt*>(wc)->OnHideConfirmInfoBar(
-          "", extension_id(),
-          base::UTF16ToUTF8(infoBarDelegate->GetMessageText()),
-          infoBarDelegate->GetButtons(),
-          base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
-              ExtensionDevToolsInfoBarDelegate::BUTTON_OK)),
-          base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
-              ExtensionDevToolsInfoBarDelegate::BUTTON_CANCEL)));
-    }
+  content::WebContents* wc = agent_host_->GetWebContents();
+  if (!wc) {
+    LOG(WARNING) << " func:" << __FUNCTION__ << " wc is null";
+    return;
   }
+  ExtensionDevToolsInfoBarDelegate* infoBarDelegate =
+      ExtensionDevToolsInfoBarDelegate::GetDelegateById(extension_id());
+  if (!infoBarDelegate) {
+    LOG(WARNING) << " func:" << __FUNCTION__ << " infoBarDelegate is null";
+    return;
+  }
+
+  content::WebContentsImpl* web_contents_impl =
+      static_cast<content::WebContentsImpl*>(wc);
+  content::WebContentsImplExt* ext = web_contents_impl->AsWebContentsImplExt();
+  if (!ext) {
+    LOG(ERROR) << " func:" << __FUNCTION__ << " wc is not WebContentsImplExt";
+    return;
+  }
+
+  LOG(INFO) << " func:" << __FUNCTION__ << " send notification.";
+  ext->OnHideConfirmInfoBar(
+      "", extension_id(),
+      base::UTF16ToUTF8(infoBarDelegate->GetMessageText()),
+      infoBarDelegate->GetButtons(),
+      base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
+          ExtensionDevToolsInfoBarDelegate::BUTTON_OK)),
+      base::UTF16ToUTF8(infoBarDelegate->GetButtonLabel(
+          ExtensionDevToolsInfoBarDelegate::BUTTON_CANCEL)));
 }
 
 }  // namespace extensions
