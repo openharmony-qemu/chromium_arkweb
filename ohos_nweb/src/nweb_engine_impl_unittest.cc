@@ -24,10 +24,14 @@
 #include <thread>
 
 #include "arkweb/build/features/features.h"
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+#include "arkweb/chromium_ext/base/debug/arkweb_dump_info.h"
+#undef private
+#endif
 #include "build/build_config.h"
-#include "nweb_engine_impl.h"
-#include "nweb.h"
 #include "cef/ohos_cef_ext/libcef/browser/devtools/devtools_manager_delegate.h"
+#include "nweb.h"
+#include "nweb_engine_impl.h"
 
 using namespace testing;
 using namespace OHOS::NWeb;
@@ -52,6 +56,11 @@ void NWebEngineImplTest::SetUp() {
 }
 
 void NWebEngineImplTest::TearDown() {
+  if (OHOS::NWeb::GetWebDebuggingEnabled()) {
+    nweb_engine_impl_->SetWebDebuggingAccess(false);
+  }
+  OHOS::NWeb::SetWebDebuggingEnabled(false);
+  OHOS::NWeb::SetWebDebuggingPort(0);
   nweb_engine_impl_ = nullptr;
 }
 
@@ -117,4 +126,35 @@ TEST_F(NWebEngineImplTest, SetWebDebuggingAccessAndPort003) {
   EXPECT_EQ(OHOS::NWeb::GetWebDebuggingEnabled(), true);
   EXPECT_EQ(OHOS::NWeb::GetWebDebuggingPort(), 0);
 }
+
+TEST_F(NWebEngineImplTest, GetInstanceAndOwnedServices) {
+  EXPECT_NE(NWebEngine::GetInstance(), nullptr);
+  const auto database = nweb_engine_impl_->GetDataBase();
+  const auto web_storage = nweb_engine_impl_->GetWebStorage();
+  const auto download_manager = nweb_engine_impl_->GetDownloadManager();
+  ASSERT_NE(database, nullptr);
+  ASSERT_NE(web_storage, nullptr);
+  ASSERT_NE(download_manager, nullptr);
+  EXPECT_EQ(database, nweb_engine_impl_->GetDataBase());
+  EXPECT_EQ(web_storage, nweb_engine_impl_->GetWebStorage());
+  EXPECT_NE(nweb_engine_impl_->GetCookieManager(), nullptr);
+  EXPECT_EQ(download_manager, nweb_engine_impl_->GetDownloadManager());
+  EXPECT_NE(nweb_engine_impl_->GetAdsBlockManager(), nullptr);
 }
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+TEST_F(NWebEngineImplTest, DumpArkWebInfoHonorsEnableState) {
+  base::debug::ArkWebDumpInfo& dump_info =
+      base::debug::ArkWebDumpInfo::GetInstance();
+  const bool original_enabled = dump_info.dump_enable_;
+
+  dump_info.dump_enable_ = false;
+  EXPECT_EQ(nweb_engine_impl_->DumpArkWebInfo("--all"),
+            "web.debug.dump.on = false");
+
+  dump_info.dump_enable_ = true;
+  EXPECT_FALSE(nweb_engine_impl_->DumpArkWebInfo("--invalid").empty());
+  dump_info.dump_enable_ = original_enabled;
+}
+#endif
+}  // namespace OHOS::NWeb

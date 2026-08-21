@@ -28,6 +28,7 @@
 #include "url/gurl.h"
 #include "gtest/gtest.h"
 
+#include "arkweb/build/features/features.h"
 #if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #endif
@@ -82,6 +83,7 @@ TEST(NWebWebStorageDelegateTEST, GetOriginUsage002) {
     web_storage->GetOriginUsage("");
 }
 
+#if BUILDFLAG(ARKWEB_EXT_PASSWORD)
 TEST(NWebWebStorageDelegateTEST, GetPassword) {
     auto web_storage = std::make_shared<NWebWebStorageDelegate>();
     web_storage->GetPassword("", "", 1);
@@ -118,3 +120,4 @@ TEST(NWebWebStorageDelegateTEST, RemovePasswordByUrl) {
     auto web_storage = std::make_shared<NWebWebStorageDelegate>();
     web_storage->RemovePasswordByUrl("");
 }
+#endif  // BUILDFLAG(ARKWEB_EXT_PASSWORD)

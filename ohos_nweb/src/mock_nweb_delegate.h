@@ -23,6 +23,10 @@
 #include <string>
 #include <vector>
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "capi/nweb_devtools_message_handler.h"
 #include "capi/nweb_prefetch_options.h"
 #define private public
@@ -57,10 +61,12 @@ class MockNWebDelegate : public NWebDelegateInterface {
               RegisterRenderCb,
               (std::function<void(const char*)> render_update_cb),
               (override));
+#if BUILDFLAG(ARKWEB_NWEB_EX)
   MOCK_METHOD(void,
               RegisterArkWebAppClientExtensionListener,
               (ArkWebAppClientExtensionCallback callback),
               (override));
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
   MOCK_METHOD(void,
               RegisterWebAppClientExtensionListener,
               (std::shared_ptr<NWebAppClientExtensionCallback>
@@ -789,7 +795,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (override));
   MOCK_METHOD(void, CancelAllPrerendering, (), (override));
 #endif
-#if BUILDFLAG(ARKWEB_EXT_SECURITY_STATE)
+#if BUILDFLAG(ARKWEB_EXT_SECURITY_STATE) || BUILDFLAG(ARKWEB_SECURITY_STATE)
   MOCK_METHOD(int, GetSecurityLevel, (), (override));
 #endif
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
@@ -1281,6 +1287,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (override));
   MOCK_METHOD(void, SetViewportScaleState, (bool viewportScale), (override));
 #endif  // BUILDFLAG(ARKWEB_MENU)
+#if BUILDFLAG(ARKWEB_NWEB_EX)
   MOCK_METHOD(void,
               RunJavaScriptInFrames,
               (RunJavaScriptParam,
@@ -1294,6 +1301,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               GetLastJavaScriptProxyCallingFrameInfo,
               (OnLastJavaScriptProxyCallingFrameInfoCallback callback),
               (override));
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
   MOCK_METHOD(void, SetPageVisibility, (bool), (override));
 #endif
@@ -1311,6 +1319,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(bool, GetSubframeErrorPageEnabled, (), (override));
 #endif
 
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
   MOCK_METHOD(int,
               LoadUrlWithParams,
               (const std::string& url,
@@ -1321,6 +1330,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
                const bool& allow_https_upgrade,
                int32_t transition_type),
               (override));
+#endif  // BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   MOCK_METHOD(void, EnableReaderMode, (bool enabled), (override));

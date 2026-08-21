@@ -19,6 +19,9 @@
 #include <memory>
 
 #include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "arkweb/ohos_nweb/src/capi/nweb_prefetch_options.h"
 #include "cef/include/cef_base.h"
 #include "cef/include/cef_browser.h"
@@ -65,6 +68,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 
   void SetEnableCustomVideoPlayer(bool flag) override {}
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void OnSafeBrowsingDetectionResult(
         const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) override {}
 
@@ -72,7 +76,8 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SafeBrowsingResponseProceed(int64_t response_key) const override {}
   void SafeBrowsingResponseBackToSafety(int64_t response_key) const override {}
   void SafeBrowsingResponseDelete(int64_t response_key) override {}
-
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
+  
   void SetMediaResumeFromBFCachePage(bool resume) override {}
 
   void SetHasComposition(bool has_composition) override {}
@@ -727,8 +732,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool GetSavePassword() override { return false; }
   void SetSavePassword(bool enable) override {}
   int GetSecurityLevel() override { return 0; }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsing(bool enable) override {}
   bool IsSafeBrowsingEnabled() override { return false; }
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableIntelligentTrackingPrevention(bool enable) override {}
   bool IsIntelligentTrackingPreventionEnabled() override { return false; }
   bool IsAdsBlockEnabled() override { return false; }
@@ -749,9 +756,12 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void DispatchBeforeUnload() override {}
   void ShowFreeCopyMenu() override {}
   bool ShouldShowFreeCopyMenu() override { return false; }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override {}
   void EnableSafeBrowsingExternalInterstitial(bool) override {}
   bool IsSafeBrowsingExternalInterstitialEnabled() const override { return false; }
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   int InsertBackForwardEntry(int index, const CefString& url) override {
     return 0;
   }
@@ -759,6 +769,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
     return 0;
   }
   void ClearForwardList() override {}
+#endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   void ExtensionSetTabId(int tab_id) override {}
   int ExtensionGetTabId() override { return 0; }
   uint32_t GetAcceleratedWidget(bool isPopup) { return 0; }
@@ -831,9 +842,11 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
       bool recursive,
       IsolatedWorld world,
       CefRefPtr<CefJavaScriptResultCallback> callback) override {}
+#if BUILDFLAG(ARKWEB_NWEB_EX)
   void GetAllFrameInfos(CefRefPtr<CefFrameInfosCallback> callback) override {}
   void GetLastJavaScriptProxyCallingFrameInfo(
       CefRefPtr<CefLastJavaScriptProxyCallingFrameInfoCallback> callback) override {}
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 #if BUILDFLAG(ARKWEB_AUTOLAYOUT)
   void SetPageVisibility(bool visible) override {}
 #endif
@@ -847,6 +860,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
   void GetFocusedFrameInfo(int32_t& frame_id, CefString& frame_url) override {}
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
   void LoadUrlWithParams(const std::string& url,
                          const LoadUrlType& load_type,
                          const std::string& refer,
@@ -854,6 +868,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
                          const std::string& post_data,
                          const bool& allow_https_upgrade,
                          int32_t transition_type) override {}
+#endif  // BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
   void EnableReaderMode(bool enabled) override {}
@@ -862,8 +877,12 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
     CefRefPtr<CefDistillCallback> callback) override {}
   void AbortDistill() override {}
 #endif // ARKWEB_READER_MODE
+#if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
   void EnableHttpsUpgrades(bool enable) override {}
+#endif  // BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
+#if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   int32_t GetLastCommittedEntryPageTransition() override { return 0; }
+#endif  // BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
   void SetAsyncStackId(uint64_t stackId) override {}
 #endif
