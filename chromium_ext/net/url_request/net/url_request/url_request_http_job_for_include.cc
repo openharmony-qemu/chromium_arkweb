@@ -413,7 +413,6 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
     LOG(DEBUG)
         << "Can't retry with fallback proxy for used fallback proxy, url "
         << url::LogUtils::ConvertUrlWithMask(request_->url().spec());
-    *unused_reason = ProxyUnusedReason::HAS_USED_FALLBACK_PROXY;
     return false;
   }
 
