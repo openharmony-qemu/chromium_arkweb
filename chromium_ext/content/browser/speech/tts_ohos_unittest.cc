@@ -8,6 +8,8 @@
 
 #include <memory>
 
+#include "content/public/test/browser_task_environment.h"
+
 using ::testing::_;
 using ::testing::Return;
 using ::testing::NiceMock;
@@ -162,10 +164,19 @@ ArktsTtsAdapter& MockGetInstance() {
 
 class TtsPlatformImplOHOSTest : public ::testing::Test {
  protected:
-  void SetUp() override { tts_platform_ = TtsPlatformImplOHOS::GetInstance(); }
+  void SetUp() override {
+    tts_platform_ = TtsPlatformImplOHOS::GetInstance();
+    tts_platform_->StopSpeaking();
+    ArktsTtsAdapter::GetInstance().ClearVoices();
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    tts_platform_->StopSpeaking();
+    ArktsTtsAdapter::GetInstance().ClearVoices();
+    task_environment_.RunUntilIdle();
+  }
 
+  content::BrowserTaskEnvironment task_environment_;
   TtsPlatformImplOHOS* tts_platform_;
   int TEST_UTTERANCE_ID = 1001;
   int TEST_UTTERANCE_9999 = 9999;
@@ -197,16 +208,43 @@ TEST_F(TtsPlatformImplOHOSTest, PlatformImplInitialized_001_FirstCall) {
 TEST_F(TtsPlatformImplOHOSTest, Speak_001_PausedState) {
   VoiceData voice;
   UtteranceContinuousParameters params;
-  bool callback_called = false;
-
-  tts_platform_->Pause();
-
   ArktsTtsAdapter::GetInstance().SetNweb(TEST_UTTERANCE_ID);
+  bool first_callback_called = false;
   tts_platform_->Speak(
       TEST_UTTERANCE_ID, TEST_UTTERANCE, TEST_LANG, voice, params,
-      base::BindOnce([](bool status) { EXPECT_FALSE(status); }));
+      base::BindOnce([](bool* called, bool) { *called = true; },
+                     &first_callback_called));
 
-  tts_platform_->Resume();
+  bool second_callback_called = false;
+  bool second_callback_status = true;
+  tts_platform_->Speak(TEST_UTTERANCE_ID + 1, TEST_UTTERANCE, TEST_LANG, voice,
+                       params,
+                       base::BindOnce(
+                           [](bool* called, bool* result, bool status) {
+                             *called = true;
+                             *result = status;
+                           },
+                           &second_callback_called, &second_callback_status));
+
+  EXPECT_FALSE(first_callback_called);
+  EXPECT_TRUE(second_callback_called);
+  EXPECT_FALSE(second_callback_status);
+}
+
+TEST_F(TtsPlatformImplOHOSTest, Speak_002_EmptyLanguageUsesConfiguredDefault) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  adapter.SetSpeakParameters({1.0, 1.0, 1.0, 0, "zh-CN"});
+  adapter.SetNweb(TEST_UTTERANCE_ID);
+
+  VoiceData voice;
+  UtteranceContinuousParameters params;
+  tts_platform_->Speak(TEST_UTTERANCE_ID, TEST_UTTERANCE, "", voice, params,
+                       base::BindOnce([](bool) {}));
+
+  EXPECT_EQ(adapter.GetSpeakParameters().language, "zh-CN");
+  EXPECT_TRUE(tts_platform_->IsSpeaking());
+  EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_ID);
+  adapter.EraseNweb(TEST_UTTERANCE_ID);
 }
 
 TEST_F(TtsPlatformImplOHOSTest, StopSpeaking_001_NormalStop) {
@@ -232,11 +270,16 @@ TEST_F(TtsPlatformImplOHOSTest, GetVoices_002_WithVoiceInfos) {
   VoiceInfo testVoice = {"zh-CN",         1,          "news", "female",
                          "Chinese Voice", "INSTALLED"};
 
-  std::vector<VoiceInfo> mockVoiceInfos = {testVoice};
+  ArktsTtsAdapter::GetInstance().AddVoiceInfos(testVoice);
 
   tts_platform_->GetVoices(&voices);
 
-  EXPECT_TRUE(voices.empty());
+  ASSERT_EQ(voices.size(), 1u);
+  EXPECT_EQ(voices[0].name, testVoice.description);
+  EXPECT_EQ(voices[0].lang, testVoice.language);
+  EXPECT_TRUE(voices[0].native);
+  EXPECT_TRUE(voices[0].events.contains(TTS_EVENT_START));
+  EXPECT_TRUE(voices[0].events.contains(TTS_EVENT_END));
 }
 
 TEST_F(TtsPlatformImplOHOSTest, GetVoices_003_GAStatus) {
@@ -244,11 +287,13 @@ TEST_F(TtsPlatformImplOHOSTest, GetVoices_003_GAStatus) {
   VoiceInfo testVoice = {"en-US",         2,   "conversation", "male",
                          "English Voice", "GA"};
 
-  std::vector<VoiceInfo> mockVoiceInfos = {testVoice};
+  ArktsTtsAdapter::GetInstance().AddVoiceInfos(testVoice);
 
   tts_platform_->GetVoices(&voices);
 
-  EXPECT_TRUE(voices.empty());
+  ASSERT_EQ(voices.size(), 1u);
+  EXPECT_EQ(voices[0].name, testVoice.description);
+  EXPECT_EQ(voices[0].lang, testVoice.language);
 }
 
 TEST_F(TtsPlatformImplOHOSTest, GetVoices_004_UnknownStatus) {
@@ -256,11 +301,13 @@ TEST_F(TtsPlatformImplOHOSTest, GetVoices_004_UnknownStatus) {
   VoiceInfo testVoice = {"fr-FR",        3,        "story", "female",
                          "French Voice", "UNKNOWN"};
 
-  std::vector<VoiceInfo> mockVoiceInfos = {testVoice};
+  ArktsTtsAdapter::GetInstance().AddVoiceInfos(testVoice);
 
   tts_platform_->GetVoices(&voices);
 
-  EXPECT_TRUE(voices.empty());
+  ASSERT_EQ(voices.size(), 1u);
+  EXPECT_EQ(voices[0].name, testVoice.description);
+  EXPECT_EQ(voices[0].lang, testVoice.language);
 }
 
 TEST_F(TtsPlatformImplOHOSTest, OnSpeakFinished_001_CorrectUtteranceId) {
@@ -277,6 +324,20 @@ TEST_F(TtsPlatformImplOHOSTest, OnSpeakFinished_002_IncorrectUtteranceId) {
   EXPECT_FALSE(tts_platform_->IsSpeaking());
 }
 
+TEST_F(TtsPlatformImplOHOSTest, OnSpeakFinished_003_MatchingUtteranceId) {
+  VoiceData voice;
+  UtteranceContinuousParameters params;
+  ArktsTtsAdapter::GetInstance().SetNweb(TEST_UTTERANCE_ID);
+  tts_platform_->Speak(TEST_UTTERANCE_ID, TEST_UTTERANCE, TEST_LANG, voice,
+                       params, base::BindOnce([](bool) {}));
+
+  tts_platform_->OnSpeakFinished(TEST_UTTERANCE_ID);
+
+  EXPECT_FALSE(tts_platform_->IsSpeaking());
+  EXPECT_EQ(tts_platform_->GetCurrentId(), -1);
+  ArktsTtsAdapter::GetInstance().EraseNweb(TEST_UTTERANCE_ID);
+}
+
 TEST_F(TtsPlatformImplOHOSTest, OnSpeechEvent_001_TTS_EVENT_BEGIN) {
   tts_platform_->OnSpeechEvent(TEST_UTTERANCE_NO, TTS_EVENT_START);
   EXPECT_EQ(tts_platform_->GetCurrentPos(), 0);
@@ -289,6 +350,12 @@ TEST_F(TtsPlatformImplOHOSTest, OnSpeechEvent_002_TTS_EVENT_RESUME) {
 
 TEST_F(TtsPlatformImplOHOSTest, OnSpeechEvent_003_TTS_EVENT_END) {
   tts_platform_->OnSpeechEvent(TEST_UTTERANCE_NO, TTS_EVENT_END);
+  EXPECT_EQ(tts_platform_->GetCurrentPos(), 0);
+}
+
+TEST_F(TtsPlatformImplOHOSTest, OnSpeechEvent_ErrorUsesErrorPath) {
+  tts_platform_->OnSpeechEvent(TEST_UTTERANCE_NO, TTS_EVENT_ERROR);
+  EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_NO - 1);
   EXPECT_EQ(tts_platform_->GetCurrentPos(), 0);
 }
 
@@ -315,6 +382,42 @@ TEST_F(TtsPlatformImplOHOSTest, OnSpeechEvent_007_UnknownEventType) {
 
 TEST_F(TtsPlatformImplOHOSTest, SendTtsEvent_001_TTS_EVENT_START) {
   tts_platform_->SendTtsEvent(TEST_UTTERANCE_NO, TTS_EVENT_START, 0, 10);
+  EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_NO);
+}
+
+TEST_F(TtsPlatformImplOHOSTest, CallCallback_StartWithInvalidId) {
+  tts_platform_->CallCallback(TEST_UTTERANCE_NO, TtsState::SPEAK_START, true);
+
+  EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_NO);
+  EXPECT_EQ(tts_platform_->GetCurrentPos(), 0);
+}
+
+TEST_F(TtsPlatformImplOHOSTest, CallCallback_FinishedWithInvalidId) {
+  tts_platform_->CallCallback(TEST_UTTERANCE_NO, TtsState::FINISHED_SUCCESS,
+                              true);
+
+  EXPECT_FALSE(tts_platform_->IsSpeaking());
+}
+
+TEST_F(TtsPlatformImplOHOSTest, CallCallback_ErrorWithInvalidId) {
+  tts_platform_->CallCallback(TEST_UTTERANCE_NO - 1, TtsState::ERROR, false);
+
+  EXPECT_FALSE(tts_platform_->IsSpeaking());
+  EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_NO);
+}
+
+TEST_F(TtsPlatformImplOHOSTest, CallCallback_StoppedWithInvalidId) {
+  tts_platform_->CallCallback(TEST_UTTERANCE_NO - 1, TtsState::STOPPED,
+                              false);
+
+  EXPECT_FALSE(tts_platform_->IsSpeaking());
+}
+
+TEST_F(TtsPlatformImplOHOSTest, CallCallback_UnknownStateDoesNothing) {
+  tts_platform_->CallCallback(TEST_UTTERANCE_NO,
+                              static_cast<TtsState>(100), false);
+
+  EXPECT_FALSE(tts_platform_->IsSpeaking());
   EXPECT_EQ(tts_platform_->GetCurrentId(), TEST_UTTERANCE_NO);
 }
 
