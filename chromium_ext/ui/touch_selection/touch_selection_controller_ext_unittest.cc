@@ -224,6 +224,8 @@ class TouchSelectionControllerExtTest : public testing::Test,
     is_base_ = is_base;
   }
 
+  bool IsShowHandle() override { return show_handle_; }
+
   bool IsBase() { return is_base_; }
 
   bool SupportsAnimation() const override { return animation_enabled_; }
@@ -278,6 +280,7 @@ class TouchSelectionControllerExtTest : public testing::Test,
 
   void SetAnimationEnabled(bool enabled) { animation_enabled_ = enabled; }
   void SetDraggingEnabled(bool enabled) { dragging_enabled_ = enabled; }
+  void SetShowHandle(bool show_handle) { show_handle_ = show_handle; }
 
   void ClearSelection() {
     controller_->OnSelectionBoundsChanged(gfx::SelectionBound(),
@@ -409,6 +412,7 @@ class TouchSelectionControllerExtTest : public testing::Test,
   bool animation_enabled_ = true;
   bool dragging_enabled_ = false;
   bool is_base_ = false;
+  bool show_handle_ = false;
   std::unique_ptr<TouchSelectionControllerExt> controller_;
 };
 
@@ -693,12 +697,15 @@ TEST_F(TouchSelectionControllerExtTest, UpdateSelectionChanged) {
   controller().end_selection_handle_ =
     std::make_unique<TouchHandleExt>(touchHandleClient.get(), TouchHandleOrientation::RIGHT, kDefaultViewportRect);
   controller().SetTouchNumsForHandle(event);
-  EXPECT_EQ(controller().gestureTouchQueue_.size(), 1);
+  EXPECT_EQ(controller().gestureTouchQueue_.size(), 1u);
   controller().UpdateSelectionChanged(*controller().insertion_handle_);
   controller().UpdateSelectionChanged(*controller().start_selection_handle_);
+  EXPECT_THAT(GetAndResetEvents(), ElementsAre(SELECTION_HANDLES_UPDATEMENU));
   controller().ResetPositionAfterDragEnd(*controller().start_selection_handle_);
   controller().ResetPositionAfterDragEnd(*controller().end_selection_handle_);
   controller().OnInsertionChangedExt(start_bound, end_bound);
+  EXPECT_EQ(controller().start_, start_bound);
+  EXPECT_EQ(controller().end_, end_bound);
   controller().active_status_ = TouchSelectionController::ActiveStatus::INACTIVE;
   EXPECT_EQ(controller().SelectOverImg(), false);
   controller().active_status_ = TouchSelectionController::ActiveStatus::SELECTION_ACTIVE;
@@ -732,7 +739,7 @@ TEST_F(TouchSelectionControllerExtTest, UpdateSelectionChanged) {
   controller().start_selection_handle_ = nullptr;
   controller().end_selection_handle_ = nullptr;
   controller().SetTouchNumsForHandle(event);
-  EXPECT_EQ(controller().gestureTouchQueue_.size(), 2);
+  EXPECT_EQ(controller().gestureTouchQueue_.size(), 2u);
 }
 
 TEST_F(TouchSelectionControllerExtTest, ArkSelectBetweenCoordinates002) {
@@ -846,27 +853,64 @@ TEST_F(TouchSelectionControllerExtTest, OnHandleSwapTest) {
   EXPECT_FALSE(controller().OnHandleSwap(false, bound, bound));
 }
 
+TEST_F(TouchSelectionControllerExtTest, OnHandleSwapChecksBothActiveHandles) {
+  auto touch_handle_client = std::make_shared<MockTouchHandleClient>();
+  controller().start_selection_handle_ = std::make_unique<TouchHandleExt>(
+      touch_handle_client.get(), TouchHandleOrientation::LEFT,
+      kDefaultViewportRect);
+  controller().end_selection_handle_ = std::make_unique<TouchHandleExt>(
+      touch_handle_client.get(), TouchHandleOrientation::RIGHT,
+      kDefaultViewportRect);
+
+  gfx::SelectionBound start_bound;
+  gfx::SelectionBound end_bound;
+  gfx::SelectionBound different_bound;
+  start_bound.SetEdge(gfx::PointF(10, 0), gfx::PointF(10, 10));
+  end_bound.SetEdge(gfx::PointF(20, 0), gfx::PointF(20, 10));
+  different_bound.SetEdge(gfx::PointF(30, 0), gfx::PointF(30, 10));
+  controller().start_ = start_bound;
+  controller().end_ = end_bound;
+
+  controller().start_selection_handle_->SetVisible(
+      true, TouchHandle::AnimationStyle::ANIMATION_NONE);
+  controller().end_selection_handle_->SetVisible(
+      true, TouchHandle::AnimationStyle::ANIMATION_NONE);
+  EXPECT_TRUE(controller().OnHandleSwap(false, different_bound, end_bound));
+
+  controller().end_selection_handle_->SetVisible(
+      false, TouchHandle::AnimationStyle::ANIMATION_NONE);
+  EXPECT_TRUE(controller().OnHandleSwap(false, start_bound, different_bound));
+
+  controller().start_selection_handle_->SetVisible(
+      false, TouchHandle::AnimationStyle::ANIMATION_NONE);
+  EXPECT_FALSE(controller().OnHandleSwap(false, start_bound, end_bound));
+}
+
 TEST_F(TouchSelectionControllerExtTest, IsContinuousEventBoundaryTest) {
   PreTouchInfo first_down = {1, 1, base::TimeTicks::Now()};
-  PreTouchInfo second_down = {1, 1, base::TimeTicks::Now() + base::Milliseconds(1000)};
+  PreTouchInfo second_down = {
+      1, 1, base::TimeTicks::Now() + base::Milliseconds(1000)};
   EXPECT_FALSE(controller().IsContinuousEvent(first_down, second_down, true));
-  
+
   first_down = {1, 1, base::TimeTicks::Now()};
   second_down = {1, 1, base::TimeTicks::Now() + base::Milliseconds(50)};
   EXPECT_TRUE(controller().IsContinuousEvent(first_down, second_down, true));
-  
+
   first_down = {1, 1, base::TimeTicks::Now()};
   second_down = {1, 2, base::TimeTicks::Now() + base::Milliseconds(50)};
   EXPECT_FALSE(controller().IsContinuousEvent(first_down, second_down, true));
-  
+
   first_down = {1, 1, base::TimeTicks::Now()};
   second_down = {2, 1, base::TimeTicks::Now() + base::Milliseconds(50)};
   EXPECT_FALSE(controller().IsContinuousEvent(first_down, second_down, true));
 }
 
 TEST_F(TouchSelectionControllerExtTest, GetTouchNumsZeroPointers) {
-  MockMotionEvent event(MockMotionEvent::Action::DOWN, base::TimeTicks::Now(), 0, 0);
-  EXPECT_EQ(controller().GetTouchNums(event), TouchSelectionControllerExt::INVALID_CLICK_NUM);
+  MockMotionEvent event(MockMotionEvent::Action::DOWN, base::TimeTicks::Now(),
+                        std::vector<gfx::PointF>());
+  EXPECT_EQ(controller().GetTouchNums(event),
+            TouchSelectionControllerExt::INVALID_CLICK_NUM);
+  EXPECT_TRUE(controller().gestureTouchQueue_.empty());
 }
 
 TEST_F(TouchSelectionControllerExtTest, GetTouchNumsSingleClick) {
@@ -914,11 +958,15 @@ TEST_F(TouchSelectionControllerExtTest, SetTouchNumsForHandleWithInsertion) {
   controller().end_selection_handle_ = nullptr;
   
   controller().gestureTouchQueue_ = std::queue<PreTouchInfo>();
-  PreTouchInfo firstTouch = {1, 1, base::TimeTicks::Now()};
+  const base::TimeTicks now = base::TimeTicks::Now();
+  PreTouchInfo firstTouch = {1, 1, now};
   controller().gestureTouchQueue_.push(firstTouch);
   
-  MockMotionEvent event(MockMotionEvent::Action::DOWN, base::TimeTicks::Now() + base::Milliseconds(50), 1, 0);
+  MockMotionEvent event(MockMotionEvent::Action::DOWN,
+                        now + base::Milliseconds(50), 1, 0);
   controller().SetTouchNumsForHandle(event);
+  EXPECT_EQ(controller().insertion_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::DOUBLE_CLICK_NUM);
 }
 
 TEST_F(TouchSelectionControllerExtTest, SetTouchNumsForHandleWithSelection) {
@@ -931,22 +979,75 @@ TEST_F(TouchSelectionControllerExtTest, SetTouchNumsForHandleWithSelection) {
     std::make_unique<TouchHandleExt>(touchHandleClient.get(), TouchHandleOrientation::RIGHT, kDefaultViewportRect);
   
   controller().gestureTouchQueue_ = std::queue<PreTouchInfo>();
-  PreTouchInfo firstTouch = {1, 1, base::TimeTicks::Now()};
+  const base::TimeTicks now = base::TimeTicks::Now();
+  PreTouchInfo firstTouch = {1, 1, now};
   controller().gestureTouchQueue_.push(firstTouch);
   
-  MockMotionEvent event(MockMotionEvent::Action::DOWN, base::TimeTicks::Now() + base::Milliseconds(50), 1, 0);
+  MockMotionEvent event(MockMotionEvent::Action::DOWN,
+                        now + base::Milliseconds(50), 1, 0);
   controller().SetTouchNumsForHandle(event);
+  EXPECT_EQ(controller().start_selection_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::DOUBLE_CLICK_NUM);
+  EXPECT_EQ(controller().end_selection_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::DOUBLE_CLICK_NUM);
+}
+
+TEST_F(TouchSelectionControllerExtTest, SetTouchNumsForPlainHandles) {
+  auto touch_handle_client = std::make_shared<MockTouchHandleClient>();
+  controller().insertion_handle_ = std::make_unique<TouchHandle>(
+      touch_handle_client.get(), TouchHandleOrientation::CENTER,
+      kDefaultViewportRect);
+  controller().start_selection_handle_ = std::make_unique<TouchHandle>(
+      touch_handle_client.get(), TouchHandleOrientation::LEFT,
+      kDefaultViewportRect);
+  controller().end_selection_handle_ = std::make_unique<TouchHandle>(
+      touch_handle_client.get(), TouchHandleOrientation::RIGHT,
+      kDefaultViewportRect);
+
+  MockMotionEvent event(MockMotionEvent::Action::DOWN, base::TimeTicks::Now(),
+                        1, 1);
+  controller().SetTouchNumsForHandle(event);
+
+  EXPECT_EQ(controller().insertion_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::SINGLE_CLICK_NUM);
+  EXPECT_EQ(controller().start_selection_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::SINGLE_CLICK_NUM);
+  EXPECT_EQ(controller().end_selection_handle_->continuous_touch_nums_,
+            TouchSelectionControllerExt::SINGLE_CLICK_NUM);
 }
 
 TEST_F(TouchSelectionControllerExtTest, OnInsertionChangedExtWithNullHandle) {
   gfx::SelectionBound start_bound;
   gfx::SelectionBound end_bound;
   gfx::RectF rect(50, 5, 0, 10);
+  start_bound.set_type(gfx::SelectionBound::CENTER);
   start_bound.SetEdge(rect.origin(), rect.bottom_left());
-  end_bound.SetEdge(rect.origin(), rect.bottom_left());
-  
+  start_bound.set_visible(true);
+  end_bound = start_bound;
+
   controller().insertion_handle_ = nullptr;
   controller().OnInsertionChangedExt(start_bound, end_bound);
+
+  ASSERT_NE(nullptr, controller().insertion_handle_);
+  TouchHandleExt* const handle_ext =
+      controller().insertion_handle_->AsTouchHandleExt();
+  ASSERT_NE(nullptr, handle_ext);
+  EXPECT_EQ(TouchSelectionController::ActiveStatus::INSERTION_ACTIVE,
+            controller().active_status_);
+  EXPECT_EQ(start_bound.edge_start(), handle_ext->focus_top());
+  EXPECT_EQ(start_bound.edge_end(),
+            controller().insertion_handle_->focus_bottom());
+  EXPECT_TRUE(handle_ext->GetVisible());
+  EXPECT_EQ(controller().start_, start_bound);
+  EXPECT_EQ(controller().end_, end_bound);
 }
+
+TEST_F(TouchSelectionControllerExtTest, IsShowHandle) {
+  SetShowHandle(false);
+  EXPECT_FALSE(controller().IsShowHandle());
+
+  SetShowHandle(true);
+  EXPECT_TRUE(controller().IsShowHandle());
 }
+}  // namespace
 }  // namespace ui
