@@ -120,10 +120,127 @@ Input_DeviceInfo* __wrap_OH_Input_CreateDeviceInfo() {
   																			 :__real_OH_Input_CreateDeviceInfo();
 }
 
-std::function<Input_Result (int32_t *deviceIds, int32_t inSize, int32_t *outSize)> g_mock_OH_Input_GetDeviceIds;
-Input_Result __wrap_OH_Input_GetDeviceIds(int32_t *deviceIds, int32_t inSize, int32_t *outSize) {
-  return g_mock_OH_Input_GetDeviceIds?g_mock_OH_Input_GetDeviceIds(deviceIds, inSize, outSize)
-  																	 :__real_OH_Input_GetDeviceIds(deviceIds, inSize, outSize);
+std::function<
+    Input_Result(int32_t* deviceIds, int32_t inSize, int32_t* outSize)>
+    g_mock_OH_Input_GetDeviceIds;
+Input_Result __wrap_OH_Input_GetDeviceIds(int32_t* deviceIds,
+                                          int32_t inSize,
+                                          int32_t* outSize) {
+  return g_mock_OH_Input_GetDeviceIds
+             ? g_mock_OH_Input_GetDeviceIds(deviceIds, inSize, outSize)
+             : __real_OH_Input_GetDeviceIds(deviceIds, inSize, outSize);
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexit-time-destructors"
+
+std::function<Input_Result(int32_t deviceId, Input_DeviceInfo** deviceInfo)>
+    g_mock_OH_Input_GetDevice;
+Input_Result __wrap_OH_Input_GetDevice(int32_t deviceId,
+                                       Input_DeviceInfo** deviceInfo) {
+  return g_mock_OH_Input_GetDevice
+             ? g_mock_OH_Input_GetDevice(deviceId, deviceInfo)
+             : __real_OH_Input_GetDevice(deviceId, deviceInfo);
+}
+
+std::function<void(Input_DeviceInfo** deviceInfo)>
+    g_mock_OH_Input_DestroyDeviceInfo;
+void __wrap_OH_Input_DestroyDeviceInfo(Input_DeviceInfo** deviceInfo) {
+  if (g_mock_OH_Input_DestroyDeviceInfo) {
+    g_mock_OH_Input_DestroyDeviceInfo(deviceInfo);
+    return;
+  }
+  __real_OH_Input_DestroyDeviceInfo(deviceInfo);
+}
+
+std::function<Input_Result(int32_t deviceId, int32_t* keyboardType)>
+    g_mock_OH_Input_GetKeyboardType;
+Input_Result __wrap_OH_Input_GetKeyboardType(int32_t deviceId,
+                                             int32_t* keyboardType) {
+  return g_mock_OH_Input_GetKeyboardType
+             ? g_mock_OH_Input_GetKeyboardType(deviceId, keyboardType)
+             : __real_OH_Input_GetKeyboardType(deviceId, keyboardType);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, int32_t* capabilities)>
+    g_mock_OH_Input_GetCapabilities;
+Input_Result __wrap_OH_Input_GetCapabilities(Input_DeviceInfo* deviceInfo,
+                                             int32_t* capabilities) {
+  return g_mock_OH_Input_GetCapabilities
+             ? g_mock_OH_Input_GetCapabilities(deviceInfo, capabilities)
+             : __real_OH_Input_GetCapabilities(deviceInfo, capabilities);
+}
+
+std::function<Input_Result(Input_DeviceListener* listener)>
+    g_mock_OH_Input_RegisterDeviceListener;
+Input_Result __wrap_OH_Input_RegisterDeviceListener(
+    Input_DeviceListener* listener) {
+  return g_mock_OH_Input_RegisterDeviceListener
+             ? g_mock_OH_Input_RegisterDeviceListener(listener)
+             : __real_OH_Input_RegisterDeviceListener(listener);
+}
+
+std::function<Input_Result(Input_DeviceListener* listener)>
+    g_mock_OH_Input_UnregisterDeviceListener;
+Input_Result __wrap_OH_Input_UnregisterDeviceListener(
+    Input_DeviceListener* listener) {
+  return g_mock_OH_Input_UnregisterDeviceListener
+             ? g_mock_OH_Input_UnregisterDeviceListener(listener)
+             : __real_OH_Input_UnregisterDeviceListener(listener);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, int32_t* id)>
+    g_mock_OH_Input_GetDeviceId;
+Input_Result __wrap_OH_Input_GetDeviceId(Input_DeviceInfo* deviceInfo,
+                                         int32_t* id) {
+  return g_mock_OH_Input_GetDeviceId
+             ? g_mock_OH_Input_GetDeviceId(deviceInfo, id)
+             : __real_OH_Input_GetDeviceId(deviceInfo, id);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, int32_t* version)>
+    g_mock_OH_Input_GetDeviceVersion;
+Input_Result __wrap_OH_Input_GetDeviceVersion(Input_DeviceInfo* deviceInfo,
+                                              int32_t* version) {
+  return g_mock_OH_Input_GetDeviceVersion
+             ? g_mock_OH_Input_GetDeviceVersion(deviceInfo, version)
+             : __real_OH_Input_GetDeviceVersion(deviceInfo, version);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, int32_t* product)>
+    g_mock_OH_Input_GetDeviceProduct;
+Input_Result __wrap_OH_Input_GetDeviceProduct(Input_DeviceInfo* deviceInfo,
+                                              int32_t* product) {
+  return g_mock_OH_Input_GetDeviceProduct
+             ? g_mock_OH_Input_GetDeviceProduct(deviceInfo, product)
+             : __real_OH_Input_GetDeviceProduct(deviceInfo, product);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, int32_t* vendor)>
+    g_mock_OH_Input_GetDeviceVendor;
+Input_Result __wrap_OH_Input_GetDeviceVendor(Input_DeviceInfo* deviceInfo,
+                                             int32_t* vendor) {
+  return g_mock_OH_Input_GetDeviceVendor
+             ? g_mock_OH_Input_GetDeviceVendor(deviceInfo, vendor)
+             : __real_OH_Input_GetDeviceVendor(deviceInfo, vendor);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, char** name)>
+    g_mock_OH_Input_GetDeviceName;
+Input_Result __wrap_OH_Input_GetDeviceName(Input_DeviceInfo* deviceInfo,
+                                           char** name) {
+  return g_mock_OH_Input_GetDeviceName
+             ? g_mock_OH_Input_GetDeviceName(deviceInfo, name)
+             : __real_OH_Input_GetDeviceName(deviceInfo, name);
+}
+
+std::function<Input_Result(Input_DeviceInfo* deviceInfo, char** address)>
+    g_mock_OH_Input_GetDeviceAddress;
+Input_Result __wrap_OH_Input_GetDeviceAddress(Input_DeviceInfo* deviceInfo,
+                                              char** address) {
+  return g_mock_OH_Input_GetDeviceAddress
+             ? g_mock_OH_Input_GetDeviceAddress(deviceInfo, address)
+             : __real_OH_Input_GetDeviceAddress(deviceInfo, address);
 }
 
 std::function<int32_t (OH_NetConn_AppHttpProxyChange appHttpProxyChange,
@@ -135,6 +252,15 @@ int32_t __wrap_OH_NetConn_RegisterAppHttpProxyCallback(OH_NetConn_AppHttpProxyCh
       :__real_OH_NetConn_RegisterAppHttpProxyCallback(appHttpProxyChange, callbackId);
 }
 
+std::function<int32_t(uint32_t callbackId)>
+    g_mock_OH_NetConn_UnregisterAppHttpProxyCallback;
+int32_t __wrap_OH_NetConn_UnregisterAppHttpProxyCallback(uint32_t callbackId) {
+  return g_mock_OH_NetConn_UnregisterAppHttpProxyCallback
+             ? g_mock_OH_NetConn_UnregisterAppHttpProxyCallback(callbackId)
+             : __real_OH_NetConn_UnregisterAppHttpProxyCallback(callbackId);
+}
+
+#pragma clang diagnostic pop
 
 std::function<OH_NativeVSync* (const char* name, unsigned int length)> g_mock_OH_NativeVSync_Create;
 OH_NativeVSync* __wrap_OH_NativeVSync_Create(const char* name, unsigned int length) {
