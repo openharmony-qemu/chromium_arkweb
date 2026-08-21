@@ -76,6 +76,14 @@ void NWebAgentManagerImpl::RequestWebDomJsonString(std::shared_ptr<NWebMessageVa
     }
 }
 
+void NWebAgentManagerImpl::RequestWebDomJsonStringWithOptions(
+    std::shared_ptr<NWebMessageValueCallback> callback,
+    int32_t mode) {
+    if (content_change_detection_) {
+      content_change_detection_->RequestWebDomJsonStringWithOptions(callback, mode);
+    }
+}
+
 void NWebAgentManagerImpl::RequestPageSceneQuery(
     const std::string& ruleJson,
     const std::string& ruleId,

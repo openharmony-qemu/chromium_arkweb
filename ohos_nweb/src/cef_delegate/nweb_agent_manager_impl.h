@@ -38,6 +38,9 @@ public:
     void SetDomExtractionConfig(bool reportDomTree) override;
     void SetAgentNeedHighlight(bool enabled) override;
     void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback) override;
+    void RequestWebDomJsonStringWithOptions(
+        std::shared_ptr<NWebMessageValueCallback> callback,
+        int32_t mode) override;
     void RequestPageSceneQuery(
         const std::string& ruleJson,
         const std::string& ruleId,
