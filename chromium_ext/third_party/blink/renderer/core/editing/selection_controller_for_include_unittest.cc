@@ -13,6 +13,11 @@
  * limitations under the License.
  */
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
+
 #define private public
 #include "third_party/blink/renderer/core/editing/selection_controller.h"
 #undef private
@@ -26,7 +31,9 @@ class SelectionControllerForIncludeTest : public SelectionControllerTest {
   bool GetClickSelection();
   bool GetDownAllow();
   bool GetMenuShow();
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   void SetLongPress(HitTestResult& result);
+#endif
   void SetLinkPress(HitTestResult& result);
 
   void TestBody() override {}
@@ -60,14 +67,17 @@ bool SelectionControllerForIncludeTest::GetMenuShow() {
   return Controller().mouse_menu_show_;
 }
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 void SelectionControllerForIncludeTest::SetLongPress(HitTestResult& result) {
   Controller().last_long_press_hit_test_result_ = result;
 }
+#endif
 
 void SelectionControllerForIncludeTest::SetLinkPress(HitTestResult& result) {
   Controller().last_link_hit_test_result_ = result;
 }
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 TEST_F(SelectionControllerForIncludeTest, NotifyContextMenuWillShowTest_1stIf) {
   HitTestResult result;
   GetFrame()
@@ -85,6 +95,7 @@ TEST_F(SelectionControllerForIncludeTest, NotifyContextMenuWillShowTest_2ndIf) {
       .NotifyContextMenuWillShow();
   EXPECT_TRUE(!result.InnerNode());
 }
+#endif
 
 TEST_F(SelectionControllerForIncludeTest, FocusDocumentViewTest_1stIf) {
   HitTestResult result;
@@ -92,6 +103,7 @@ TEST_F(SelectionControllerForIncludeTest, FocusDocumentViewTest_1stIf) {
   EXPECT_TRUE(!result.InnerNode());
 }
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 TEST_F(SelectionControllerForIncludeTest,
        ShowSelectionByLastLongPressHitTestResultTest_1stIf) {
   GetDocument().documentElement()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
@@ -234,6 +246,7 @@ TEST_F(SelectionControllerForIncludeTest,
 
   EXPECT_TRUE(result);
 }
+#endif
 
 TEST_F(SelectionControllerForIncludeTest, SelectClosestWordFromLiveLinkTest_1stIf) {
   SetHtmlInnerHTML(R"HTML(
