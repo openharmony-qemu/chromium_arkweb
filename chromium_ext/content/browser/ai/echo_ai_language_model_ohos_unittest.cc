@@ -18,7 +18,9 @@
 #include <memory>
 #include <utility>
 
+#include "base/files/file_util.h"
 #include "base/functional/callback.h"
+#include "base/json/json_reader.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "content/browser/site_instance_impl.h"
@@ -180,6 +182,22 @@ AILanguageModelPromptPtr CreateTextPrompt(AILanguageModelPromptRole role,
   return AILanguageModelPrompt::New(role, std::move(contents), false);
 }
 
+AILanguageModelPromptPtr CreateImagePrompt(AILanguageModelPromptRole role) {
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(1, 1);
+  bitmap.eraseARGB(255, 1, 2, 3);
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewBitmap(bitmap));
+  return AILanguageModelPrompt::New(role, std::move(contents), false);
+}
+
+AILanguageModelExpectedPtr CreateExpected(AILanguageModelPromptType type,
+                                          const std::string& language) {
+  std::vector<AILanguageCodePtr> languages;
+  languages.push_back(AILanguageCode::New(language));
+  return AILanguageModelExpected::New(type, std::move(languages));
+}
+
 }  // namespace
 
 class EchoAILanguageModelOHOSTest : public RenderViewHostTestHarness {
@@ -300,6 +318,137 @@ TEST_F(EchoAILanguageModelOHOSTest, ConstructorWithInitialPrompts) {
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest,
+       ConstructorSerializesEveryRoleAndExpectedType) {
+  std::vector<AILanguageModelPromptPtr> initial_prompts;
+  initial_prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kSystem, "system"));
+  initial_prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kUser, "user"));
+  initial_prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kAssistant, "assistant"));
+  initial_prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kToolCall, "call"));
+  initial_prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kToolResponse, "response"));
+  std::vector<AILanguageModelExpectedPtr> expected_inputs;
+  expected_inputs.push_back(
+      CreateExpected(AILanguageModelPromptType::kText, "en"));
+  expected_inputs.push_back(
+      CreateExpected(AILanguageModelPromptType::kImage, "en"));
+  expected_inputs.push_back(
+      CreateExpected(AILanguageModelPromptType::kAudio, "en"));
+  expected_inputs.push_back(
+      CreateExpected(AILanguageModelPromptType::kToolCall, "en"));
+  expected_inputs.push_back(
+      CreateExpected(AILanguageModelPromptType::kToolResponse, "en"));
+
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>(), std::move(expected_inputs),
+      std::vector<AILanguageModelExpectedPtr>(), std::move(initial_prompts), 0);
+
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  ASSERT_TRUE(value->is_dict());
+  const base::Value::List* prompts =
+      value->GetDict().FindList("initialPrompts");
+  ASSERT_NE(prompts, nullptr);
+  ASSERT_EQ(prompts->size(), 5u);
+  EXPECT_EQ(*(*prompts)[0].GetDict().FindString("role"), "system");
+  EXPECT_EQ(*(*prompts)[1].GetDict().FindString("role"), "user");
+  EXPECT_EQ(*(*prompts)[2].GetDict().FindString("role"), "assistant");
+  EXPECT_EQ(*(*prompts)[3].GetDict().FindString("role"), "tool-call");
+  EXPECT_EQ(*(*prompts)[4].GetDict().FindString("role"), "tool-response");
+  const base::Value::List* expected =
+      value->GetDict().FindList("expectedInputs");
+  ASSERT_NE(expected, nullptr);
+  ASSERT_EQ(expected->size(), 5u);
+  EXPECT_EQ(*(*expected)[0].GetDict().FindString("type"), "text");
+  EXPECT_EQ(*(*expected)[1].GetDict().FindString("type"), "image");
+  EXPECT_EQ(*(*expected)[2].GetDict().FindString("type"), "audio");
+  EXPECT_EQ(*(*expected)[3].GetDict().FindString("type"), "tool-call");
+  EXPECT_EQ(*(*expected)[4].GetDict().FindString("type"), "tool-response");
+}
+
+TEST_F(EchoAILanguageModelOHOSTest,
+       ConstructorSerializesBitmapsAndRemovesTemporaryFiles) {
+  base::FilePath first_path;
+  base::FilePath second_path;
+  base::FilePath image_directory;
+  {
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(1, 1);
+    bitmap.eraseARGB(255, 1, 2, 3);
+    std::vector<AILanguageModelPromptContentPtr> contents;
+    contents.push_back(AILanguageModelPromptContent::NewBitmap(bitmap));
+    contents.push_back(AILanguageModelPromptContent::NewBitmap(bitmap));
+    std::vector<AILanguageModelPromptPtr> initial_prompts;
+    initial_prompts.push_back(AILanguageModelPrompt::New(
+        AILanguageModelPromptRole::kUser, std::move(contents), false));
+
+    EchoAILanguageModelOHOS model(web_contents(), base::BindOnce([](bool) {}),
+                                  nullptr,
+                                  base::flat_set<AILanguageModelPromptType>(),
+                                  std::vector<AILanguageModelExpectedPtr>(),
+                                  std::vector<AILanguageModelExpectedPtr>(),
+                                  std::move(initial_prompts), 0);
+
+    std::optional<base::Value> value =
+        base::JSONReader::Read(delegate_->input_, base::JSON_PARSE_RFC);
+    ASSERT_TRUE(value.has_value());
+    const base::Value::List* prompts =
+        value->GetDict().FindList("initialPrompts");
+    ASSERT_NE(prompts, nullptr);
+    ASSERT_EQ(prompts->size(), 1u);
+    const base::Value::List* serialized_contents =
+        (*prompts)[0].GetDict().FindList("content");
+    ASSERT_NE(serialized_contents, nullptr);
+    ASSERT_EQ(serialized_contents->size(), 2u);
+    EXPECT_EQ(*(*serialized_contents)[0].GetDict().FindString("type"), "image");
+    EXPECT_EQ(*(*serialized_contents)[1].GetDict().FindString("type"), "image");
+    const std::string* first_value =
+        (*serialized_contents)[0].GetDict().FindString("value");
+    const std::string* second_value =
+        (*serialized_contents)[1].GetDict().FindString("value");
+    ASSERT_NE(first_value, nullptr);
+    ASSERT_NE(second_value, nullptr);
+    first_path = base::FilePath(*first_value);
+    second_path = base::FilePath(*second_value);
+    image_directory = first_path.DirName();
+    EXPECT_FALSE(first_path.empty());
+    EXPECT_NE(first_path, second_path);
+    EXPECT_EQ(image_directory, second_path.DirName());
+    EXPECT_TRUE(base::PathExists(first_path));
+    EXPECT_TRUE(base::PathExists(second_path));
+  }
+
+  EXPECT_FALSE(base::PathExists(first_path));
+  EXPECT_FALSE(base::PathExists(second_path));
+  EXPECT_FALSE(base::DirectoryExists(image_directory));
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, ConstructorOmitsExpectedWithoutLanguages) {
+  std::vector<AILanguageModelExpectedPtr> expected_outputs;
+  expected_outputs.push_back(AILanguageModelExpected::New(
+      AILanguageModelPromptType::kText, std::nullopt));
+
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>(),
+      std::vector<AILanguageModelExpectedPtr>(), std::move(expected_outputs),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  const base::Value::List* expected =
+      value->GetDict().FindList("expectedOutputs");
+  ASSERT_NE(expected, nullptr);
+  EXPECT_TRUE(expected->empty());
 }
 
 TEST_F(EchoAILanguageModelOHOSTest, ConstructorWithoutDelegate) {
@@ -521,6 +670,31 @@ TEST_F(EchoAILanguageModelOHOSTest, MeasureInputUsage) {
           &measured_usage));
 
   EXPECT_EQ(measured_usage, 11u);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest,
+       MeasureInputUsageCountsNonTextAsEstimatedHundred) {
+  EchoAILanguageModelOHOS model(web_contents(), base::BindOnce([](bool) {}),
+                                nullptr,
+                                base::flat_set<AILanguageModelPromptType>(),
+                                std::vector<AILanguageModelExpectedPtr>(),
+                                std::vector<AILanguageModelExpectedPtr>(),
+                                std::vector<AILanguageModelPromptPtr>(), 0);
+
+  std::vector<AILanguageModelPromptPtr> input;
+  input.push_back(CreateTextPrompt(AILanguageModelPromptRole::kUser, "abc"));
+  input.push_back(CreateImagePrompt(AILanguageModelPromptRole::kUser));
+
+  uint32_t measured_usage = 0;
+  CallMeasureInputUsage(
+      model, std::move(input),
+      base::BindOnce(
+          [](uint32_t* output, std::optional<uint32_t> usage) {
+            *output = usage.value_or(0);
+          },
+          &measured_usage));
+
+  EXPECT_EQ(measured_usage, 103u);
 }
 
 }  // namespace content

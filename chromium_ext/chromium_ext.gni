@@ -1034,6 +1034,10 @@ arkweb_third_party_blink_renderer_core_unittest_sources = [
   "//arkweb/chromium_ext/third_party/blink/renderer/platform/loader/fetch/url_loader/resource_request_sender_ext_unittest.cc",
 ]
 
+arkweb_third_party_blink_renderer_modules_unittest_sources = [
+  "//arkweb/chromium_ext/third_party/blink/renderer/modules/ai/on_device_translation/language_detector_ohos_unittest.cc",
+]
+
 arkweb_third_party_blink_renderer_platform_unittest_sources = [ "//arkweb/chromium_ext/third_party/blink/renderer/platform/graphics/image_ext_unittest.cc" ]
 
 arkweb_third_party_blink_renderer_platform_media_unittest_sources = [
