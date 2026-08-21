@@ -16,7 +16,7 @@
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
 TEST_F(LoginDatabaseTest, UpdateLoginDisplayName) {
   PasswordForm form;
-  
+
   password_manager::PasswordStoreChangeList changes = db().AddLogin(form);
   EXPECT_FALSE(db().UpdateLoginDisplayName(form, nullptr));
 
@@ -27,5 +27,48 @@ TEST_F(LoginDatabaseTest, UpdateLoginDisplayName) {
   form.password_element = u"pwd";
   form.password_value = u"example";
   EXPECT_FALSE(db().UpdateLoginDisplayName(form, &changes));
+}
+
+TEST_F(LoginDatabaseTest, UpdateLoginDisplayNameSuccess) {
+  PasswordForm form = GenerateExamplePasswordForm();
+  form.display_name = u"Original display name";
+  ASSERT_EQ(db().AddLogin(form), AddChangeForForm(form));
+  form.display_name = u"Updated display name";
+  PasswordStoreChangeList changes;
+
+  ASSERT_TRUE(db().UpdateLoginDisplayName(form, &changes));
+
+  ASSERT_EQ(changes.size(), 1u);
+  EXPECT_EQ(changes[0].type(), PasswordStoreChange::UPDATE);
+  EXPECT_EQ(changes[0].form().display_name, form.display_name);
+  EXPECT_TRUE(changes[0].password_changed());
+
+  db_.reset();
+  sql::Database verification_db(sql::test::kTestTag);
+  ASSERT_TRUE(verification_db.Open(file_));
+  sql::Statement statement(
+      verification_db.GetUniqueStatement("SELECT display_name FROM logins"));
+  ASSERT_TRUE(statement.Step());
+  EXPECT_EQ(form.display_name, statement.ColumnString16(0));
+  EXPECT_FALSE(statement.Step());
+  EXPECT_TRUE(statement.Succeeded());
+}
+
+TEST_F(LoginDatabaseTest, UpdateLoginDisplayNameSuccessWithoutChangeList) {
+  PasswordForm form = GenerateExamplePasswordForm();
+  ASSERT_EQ(db().AddLogin(form), AddChangeForForm(form));
+  form.display_name = u"Updated without a change list";
+
+  ASSERT_TRUE(db().UpdateLoginDisplayName(form, nullptr));
+
+  db_.reset();
+  sql::Database verification_db(sql::test::kTestTag);
+  ASSERT_TRUE(verification_db.Open(file_));
+  sql::Statement statement(
+      verification_db.GetUniqueStatement("SELECT display_name FROM logins"));
+  ASSERT_TRUE(statement.Step());
+  EXPECT_EQ(form.display_name, statement.ColumnString16(0));
+  EXPECT_FALSE(statement.Step());
+  EXPECT_TRUE(statement.Succeeded());
 }
 #endif
