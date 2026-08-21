@@ -14,6 +14,10 @@
  */
 
 #include <memory>
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "third_party/blink/renderer/core/input/gesture_manager.h"
 
 namespace blink {
@@ -140,9 +144,11 @@ class GestureManagerUtilsTest : public SimTestExt {
     return GetEventHandler().HandleGestureEvent(drag_event);
   }
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   void SetContextMenuCustomizationEnabled(bool enabled) {
     GetLocalFrame().GetSettings()->SetContextMenuCustomization(enabled);
   }
+#endif
 
   void SetGestureFocusMode(int mode) {
     GetLocalFrame().GetSettings()->SetGestureFocusMode(mode);

@@ -13,7 +13,13 @@
  * limitations under the License.
  */
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
+
 namespace blink {
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 TEST_F(EventHandlerSimTest, SendContextMenuEventExt) {
   WebMouseEvent mouse_down_event(
       WebMouseEvent::Type::kMouseDown, gfx::PointF(0, 0), gfx::PointF(100, 200),
@@ -34,4 +40,5 @@ TEST_F(EventHandlerSimTest, ShowNonLocatedContextMenuExt) {
   GetDocument().GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
       nullptr, kMenuSourceShowFreeCopyMenu);
 }
+#endif
 }  // namespace blink
