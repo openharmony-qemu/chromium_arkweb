@@ -33,6 +33,12 @@
 #define FIRST_ELEMENT 0
 
 namespace OHOS::NWeb {
+
+// Tag identifying clipboard data origin as ArkWeb, used by the pasteboard
+// service to distinguish web-sourced content. Tag assignment failure is
+// non-fatal: the tag is auxiliary metadata and must not block the core
+// paste operation.
+static constexpr const char* kArkWebTag = "ArkWeb";
 // Adapter destroys record if it is not bound to an OH_UdmfData owner
 PasteDataRecordAdapterImpl::PasteDataRecordAdapterImpl(
     OH_UdmfRecord* record,
@@ -1077,6 +1083,14 @@ void PasteBoardClientAdapterImpl::SetPasteData(const PasteRecordVector& data, Co
     auto res = OH_UdmfProperty_SetShareOption(uProp, shareOption);
     if (res != UDMF_E_OK) {
         WVLOG_E("property set share-option failed. error code is : %{public}d", res);
+    }
+
+    // Mark clipboard data as originating from ArkWeb so the pasteboard service
+    // can identify web-sourced content. Failure is non-fatal: the tag is
+    // auxiliary information and should not prevent the paste from proceeding.
+    res = OH_UdmfProperty_SetTag(uProp, kArkWebTag);
+    if (res != UDMF_E_OK) {
+        WVLOG_E("property set tag failed. error code is : %{public}d", res);
     }
 
     auto ret = OH_Pasteboard_SetData(pasteboard_, uData);
