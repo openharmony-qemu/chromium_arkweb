@@ -353,7 +353,8 @@
                 "void OH_NativeBuffer_GetConfig(OH_NativeBuffer *buffer, OH_NativeBuffer_Config* config)",
                 "int32_t OH_NativeBuffer_Map(OH_NativeBuffer *buffer, void **virAddr)",
                 "int32_t OH_NativeBuffer_Unmap(OH_NativeBuffer *buffer)",
-                "uint32_t OH_NativeBuffer_GetSeqNum(OH_NativeBuffer *buffer)"
+                "uint32_t OH_NativeBuffer_GetSeqNum(OH_NativeBuffer *buffer)",
+                "int32_t OH_NativeBuffer_GetColorSpace(OH_NativeBuffer *buffer, OH_NativeBuffer_ColorSpace *colorSpace)"
             ]
         },
         "includes": []
