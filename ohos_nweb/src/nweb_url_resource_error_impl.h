@@ -21,16 +21,20 @@
 namespace OHOS::NWeb {
 class UrlResourceErrorImpl : public NWebUrlResourceError {
  public:
-  UrlResourceErrorImpl(int error_code, const std::string& error_info)
-      : error_code_(error_code), error_info_(error_info) {}
+  UrlResourceErrorImpl(int error_code, const std::string& error_info,
+                       int custom_error_code = 0)
+      : error_code_(error_code), error_info_(error_info),
+        custom_error_code_(custom_error_code) {}
   ~UrlResourceErrorImpl() = default;
 
   std::string ErrorInfo() override { return error_info_; }
   int ErrorCode() override { return error_code_; }
+  int CustomErrorCode() override { return custom_error_code_; }
 
  private:
   int error_code_;
   std::string error_info_;
+  int custom_error_code_;
 };
 }  // namespace OHOS::NWeb
 #endif  // NWEB_URL_RESOURCE_ERROR_IMPL
