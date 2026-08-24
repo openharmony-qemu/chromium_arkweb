@@ -5,6 +5,7 @@
 #ifndef MEDIA_BASE_OHOS_MEDIA_PLAYER_CALLBACK_H_
 #define MEDIA_BASE_OHOS_MEDIA_PLAYER_CALLBACK_H_
 
+#include "arkweb/build/features/features.h"
 #include "base/logging.h"
 #include "base/task/single_thread_task_runner.h"
 #include "media/base/ohos/ohos_media_player_bridge.h"
@@ -34,6 +35,10 @@ class OHOSMediaPlayerCallback : public OHOS::NWeb::PlayerCallbackAdapter {
               int32_t value) override;
 
  private:
+#if BUILDFLAG(ARKWEB_TEST)
+  friend class OHOSMediaPlayerCallbackTest;
+#endif  // BUILDFLAG(ARKWEB_TEST)
+
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   base::WeakPtr<OHOSMediaPlayerBridge> media_player_;
 };

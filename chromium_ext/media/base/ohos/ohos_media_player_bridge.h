@@ -8,8 +8,9 @@
 #include <deque>
 #include <map>
 
-#include "base/memory/weak_ptr.h"
+#include "arkweb/build/features/features.h"
 #include "base/containers/flat_map.h"
+#include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/timer/timer.h"
 #include "media/base/media_export.h"
@@ -62,7 +63,8 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
     // Provides the Chromium network stack URL loader factory used by the HLS
     // proxy download path. Called on the UI thread (the thread Prepare() runs
     // on). Returns nullptr if the browser context/partition is no longer alive.
-    virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() {
+    virtual scoped_refptr<network::SharedURLLoaderFactory>
+    GetURLLoaderFactory() {
       return nullptr;
     }
 
@@ -83,17 +85,18 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
     MEDIA_ERROR_SERVER_DIED,
   };
 
-  OHOSMediaPlayerBridge(const GURL& url,
-                        const net::SiteForCookies& site_for_cookies,
-                        const url::Origin& top_frame_origin,
-                        const std::string& user_agent,
-                        net::StorageAccessApiStatus storage_access_api_status,
-                        bool hide_url_log,
-                        Client* client,
-                        bool allow_credentials,
-                        bool is_hls,
-                        const base::flat_map<std::string, std::string> headers,
-                        const std::vector<std::string>& grantMediaFileAccessDirs);
+  OHOSMediaPlayerBridge(
+      const GURL& url,
+      const net::SiteForCookies& site_for_cookies,
+      const url::Origin& top_frame_origin,
+      const std::string& user_agent,
+      net::StorageAccessApiStatus storage_access_api_status,
+      bool hide_url_log,
+      Client* client,
+      bool allow_credentials,
+      bool is_hls,
+      const base::flat_map<std::string, std::string> headers,
+      const std::vector<std::string>& grantMediaFileAccessDirs);
   virtual ~OHOSMediaPlayerBridge();
 
   OHOSMediaPlayerBridge(const OHOSMediaPlayerBridge&) = delete;
@@ -114,13 +117,13 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   // this flag is the sole gate for the proxy path. When disabled (default), the
   // bridge keeps the current behavior (AVPlayer plays HLS directly via
   // SetMediaSourceHeader). When enabled, HLS streams are fetched through the
-  // Chromium network stack (proxy download) then fed to AVPlayer. Must be called
-  // before Start()/Prepare() to take effect.
+  // Chromium network stack (proxy download) then fed to AVPlayer. Must be
+  // called before Start()/Prepare() to take effect.
   void SetMediaProxyEnabled(bool enabled);
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void SetVideoSurface(int32_t surface_id);
-#endif // ARKWEB_VIDEO_ASSISTANT
+#endif  // ARKWEB_VIDEO_ASSISTANT
 
   void OnEnd();
   void OnError(int32_t errorCode);
@@ -142,6 +145,10 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   void ResumeDmaBuffer();
 #endif  // ARKWEB_MEDIA_DMABUF
  private:
+#if BUILDFLAG(ARKWEB_TEST)
+  friend class OHOSMediaPlayerCallbackTest;
+#endif  // BUILDFLAG(ARKWEB_TEST)
+
   int32_t SetFdSource(const std::string& path);
   void Prepare();
   void StartInternal();
@@ -175,7 +182,7 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void SetVideoSurfaceNew(int32_t surface_id);
   void SetVideoSurfaceOld();
-#endif // ARKWEB_VIDEO_ASSISTANT
+#endif  // ARKWEB_VIDEO_ASSISTANT
 
   std::unique_ptr<OHOS::NWeb::PlayerAdapter> player_ = nullptr;
   raw_ptr<void> native_window_origin_ = nullptr;
@@ -235,7 +242,8 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   // Whether to prepare after cookies retrieved.
   bool should_prepare_on_retrieved_cookies_;
 
-  // Used when determining if first-party cookies may be accessible in a third-party context.
+  // Used when determining if first-party cookies may be accessible in a
+  // third-party context.
   net::StorageAccessApiStatus storage_access_api_status_;
 
   // Cookies for `url_`.
@@ -252,7 +260,7 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   int32_t new_surface_id_ = -1;
   int32_t pending_new_surface_id_ = -1;
-#endif // ARKWEB_VIDEO_ASSISTANT
+#endif  // ARKWEB_VIDEO_ASSISTANT
 
   base::WeakPtrFactory<OHOSMediaPlayerBridge> weak_factory_{this};
 };
