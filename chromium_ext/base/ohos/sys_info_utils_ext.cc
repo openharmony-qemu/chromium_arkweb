@@ -344,10 +344,7 @@ BASE_EXPORT bool IsDelegatedCompositingEnabledOhos() {
   static const bool is_delegated_enabled =
       OHOS::NWeb::OhosAdapterHelper::GetInstance()
           .GetSystemPropertiesInstance()
-          .GetBoolParameter("web.delegatedCompositing.enable", false) &&
-      OHOS::NWeb::OhosAdapterHelper::GetInstance()
-          .GetSystemPropertiesInstance()
-          .GetBoolParameter("web.delegatedCompositingTrunk.enable", false);
+          .GetBoolParameter("web.delegatedCompositing.enable", false);
   if (!is_delegated_enabled) {
     return false;
   }
