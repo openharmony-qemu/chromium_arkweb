@@ -9,6 +9,7 @@
 
 #include <utility>
 
+#include "arkweb/build/features/features.h"
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
 #include "media/base/cdm_factory.h"
@@ -39,6 +40,10 @@ class MEDIA_EXPORT OHOSCdmFactory final : public CdmFactory {
               CdmCreatedCB cdm_created_cb) override;
 
  private:
+#if BUILDFLAG(ARKWEB_TEST)
+  friend class OHOSCdmFactoryTest;
+#endif  // BUILDFLAG(ARKWEB_TEST)
+
   // Callback for MediaDrmBridgeFactory::Create().
   void OnCdmCreated(uint32_t creation_id,
                     const scoped_refptr<ContentDecryptionModule>& cdm,
