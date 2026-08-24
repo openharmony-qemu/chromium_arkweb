@@ -113,8 +113,8 @@ class ArkwebDisplayUtils {
   void CleanBufferAfterSwapBuffer(bool delay_clean);
 #endif
 
-void DiscardCompositingResources();
-void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+  void DiscardCompositingResources();
+  void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
 
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
   void SetAsyncStackId(uint64_t stackId);
