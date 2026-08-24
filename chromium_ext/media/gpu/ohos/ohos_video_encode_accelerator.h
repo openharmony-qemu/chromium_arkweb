@@ -5,7 +5,7 @@
 // Based on android_video_encode_accelerator.h originally written by
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
+// found in the LICENSE file.
 
 #ifndef MEDIA_GPU_OHOS_ANDROID_VIDEO_ENCODE_ACCELERATOR_H_
 #define MEDIA_GPU_OHOS_ANDROID_VIDEO_ENCODE_ACCELERATOR_H_
@@ -18,6 +18,7 @@
 #include <tuple>
 #include <vector>
 
+#include "arkweb/build/features/features.h"
 #include "base/containers/queue.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -49,8 +50,8 @@ class MEDIA_GPU_EXPORT OHOSVideoEncodeAccelerator
   // VideoEncodeAccelerator implementation.
   VideoEncodeAccelerator::SupportedProfiles GetSupportedProfiles() override;
   EncoderStatus Initialize(const Config& config,
-                  Client* client,
-                  std::unique_ptr<MediaLog> media_log) override;
+                           Client* client,
+                           std::unique_ptr<MediaLog> media_log) override;
   void Encode(scoped_refptr<VideoFrame> frame, bool force_keyframe) override;
   void UseOutputBitstreamBuffer(BitstreamBuffer buffer) override;
   void RequestEncodingParametersChange(
@@ -60,6 +61,9 @@ class MEDIA_GPU_EXPORT OHOSVideoEncodeAccelerator
   void Destroy() override;
 
  private:
+#if BUILDFLAG(ARKWEB_TEST)
+  friend class OHOSVideoEncodeAcceleratorTest;
+#endif  // BUILDFLAG(ARKWEB_TEST)
   enum {
     // Arbitrary choice.
     INITIAL_FRAMERATE = 30,
