@@ -17,6 +17,7 @@
 
 #include <set>
 
+#include "arkweb/chromium_ext/chrome/browser/devtools/devtools_nweb_tab_factory.h"
 #include "content/public/browser/web_contents.h"
 
 namespace ohos {
@@ -58,6 +59,16 @@ DevToolsManagerDelegate::List DevToolsManagerDelegate::RemoteDebuggingTargets(
     result.push_back(agent);
   }
   return result;
+}
+
+void DevToolsManagerDelegate::CreateNewTargetAsync(
+    const GURL& url,
+    DevToolsManagerDelegate::TargetType target_type,
+    bool new_window,
+    DevToolsManagerDelegate::CreateNewTargetCallback callback) {
+  bool is_tab = target_type == DevToolsManagerDelegate::kTab;
+
+  TryCreateNWebTab(url, is_tab, std::move(callback));
 }
 
 } // namespace ohos
