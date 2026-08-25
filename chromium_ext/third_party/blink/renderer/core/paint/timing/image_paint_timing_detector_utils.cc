@@ -462,7 +462,7 @@ void ImageRecordsManagerUtils::GetAddedEntryInLatestFrameByRejectedImage(
             media_timing.IsSufficientContentLoadedForPaint()) {
             OnImageLoadedForRejected(record_id_hash, frame_index, style_image);
             added_entry_in_latest_frame = true;
-            if (std::optional<PaintTimingVisualizer>& visualizer =
+            if (PaintTimingVisualizer* visualizer =
                     image_records_manager_.frame_view_->GetPaintTimingDetector()
                         .Visualizer()) {
                 gfx::RectF mapped_visual_rect =
