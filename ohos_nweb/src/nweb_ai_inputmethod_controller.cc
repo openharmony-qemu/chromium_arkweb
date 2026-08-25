@@ -142,7 +142,7 @@ std::string NWebAIInputMethodController::HandleClickOrFocus(const base::Value::D
         WVLOG_E("NWebAIInputMethodController: nodeid is empty");
         return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_NODEID_EMPTY), "click/focus nodeid is empty");
     }
-    WVLOG_I("NWebAIInputMethodController: %{public}s at %{public}s", method.c_str(), xpath.c_str());
+    WVLOG_I("NWebAIInputMethodController: %{public}s at %{private}s", method.c_str(), xpath.c_str());
 
     std::string jsStr;
     jsStr = CombineClickFocusJsString(method, xpath);
@@ -152,7 +152,7 @@ std::string NWebAIInputMethodController::HandleClickOrFocus(const base::Value::D
     }
     bool isElement = nwebDelegate_->IsElementExist(xpath);
     if (!isElement) {
-        WVLOG_E("NWebAIInputMethodController: element not exist, xpath: %{public}s", xpath.c_str());
+        WVLOG_E("NWebAIInputMethodController: element not exist, xpath: %{private}s", xpath.c_str());
         return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_CLICK_ELEMENT_NOT_FOUND), "click/focus element not exist");
     }
     nwebDelegate_->ExecuteJavaScript(jsStr);
@@ -161,32 +161,27 @@ std::string NWebAIInputMethodController::HandleClickOrFocus(const base::Value::D
 
 std::string NWebAIInputMethodController::CombineClickFocusJsString(const std::string& eventType, const std::string& xPath)
 {
-    // Escape double quotes in XPath
-    auto escapeQuotes = [](std::string str) {
-        size_t pos = 0;
-        while ((pos = str.find("\"", pos)) != std::string::npos) {
-            str.replace(pos, 1, "\\\"");
-            pos += 2;
-        }
-        return str;
-    };
-    
-    std::string safeXPath = escapeQuotes(xPath);
-    
+    // JSON-serialize xpath to safely embed in JS (handles all special chars including `, ${}, \, quotes)
+    std::string jsonXPath;
+    base::JSONWriter::Write(xPath, &jsonXPath);
+
+    // Validate eventType against whitelist
+    std::string safeEventType = (eventType == "click" || eventType == "focus") ? eventType : "click";
+
     std::ostringstream oss;
     oss << "(function() {"
         << "  try {"
-        << "    const xpath = `" << safeXPath << "`;"
+        << "    const xpath = " << jsonXPath << ";"
         << "    const result = document.evaluate(xpath, document, null, "
         << "        XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
         << "    const element = result.singleNodeValue;"
         << "    if (!element) {"
         << "      return JSON.stringify({code: -1, message: 'Element not found by XPath: ' + xpath});"
         << "    }"
-        << "    if ('" << eventType << "' === 'click') {"
+        << "    if ('" << safeEventType << "' === 'click') {"
         << "      element.click();"
         << "      return JSON.stringify({code: 0, message: 'Click success'});"
-        << "    } else if ('" << eventType << "' === 'focus') {"
+        << "    } else if ('" << safeEventType << "' === 'focus') {"
         << "      element.focus();"
         << "      return JSON.stringify({code: 0, message: 'Focus success'});"
         << "    }"
@@ -194,7 +189,7 @@ std::string NWebAIInputMethodController::CombineClickFocusJsString(const std::st
         << "    return JSON.stringify({code: -1, message: 'JavaScript error: ' + e.toString()});"
         << "  }"
         << "})();";
-    
+
     return oss.str();
 }
 
@@ -206,7 +201,7 @@ std::string NWebAIInputMethodController::HandleCursorPosition(const base::Value:
         return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_METHOD_NOT_BOUND), "input method not bound");
     }
     if (inputMethodHandler_ && inputMethodHandler_->GetFocusRect(x, y, width, height)) {
-      WVLOG_I("NWebAIInputMethodController:HandleCursorPosition, x=%{public}d, y=%{public}d", x, y);
+      WVLOG_I("NWebAIInputMethodController:HandleCursorPosition, x=%{private}d, y=%{private}d", x, y);
     }
     base::Value::Dict resultDict;
     resultDict.Set("x", x);
@@ -247,6 +242,9 @@ std::string NWebAIInputMethodController::HandleType(const base::Value::Dict& jso
     auto indexValue = paramsValue->Find("index");
     if (indexValue && indexValue->is_int()) {
         index = indexValue->GetInt();
+        if (index < -1) {
+            index = -1;
+        }
     }
     
     bool clear = false;
@@ -255,7 +253,7 @@ std::string NWebAIInputMethodController::HandleType(const base::Value::Dict& jso
         clear = clearValue->GetBool();
     }
     
-    WVLOG_I("NWebAIInputMethodController: type - xpath: %{public}s, text: %{public}s, index: %{public}d, clear: %{public}d", 
+    WVLOG_I("NWebAIInputMethodController: type - xpath: %{private}s, text: %{private}s, index: %{public}d, clear: %{public}d",
             xpath.c_str(), text.c_str(), index, clear);
     
     if (xpath.empty()) {
@@ -270,7 +268,7 @@ std::string NWebAIInputMethodController::HandleType(const base::Value::Dict& jso
     
     bool isElement = nwebDelegate_->IsElementExist(xpath);
     if (!isElement) {
-        WVLOG_E("NWebAIInputMethodController: element not exist, xpath: %{public}s", xpath.c_str());
+        WVLOG_E("NWebAIInputMethodController: element not exist, xpath: %{private}s", xpath.c_str());
         return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::INPUT_TYPE_ELEMENT_NOT_FOUND), "type element not exist");
     }
     
@@ -289,23 +287,16 @@ std::string NWebAIInputMethodController::CombineInputInsertCommandJsString(const
                                                                   const std::string& content,
                                                                   int32_t index)
 {
-    // Escape quotes
-    auto escapeQuotes = [](std::string str) {
-        size_t pos = 0;
-        while ((pos = str.find("'", pos)) != std::string::npos) {
-            str.replace(pos, 1, "\\'");
-            pos += 2;
-        }
-        return str;
-    };
-    
-    std::string safeXPath = escapeQuotes(xPath);
-    std::string safeContent = escapeQuotes(content);
-    
+    // JSON-serialize to safely embed in JS (handles all special chars including quotes, backticks, ${}, \)
+    std::string jsonXPath;
+    base::JSONWriter::Write(xPath, &jsonXPath);
+    std::string jsonContent;
+    base::JSONWriter::Write(content, &jsonContent);
+
     std::ostringstream oss;
     oss << "(function() {"
         << "  try {"
-        << "    const xpath = '" << safeXPath << "';"
+        << "    const xpath = " << jsonXPath << ";"
         << "    const result = document.evaluate(xpath, document, null, "
         << "        XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
         << "    const el = result.singleNodeValue;"
@@ -320,23 +311,24 @@ std::string NWebAIInputMethodController::CombineInputInsertCommandJsString(const
         << "      el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));"
         << "      el.dispatchEvent(new Event('change', { bubbles: true }));"
         << "    };"
+        << "    const content = " << jsonContent << ";"
         << "    let insertIndex = " << index << ";"
         << "    if (isInput) {"
         << "      const val = el.value;"
         << "      if (insertIndex < 0) insertIndex = val.length;"
         << "      insertIndex = Math.min(insertIndex, val.length);"
-        << "      el.value = val.slice(0, insertIndex) + '" << safeContent << "' + val.slice(insertIndex);"
-        << "      el.setSelectionRange(insertIndex + '" << safeContent << "'.length, insertIndex + '" << safeContent << "'.length);"
+        << "      el.value = val.slice(0, insertIndex) + content + val.slice(insertIndex);"
+        << "      el.setSelectionRange(insertIndex + content.length, insertIndex + content.length);"
         << "    } else {"
         << "      const text = el.innerText;"
         << "      if (insertIndex < 0) insertIndex = text.length;"
         << "      insertIndex = Math.min(insertIndex, text.length);"
-        << "      el.innerText = text.slice(0, insertIndex) + '" << safeContent << "' + text.slice(insertIndex);"
+        << "      el.innerText = text.slice(0, insertIndex) + content + text.slice(insertIndex);"
         << "      const textNode = el.firstChild;"
         << "      if (textNode && textNode.nodeType === 3) {"
         << "        const range = document.createRange();"
         << "        const selection = window.getSelection();"
-        << "        range.setStart(textNode, Math.min(insertIndex + '" << safeContent << "'.length, el.innerText.length));"
+        << "        range.setStart(textNode, Math.min(insertIndex + content.length, el.innerText.length));"
         << "        range.collapse(true);"
         << "        selection.removeAllRanges();"
         << "        selection.addRange(range);"
@@ -348,29 +340,23 @@ std::string NWebAIInputMethodController::CombineInputInsertCommandJsString(const
         << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
         << "  }"
         << "})();";
-    
+
     return oss.str();
 }
 
 std::string NWebAIInputMethodController::CombineInputModifyCommandJsString(const std::string& xPath,
                                                                   const std::string& content)
 {
-    auto escapeQuotes = [](std::string str) {
-        size_t pos = 0;
-        while ((pos = str.find("'", pos)) != std::string::npos) {
-            str.replace(pos, 1, "\\'");
-            pos += 2;
-        }
-        return str;
-    };
-    
-    std::string safeXPath = escapeQuotes(xPath);
-    std::string safeContent = escapeQuotes(content);
-    
+    // JSON-serialize to safely embed in JS (handles all special chars including quotes, backticks, ${}, \)
+    std::string jsonXPath;
+    base::JSONWriter::Write(xPath, &jsonXPath);
+    std::string jsonContent;
+    base::JSONWriter::Write(content, &jsonContent);
+
     std::ostringstream oss;
     oss << "(function() {"
         << "  try {"
-        << "    const xpath = '" << safeXPath << "';"
+        << "    const xpath = " << jsonXPath << ";"
         << "    const result = document.evaluate(xpath, document, null, "
         << "        XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
         << "    const el = result.singleNodeValue;"
@@ -385,10 +371,11 @@ std::string NWebAIInputMethodController::CombineInputModifyCommandJsString(const
         << "      el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));"
         << "      el.dispatchEvent(new Event('change', { bubbles: true }));"
         << "    };"
+        << "    const content = " << jsonContent << ";"
         << "    if (isInput) {"
-        << "      el.value = '" << safeContent << "';"
+        << "      el.value = content;"
         << "    } else {"
-        << "      el.innerText = '" << safeContent << "';"
+        << "      el.innerText = content;"
         << "      const range = document.createRange();"
         << "      const sel = window.getSelection();"
         << "      range.selectNodeContents(el);"
@@ -402,7 +389,7 @@ std::string NWebAIInputMethodController::CombineInputModifyCommandJsString(const
         << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
         << "  }"
         << "})();";
-    
+
     return oss.str();
 }
 
@@ -421,7 +408,7 @@ std::string NWebAIInputMethodController::HandleSendKeys(const base::Value::Dict&
     }
 
     std::string keys = *keysValue;
-    WVLOG_I("NWebAIInputMethodController: send_keys: %{public}s", keys.c_str());
+    WVLOG_I("NWebAIInputMethodController: send_keys: %{private}s", keys.c_str());
 
     if (!inputHandler_) {
         return BuildResultJson(static_cast<int32_t>(WebCommandErrorCode::SUCCESS), "success");
@@ -534,7 +521,7 @@ int32_t NWebAIInputMethodController::GetMainKeyCode(const std::string& mainKey)
     int32_t vkey = GetVKeyFromWebKey(mainKey);
     int32_t keycode = GetOhosKeyCodeFromVKey(vkey);
     
-    WVLOG_I("NWebAIInputMethodController: send_keys - main key: %{public}s, "
+    WVLOG_I("NWebAIInputMethodController: send_keys - main key: %{private}s, "
             "keycode: %{public}d", mainKey.c_str(), keycode);
     
     return keycode;
