@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#include "content/public/browser/browser_thread.h"
+
 namespace extensions {
 
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
@@ -20,6 +22,7 @@ namespace extensions {
 ExtensionDevToolsInfoBarDelegate*
 ExtensionDevToolsInfoBarDelegate::GetDelegateById(
     const ExtensionId& extension_id) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   LOG(INFO) << " func:" << __FUNCTION__ << " ExtensionId:" << extension_id;
   Delegates& delegates = GetDelegates();
   const auto it = delegates.find(extension_id);
@@ -32,6 +35,7 @@ ExtensionDevToolsInfoBarDelegate::GetDelegateById(
 // static
 std::list<ExtensionId>
 ExtensionDevToolsInfoBarDelegate::GetDelegateIds() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   LOG(INFO) << " func:" << __FUNCTION__;
   std::list<ExtensionId> delegate_ids;
   for (auto& item : GetDelegates()) {
@@ -43,6 +47,7 @@ ExtensionDevToolsInfoBarDelegate::GetDelegateIds() {
 // static
 void
 ExtensionDevToolsInfoBarDelegate::CancelConfirmInfoBar(const std::string& extension_id) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   LOG(INFO) << " func:" << __FUNCTION__ << " ExtensionId:" << extension_id;
   Delegates& delegates = GetDelegates();
   const auto it = delegates.find(extension_id);
