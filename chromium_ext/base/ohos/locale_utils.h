@@ -27,15 +27,7 @@ BASE_EXPORT std::string GetSystemLanguage();
 
 BASE_EXPORT bool IsTraditionalLanguage();
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 BASE_EXPORT std::string ComputeLanguageByRegion(const std::string& region);
-
-#ifdef __cplusplus
-}
-#endif
 }  // namespace ohos
 }  // namespace base
 
