@@ -144,11 +144,16 @@ void NWebOutputHandler::Resize(uint32_t width, uint32_t height) {
 void NWebOutputHandler::StartDumpToFile() {
   std::weak_ptr<NWebOutputHandler> output_handler_weak(shared_from_this());
   std::thread dump_thread([output_handler_weak]() {
-    while (!output_handler_weak.expired() &&
-           !output_handler_weak.lock()->dump_path_.empty()) {
+    while (true) {
       auto outputHandler = output_handler_weak.lock();
+      if (!outputHandler) {
+        break;
+      }
       std::unique_lock<std::mutex> lk(outputHandler->dump_mtx_);
-      outputHandler->dump_cv_.wait(lk);
+      outputHandler->dump_cv_.wait_for(lk, std::chrono::milliseconds(100));
+      if (outputHandler->dump_path_.empty()) {
+        continue;
+      }
       static BmpDumpHelper helper;
       const std::string kFileName = "1.bmp";
       std::string full_name = outputHandler->dump_path_ + kFileName;
@@ -165,10 +170,15 @@ void NWebOutputHandler::StartDumpToFile() {
 void NWebOutputHandler::StartFrameStat() {
   std::weak_ptr<NWebOutputHandler> output_handler_weak(shared_from_this());
   std::thread frame_stat_thread([output_handler_weak]() {
-    while (!output_handler_weak.expired() &&
-           output_handler_weak.lock()->frame_info_dump_) {
+    while (true) {
       {
         auto output_handler = output_handler_weak.lock();
+        if (!output_handler) {
+          break;
+        }
+        if (!output_handler->frame_info_dump_) {
+          break;
+        }
         std::unique_lock<std::mutex> lk(output_handler->frame_stat_mtx_);
         if (output_handler->local_time_base_ !=
             output_handler->local_time_curr_) {
@@ -217,7 +227,9 @@ void NWebOutputHandler::SetFrameInfoDump(bool flag) {
 }
 
 void NWebOutputHandler::SetDumpPath(const std::string& path) {
+  std::lock_guard<std::mutex> lk(dump_mtx_);
   dump_path_ = path;
+  dump_cv_.notify_all();
 }
 
 void NWebOutputHandler::BmpDumpHelper::DumpToBmp(const std::string& filename,
