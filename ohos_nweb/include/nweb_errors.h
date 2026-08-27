@@ -70,6 +70,7 @@ enum class WebCommandErrorCode {
   // common execution error (160-199)
   PAGE_NOT_READY = 160,
   ELEMENT_TYPE_MISMATCH = 161,
+  ELEMENT_NOT_INTERACTABLE = 162,
   // input command error (200-249)
   JSON_INVALID_INPUT_XPATH = 200,
   JSON_INVALID_INPUT_VALUE = 201,
