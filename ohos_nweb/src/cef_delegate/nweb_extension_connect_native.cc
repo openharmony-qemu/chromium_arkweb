@@ -17,11 +17,42 @@
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/synchronization/lock.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
+#endif
 
 #include "nweb_extension_connect_native.h"
 #include "nweb_runtime_connect_info_impl.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "base/functional/callback.h"
+#endif
+
 
 namespace OHOS::NWeb {
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+NWebConnectNativeManager::NWebConnectNativeManager()
+    : task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskPriority::USER_VISIBLE}))
+{}
+
+NWebConnectNativeManager::~NWebConnectNativeManager() {
+  if (cleanup_timer_) {
+    cleanup_timer_->Stop();
+    cleanup_timer_.reset();
+  }
+  // Release the runtime callback
+  if (initialized_) {
+    nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance().ReleaseCallback();
+    initialized_ = false;
+  }
+  // All pending callbacks are destroyed when the map is cleared.
+  // We do not invoke them during teardown to avoid calling back into
+  // Chromium objects that may already be destroyed.
+  pending_map_.clear();
+}
+#endif
 
 NWebConnectNativeManager* NWebConnectNativeManager::GetInstance() {
   static base::NoDestructor<NWebConnectNativeManager> instance;
@@ -169,5 +200,121 @@ void NWebConnectNativeManager::DisconnectNative(int connectionId) {
   LOG(INFO) << "DisconnectNative send to appservice PID: " << connectionId;
   handler->OnExtensionDisconnect(connectionId);
 }
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+// --- sendBrowserMessage with pending map ---
+
+// Static bridge: invoked by the EX C API response path when the NAPI layer
+// calls SendBrowserMessageResponse.  |request_id| identifies the pending
+// request; |response| is the C string from the app.
+void OnBrowserMessageResponseBridge(uint64_t request_id,
+                                     const char* response) {
+  auto* manager = NWebConnectNativeManager::GetInstance();
+  // Route response to the manager's task runner to avoid executing on the
+  // arbitrary thread that the C API (EX/NAPI layer) calls back on.
+  manager->GetTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&NWebConnectNativeManager::OnBrowserMessageResponse,
+                     // Safe: NWebConnectNativeManager is a NoDestructor singleton.
+                     base::Unretained(manager), request_id,
+                     response ? std::string(response) : std::string()));
+}
+
+void NWebConnectNativeManager::EnsureRuntimeCallbackInitialized() {
+  if (initialized_) {
+    return;
+  }
+  nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance()
+      .SetOnSendBrowserMessageResponse(OnBrowserMessageResponseBridge);
+  initialized_ = true;
+}
+
+void NWebConnectNativeManager::SendBrowserMessage(
+    const std::string& extension_id,
+    const std::string& message_json,
+    base::OnceCallback<void(std::string response)> callback) {
+  uint64_t request_id;
+  {
+    base::AutoLock lock(lock_);
+    EnsureRuntimeCallbackInitialized();
+    request_id = next_request_id_++;
+    pending_map_[request_id] = PendingEntry{
+        std::make_unique<base::OnceCallback<void(std::string)>>(std::move(callback)),
+        base::TimeTicks::Now()
+    };
+  }
+
+  SchedulePendingCleanup();
+
+  nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance().OnSendBrowserMessage(
+      0, extension_id.c_str(), message_json.c_str(), request_id);
+}
+
+void NWebConnectNativeManager::OnBrowserMessageResponse(
+    uint64_t request_id, const std::string& response) {
+  // Extract callback under lock, invoke outside lock.
+  std::unique_ptr<base::OnceCallback<void(std::string)>> callback;
+  {
+    base::AutoLock lock(lock_);
+    auto it = pending_map_.find(request_id);
+    if (it == pending_map_.end()) {
+      LOG(WARNING) << "OnBrowserMessageResponse: unknown/late request_id=" << request_id
+                   << ", ignoring";
+      return;
+    }
+    callback = std::move(it->second.callback);
+    pending_map_.erase(it);
+  }
+
+  std::move(*callback).Run(response);
+}
+
+void NWebConnectNativeManager::SchedulePendingCleanup() {
+  if (!task_runner_->RunsTasksInCurrentSequence()) {
+    task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&NWebConnectNativeManager::SchedulePendingCleanup,
+                       // Safe: NWebConnectNativeManager is a NoDestructor singleton.
+                       base::Unretained(this)));
+    return;
+  }
+
+  if (!cleanup_timer_) {
+    cleanup_timer_ = std::make_unique<base::RetainingOneShotTimer>();
+    cleanup_timer_->SetTaskRunner(task_runner_);
+  }
+
+  if (cleanup_timer_->IsRunning()) {
+    return;  // Already scheduled
+  }
+
+  // Check again after the timeout period
+  cleanup_timer_->Start(
+      FROM_HERE,
+      base::Seconds(kPendingTimeoutSeconds),
+      this,
+      &NWebConnectNativeManager::DoPendingCleanup);
+}
+
+void NWebConnectNativeManager::DoPendingCleanup() {
+  base::AutoLock lock(lock_);
+  auto now = base::TimeTicks::Now();
+  auto timeout = base::Seconds(kPendingTimeoutSeconds);
+
+  for (auto it = pending_map_.begin(); it != pending_map_.end();) {
+    if (now - it->second.timestamp >= timeout) {
+      LOG(WARNING) << "DoPendingCleanup: expiring request_id=" << it->first;
+      it = pending_map_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  // Reschedule if there are still pending entries
+  if (!pending_map_.empty()) {
+    cleanup_timer_->Reset();
+  }
+}
+#endif
 
 }  // namespace OHOS::NWeb

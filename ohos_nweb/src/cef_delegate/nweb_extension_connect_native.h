@@ -27,6 +27,13 @@
 
 #include "arkweb/ohos_nweb/include/nweb_handler.h"
 
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "base/functional/callback.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/timer/timer.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_runtime_delegate_impl.h"
+#endif
+
 namespace OHOS::NWeb {
 
 struct ConnectNativeInfo {
@@ -101,7 +108,23 @@ class NWebConnectNativeManager {
 
   void DisconnectNative(int connectionId);
 
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  void SendBrowserMessage(const std::string& extension_id,
+                          const std::string& message_json,
+                          base::OnceCallback<void(std::string response)> callback);
 
+  // Returns the task runner used for response/cleanup tasks.
+  // Used by the C API bridge to post responses to the correct sequence.
+  scoped_refptr<base::SequencedTaskRunner> GetTaskRunner() {
+    return task_runner_;
+  }
+
+  // Called on the manager's task runner when EX/NAPI sends a response.
+  // Looks up request_id in the pending map, removes it, and invokes the
+  // callback outside the lock.  Duplicate/late responses are logged and
+  // ignored.
+  void OnBrowserMessageResponse(uint64_t request_id, const std::string& response);
+#endif
 
   NWebConnectNativeManager(const NWebConnectNativeManager&) = delete;
 
@@ -110,7 +133,27 @@ class NWebConnectNativeManager {
  private:
   friend class base::NoDestructor<NWebConnectNativeManager>;
 
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  NWebConnectNativeManager();
+  ~NWebConnectNativeManager();
+#else
   NWebConnectNativeManager() = default;
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  // Initializes the C API callback bridge on first use.
+  void EnsureRuntimeCallbackInitialized();
+
+  // Schedules a cleanup pass that removes pending callbacks older than
+  // |kPendingTimeoutSeconds|.  The timer only removes callbacks; it does not
+  // invoke them (to preserve Chromium's 10-second reject semantics).
+  void SchedulePendingCleanup();
+
+  // Performs one cleanup pass: removes expired pending callbacks.
+  void DoPendingCleanup();
+
+  static constexpr int kPendingTimeoutSeconds = 15;
+#endif
 
   base::Lock lock_;
 
@@ -118,6 +161,28 @@ class NWebConnectNativeManager {
 
   std::unordered_map<int, base::Process> connectid_process_map_;
 
+#if BUILDFLAG(IS_ARKWEB_EXT)
+  // Tracks whether the runtime callback has been registered.
+  bool initialized_ = false;
+
+  // Monotonically increasing request ID.  Guarded by |lock_|.
+  uint64_t next_request_id_ = 1;
+
+  // Pending callbacks waiting for a response from the EX/NAPI/App layer.
+  // Key: request_id, Value: (callback, timestamp).
+  // Guarded by |lock_|.
+  struct PendingEntry {
+    std::unique_ptr<base::OnceCallback<void(std::string)>> callback;
+    base::TimeTicks timestamp;
+  };
+  std::unordered_map<uint64_t, PendingEntry> pending_map_;
+
+  // One-shot timer for cleaning up expired pending callbacks.
+  std::unique_ptr<base::RetainingOneShotTimer> cleanup_timer_;
+
+  // Task runner for scheduling the cleanup timer.
+  scoped_refptr<base::SequencedTaskRunner> task_runner_;
+#endif
 };
 
 class NWebNativeMessageCallbackImpl : public NWebNativeMessageCallback {
