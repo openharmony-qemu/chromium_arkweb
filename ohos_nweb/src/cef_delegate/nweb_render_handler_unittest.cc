@@ -1203,7 +1203,8 @@ TEST_F(NWebRenderHandlerTest,
   g_nweb_render_handler->SetInputMethodClient(inputMethodClient);
   NWebInputMethodClient::InputInfo inputInfo = {};
   const std::vector<std::string> invalidReasons = {
-      "", "abc", "1invalid", " 1", "2147483648", "-2147483649"};
+      "",  "abc", "1invalid", " 1",         "-2147483648", "-1",
+      "3", "19",  "21",       "2147483647", "2147483648",  "-2147483649"};
 
   for (const auto& reason : invalidReasons) {
     SCOPED_TRACE(reason);

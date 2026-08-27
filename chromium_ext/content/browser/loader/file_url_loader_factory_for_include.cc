@@ -146,6 +146,11 @@ class ResourceURLLoader : public network::mojom::URLLoader {
     auto resourceInstance =
         OHOS::NWeb::OhosAdapterHelper::GetInstance().GetResourceAdapter(
             hapPath);
+    if (!resourceInstance) {
+      LOG(ERROR) << "ResourceURLLoader: resource adapter is null";
+      OnClientComplete(net::ERR_FAILED, std::move(observer));
+      return;
+    }
     mojo::DataPipeProducer::DataSource::ReadResult read_result;
 
     if (!resourceInstance->GetRawFileData(resourcesPath, length, &rawData,
