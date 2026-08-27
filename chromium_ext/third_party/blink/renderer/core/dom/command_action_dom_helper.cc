@@ -833,15 +833,26 @@ int32_t CommandActionDOMHelper::ExecuteAutoFill(Document* document,
     return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH);
   }
 
+  // Reject disabled elements (both Insert and Overwrite)
+  if ((input && input->IsDisabledFormControl()) ||
+      (textarea && textarea->IsDisabledFormControl())) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill: element is disabled";
+    return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE);
+  }
+
+  // Reject readonly elements (both Insert and Overwrite)
+  if ((input && input->IsReadOnly()) ||
+      (textarea && textarea->IsReadOnly())) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill: element is readonly";
+    return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE);
+  }
+
   String value_str = String::FromUTF8(content);
 
   if (mode == 1 /* Insert */) {
-    element->Focus();
+    // Insert: splice content into current value at index position.
+    // No Focus needed — this is string concatenation + SetValue, not cursor-based insertion.
     if (input) {
-      if (input->IsReadOnly()) {
-        LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill Insert: input readonly";
-        return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH);
-      }
       String old_value = input->Value();
       int safe_index = std::min(index, static_cast<int32_t>(old_value.length()));
       String new_value = old_value.Substring(0, safe_index)
@@ -852,10 +863,6 @@ int32_t CommandActionDOMHelper::ExecuteAutoFill(Document* document,
       input->SetSelectionRange(cursor_pos, cursor_pos, kSelectionHasNoDirection);
       DispatchInputAndChangeEvents(input, content);
     } else if (textarea) {
-      if (textarea->IsReadOnly()) {
-        LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill Insert: textarea readonly";
-        return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH);
-      }
       String old_value = textarea->Value();
       int safe_index = std::min(index, static_cast<int32_t>(old_value.length()));
       String new_value = old_value.Substring(0, safe_index)

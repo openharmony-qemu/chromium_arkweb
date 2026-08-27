@@ -534,7 +534,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_InputReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputModify(
       &GetDocument(), "hello");
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_InputSuccess) {
@@ -572,7 +572,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_TextareaReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputModify(
       &GetDocument(), "hello");
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_TextareaSuccess) {
@@ -736,7 +736,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputInsert_InputReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputInsert(
       &GetDocument(), "x", 0);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputInsert_ContentEditableSuccess) {
