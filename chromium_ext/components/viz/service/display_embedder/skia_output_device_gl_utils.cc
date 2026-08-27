@@ -26,6 +26,8 @@ namespace viz {
 #if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
 // 100 ms : minimum time interval between two clean buffers 
 static const int32_t CLEAN_BUFFERS_TIME_INTERVAL_MIN = 100;
+static const int32_t CLEAN_BUFFERS_TIME_INTERVAL_ONE_MINUTE = 60 * 1000; // 60 * 1000 ms
+static const int32_t FREQUENTLY_CLEAN_BUFFERS_MAX_COUNT = 60;
 #endif
 
 //LCOV_EXCL_START
@@ -120,23 +122,10 @@ void SkiaOutputDeviceGLUtils::SetIfNeedCleanBuffers(bool need_clean_buffers)
 // When the web component is invisible clean its buffers after finish swap buffers.
 void SkiaOutputDeviceGLUtils::CleanBuffersIfNeed()
 {
-  if (!clean_buffers_when_invisible_enabled_ || !need_clean_buffers_) {
+  if (!clean_buffers_when_invisible_enabled_ || !need_clean_buffers_ || CleanBuffersTooFrequently()) {
     return;
   }
-  base::TimeDelta delta = base::TimeTicks::Now() - prev_clean_buffers_time_;
-  if (delta.InMilliseconds() < CLEAN_BUFFERS_TIME_INTERVAL_MIN) {
-    if (!has_delay_clean_buffer_task_) {
-      do_clean_buffers_ = true;
-      delay_clean_buffer_task_closure_ = std::make_unique<base::CancelableOnceClosure>(
-        base::BindOnce(&SkiaOutputDeviceGLUtils::DoCleanBuffers, weak_ptr_factory_.GetWeakPtr()));
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        delay_clean_buffer_task_closure_->callback(),
-        base::Milliseconds(CLEAN_BUFFERS_TIME_INTERVAL_MIN * 2));
-      has_delay_clean_buffer_task_ = true;
-    }
-    return;
-  }
+
   do_clean_buffers_ = true;
   DoCleanBuffers();
 }
@@ -157,12 +146,48 @@ void SkiaOutputDeviceGLUtils::DoCleanBuffers()
   }
   TRACE_EVENT0("base", "SkiaOutputDeviceGLUtils::DoCleanBuffers");
   skiaOutPutDeviceGl_->gl_surface_->Recreate();
-  prev_clean_buffers_time_ = base::TimeTicks::Now();
+  prev_do_clean_buffers_time_ = base::TimeTicks::Now();
   do_clean_buffers_ = false;
   if (delay_clean_buffer_task_closure_) {
     delay_clean_buffer_task_closure_->Cancel();
     has_delay_clean_buffer_task_ = false;
   }
 }
+
+bool SkiaOutputDeviceGLUtils::CleanBuffersTooFrequently()
+{
+  base::TimeTicks time_now = base::TimeTicks::Now();
+  base::TimeDelta clean_buffers_delta = time_now - prev_clean_buffers_time_;
+  // Resume cleaning buffer when the interval between the current clean buffer and the prev clean buffer exceeds
+  // 1 minute
+  frequently_clean_buffer_count_ = clean_buffers_delta.InMilliseconds() > CLEAN_BUFFERS_TIME_INTERVAL_ONE_MINUTE ?
+                                   0 : frequently_clean_buffer_count_;
+  frequently_clean_buffer_count_ = clean_buffers_delta.InMilliseconds() < CLEAN_BUFFERS_TIME_INTERVAL_MIN ?
+                                   (frequently_clean_buffer_count_ + 1) : frequently_clean_buffer_count_;
+  frequently_clean_buffer_count_ = frequently_clean_buffer_count_ > FREQUENTLY_CLEAN_BUFFERS_MAX_COUNT ?
+                                   (FREQUENTLY_CLEAN_BUFFERS_MAX_COUNT + 1) : frequently_clean_buffer_count_;
+  prev_clean_buffers_time_ = time_now;
+  // Stop cleaning buffers when clean buffers too frequently
+  if (frequently_clean_buffer_count_ > FREQUENTLY_CLEAN_BUFFERS_MAX_COUNT) {
+    return true;
+  }
+
+  base::TimeDelta do_clean_buffers_delta = time_now - prev_do_clean_buffers_time_;
+  if (do_clean_buffers_delta.InMilliseconds() < CLEAN_BUFFERS_TIME_INTERVAL_MIN) {
+    if (!has_delay_clean_buffer_task_) {
+      do_clean_buffers_ = true;
+      delay_clean_buffer_task_closure_ = std::make_unique<base::CancelableOnceClosure>(
+        base::BindOnce(&SkiaOutputDeviceGLUtils::DoCleanBuffers, weak_ptr_factory_.GetWeakPtr()));
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        delay_clean_buffer_task_closure_->callback(),
+        base::Milliseconds(CLEAN_BUFFERS_TIME_INTERVAL_MIN * 2));
+      has_delay_clean_buffer_task_ = true;
+    }
+    return true;
+  }
+  return false;
+}
+
 #endif
 }  // namespace viz
