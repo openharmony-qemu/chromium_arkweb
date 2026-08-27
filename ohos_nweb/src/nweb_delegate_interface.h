@@ -957,6 +957,25 @@ class NWebDelegateInterface
   virtual int32_t ExecuteSelectCommand(const std::string& xpath,
                                        const std::vector<int32_t>& indexes,
                                        const std::vector<std::string>& values) = 0;
+  // Focus an element; suppress_keyboard=true prevents soft keyboard from showing.
+  virtual int32_t ExecuteFocusCommand(const std::string& xpath,
+                                      bool suppress_keyboard) = 0;
+  // Overwrite the value of the currently focused editable element.
+  virtual int32_t ExecuteInputModifyCommand(const std::string& content) = 0;
+  // Insert content at the specified index in the currently focused editable element.
+  virtual int32_t ExecuteInputInsertCommand(const std::string& content,
+                                            int32_t index) = 0;
+  // Click an element identified by xpath.
+  virtual int32_t ExecuteClickCommand(const std::string& xpath) = 0;
+  // Scroll an element identified by xpath into view with alignment and offset.
+  virtual int32_t ExecuteScrollCommand(const std::string& xpath,
+                                       const std::string& align,
+                                       int32_t offset) = 0;
+  // Select text range in the currently focused editable element.
+  virtual int32_t ExecuteInputSelectCommand(int32_t start_index,
+                                            int32_t finish_index) = 0;
+  // Set cursor position in the currently focused editable element.
+  virtual int32_t ExecuteInputSetCursorCommand(int32_t index) = 0;
   virtual std::shared_ptr<NWebCommandActionManager> GetCommandActionManager() const = 0;
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
