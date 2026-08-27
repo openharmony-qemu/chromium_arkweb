@@ -790,6 +790,7 @@ bool g_logger_callback_initialized = false;
 const int32_t WEB_ELEMENT_NOT_FOUND = 131;
 const int32_t WEB_DELEGATE_NOT_FOUND = 102;
 const int32_t WEB_COMMAND_SUCCESS = 10;
+const int32_t WEB_COMMAND_FAILED = 11;
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
@@ -9212,337 +9213,64 @@ void NWebImpl::StopFling() {
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
 int32_t NWebImpl::SendCommandAction(
     const std::shared_ptr<OHOS::NWeb::NWebCommandAction> action) {
-  LOG(INFO) << "NWebImpl::SendCommandAction";
   if (!nweb_delegate_ || !action) {
     LOG(ERROR) << "failed to SendCommandAction, delegate is null";
     return WEB_DELEGATE_NOT_FOUND;
   }
-  std::string jsStr;
   std::string xpath = action->GetXPath();
+  std::string event_type = action->GetEventType();
   bool isElement = nweb_delegate_->IsElementExist(xpath);
- 
-  if (action->GetEventType() == "click" ||
-      action->GetEventType() == "scroll") {
+
+  if (event_type == "click") {
     if (!isElement) {
-      LOG(ERROR) << "SendCommandAction element not found";
+      LOG(ERROR) << "[WebCommandAction] element not found";
       return WEB_ELEMENT_NOT_FOUND;
     }
-    jsStr = CombineCommandJsString(
-      action->GetEventType(),
-      action->GetXPath(),
-      action->GetAlign(),
-      action->GetOffset());
-  } else if (action->GetEventType() == "inputInsert") {
-    jsStr = CombineInputInsertCommandJsString(
-      action->GetEventType(),
-      action->GetAlign(),
-      action->GetDuration());
-  } else if (action->GetEventType() == "inputModify") {
-    jsStr = CombineInputModifyCommandJsString(
-      action->GetEventType(),
-      action->GetAlign());
-  } else if (action->GetEventType() == "inputSelect") {
-    jsStr = CombineInputSelectCommandJsString(
-      action->GetEventType(),
-      action->GetDuration(),
-      action->GetOffset());
-  } else if (action->GetEventType() == "inputCopy") {
+    return nweb_delegate_->ExecuteClickCommand(xpath);
+  } else if (event_type == "scroll") {
+    if (!isElement) {
+      LOG(ERROR) << "[WebCommandAction] element not found";
+      return WEB_ELEMENT_NOT_FOUND;
+    }
+    return nweb_delegate_->ExecuteScrollCommand(
+        xpath, action->GetAlign(), action->GetOffset());
+  } else if (event_type == "inputInsert") {
+    // NWebCommandAction has only 5 generic fields; for inputInsert:
+    //   GetAlign()    → content to insert (field reused from scroll alignment)
+    //   GetDuration() → insert position index (field reused from scroll duration)
+    std::string content = action->GetAlign();
+    int32_t insert_index = action->GetDuration();
+    return nweb_delegate_->ExecuteInputInsertCommand(content, insert_index);
+  } else if (event_type == "inputModify") {
+    std::string content = action->GetAlign();  // GetAlign() → content
+    return nweb_delegate_->ExecuteInputModifyCommand(content);
+  } else if (event_type == "inputSelect") {
+    int32_t start_index = action->GetDuration();   // GetDuration() → start_index
+    int32_t finish_index = action->GetOffset();     // GetOffset() → finish_index
+    return nweb_delegate_->ExecuteInputSelectCommand(start_index, finish_index);
+  } else if (event_type == "inputCopy") {
     inputmethod_handler_->HandleExtendAction(static_cast<int32_t>(OHOS::NWeb::NWebImpl::IMFAdapterExtendAction::COPY));
     return WEB_COMMAND_SUCCESS;
-  } else if (action->GetEventType() == "inputCut") {
+  } else if (event_type == "inputCut") {
     inputmethod_handler_->HandleExtendAction(static_cast<int32_t>(OHOS::NWeb::NWebImpl::IMFAdapterExtendAction::CUT));
     return WEB_COMMAND_SUCCESS;
-  } else if (action->GetEventType() == "inputFocus") {
+  } else if (event_type == "inputFocus") {
     if (!isElement) {
-      LOG(ERROR) << "SendCommandAction element not found";
+      LOG(ERROR) << "[WebCommandAction] element not found";
       return WEB_ELEMENT_NOT_FOUND;
     }
-    jsStr = CombineInputFocusCommandJsString(
-      action->GetEventType(),
-      action->GetXPath(),
-      action->GetDuration());
-  } else if (action->GetEventType() == "inputSetCursor") {
-    jsStr = CombineInputSetCursorCommandJsString(
-      action->GetEventType(),
-      action->GetDuration());
+    bool suppress_keyboard = action->GetDuration() != 0;  // GetDuration() → suppress_keyboard
+    return nweb_delegate_->ExecuteFocusCommand(
+        xpath, suppress_keyboard);
+  } else if (event_type == "inputSetCursor") {
+       int32_t cursor_index = action->GetDuration();  // GetDuration() → cursor index
+    return nweb_delegate_->ExecuteInputSetCursorCommand(cursor_index);
   }
-  nweb_delegate_->ExecuteJavaScript(jsStr);
-  return WEB_COMMAND_SUCCESS;
-}
 
-std::string NWebImpl::CombineCommandJsString(std::string eventType,
-                                             std::string xPath,
-                                             std::string align,
-                                             int32_t offset) {
-  auto escapeQuotes = [](std::string str) {
-    size_t pos = 0;
-    while ((pos = str.find("\"", pos)) != std::string::npos) {
-      str.replace(pos, 1, "\\\"");
-      pos += 2;
-    }
-    return str;
-  };
-  std::string safeXPath = escapeQuotes(xPath);
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const xpath = `" << safeXPath << "`;"
-        << "    const align = '" << align << "';"
-        << "    const offsetVal = " << offset << ";"
-        << "    const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        << "    const el = res.singleNodeValue;"
-        << "    if (!el) return JSON.stringify({status: 'fail', reason: 'XPath not found'});"
-        << "    if (type === 'click') {"
-        << "      el.click();"
-        << "      return JSON.stringify({status: 'success', action: 'click'});"
-        << "    }"
-        << "    let c = el.parentElement;"
-        << "    while (c && c !== document.documentElement) {"
-        << "      const s = window.getComputedStyle(c);"
-        << "      if (/(auto|scroll)/.test(s.overflow + s.overflowY) && c.scrollHeight > c.clientHeight) break;"
-        << "      c = c.parentElement;"
-        << "    }"
-        << "    const isW = !c || c === document.documentElement || c === document.body;"
-        << "    const cR = isW ? { top: 0, height: window.innerHeight } : c.getBoundingClientRect();"
-        << "    const eR = el.getBoundingClientRect();"
-        << "    const curT = isW ? (window.pageYOffset || document.documentElement.scrollTop) : c.scrollTop;"
-        << "    const absT = curT + (eR.top - cR.top) - (isW ? 0 : c.clientTop);"
-        << "    let target = 0;"
-        << "    const cH = isW ? window.innerHeight : c.clientHeight;"
-        << "    if (align === 'top') target = absT;"
-        << "    else if (align === 'mid') target = absT - (cH / 2) + (eR.height / 2);"
-        << "    else if (align === 'bottom') target = absT - cH + eR.height;"
-        << "    const finalPos = target + offsetVal;"
-        << "    if (isW) window.scrollTo({ top: finalPos, behavior: 'auto' });"
-        << "    else c.scrollTo({ top: finalPos, behavior: 'auto' });"
-        << "    return JSON.stringify({status: 'success', pos: finalPos});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
+  LOG(ERROR) << "[WebCommandAction] unknown event_type: " << event_type;
+  return WEB_COMMAND_FAILED;
 }
-
-std::string NWebImpl::CombineInputInsertCommandJsString(std::string eventType,
-                                                        std::string content,
-                                                        int32_t index) {
-  LOG(INFO) << "NWebImpl::CombineInputInsertCommandJsString";
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const content = '" << content << "';"
-        << "    let index = " << index << ";"
-        << "    const el = document.activeElement;"
-        << "    if (!el || (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable)) {"
-        << "      return JSON.stringify({status: 'error', reason: 'No focused editable element'});"
-        << "    }"
-        << "    const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';"
-        << "    const dispatchInput = () => {"
-        << "      el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));"
-        << "      el.dispatchEvent(new Event('change', { bubbles: true }));"
-        << "    };"
-        << "    if (isInput) {"
-        << "      const val = el.value;"
-        << "      index = Math.min(index, val.length);"
-        << "      el.value = val.slice(0, index) + content + val.slice(index);"
-        << "      el.setSelectionRange(index + content.length, index + content.length);"
-        << "    } else {"
-        << "      el.innerText = el.innerText.slice(0, index) + content + el.innerText.slice(index);"
-        << "      const textNode = el.firstChild;"
-        << "      if (textNode && textNode.nodeType === 3) {"
-        << "        const cursorPos = index + content.length;"
-        << "        const range = document.createRange();"
-        << "        const selection = window.getSelection();"
-        << "        range.setStart(textNode, Math.min(cursorPos, el.innerText.length));"
-        << "        range.collapse(true);"
-        << "        selection.removeAllRanges();"
-        << "        selection.addRange(range);"
-        << "      }"
-        << "    }"
-        << "    dispatchInput();"
-        << "    return JSON.stringify({status: 'success', action: 'inputInsert'});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
-}
- 
-std::string NWebImpl::CombineInputModifyCommandJsString(std::string eventType,
-                                                        std::string content) {
-  LOG(INFO) << "NWebImpl::CombineInputModifyCommandJsString";
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const content = '" << content << "';"
-        << "    const el = document.activeElement;"
-        << "    if (!el || (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable)) {"
-        << "      return JSON.stringify({status: 'error', reason: 'No focused editable element'});"
-        << "    }"
-        << "    const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';"
-        << "    const dispatchInput = () => {"
-        << "      el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));"
-        << "      el.dispatchEvent(new Event('change', { bubbles: true }));"
-        << "    };"
-        << "    if (isInput) {"
-        << "      el.value = content"
-        << "    } else {"
-        << "      el.innerText = content;"
-        << "      const range = document.createRange();"
-        << "      const sel = window.getSelection();"
-        << "      range.selectNodeContents(el);"
-        << "      range.collapse(false);"
-        << "      sel.removeAllRanges();"
-        << "      sel.addRange(range);"
-        << "    }"
-        << "    dispatchInput();"
-        << "    return JSON.stringify({status: 'success', action: 'inputModify'});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
-}
- 
-std::string NWebImpl::CombineInputSelectCommandJsString(std::string eventType,
-                                                        int32_t startIndex,
-                                                        int32_t finishIndex) {
-  LOG(INFO) << "NWebImpl::CombineInputSelectCommandJsString";
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const startIndex = " << startIndex << ";"
-        << "    const finishIndex = " << finishIndex << ";"
-        << "    const el = document.activeElement;"
-        << "    if (!el || (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable)) {"
-        << "      return JSON.stringify({status: 'error', reason: 'No focused editable element'});"
-        << "    }"
-        << "    const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';"
-        << "    if (isInput) {"
-        << "      el.setSelectionRange(startIndex, finishIndex);"
-        << "    } else {"
-        << "      const fullText = el.innerText;"
-        << "      el.innerHTML = '';"
-        << "      const textNode = document.createTextNode(fullText);"
-        << "      el.appendChild(textNode);"
-        << "      const range = document.createRange();"
-        << "      const sel = window.getSelection();"
-        << "      if (el.firstChild) {"
-        << "        const safeEnd = Math.min(finishIndex, el.innerText.length);"
-        << "        range.setStart(el.firstChild, Math.min(startIndex, el.innerText.length));"
-        << "        range.setEnd(el.firstChild, safeEnd);"
-        << "        sel.removeAllRanges();"
-        << "        sel.addRange(range);"
-        << "      }"
-        << "    }"
-        << "    return JSON.stringify({status: 'success', action: 'inputSelect'});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
-}
- 
-std::string NWebImpl::CombineInputFocusCommandJsString(std::string eventType,
-                                                        std::string xPath,
-                                                        int32_t noNeedKeyboard) {
-  LOG(INFO) << "NWebImpl::CombineInputFocusCommandJsString";
-  auto escapeQuotes = [](std::string str) {
-    size_t pos = 0;
-    while ((pos = str.find("\"", pos)) != std::string::npos) {
-      str.replace(pos, 1, "\\\"");
-      pos += 2;
-    }
-    return str;
-  };
-  std::string safeXPath = escapeQuotes(xPath);
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const xpath = `" << safeXPath << "`;"
-        << "    const flag = " << noNeedKeyboard << ";"
-        << "    const res = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        << "    const el = res.singleNodeValue;"
-        << "    if (!el) return JSON.stringify({status: 'fail', reason: 'XPath not found'});"
-        << "    const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';"
-        << "    if (isInput) {"
-        << "      if (!flag) {"
-        << "        el.focus();"
-        << "        el.click();"
-        << "      } else {"
-        << "        const originalReadOnly = el.readOnly;"
-        << "        el.readOnly = true;"
-        << "        el.focus();"
-        << "        el.readOnly = originalReadOnly;"
-        << "      }"
-        << "    } else {"
-        << "      if (!flag) {"
-        << "        el.focus();"
-        << "        el.click();"
-        << "      } else {"
-        << "        const originalEditable  = el.contentEditable;"
-        << "        el.contentEditable = false;"
-        << "        el.focus();"
-        << "        el.contentEditable = originalEditable;"
-        << "      }"
-        << "      const range = document.createRange();"
-        << "      const sel = window.getSelection();"
-        << "      range.selectNodeContents(el);"
-        << "      range.collapse(false);"
-        << "      sel.removeAllRanges();"
-        << "      sel.addRange(range);"
-        << "    }"
-        << "    return JSON.stringify({status: 'success', action: 'inputFocus'});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
-}
- 
-std::string NWebImpl::CombineInputSetCursorCommandJsString(std::string eventType,
-                                                            int32_t index) {
-  LOG(INFO) << "NWebImpl::CombineInputSetCursorCommandJsString";
-  std::ostringstream oss;
-  oss << "(function() {"
-        << "  try {"
-        << "    const type = '" << eventType << "';"
-        << "    const index = " << index << ";"
-        << "    const el = document.activeElement;"
-        << "    if (!el || (!['INPUT', 'TEXTAREA'].includes(el.tagName) && !el.isContentEditable)) {"
-        << "      return JSON.stringify({status: 'error', reason: 'No focused editable element'});"
-        << "    }"
-        << "    const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';"
-        << "    if (isInput) {"
-        << "      el.setSelectionRange(index, index);"
-        << "    } else {"
-        << "      const fullText = el.innerText;"
-        << "      el.innerHTML = '';"
-        << "      const textNode = document.createTextNode(fullText);"
-        << "      el.appendChild(textNode);"
-        << "      const range = document.createRange();"
-        << "      const selection = window.getSelection();"
-        << "      if (el.firstChild) {"
-        << "        const safePos = Math.min(index, el.innerText.length);"
-        << "        range.setStart(el.firstChild, safePos);"
-        << "        range.collapse(true);"
-        << "        selection.removeAllRanges();"
-        << "        selection.addRange(range);"
-        << "      }"
-        << "    }"
-        << "    return JSON.stringify({status: 'success', action: 'inputSetCursor'});"
-        << "  } catch (e) {"
-        << "    return JSON.stringify({status: 'fail', reason: e.toString()});"
-        << "  }"
-        << "})();";
-    return oss.str();
-}
-#endif
+#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
 std::map<std::string, std::string> NWebImpl::GetRequestHeader(int nweb_request_key) {

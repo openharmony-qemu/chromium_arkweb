@@ -1368,14 +1368,6 @@ class NWebImpl : public NWeb {
       PASTE = 5,
   };
   int32_t SendCommandAction(std::shared_ptr<OHOS::NWeb::NWebCommandAction> action) override;
-  std::string CombineCommandJsString(std::string eventType, std::string xPath, std::string align, int32_t offset);
-  std::string CombineInputInsertCommandJsString(std::string eventType, std::string content, int32_t index);
-  std::string CombineInputModifyCommandJsString(std::string eventType, std::string content);
-  std::string CombineInputSelectCommandJsString(std::string eventType, int32_t startIndex, int32_t finishIndex);
-  std::string CombineInputCopyCommandJsString();
-  std::string CombineInputCutCommandJsString();
-  std::string CombineInputFocusCommandJsString(std::string eventType, std::string xPath, int32_t noNeedKeyboard);
-  std::string CombineInputSetCursorCommandJsString(std::string eventType, int32_t index);
 #endif  // BUILDFLAG(IS_ARKWEB_EXT)
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(ARKWEB_SOFTKEYBOARD_AVOID)

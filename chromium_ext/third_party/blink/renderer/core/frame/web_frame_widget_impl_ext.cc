@@ -216,6 +216,122 @@ int32_t WebFrameWidgetImplExt::ExecuteSelectCommandById(
   return CommandActionDOMHelper::ExecuteSelectById(local_root_, document, id,
                                                    indexes, values);
 }
+
+int32_t WebFrameWidgetImplExt::ExecuteFocusCommand(
+    const std::string& xpath,
+    bool suppress_keyboard) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteFocusCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteFocusCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteFocus(document, xpath, suppress_keyboard);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteInputModifyCommand(
+    const std::string& content) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputModifyCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputModifyCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteInputModify(document, content);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteInputInsertCommand(
+    const std::string& content,
+    int32_t index) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputInsertCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputInsertCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteInputInsert(document, content, index);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteAutoFillCommand(
+    const std::string& xpath,
+    const std::string& content,
+    int32_t index,
+    int32_t mode) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteAutoFill(document, xpath, content, index, mode);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteClickCommand(const std::string& xpath) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteClickCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteClickCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteClick(document, xpath);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteScrollCommand(const std::string& xpath,
+                                                      const std::string& align,
+                                                      int32_t offset) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteScrollCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteScrollCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteScroll(document, xpath, align, offset);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteInputSelectCommand(int32_t start_index,
+                                                          int32_t finish_index) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSelectCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSelectCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteInputSelect(document, start_index, finish_index);
+}
+
+int32_t WebFrameWidgetImplExt::ExecuteInputSetCursorCommand(int32_t index) {
+  if (!local_root_ || !local_root_->GetFrame()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSetCursorCommand: local root or frame is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  Document* document = local_root_->GetFrame()->GetDocument();
+  if (!document) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSetCursorCommand: document is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return CommandActionDOMHelper::ExecuteInputSetCursor(document, index);
+}
 #endif
 
 void WebFrameWidgetImplExt::ArkWebHandleTouchEvent(

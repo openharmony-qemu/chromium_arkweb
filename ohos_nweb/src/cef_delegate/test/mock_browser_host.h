@@ -686,10 +686,38 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               (const std::string&, const std::string&, const std::string&),
               (override));
   MOCK_METHOD(int32_t,
+              ExecuteFocusCommand,
+              (const std::string& xpath, bool suppress_keyboard),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputModifyCommand,
+              (const std::string& content),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputInsertCommand,
+              (const std::string& content, int32_t index),
+              (override));
+  MOCK_METHOD(int32_t,
               ExecuteSelectCommand,
               (const std::string&,
                const std::vector<int32_t>&,
                const std::vector<std::string>&),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteClickCommand,
+              (const std::string&),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteScrollCommand,
+              (const std::string&, const std::string&, int32_t),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputSelectCommand,
+              (int32_t, int32_t),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputSetCursorCommand,
+              (int32_t),
               (override));
   MOCK_METHOD(void,
               SetPipNativeWindow,
