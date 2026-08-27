@@ -84,14 +84,11 @@ int main(int argc, const char* argv[]) {
   }
   argv_ss << argv[argc - 1];
   func(argv_ss.str().data());
-  if (libHandleWebEngine != nullptr) {
-    ::dlclose(libHandleWebEngine);
-    libHandleWebEngine = nullptr;
-  }
-  if (libHandleNWebRender != nullptr) {
-    ::dlclose(libHandleNWebRender);
-    libHandleNWebRender = nullptr;
-  }
-
+  // Do not dlclose SO handles after NWebRenderMain returns. The process is
+  // about to exit and the OS will reclaim all resources. Calling dlclose here
+  // is unnecessary and dangerous: (1) SO destructors may trigger async
+  // operations (e.g. ffrt tasks) that continue after the code segment is
+  // unmapped; (2) dlclose order may violate dependency order (libnweb_render
+  // depends on libweb_engine, but libweb_engine is unloaded first).
   WVLOG_I("nweb subprocess %{public}s end, pid=%{public}d", argv[0], getpid());
 }
