@@ -3037,8 +3037,8 @@ void NWebHandlerDelegate::GetResourceHandlerByIO(
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
     content::GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE, base::BindOnce(&NWebHandlerDelegate::GetResourceHandlerByIO,
-                                  this, browser, frame, request, callback,
-                                  scheme_factory, scheme));
+                                  weak_factory_.GetWeakPtr(), browser, frame,
+                                  request, callback, scheme_factory, scheme));
     return;
   }
   if (!request) {
