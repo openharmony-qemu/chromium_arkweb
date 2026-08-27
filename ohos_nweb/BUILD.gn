@@ -93,6 +93,9 @@ static_library("cef_nweb") {
     "//cef/libcef/common/mojom",
     "//components/js_injection/common:common_mojom",
   ]
+  if (is_arkweb_ext) {
+    deps += [ "//ohos_nweb_ex:nweb_ex" ]
+  }
 
   sources = [
     "src/cef_delegate/ai_page_command_param_utils.cc",
