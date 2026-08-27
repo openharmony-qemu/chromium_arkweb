@@ -67,6 +67,20 @@ constexpr int drag_image_sandbox_count_limit = 3;
 constexpr int32_t APPLICATION_API_20 = 20;
 #endif  // #if BUILDFLAG(ARKWEB_SCREEN_SIZE)
 
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+constexpr int32_t kRequestKeyboardReasonNone = 0;
+constexpr int32_t kRequestKeyboardReasonMouse = 1;
+constexpr int32_t kRequestKeyboardReasonTouch = 2;
+constexpr int32_t kRequestKeyboardReasonOther = 20;
+
+bool IsValidRequestKeyboardReason(int reason) {
+  return reason == kRequestKeyboardReasonNone ||
+         reason == kRequestKeyboardReasonMouse ||
+         reason == kRequestKeyboardReasonTouch ||
+         reason == kRequestKeyboardReasonOther;
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
 cef_screen_orientation_type_t ConvertOrientationType(
     OHOS::NWeb::DisplayOrientation type) {
   switch (type) {
@@ -997,11 +1011,12 @@ void NWebRenderHandler::HandleKeyboardAttach(
       LOG(INFO) << "WebCustomKeyboard before use system keyboard, need to close custom keyboard";
       custom_keyboard_handler_->Close();
     }
-    int32_t requestKeyboardReason = 0;
+    int32_t requestKeyboardReason = kRequestKeyboardReasonNone;
     auto iter = attributesMap.find("requestKeyboardReason");
     if (iter != attributesMap.end()) {
-      int parsedReason = 0;
-      if (base::StringToInt(iter->second, &parsedReason)) {
+      int parsedReason = kRequestKeyboardReasonNone;
+      if (base::StringToInt(iter->second, &parsedReason) &&
+          IsValidRequestKeyboardReason(parsedReason)) {
         requestKeyboardReason = static_cast<int32_t>(parsedReason);
       } else {
         LOG(WARNING) << "Invalid requestKeyboardReason, using default value";

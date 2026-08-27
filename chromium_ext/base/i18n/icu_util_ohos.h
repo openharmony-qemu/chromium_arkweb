@@ -47,6 +47,10 @@ int LoadIcuDataByHap(base::PlatformFile data_fd,
 {
   auto resourceInstance =
       OHOS::NWeb::OhosAdapterHelper::GetInstance().GetResourceAdapter();
+  if (!resourceInstance) {
+    LOG(ERROR) << "LoadIcuDataByHap: resource adapter is null";
+    return 1;
+  }
   std::shared_ptr<OHOS::NWeb::OhosFileMapper> fileMapper =
         resourceInstance->GetRawFileMapper(kIcuDataFileNameHap, true);
   if (!fileMapper) {
