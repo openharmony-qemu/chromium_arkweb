@@ -106,6 +106,7 @@ namespace base {
 #endif // ARKWEB_READER_MODE
 
 #include "ohos_nweb/src/capi/nweb_custom_font_info.h"
+#include "base/memory/memory_pressure_level.h"
 
 namespace OHOS::NWeb {
 #if BUILDFLAG(IS_ARKWEB)
@@ -863,6 +864,10 @@ class NWebImpl : public NWeb {
       std::shared_ptr<NWebStringValueCallback> callback) override;
   static void ResumeDownloadStatic(
       std::shared_ptr<NWebDownloadItem> download_item);
+
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  static void ForwardMemoryPressureToRenderers(base::MemoryPressureLevel memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
 
 #if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
   static void SetFileRenameOption(const int file_rename_option);

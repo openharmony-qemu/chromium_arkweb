@@ -131,6 +131,7 @@ declare_args() {
   arkweb_performance_inc_freq = !is_component_build
   arkweb_performance_jitter = true
   arkweb_performance_memory_threshold = true
+  arkweb_trim_render_process_memory = true
   arkweb_performance_persistent_task = true
   arkweb_performance_scheduling = !is_component_build
   arkweb_per_dfx = true
@@ -255,7 +256,9 @@ declare_args() {
   arkweb_screen_offset = true
   arkweb_screen_size = true
   arkweb_canvas_commit = true
+  arkweb_clipped_image_scaling = !is_component_build
   arkweb_vsync_schedule = true
+  arkweb_gpu_image_persistent_cache_limit = true
   arkweb_pip = !is_component_build
   arkweb_fullscreen_video_overlay = true
   arkweb_immediate_destory = false
