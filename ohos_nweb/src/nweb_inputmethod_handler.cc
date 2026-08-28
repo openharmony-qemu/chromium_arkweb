@@ -569,7 +569,10 @@ bool NWebInputMethodHandler::Reattach(uint32_t nwebId, ReattachType type) {
   }
 
   composing_text_.clear();
-  ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    ClearComposingStatus();
+  }
   if (!show_keyboard_ && isAttached_ && imf_input_mode_ != lastInputMode_) {
     LOG(ERROR) << "do not need attach";
     inputmethod_adapter_->Close();
@@ -611,7 +614,10 @@ void NWebInputMethodHandler::HideTextInput(uint32_t nwebId,
                                            bool noNeedKeyboardByInput) {
   LOG(INFO) << "NWebInputMethodHandler::HideTextInput, isAttached_: "
             << isAttached_;
-  ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    ClearComposingStatus();
+  }
   if (inputmethod_adapter_ == nullptr) {
     LOG(ERROR) << "inputmethod_adapter_ is nullptr";
     return;
@@ -727,6 +733,7 @@ bool NWebInputMethodHandler::IsTextInputStateChange(
     const CefString& text,
     const CefRange& selected_range,
     const CefRange& compositon_range) {
+  std::unique_lock<std::mutex> lock(compositionMutex_);
   if (CefString(whole_text_) != text) {
     return true;
   }
@@ -770,26 +777,33 @@ void NWebInputMethodHandler::OnUpdateTextInputStateCalled(
     if (browser_ && browser_->GetHost()) {
       browser_->GetHost()->SetHasComposition(has_composition_);
     }
-    composition_range_start_ = 0;
-    composition_range_end_ = 0;
-    preview_text_cache_ = u"";
+    {
+      std::unique_lock<std::mutex> lock(compositionMutex_);
+      composition_range_start_ = 0;
+      composition_range_end_ = 0;
+      preview_text_cache_ = u"";
+    }
   } else {
     has_composition_ = true;
     if (browser_ && browser_->GetHost()) {
       browser_->GetHost()->SetHasComposition(has_composition_);
     }
-    composition_range_start_ =
-        (compositon_range.from > static_cast<uint32_t>(INT32_MAX))
-            ? INT32_MAX
-            : static_cast<int32_t>(compositon_range.from);
-    composition_range_end_ = compositon_range.to;
-    int32_t preview_length = composition_range_end_ - composition_range_start_;
-    if (composition_range_start_ >= 0 && preview_length > 0) {
-      const auto& text16 = text.ToString16();
-      size_t start = static_cast<size_t>(composition_range_start_);
-      size_t length = static_cast<size_t>(preview_length);
-      if (!text16.empty() && (start + length <= text16.length())) {
-        preview_text_cache_ = text16.substr(start, length);
+    {
+      std::unique_lock<std::mutex> lock(compositionMutex_);
+      composition_range_start_ =
+          (compositon_range.from > static_cast<uint32_t>(INT32_MAX))
+              ? INT32_MAX
+              : static_cast<int32_t>(compositon_range.from);
+      composition_range_end_ = compositon_range.to;
+      int32_t preview_length =
+          composition_range_end_ - composition_range_start_;
+      if (composition_range_start_ >= 0 && preview_length > 0) {
+        const auto& text16 = text.ToString16();
+        size_t start = static_cast<size_t>(composition_range_start_);
+        size_t length = static_cast<size_t>(preview_length);
+        if (!text16.empty() && (start + length <= text16.length())) {
+          preview_text_cache_ = text16.substr(start, length);
+        }
       }
     }
   }
@@ -958,7 +972,10 @@ void NWebInputMethodHandler::InsertTextHandlerOnUI(const std::u16string& text) {
              << selected_from_;
   keyEvent.type = KEYEVENT_KEYUP;
   host->SendKeyEvent(keyEvent);
-  ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    ClearComposingStatus();
+  }
 }
 
 // LCOV_EXCL_START
@@ -985,10 +1002,13 @@ void NWebInputMethodHandler::PreviewTextHandlerOnUI(const std::u16string& text,
     textCursorReady_++;
   }
 
-  LOG(DEBUG) << "NWebInputMethodHandler::preview_text_cache_ After "
-                "composition_range_start_ "
-             << composition_range_start_ << ", composition_range_end_ "
-             << composition_range_end_;
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    LOG(DEBUG) << "NWebInputMethodHandler::preview_text_cache_ After "
+                  "composition_range_start_ "
+               << composition_range_start_ << ", composition_range_end_ "
+               << composition_range_end_;
+  }
   std::vector<CefCompositionUnderline> underlines;
   CefCompositionUnderline underline;
   underline.range.from = 0;
@@ -1033,7 +1053,10 @@ void NWebInputMethodHandler::CancelPreviewHandlerOnUI() {
   }
   LOG(DEBUG) << "NWebInputMethodHandler::CancelPreviewHandlerOnUI";
   host->ImeCancelComposition();
-  ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    ClearComposingStatus();
+  }
 }
 
 void NWebInputMethodHandler::FinishPreviewTextOnUI() {
@@ -1046,7 +1069,10 @@ void NWebInputMethodHandler::FinishPreviewTextOnUI() {
   }
   LOG(DEBUG) << "NWebInputMethodHandler::FinishPreviewTextOnUI";
   host->ImeFinishComposingText(false);
-  ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    ClearComposingStatus();
+  }
 }
 // LCOV_EXCL_STOP
 
@@ -1099,8 +1125,11 @@ void NWebInputMethodHandler::DeleteForwardHandlerOnUI(int32_t length) {
   }
   keyEvent.type = KEYEVENT_KEYUP;
   host->SendKeyEvent(keyEvent);
-  if (preview_text_cache_.length() == 1) {
-    ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    if (preview_text_cache_.length() == 1) {
+      ClearComposingStatus();
+    }
   }
 }
 
@@ -1137,8 +1166,11 @@ void NWebInputMethodHandler::DeleteBackwardHandlerOnUI(int32_t length) {
   }
   keyEvent.type = KEYEVENT_KEYUP;
   host->SendKeyEvent(keyEvent);
-  if (preview_text_cache_.length() == 1) {
-    ClearComposingStatus();
+  {
+    std::unique_lock<std::mutex> lock(compositionMutex_);
+    if (preview_text_cache_.length() == 1) {
+      ClearComposingStatus();
+    }
   }
 }
 
@@ -1395,6 +1427,7 @@ int32_t NWebInputMethodHandler::GetCompositionTypeAndCheckInput(
     int32_t start,
     int32_t end,
     CompositionType& composition_type) {
+  // Caller must hold compositionMutex_
   bool is_empty = text.empty();
   if (is_empty && !has_composition_) {
     LOG(ERROR) << "set null preview text when has not composition";
@@ -1460,6 +1493,7 @@ int32_t NWebInputMethodHandler::UpdateCompositionInfo(
     const std::u16string& text,
     int32_t start,
     int32_t end) {
+  // Caller must hold compositionMutex_
   if (GetCompositionTypeAndCheckInput(text, start, end, composition_type_) !=
       OK) {
     LOG(ERROR) << "check in put failed";
@@ -1559,6 +1593,7 @@ int32_t NWebInputMethodHandler::SetPreviewText(const std::u16string& text,
                                                int32_t end) {
   LOG(DEBUG) << "NWebInputMethodHandler::SetPreviewText start: " << start
              << ", end: " << end;
+  std::unique_lock<std::mutex> lock(compositionMutex_);
   if (UpdateCompositionInfo(std::move(text), start, end) != OK) {
     LOG(ERROR) << "update composition info failed!";
     return ERROR;
