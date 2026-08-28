@@ -28,6 +28,31 @@ BASE_FEATURE(kReportDomTreeAsync,
              base::FEATURE_ENABLED_BY_DEFAULT);
 }
 
+namespace {
+
+// Escape for embedding in a JS single-quoted string.
+// IMPORTANT: backslash MUST be escaped first, before other characters
+// that introduce backslashes (e.g. ' → \'), to avoid double-escaping.
+std::string EscapeForJsSingleQuotedString(const std::string& input) {
+  std::string escaped = input;
+  base::ReplaceChars(escaped, "\\", "\\\\", &escaped);
+  base::ReplaceChars(escaped, "'", "\\'", &escaped);
+  base::ReplaceChars(escaped, "\n", "\\n", &escaped);
+  base::ReplaceChars(escaped, "\r", "\\r", &escaped);
+  return escaped;
+}
+
+// Escape a value for embedding inside a JSON double-quoted string
+// (used when building nodeTypesJson array entries).
+std::string EscapeForJsonStringValue(const std::string& input) {
+  std::string escaped = input;
+  base::ReplaceChars(escaped, "\\", "\\\\", &escaped);
+  base::ReplaceChars(escaped, "\"", "\\\"", &escaped);
+  return escaped;
+}
+
+}  // namespace
+
 namespace OHOS::NWeb {
 
 constexpr std::string_view kStartTemplate = "(function(window) { window.viewportFontMonitor.start($1, $2); })(window);";
@@ -206,26 +231,21 @@ void NWebContentChangeDetection::RequestPageSceneQuery(
     LOG(ERROR) << "get page scene query script failed";
     return;
   }
-  std::string escapedRuleJson = ruleJson;
-  base::ReplaceChars(ruleJson, "'", "\\'", &escapedRuleJson);
-  base::ReplaceChars(escapedRuleJson, "\n", "\\n", &escapedRuleJson);
-  base::ReplaceChars(escapedRuleJson, "\r", "\\r", &escapedRuleJson);
-
-  std::string escapedRuleId = ruleId;
-  base::ReplaceChars(ruleId, "'", "\\'", &escapedRuleId);
+  std::string escapedRuleJson = EscapeForJsSingleQuotedString(ruleJson);
+  std::string escapedRuleId = EscapeForJsSingleQuotedString(ruleId);
 
   // Build nodeTypes JSON array string ([] when empty → JS side skips observer)
+  // Each value is escaped for JSON double-quoted string context, then the
+  // whole array is escaped for JS single-quoted string context ($3 placeholder).
   std::string nodeTypesJson = "[";
   for (size_t i = 0; i < nodeTypes.size(); i++) {
     if (i > 0) {
       nodeTypesJson += ",";
     }
-    std::string escapedNodeType = nodeTypes[i];
-    base::ReplaceChars(nodeTypes[i], "\\", "\\\\", &escapedNodeType);
-    base::ReplaceChars(escapedNodeType, "\"", "\\\"", &escapedNodeType);
-    nodeTypesJson += "\"" + escapedNodeType + "\"";
+    nodeTypesJson += "\"" + EscapeForJsonStringValue(nodeTypes[i]) + "\"";
   }
   nodeTypesJson += "]";
+  nodeTypesJson = EscapeForJsSingleQuotedString(nodeTypesJson);
 
   std::string call_js = base::ReplaceStringPlaceholders(
       kPageSceneQueryTemplate,
