@@ -23,16 +23,17 @@
 
 #include "arkweb/build/features/features.h"
 #include "arkweb/chromium_ext/url/ohos/log_utils.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/numerics/safe_math.h"
+#include "base/strings/string_number_conversions.h"
 #include "content/public/common/content_switches.h"
 #include "nweb_delegate_interface.h"
 #include "nweb_gesture_event_result_impl.h"
 #include "nweb_mouse_event_result_impl.h"
 #include "nweb_touch_handle_hot_zone_impl.h"
 #include "nweb_touch_handle_state_impl.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "res_sched_client_adapter.h"
 #include "third_party/bounds_checking_function/include/securec.h"
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
@@ -999,11 +1000,18 @@ void NWebRenderHandler::HandleKeyboardAttach(
     int32_t requestKeyboardReason = 0;
     auto iter = attributesMap.find("requestKeyboardReason");
     if (iter != attributesMap.end()) {
-      requestKeyboardReason = std::stoi(iter->second);
+      int parsedReason = 0;
+      if (base::StringToInt(iter->second, &parsedReason)) {
+        requestKeyboardReason = static_cast<int32_t>(parsedReason);
+      } else {
+        LOG(WARNING) << "Invalid requestKeyboardReason, using default value";
+      }
     }
-    LOG(INFO) << "WebCustomKeyboard attach system keyboard requestKeyboardReason = " << requestKeyboardReason;
+    LOG(INFO) << "WebCustomKeyboard attach system keyboard "
+              << "requestKeyboardReason = " << requestKeyboardReason;
     inputmethod_client_->Attach(browser, text_input_info,
-                                is_need_reset_listener, enterKeyType, requestKeyboardReason);
+                                is_need_reset_listener, enterKeyType,
+                                requestKeyboardReason);
   } else {
     if (isSystemKeyboard_) {
       LOG(INFO) << "WebCustomKeyboard before use custom keyboard, need to "
