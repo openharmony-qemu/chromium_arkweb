@@ -194,6 +194,12 @@ static void GetterForDelegate(v8::Local<v8::Name> name,
                               const v8::PropertyCallbackInfo<v8::Value>& info) {
   Isolate* isolate = reinterpret_cast<Isolate*>(info.GetIsolate());
   HandleScope scope(isolate);
+  STACK_CHECK(isolate, );
+  if (isolate->has_exception()) {
+    info.GetReturnValue().Set(
+        Utils::ToLocal(isolate->factory()->undefined_value()));
+    return;
+  }
   Tagged<JSObject> holder =
       Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2()));
   auto symbol_key = GetDelegateKey(isolate);
@@ -224,6 +230,11 @@ static void SetterForDelegate(Local<v8::Name> property, Local<v8::Value> value,
                               const PropertyCallbackInfo<v8::Boolean>& info) {
   Isolate* isolate = reinterpret_cast<Isolate*>(info.GetIsolate());
   HandleScope scope(isolate);
+  STACK_CHECK(isolate, );
+  if (isolate->has_exception()) {
+    info.GetReturnValue().Set(v8::False(info.GetIsolate()));
+    return;
+  }
   Tagged<JSObject> holder =
       Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2()));
   auto symbol_key = GetDelegateKey(isolate);
