@@ -23,12 +23,7 @@ namespace device {
 
 BusinessRiskIntelligentDetectionHostImpl::BusinessRiskIntelligentDetectionHostImpl() {}
 
-BusinessRiskIntelligentDetectionHostImpl::~BusinessRiskIntelligentDetectionHostImpl() {
-  if (detect_sim_click_risk_enhanced_handler_ != nullptr) {
-    dlclose(detect_sim_click_risk_enhanced_handler_);
-    detect_sim_click_risk_enhanced_handler_ = nullptr;
-  }
-}
+BusinessRiskIntelligentDetectionHostImpl::~BusinessRiskIntelligentDetectionHostImpl() = default;
 
 void BusinessRiskIntelligentDetectionHostImpl::Create(
     mojo::PendingReceiver<device::mojom::BusinessRiskIntelligentDetection> receiver) {
@@ -65,23 +60,18 @@ void BusinessRiskIntelligentDetectionHostImpl::DetectSimulatedClickRiskEnhanced(
 }
 
 DetectSimulatedClickRiskEnhancedFFI BusinessRiskIntelligentDetectionHostImpl::GetDetectFunc() {
-  if (!detect_sim_click_risk_enhanced_handler_) {
-    detect_sim_click_risk_enhanced_handler_ = dlopen("/system/lib64/libbrid_client.z.so", RTLD_LAZY);
-
-    if (!detect_sim_click_risk_enhanced_handler_) {
-      const char* error = dlerror();
-      LOG(WARNING) << "DetectSim: dlopen failed for :" << (error ? error : "Unknown error.");
-      return nullptr;
-    }
+  static void* handle = dlopen("/system/lib64/libbrid_client.z.so", RTLD_LAZY);
+  if (!handle) {
+    const char* error = dlerror();
+    LOG(WARNING) << "DetectSim: dlopen failed for :" << (error ? error : "Unknown error.");
+    return nullptr;
   }
 
-  DetectSimulatedClickRiskEnhancedFFI func = (DetectSimulatedClickRiskEnhancedFFI)
-      dlsym(detect_sim_click_risk_enhanced_handler_, "DetectSimulatedClickRiskEnhancedFFI");
+  static DetectSimulatedClickRiskEnhancedFFI func =
+      (DetectSimulatedClickRiskEnhancedFFI)dlsym(handle, "DetectSimulatedClickRiskEnhancedFFI");
   if (!func) {
     const char* error = dlerror();
     LOG(WARNING) << "DetectSim: dlsym failed for :" << (error ? error : "Unknown error.");
-    dlclose(detect_sim_click_risk_enhanced_handler_);
-    detect_sim_click_risk_enhanced_handler_ = nullptr;
     return nullptr;
   }
 
