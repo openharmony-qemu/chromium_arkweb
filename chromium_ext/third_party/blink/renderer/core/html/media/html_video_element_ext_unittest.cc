@@ -140,3 +140,135 @@ TEST_P(HTMLVideoElementTest, VideoLoadOpt_CheckAndSetValueTest) {
 }
 
 #endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+
+#if BUILDFLAG(ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION)
+TEST_P(HTMLVideoElementTest, VideoLoadOpt_CheckAndSetValueInvalidInput) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+
+  // Test with non-numeric attribute value - !ok branch
+  video()->setAttribute(html_names::kHbspreloadtimeAttr,
+                        AtomicString("not_a_number"));
+  uint16_t preload_time = 100;
+  video()->CheckAndSetValue(html_names::kHbspreloadtimeAttr, &preload_time);
+  EXPECT_EQ(preload_time, 100);  // Should not change - !ok returns early
+ 
+  // Test with zero value - result <= 0 branch
+  video()->setAttribute(html_names::kHbspreloadtimeAttr, AtomicString("0"));
+  preload_time = 100;
+  video()->CheckAndSetValue(html_names::kHbspreloadtimeAttr, &preload_time);
+  EXPECT_EQ(preload_time, 100);  // Should not change - result <= 0
+
+  // Test with negative value - result <= 0 branch
+  video()->setAttribute(html_names::kHbspreloadtimeAttr, AtomicString("-5"));
+  preload_time = 100;
+  video()->CheckAndSetValue(html_names::kHbspreloadtimeAttr, &preload_time);
+  EXPECT_EQ(preload_time, 100);  // Should not change - result <= 0
+
+  // Test with value exceeding UINT16_MAX - result > UINT16_MAX branch
+  video()->setAttribute(html_names::kHbspreloadtimeAttr, AtomicString("70000"));
+  preload_time = 100;
+  video()->CheckAndSetValue(html_names::kHbspreloadtimeAttr, &preload_time);
+  EXPECT_EQ(preload_time, 100);  // Should not change - result > UINT16_MAX
+
+  // Test with valid value - should update
+  video()->setAttribute(html_names::kHbspreloadtimeAttr, AtomicString("10"));
+  preload_time = 100;
+  video()->CheckAndSetValue(html_names::kHbspreloadtimeAttr, &preload_time);
+  EXPECT_EQ(preload_time, 10);  // Should update
+}
+#endif  // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+
+#if BUILDFLAG(ARKWEB_PIP)
+TEST_P(HTMLVideoElementTest, TestOnPictureInPictureStateChanged_PipDownTrue) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // When pip_down_ is true, the function should set pip_down_ to true and
+  // return
+  uint32_t state = 0;
+  int32_t width = 1;
+  int32_t height = 1;
+  ASSERT_NO_FATAL_FAILURE(
+      video()->OnPictureInPictureStateChanged(state, width, height));
+}
+
+TEST_P(HTMLVideoElementTest, TestPipDown_NoMediaPlayer) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // When web_media_player_ is null, PipDown should return early
+  video()->web_media_player_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(video()->PipDown(true));
+}
+
+TEST_P(HTMLVideoElementTest, TestOnPictureInPictureStateChanged_ObserverPath) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // Set pip_down_ to true so the observer path is taken
+  video()->pip_down_ = true;
+  uint32_t state = 1;
+  int32_t width = 100;
+  int32_t height = 100;
+  // Call with pip_down_=true and web_media_player_ present
+  ASSERT_NO_FATAL_FAILURE(
+      video()->OnPictureInPictureStateChanged(state, width, height));
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_MEDIA_CAST)
+TEST_P(HTMLVideoElementTest, TestUpdateUiPlayState) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // With remoting_interstitial_ null (default)
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateUiPlayState(true));
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateUiPlayState(false));
+}
+
+TEST_P(HTMLVideoElementTest, TestUpdateUiPlayPosition) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // With remoting_interstitial_ null (default)
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateUiPlayPosition(0));
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateUiPlayPosition(1000));
+}
+
+TEST_P(HTMLVideoElementTest, TestUpdateRemotePlayState) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateRemotePlayState(true));
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateRemotePlayState(false));
+}
+
+TEST_P(HTMLVideoElementTest, TestUpdateRemotePlayPosition) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateRemotePlayPosition(0));
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateRemotePlayPosition(5000));
+}
+
+TEST_P(HTMLVideoElementTest, TestNotifyRemoteInterstitial) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // With remoting_interstitial_ null (default)
+  ASSERT_NO_FATAL_FAILURE(
+      video()->NotifyRemoteInterstitial(MediaControlsSizingClass::kLarge));
+  ASSERT_NO_FATAL_FAILURE(
+      video()->NotifyRemoteInterstitial(MediaControlsSizingClass::kSmall));
+}
+
+TEST_P(HTMLVideoElementTest, TestUpdateRemoteFullScreenCss) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+  // With remoting_interstitial_ null (default)
+  ASSERT_NO_FATAL_FAILURE(video()->UpdateRemoteFullScreenCss());
+}
+#endif  // BUILDFLAG(ARKWEB_MEDIA_CAST)
