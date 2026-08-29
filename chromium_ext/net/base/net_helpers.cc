@@ -228,6 +228,19 @@ bool IsAppStorageSandboxUrl(const GURL& url) {
   return base::StartsWith(url.path(), APP_STORAGE_SANDBOX_PATH,
                           base::CompareCase::SENSITIVE);
 }
+
+bool IsAnomalousFilePath(const GURL& url) {
+  if (!url.is_valid() || !url.SchemeIsFile() || !url.has_path()) {
+    return false;
+  }
+
+  if (base::StartsWith(url.path(), "/proc/", base::CompareCase::SENSITIVE) ||
+      (url.path() == "/proc")) {
+    return true;
+  }
+
+  return false;
+}
 #endif
 
 bool IsURLBlocked(const GURL& url
@@ -236,6 +249,13 @@ bool IsURLBlocked(const GURL& url
                   struct NetHelperSetting setting
 #endif  // BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
 ) {
+#if BUILDFLAG(ARKWEB_EXT_FILE_ACCESS)
+  if (IsAnomalousFilePath(url)) {
+    LOG(WARNING) << "Blocked anomalous file";
+    return true;
+  }
+#endif  // BUILDFLAG(ARKWEB_EXT_FILE_ACCESS)
+
   // Part of implementation of NWebPreference.allowContentAccess.
   if (url.SchemeIs(url::kContentScheme) &&
       NetHelpers::ShouldBlockContentUrls()) {
