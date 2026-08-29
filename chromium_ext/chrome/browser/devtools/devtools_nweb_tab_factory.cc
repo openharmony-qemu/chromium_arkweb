@@ -11,6 +11,7 @@
 
 #include "arkweb/ohos_nweb/src/cef_delegate/nweb_handler_delegate.h"
 #include "cef/libcef/browser/browser_host_base.h"
+#include "cef/libcef/browser/browser_info_manager.h"
 #include "content/public/browser/devtools_agent_host.h"
 #endif
 
@@ -68,43 +69,31 @@ class CefCallbackImpl : public CefCallback {
   IMPLEMENT_REFCOUNTING(CefCallbackImpl);
 };
 
-// Finds the NWebHandlerDelegate whose DevToolsAgentHost is currently attached
-// (i.e., has a CDP client connected). This ensures the popup is triggered from
-// the NWeb that the CDP session is actually working with. Falls back to the
-// first NWebHandlerDelegate found if none is attached.
+// Finds the NWebHandlerDelegate for the focused tab via
+// NWebHandlerDelegate::GetFocusState().
 NWebHandlerDelegate* FindNWebHandlerDelegate() {
-  auto agent_hosts = content::DevToolsAgentHost::GetOrCreateAll();
-  NWebHandlerDelegate* first_delegate = nullptr;
-  NWebHandlerDelegate* attached_delegate = nullptr;
-
-  for (const auto& agent_host : agent_hosts) {
-    content::WebContents* wc = agent_host->GetWebContents();
-    if (!wc) {
+  for (const auto& info :
+       CefBrowserInfoManager::GetInstance()->GetBrowserInfoList()) {
+    if (!info->IsValid() || info->IsClosing())
       continue;
-    }
-    CefRefPtr<CefBrowserHostBase> browser_base =
-        CefBrowserHostBase::GetBrowserForContents(wc);
-    if (!browser_base) {
+    auto browser_base = info->browser();
+    if (!browser_base)
       continue;
-    }
     CefRefPtr<CefClient> client = browser_base->GetClient();
-    if (!client) {
+    if (!client)
       continue;
-    }
-    NWebHandlerDelegate* handler_delegate =
+    auto* handler_delegate =
         static_cast<NWebHandlerDelegate*>(client.get());
-    if (!handler_delegate) {
+    if (!handler_delegate)
       continue;
-    }
-    if (!first_delegate) {
-      first_delegate = handler_delegate;
-    }
-    if (agent_host->IsAttached() && !attached_delegate) {
-      attached_delegate = handler_delegate;
-    }
+#if BUILDFLAG(ARKWEB_FOCUS)
+    if (handler_delegate->GetFocusState())
+      return handler_delegate;
+#endif
   }
 
-  return attached_delegate ? attached_delegate : first_delegate;
+  LOG(ERROR) << "FindNWebHandlerDelegate: no focused tab found";
+  return nullptr;
 }
 
 // Queue for serializing concurrent CDP Target.createTarget requests.
@@ -122,11 +111,24 @@ std::queue<PendingRequest> g_pending_queue;
 
 void ProcessNextPending();
 
-void StartPopupCreation(NWebHandlerDelegate* handler_delegate,
-                        const std::string& target_url,
+void StartPopupCreation(const std::string& target_url,
                         bool is_tab,
                         content::BrowserContext* browser_context,
                         NWebTabCreatedCallback callback) {
+  NWebHandlerDelegate* handler_delegate = FindNWebHandlerDelegate();
+  if (!handler_delegate) {
+    std::move(callback).Run(false, "No NWebHandlerDelegate found");
+    // No delegate means no popup can ever complete, so drain the queue and
+    // reset the in-progress flag to unblock future requests.
+    while (!g_pending_queue.empty()) {
+      auto& pending = g_pending_queue.front();
+      std::move(pending.callback).Run(false, "No NWebHandlerDelegate found");
+      g_pending_queue.pop();
+    }
+    g_popup_in_progress = false;
+    return;
+  }
+
   auto on_popup_complete = base::BindOnce(
       [](bool is_tab, NWebTabCreatedCallback callback,
          content::WebContents* popup_wc) {
@@ -165,22 +167,10 @@ void ProcessNextPending() {
     return;
   }
 
-  NWebHandlerDelegate* handler_delegate = FindNWebHandlerDelegate();
-  if (!handler_delegate) {
-    // No delegate available, fail all pending requests.
-    while (!g_pending_queue.empty()) {
-      auto& pending = g_pending_queue.front();
-      std::move(pending.callback).Run(false, "No NWebHandlerDelegate found");
-      g_pending_queue.pop();
-    }
-    g_popup_in_progress = false;
-    return;
-  }
-
   auto pending = std::move(g_pending_queue.front());
   g_pending_queue.pop();
 
-  StartPopupCreation(handler_delegate, pending.target_url, pending.is_tab,
+  StartPopupCreation(pending.target_url, pending.is_tab,
                      pending.browser_context, std::move(pending.callback));
 }
 
@@ -192,12 +182,6 @@ void TryCreateNWebTab(const GURL& url,
                       content::BrowserContext* browser_context,
                       NWebTabCreatedCallback callback) {
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
-  NWebHandlerDelegate* handler_delegate = FindNWebHandlerDelegate();
-  if (!handler_delegate) {
-    std::move(callback).Run(false, "No NWebHandlerDelegate found");
-    return;
-  }
-
   std::string target_url =
       url.is_empty() ? std::string(url::kAboutBlankURL) : url.spec();
 
@@ -209,7 +193,7 @@ void TryCreateNWebTab(const GURL& url,
   }
 
   g_popup_in_progress = true;
-  StartPopupCreation(handler_delegate, target_url, is_tab, browser_context,
+  StartPopupCreation(target_url, is_tab, browser_context,
                      std::move(callback));
 #else
   std::move(callback).Run(false, "ARKWEB_MULTI_WINDOW is disabled");
