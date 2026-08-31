@@ -65,8 +65,6 @@
 #if BUILDFLAG(IS_ARKWEB)
 #include "cef/ohos_cef_ext/libcef/browser/net/ohos_applink_throttle.h"
 #include "cef/ohos_cef_ext/libcef/browser/arkweb_browser_host_ext.h"
-#include "cef/ohos_cef_ext/libcef/browser/net/extra_headers_url_throttle.h"
-#include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #endif  // BUILDFLAG(IS_ARKWEB)
 
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
@@ -75,6 +73,8 @@
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_block_page.h"
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_controller_client.h"
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_url_trust_list_interface.h"
+#include "cef/ohos_cef_ext/libcef/browser/net/extra_headers_url_throttle.h"
+#include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #endif
 
 enum AppLoadedInTabSource {
@@ -294,9 +294,7 @@ class ChromeContentBrowserClientUtils {
       throttles.push_back(std::make_unique<throttle::ExtraHeadersThrottle>());
     }
   }
-#endif
 
-#if BUILDFLAG(IS_ARKWEB)
   static void AddExtraHeadersUrlThrottle(
       ChromeNavigationUIData* chrome_navigation_ui_data,
       std::vector<std::unique_ptr<blink::URLLoaderThrottle>>& throttles) {
@@ -305,7 +303,7 @@ class ChromeContentBrowserClientUtils {
           chrome_navigation_ui_data->extra_headers()));
     }
   }
-#endif // BUILDFLAG(IS_ARKWEB)
+#endif // BUILDFLAG(ARKWEB_NETWORK_LOAD)
 
 #if BUILDFLAG(ARKWEB_HTTP_DNS)
   static void DnsOverHttpsConfigExt(
