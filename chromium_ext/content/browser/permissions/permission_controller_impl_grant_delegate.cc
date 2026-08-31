@@ -80,9 +80,12 @@ void PermissionControllerImpl::GrantPermissionOverridesToDelegate(
     return;
   }
 
-  // Filter to supported permission types.
+  // Filter to supported permission types (deduplicated).
+  std::set<PermissionType> seen;
   std::vector<PermissionType> supported;
   for (auto permission : permissions) {
+    if (seen.count(permission))
+      continue;
     switch (permission) {
       case PermissionType::GEOLOCATION:
       case PermissionType::NOTIFICATIONS:
@@ -92,6 +95,7 @@ void PermissionControllerImpl::GrantPermissionOverridesToDelegate(
       case PermissionType::CLIPBOARD_SANITIZED_WRITE:
       case PermissionType::PROTECTED_MEDIA_IDENTIFIER:
       case PermissionType::MIDI_SYSEX:
+        seen.insert(permission);
         supported.push_back(permission);
         break;
       default:
