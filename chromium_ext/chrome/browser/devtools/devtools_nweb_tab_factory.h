@@ -9,6 +9,10 @@
 
 class GURL;
 
+namespace content {
+class BrowserContext;
+}
+
 namespace ohos {
 
 // Callback type for async NWeb tab creation.
@@ -20,10 +24,13 @@ using NWebTabCreatedCallback =
 // Triggers creation of a visible NWeb tab via the ARKWEB_MULTI_WINDOW popup
 // flow. The |callback| will be invoked when the popup creation completes
 // (either success or failure).
+// |browser_context| specifies the BrowserContext for the new target. If null,
+// the default (global) context is used.
 // When ARKWEB_MULTI_WINDOW is disabled, invokes |callback| immediately with
 // (false, error_message).
 void TryCreateNWebTab(const GURL& url,
                       bool is_tab,
+                      content::BrowserContext* browser_context,
                       NWebTabCreatedCallback callback);
 
 }  // namespace ohos

@@ -30,9 +30,11 @@ class CefCallbackImpl : public CefCallback {
 
   CefCallbackImpl(NWebHandlerDelegate* handler_delegate,
                   const std::string& target_url,
+                  content::BrowserContext* browser_context,
                   PopupCallback callback)
       : handler_delegate_(handler_delegate),
         target_url_(target_url),
+        browser_context_(browser_context),
         callback_(std::move(callback)) {}
 
   CefCallbackImpl(const CefCallbackImpl&) = delete;
@@ -46,7 +48,8 @@ class CefCallbackImpl : public CefCallback {
     }
     content::WebContents* popup_wc =
         handler_delegate_->CompletePopupCreation(target_url_, false,  // isAlert
-                                                 true);  // isUserTrigger
+                                                 true,  // isUserTrigger
+                                                 browser_context_);
     std::move(callback_).Run(popup_wc);
   }
 
@@ -60,6 +63,7 @@ class CefCallbackImpl : public CefCallback {
  private:
   raw_ptr<NWebHandlerDelegate> handler_delegate_;
   std::string target_url_;
+  raw_ptr<content::BrowserContext> browser_context_;
   PopupCallback callback_;
   IMPLEMENT_REFCOUNTING(CefCallbackImpl);
 };
@@ -109,6 +113,7 @@ NWebHandlerDelegate* FindNWebHandlerDelegate() {
 struct PendingRequest {
   std::string target_url;
   bool is_tab;
+  raw_ptr<content::BrowserContext> browser_context;
   NWebTabCreatedCallback callback;
 };
 
@@ -120,6 +125,7 @@ void ProcessNextPending();
 void StartPopupCreation(NWebHandlerDelegate* handler_delegate,
                         const std::string& target_url,
                         bool is_tab,
+                        content::BrowserContext* browser_context,
                         NWebTabCreatedCallback callback) {
   auto on_popup_complete = base::BindOnce(
       [](bool is_tab, NWebTabCreatedCallback callback,
@@ -143,13 +149,14 @@ void StartPopupCreation(NWebHandlerDelegate* handler_delegate,
       is_tab, std::move(callback));
 
   auto cef_callback = new CefCallbackImpl(handler_delegate, target_url,
+                                          browser_context,
                                           std::move(on_popup_complete));
 
   handler_delegate->TriggerWindowNewByJS(target_url, false,  // isAlert
                                          true,               // isUserTrigger
                                          std::move(cef_callback));
 
-  LOG(INFO) << "StartPopupCreation: triggered popup flow for " << target_url;
+  LOG(INFO) << "StartPopupCreation: triggered popup flow";
 }
 
 void ProcessNextPending() {
@@ -174,7 +181,7 @@ void ProcessNextPending() {
   g_pending_queue.pop();
 
   StartPopupCreation(handler_delegate, pending.target_url, pending.is_tab,
-                     std::move(pending.callback));
+                     pending.browser_context, std::move(pending.callback));
 }
 
 }  // namespace
@@ -182,6 +189,7 @@ void ProcessNextPending() {
 
 void TryCreateNWebTab(const GURL& url,
                       bool is_tab,
+                      content::BrowserContext* browser_context,
                       NWebTabCreatedCallback callback) {
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   NWebHandlerDelegate* handler_delegate = FindNWebHandlerDelegate();
@@ -194,13 +202,15 @@ void TryCreateNWebTab(const GURL& url,
       url.is_empty() ? std::string(url::kAboutBlankURL) : url.spec();
 
   if (g_popup_in_progress) {
-    g_pending_queue.push({target_url, is_tab, std::move(callback)});
-    LOG(INFO) << "TryCreateNWebTab: popup in progress, enqueued " << target_url;
+    g_pending_queue.push({target_url, is_tab, browser_context,
+                          std::move(callback)});
+    LOG(INFO) << "TryCreateNWebTab: popup in progress, enqueued";
     return;
   }
 
   g_popup_in_progress = true;
-  StartPopupCreation(handler_delegate, target_url, is_tab, std::move(callback));
+  StartPopupCreation(handler_delegate, target_url, is_tab, browser_context,
+                     std::move(callback));
 #else
   std::move(callback).Run(false, "ARKWEB_MULTI_WINDOW is disabled");
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)

@@ -199,6 +199,7 @@
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #include "cef/ohos_cef_ext/libcef/browser/alloy/alloy_browser_host_impl_ext.h"
+#include "cef/libcef/browser/chrome/chrome_browser_context.h"
 #include "cef/libcef/browser/browser_info_manager.h"
 #include "cef/libcef/common/net/url_util.h"
 #include "ohos_nweb/src/nweb_window_new_event_info_impl.h"
@@ -854,7 +855,8 @@ void NWebHandlerDelegate::TriggerWindowNewByJS(
 content::WebContents* NWebHandlerDelegate::CompletePopupCreation(
     const std::string& url,
     bool is_alert,
-    bool is_user_trigger) {
+    bool is_user_trigger,
+    content::BrowserContext* browser_context) {
   if (!nweb_handler_) {
     return nullptr;
   }
@@ -926,7 +928,37 @@ content::WebContents* NWebHandlerDelegate::CompletePopupCreation(
   create_params.url = url;
   create_params.settings = settings;
   create_params.extra_info = extra_info;
-  create_params.request_context = CefRequestContext::GetGlobalContext();
+  // Resolve the CefRequestContext from the specified BrowserContext, if any.
+  // This allows CDP Target.createTarget with browserContextId to create targets
+  // in a different context (e.g., OTR/incognito).
+  if (browser_context) {
+    auto* cef_browser_context =
+        CefBrowserContext::FromBrowserContext(browser_context);
+    if (!cef_browser_context) {
+      // The BrowserContext was not created by CEF (e.g., an OTR profile from
+      // CDP Browser.createBrowserContext via DevToolsBrowserContextManager).
+      // Wrap it with a ChromeBrowserContext so CEF can manage it.
+      Profile* profile = Profile::FromBrowserContext(browser_context);
+      if (profile) {
+        cef_browser_context =
+            ChromeBrowserContext::GetOrCreateForProfile(profile);
+      }
+    }
+    if (cef_browser_context) {
+      create_params.request_context =
+          CefRequestContextImpl::GetOrCreateForBrowserContext(
+              cef_browser_context, nullptr);
+    }
+    if (!create_params.request_context) {
+      LOG(WARNING)
+          << "CompletePopupCreation: failed to resolve CefRequestContext for "
+             "the specified BrowserContext, refusing to fall back to global "
+             "context to preserve CDP browserContextId semantics";
+      return nullptr;
+    }
+  } else {
+    create_params.request_context = CefRequestContext::GetGlobalContext();
+  }
   // Match CanCreateWindow: opener is Alloy style without a View.
   if (opener_browser) {
     create_params.popup_with_alloy_style_opener =

@@ -65,10 +65,25 @@ void DevToolsManagerDelegate::CreateNewTargetAsync(
     const GURL& url,
     DevToolsManagerDelegate::TargetType target_type,
     bool new_window,
+    content::BrowserContext* browser_context,
     DevToolsManagerDelegate::CreateNewTargetCallback callback) {
   bool is_tab = target_type == DevToolsManagerDelegate::kTab;
 
-  TryCreateNWebTab(url, is_tab, std::move(callback));
+  TryCreateNWebTab(url, is_tab, browser_context, std::move(callback));
+}
+
+std::string DevToolsManagerDelegate::GetTargetType(
+    content::WebContents* web_contents) {
+  // In the ArkWeb environment all WebContents are created by CEF (Alloy style).
+  // ChromeDevToolsManagerDelegate::GetTargetType() is private and cannot be
+  // called from here; even if it were accessible its checks (TabInterface,
+  // IsAlloyContents, etc.) would fail at agent-host creation time because
+  // WebContentsUserDataAdapter::Register hasn't executed yet — it runs later
+  // in CefBrowserHostBase::InitializeBrowser().  Since every main-frame
+  // WebContents in ArkWeb is a page, return kTypePage directly.  Child frames
+  // and guest views are already handled upstream in
+  // RenderFrameDevToolsAgentHost::GetType() before this delegate is consulted.
+  return content::DevToolsAgentHost::kTypePage;
 }
 
 } // namespace ohos
