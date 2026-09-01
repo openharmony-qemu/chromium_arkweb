@@ -5142,8 +5142,13 @@ bool NWebDelegate::ExecuteAction(
 
   switch (aceAction) {
     case AceAction::ACTION_CLICK:
-      accessibilityManager->DoDefaultAction(*node);
-        break;
+      if (node->IsClickable() && node->IsEnabled()) {
+        accessibilityManager->DoDefaultAction(*node);
+      } else {
+        LOG(INFO) << "ExecuteAction ACTION_CLICK skipped, IsClickable="
+                  << node->IsClickable() << ", IsEnabled=" << node->IsEnabled();
+      }
+      break;
     case AceAction::ACTION_ACCESSIBILITY_FOCUS:
         if (accessibilityManager->MoveAccessibilityFocusToId(accessibilityId) &&
           !is_hovering_) {
