@@ -32,6 +32,7 @@
 #include "capi/nweb_download_delegate_callback.h"
 #include "capi/nweb_extension_api_callback.h"
 #include "capi/nweb_extension_javascript_item.h"
+#include "capi/nweb_web_translate_item.h"
 #include "capi/nweb_extension_load_url_params.h"
 #include "nweb.h"
 #include "nweb_download_callback.h"
@@ -469,6 +470,9 @@ class NWebImpl : public NWeb {
   bool GetPendingSizeStatus() override;
   void SetFitContentMode(int32_t mode) override;
   std::string GetCurrentLanguage() override;
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  void GetWebLanguageAsync(OnWebLanguageDetectedCallback callback);
+#endif
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 #if BUILDFLAG(ARKWEB_NIGHT_MODE)
   void SetNightMode(int32_t mode);
