@@ -28,6 +28,7 @@
 #include "arkweb/ohos_nweb_ex/build/features/features.h"
 #include "arkweb/ohos_nweb_ex/public/nweb_basic_types_utils.h"
 #include "arkweb/ohos_nweb_ex/public/nweb_extension_javascript_types_utils.h"
+#include "arkweb/ohos_nweb_ex/public/nweb_web_translate_types_utils.h"
 #endif
 #include "base/command_line.h"
 #include "base/check.h"
@@ -4448,6 +4449,52 @@ void NWebDelegate::RegisterScreenCaptureDelegateListener(
 }
 #endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
 
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER) && BUILDFLAG(ARKWEB_NWEB_EX)
+class WebLanguageDetectedCallbackImpl : public CefWebLanguageDetectedCallback {
+ public:
+  WebLanguageDetectedCallbackImpl(OnWebLanguageDetectedCallback callback,
+                                  uint32_t nweb_id)
+      : callback_(callback), nweb_id_(nweb_id) {}
+  ~WebLanguageDetectedCallbackImpl() {}
+
+  NO_SANITIZE("cfi")
+  void OnWebLanguageDetected(
+      const ArkWebLanguageDetectionDetails& details) override {
+    if (callback_) {
+      LanguageDetectionDetails class_details;
+      class_details.url = details.url;
+      class_details.content_language = details.content_language;
+      class_details.html_root_language = details.html_root_language;
+      class_details.model_detected_language =
+          details.model_detected_language;
+      class_details.adopted_language = details.adopted_language;
+
+      nweb_ex::proto::LanguageDetectionDetails pb_details;
+      NWebWebTranslateTypesUtils::LanguageDetectionDetailsClassToPb(
+          class_details, pb_details);
+      ArkWebPbBuffer pb_result_buffer = {};
+      bool ret = NWebBasicTypesUtils::AllocAndPopulateArkWebPbBuffer(
+          pb_details, pb_result_buffer);
+      if (!ret) {
+        LOG(ERROR) << "WebLanguageDetectedCallbackImpl failed to convert "
+                   << "LanguageDetectionDetails into pb buffer";
+        return;
+      }
+
+      callback_(nweb_id_, &pb_result_buffer);
+
+      NWebBasicTypesUtils::FreeArkWebPbBuffer(pb_result_buffer);
+    }
+  }
+
+ private:
+  OnWebLanguageDetectedCallback callback_ = nullptr;
+  uint32_t nweb_id_ = 0;
+
+  IMPLEMENT_REFCOUNTING(WebLanguageDetectedCallbackImpl);
+};
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER) && BUILDFLAG(ARKWEB_NWEB_EX)
+
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 void NWebDelegate::SetShouldFrameSubmissionBeforeDraw(bool should) {
   if (GetBrowser().get() && GetBrowser()->GetHost()) {
@@ -4505,6 +4552,19 @@ std::string NWebDelegate::GetCurrentLanguage() {
   }
   return GetBrowser()->GetHost()->GetCurrentLanguage();
 }
+
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+void NWebDelegate::GetWebLanguageAsync(OnWebLanguageDetectedCallback callback) {
+  CefRefPtr<WebLanguageDetectedCallbackImpl> cb =
+      new WebLanguageDetectedCallbackImpl(callback, nweb_id_);
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "NWebDelegate::GetWebLanguageAsync GetBrowser().get() fail";
+    cb->OnWebLanguageDetected(ArkWebLanguageDetectionDetails());
+    return;
+  }
+  GetBrowser()->GetHost()->GetWebLanguageAsync(cb);
+}
+#endif
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)

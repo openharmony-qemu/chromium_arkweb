@@ -4143,6 +4143,19 @@ std::string NWebImpl::GetCurrentLanguage() {
   }
   return nweb_delegate_->GetCurrentLanguage();
 }
+
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+void NWebImpl::GetWebLanguageAsync(OnWebLanguageDetectedCallback callback) {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "NWebImpl::GetWebLanguageAsync nweb_delegate_ is null";
+    if (callback) {
+      callback(nweb_id_, nullptr);
+    }
+    return;
+  }
+  nweb_delegate_->GetWebLanguageAsync(callback);
+}
+#endif
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 
 void NWebImpl::SetAudioResumeInterval(int32_t resumeInterval) {

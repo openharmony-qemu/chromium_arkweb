@@ -441,6 +441,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SetNativeInnerWeb(bool) override {}
   void ScaleGestureChangeV2(int, float, float, float, float) override {}
   std::string GetCurrentLanguage() override { return std::string(); }
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  void GetWebLanguageAsync(
+      CefRefPtr<CefWebLanguageDetectedCallback> callback) override {}
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   void MaximizeResize() override {}
   void PutWebMediaAVSessionEnabled(bool) override {}
   void SetEnableHalfFrameRate(bool) override {}

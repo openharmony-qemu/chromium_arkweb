@@ -24,6 +24,7 @@
 #include "capi/nweb_download_delegate_callback.h"
 #include "capi/nweb_extension_callback.h"
 #include "capi/nweb_extension_javascript_item.h"
+#include "capi/nweb_web_translate_item.h"
 #include "cef_delegate/nweb_inputmethod_client.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/display_manager_adapter.h"
 #include "include/arkweb_client_ext.h"
@@ -555,6 +556,9 @@ class NWebDelegateInterface
   virtual bool GetPendingSizeStatus() = 0;
   virtual void SetFitContentMode(int32_t mode) = 0;
   virtual std::string GetCurrentLanguage() = 0;
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  virtual void GetWebLanguageAsync(OnWebLanguageDetectedCallback callback) = 0;
+#endif
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 
 #if BUILDFLAG(ARKWEB_NIGHT_MODE)

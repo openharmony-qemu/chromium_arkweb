@@ -645,6 +645,9 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   bool GetPendingSizeStatus() override;
   void SetFitContentMode(int32_t mode) override;
   std::string GetCurrentLanguage() override;
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  void GetWebLanguageAsync(OnWebLanguageDetectedCallback callback) override;
+#endif
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 #if BUILDFLAG(ARKWEB_NIGHT_MODE)
   void SetNightMode(int32_t mode) override;
