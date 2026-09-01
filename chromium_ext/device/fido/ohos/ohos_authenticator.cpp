@@ -44,7 +44,8 @@ AuthenticatorSupportedOptions OhosWebAuthnApiOptions()
   options.supports_user_presence = true;
   options.supports_cred_protect = true;
   options.enterprise_attestation = true;
-  options.large_blob_type = LargeBlobSupportType::kBespoke;
+  // OHOS FIDO2 uses largeBlob as extension
+  options.large_blob_type = LargeBlobSupportType::kExtension;
   options.supports_min_pin_length_extension = true;
   options.max_cred_blob_length = 256;
   options.supports_hmac_secret = true;
