@@ -179,6 +179,11 @@ bool DataPackUtil::LoadFromPathExt(raw_ptr<DataPack> dataPackObj, const base::Fi
     auto resourceInstance =
         OHOS::NWeb::OhosAdapterHelper::GetInstance().GetResourceAdapter();
 
+    if (!resourceInstance) {
+      LOG(ERROR) << "DataPack::LoadFromPath resource adapter is null";
+      return false;
+    }
+
     std::shared_ptr<OHOS::NWeb::OhosFileMapper> fileMapper =
       resourceInstance->GetRawFileMapper(pathHap, true);
     SwapPathName(pathHap, pathPrint, "chrome", "arkweb");

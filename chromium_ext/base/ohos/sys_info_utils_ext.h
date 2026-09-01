@@ -119,6 +119,11 @@ BASE_EXPORT const std::string GetOSDistVersion();
 #endif
 
 BASE_EXPORT bool IsDelegatedCompositingEnabledOhos();
+
+// Check if current device is a low-end device. The result is cached after
+// first call and will not change during the process lifetime.
+BASE_EXPORT bool IsOhosLowEndDevice();
+
 }  // namespace ohos
 }  // namespace base
 

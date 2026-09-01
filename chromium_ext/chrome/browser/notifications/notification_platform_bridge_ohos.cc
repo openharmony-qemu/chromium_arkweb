@@ -249,8 +249,12 @@ NWebNotificationOptionsItemIconBitmap CreateIconBitmapFromImage(
 NWebNotificationOptionsItemIcon CreateFromImageSkiaReps(
     const std::vector<gfx::ImageSkiaRep>& imageSkiaReps) {
   NWebNotificationOptionsItemIcon actionIcon;
-  for (auto rep: imageSkiaReps) {
+  for (const auto& rep : imageSkiaReps) {
     double scale = rep.scale();
+    auto it = actionIcon.bitmaps.find(scale);
+    if (it != actionIcon.bitmaps.end()) {
+      delete it->second;
+    }
 #if defined(ADDRESS_SANITIZER) || defined(HWADDRESS_SANITIZER)
     actionIcon.bitmaps[scale] =
         new NWebNotificationOptionsItemIconBitmap(

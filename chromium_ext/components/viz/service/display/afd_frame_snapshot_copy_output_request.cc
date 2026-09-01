@@ -25,7 +25,9 @@
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "base/task/thread_pool.h"
 #include "content/public/browser/browser_thread.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
 #include "arkweb/ohos_nweb_ex/overrides/ohos_nweb/src/cef_delegate/nweb_anti_fraud_detection_handler.h"
+#endif
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
 #endif
  

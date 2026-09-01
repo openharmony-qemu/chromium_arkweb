@@ -49,6 +49,7 @@
 #include "base/files/file_path.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 
 #if BUILDFLAG(ARKWEB_PERFORMANCE_MEMORY_THRESHOLD)
 #include "base/memory/memory_pressure_listener.h"
@@ -375,6 +376,9 @@ std::atomic<bool> OHOS::NWeb::NWebImpl::should_lazy_init_web_engine_{false};
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
 bool OHOS::NWeb::NWebImpl::should_report_universal_access_blocked_ = true;
 #endif
+
+OnArkWebStaticRequestCloseBrowserFunc
+    OHOS::NWeb::NWebImpl::on_request_close_browser_callback_ = nullptr;
 
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
 #include "arkweb/chromium_ext/base/ohos/blankless/blankless_controller.h"
@@ -4186,6 +4190,30 @@ void NWebImpl::UnRegisterScreenLockFunction(int32_t windowId) {
 }
 #endif  // #if BUILDFLAG(ARKWEB_SCREEN_LOCK)
 
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+void NWebImpl::ForwardMemoryPressureToRenderers(
+    base::MemoryPressureLevel memory_pressure_level) {
+  static int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                           .GetSystemPropertiesInstance()
+                           .GetIntParameter("web.debug.memtest", 0);
+  if (base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2)) {
+    // Forward memory pressure to all renderer processes.
+    for (auto iter = content::RenderProcessHost::AllHostsIterator();
+         !iter.IsAtEnd(); iter.Advance()) {
+      content::RenderProcessHost* host = iter.GetCurrentValue();
+      if (!host || !host->IsInitializedAndNotDead() ||
+          !host->GetProcess().IsValid()) {
+        continue;
+      }
+      LOG(INFO) << "NotifyMemoryPressureToRenderer memory_pressure_level:"
+                << memory_pressure_level;
+      static_cast<content::RenderProcessHostImpl*>(host)
+          ->NotifyMemoryPressureToRenderer(memory_pressure_level);
+    }
+  }
+}
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
+
 void NWebImpl::NotifyMemoryLevel(int32_t level) {
 #if BUILDFLAG(ARKWEB_PERFORMANCE_MEMORY_THRESHOLD)
   using MemoryPressureLevel = base::MemoryPressureLevel;
@@ -4196,10 +4224,29 @@ void NWebImpl::NotifyMemoryLevel(int32_t level) {
       MemoryPressureLevel::MEMORY_PRESSURE_LEVEL_NONE;
   static base::Time last_notify_time;
 
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  static const int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+                                 .GetSystemPropertiesInstance()
+                                 .GetIntParameter("web.debug.memtest", 0);
+  bool should_notify_ui_hidden_level =
+      base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2);
+  if (should_notify_ui_hidden_level) {
+    if (level > kMemoryLevelMax) {
+      LOG(WARNING) << "The memory level > kMemoryLevelMax(3), not supported";
+      return;
+    }
+  } else {
+    if (level >= kMemoryLevelMax) {
+      LOG(WARNING) << "The memory level >= kMemoryLevelMax(3), not supported";
+      return;
+    }
+  }
+#else
   if (level >= kMemoryLevelMax) {
     LOG(WARNING) << "The memory level >= kMemoryLevelMax(3), not supported";
     return;
   }
+#endif // ARKWEB_TRIM_RENDER_PROCESS_MEMORYv
 
   base::Time now = base::Time::Now();
   MemoryPressureLevel memory_pressure_level;
@@ -4226,6 +4273,9 @@ void NWebImpl::NotifyMemoryLevel(int32_t level) {
                     ? "MEMORY_PRESSURE_LEVEL_MODERATE"
                     : "MEMORY_PRESSURE_LEVEL_CRITICAL");
   base::MemoryPressureListener::NotifyMemoryPressure(memory_pressure_level);
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  ForwardMemoryPressureToRenderers(memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
 #endif  // ARKWEB_PERFORMANCE_MEMORY_THRESHOLD
 }
 
@@ -8098,6 +8148,9 @@ void NWebImpl::TrimMemoryByPressureLevel(int32_t memoryLevel) {
                     ? "MEMORY_PRESSURE_LEVEL_MODERATE"
                     : "MEMORY_PRESSURE_LEVEL_CRITICAL");
   base::MemoryPressureListener::NotifyMemoryPressure(memory_pressure_level);
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  ForwardMemoryPressureToRenderers(memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
 #endif  // ARKWEB_PERFORMANCE_MEMORY_THRESHOLD
 }
 
@@ -8202,6 +8255,10 @@ void NWebImpl::DragResize(uint32_t width,
   }
   LOG(DEBUG) << "====== drag resize orign width ======= " << width
              << "=== drag resize orign height ===" << height;
+  if (is_pause_) {
+    LOG(DEBUG) << "web kernel in pause state, don't resize, nweb_id = " << nweb_id_;
+    return;
+  }
   OHOS::NWeb::NWebResizeHelper::GetInstance().SetDragResizeStart(true);
   if (pre_height > 0) {
     drag_bigger_height = true;
@@ -8317,8 +8374,13 @@ void NWebImpl::SetProxyOverride(
     const bool& reverseBypass,
     std::shared_ptr<NWebProxyChangedCallback> callback) {
   std::vector<net::ProxyConfigServiceOHOS::ProxyOverrideRule> proxyRules;
-  size_t size = proxySchemeFilters.size();
   DCHECK(proxySchemeFilters.size() == proxyUrls.size());
+  if (proxySchemeFilters.size() != proxyUrls.size()) {
+    WVLOG_E("SetProxyOverride: proxySchemeFilters.size(%zu) != proxyUrls.size(%zu)",
+            proxySchemeFilters.size(), proxyUrls.size());
+    return;
+  }
+  size_t size = proxySchemeFilters.size();
   proxyRules.reserve(size);
   for (size_t i = 0; i < size; i++) {
     proxyRules.emplace_back(proxySchemeFilters[i], proxyUrls[i]);
@@ -8831,7 +8893,9 @@ void NWebImpl::SetVisibility(bool isVisible) {
       .GetSystemPropertiesInstance().GetLTPOIntConfig("throttle_strategy", 0);
   if (invisible_throttle_strategy) {
     content::GpuProcessHost* host = content::GpuProcessHost::Get();
-    host->gpu_service()->SetWebComponentVisible(nweb_id_, isVisible);
+    if (host && host->gpu_service()) {
+      host->gpu_service()->SetWebComponentVisible(nweb_id_, isVisible);
+    }
   }
 #endif
   is_visible_ = isVisible;
@@ -9619,7 +9683,7 @@ bool NWebImpl::AIInputCommandAction(const std::string& json, std::shared_ptr<NWe
     method == "type"|| method == "send_keys") {
     if (ai_inputmethod_controller_) {
       std::string result = ai_inputmethod_controller_->ExecuteJsonAction(jsonDict);
-      if (method == "cursor_position" || callback) {
+      if (callback) {
         callback->OnReceiveValue(result);
       }
       return true;
@@ -9646,4 +9710,21 @@ void NWebImpl::ExecuteAIPageCommand(
   }
 
   nweb_delegate_->ExecuteAIPageCommand(command, callback);
+}
+
+NO_SANITIZE("cfi")
+void NWebImpl::SetOnRequestCloseBrowserCallback(
+    OnArkWebStaticRequestCloseBrowserFunc func) {
+  LOG(INFO) << " func:" << __FUNCTION__;
+  on_request_close_browser_callback_ = func;
+}
+
+NO_SANITIZE("cfi")
+void NWebImpl::OnRequestCloseBrowser() {
+  LOG(INFO) << " func:" << __FUNCTION__;
+  if (on_request_close_browser_callback_) {
+    on_request_close_browser_callback_();
+  } else {
+    LOG(ERROR) << " func:" << __FUNCTION__ << " callback is null.";
+  }
 }

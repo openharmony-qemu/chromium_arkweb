@@ -477,12 +477,36 @@ void ReportWebMediaPlayErrorInfo(const std::string& errorType,
        ERROR_DESC, error_desc});
 }
  
+namespace {
+constexpr const char* const KEY_HIVIEW_USER_TYPE = "const.logsystem.versiontype";
+
+bool IsReleaseVersion(){
+  const char* osReleaseType = OH_GetOsReleaseType();
+  const char* distributionReleaseType = OH_GetDistributionOSReleaseType();
+  auto IsNullOrEmpty = [](const char* str) {
+    return str == nullptr || str[0] == '\0';
+  };
+  auto IsRelease = [](const char* str) {
+    return str != nullptr && strcmp(str, "Release") == 0;
+  };
+  return IsRelease(osReleaseType) || IsRelease(distributionReleaseType) ||
+      (IsNullOrEmpty(osReleaseType) && IsNullOrEmpty(distributionReleaseType));
+}
+bool IsBetaVersion() {
+  std::string userType =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance().GetStringParameter(
+          KEY_HIVIEW_USER_TYPE, "");
+  return userType == "beta";
+}
+}  // namespace
+
 void ReportAvSessionStatus(const std::string& disable_web_av_session_status) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       WEB_AV_SESSION_DISABLE, HiSysEventAdapter::EventType::STATISTIC,
       {DISABLE_WEB_AV_SESSION_STATUS, disable_web_av_session_status});
 }
 
+// The image of the release version does not report the URL, which poses privacy and security risks.
 void ReportRendererMem(const std::string& type,
                        const std::string& pid,
                        const std::string& rss,
@@ -492,10 +516,18 @@ void ReportRendererMem(const std::string& type,
                        const std::string& gpu_mem,
                        const std::string& url)
 {
-  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
-      PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
-      {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
-       JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem, URL, url});
+  bool isReleaseBetaVersion = IsReleaseVersion() && (!IsBetaVersion());
+  if (isReleaseBetaVersion) {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+        PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
+        {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
+         JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem});
+  } else {
+    OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+        PAGE_MEM_LEAK, HiSysEventAdapter::EventType::STATISTIC,
+        {TYPE, type, PID, pid, RSS, rss, PSS, pss, JS_HEAP_TOTAL, js_heap_total,
+         JS_HEAP_USED, js_heap_used, GPU_MEM, gpu_mem, URL, url});
+  }
 }
 
 void ReportBasicRendererMem(const std::string& pid,
@@ -606,18 +638,7 @@ void ReportRenderProcessResponding() {
 }
 
 void ReportMetricsLogData(const std::string& compressed_log_data, const std::string& url) {
-  const char* osReleaseType = OH_GetOsReleaseType();
-  const char* distributionReleaseType = OH_GetDistributionOSReleaseType();
-  auto IsNullOrEmpty = [](const char* str) {
-    return str == nullptr || str[0] == '\0';
-  };
-  auto IsRelease = [](const char* str) {
-    return str != nullptr && strcmp(str, "Release") == 0;
-  };
-  bool isReleaseVersion =
-    IsRelease(osReleaseType) || IsRelease(distributionReleaseType) ||
-    (IsNullOrEmpty(osReleaseType) && IsNullOrEmpty(distributionReleaseType));
-  if (isReleaseVersion && (url.find("ukm") != std::string::npos)) {
+  if (IsReleaseVersion() && (url.find("ukm") != std::string::npos)) {
     LOG(ERROR)<<"release version!";
     return;
   }

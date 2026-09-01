@@ -22,6 +22,8 @@
     }
 #if !defined(COMPONENT_BUILD) // FIXME
     AnrDumper::GetInstance()->DumpCurrentJavaScriptStack(std::move(callback));
+#else
+    std::move(callback).Run("");
 #endif
   }
 

@@ -49,12 +49,15 @@ bool LLVMCallConvDesc::verify(const CallDescriptor* call_descriptor)
   bool has_context = false;
   if (id_ != LLVMCCallConv) {
     // root:X26 and compressed_ptr:X28
+    CHECK_LT(static_cast<size_t>(intIdx), intRegList_.size());
     CHECK_EQ(intRegList_[intIdx++], 26);
+    CHECK_LT(static_cast<size_t>(intIdx), intRegList_.size());
     CHECK_EQ(intRegList_[intIdx++], 28);
 
     // handle context param:X27
     if (call_descriptor->hasContext(idx_context)) {
       has_context = true;
+      CHECK_LT(static_cast<size_t>(intIdx), intRegList_.size());
       CHECK_EQ(intRegList_[intIdx++], 27);
     }
   }
@@ -65,8 +68,10 @@ bool LLVMCallConvDesc::verify(const CallDescriptor* call_descriptor)
     if (location.IsRegister() && (!has_context || idx_context != i)) {
       MachineType type = call_descriptor->GetParameterType(i);
       if (IsFloatingPoint(type.representation())) {
+        CHECK_LT(static_cast<size_t>(nintIdx), nintRegList_.size());
         CHECK_EQ(nintRegList_[nintIdx++], location.AsRegister());
       } else {
+        CHECK_LT(static_cast<size_t>(intIdx), intRegList_.size());
         CHECK_EQ(intRegList_[intIdx++], location.AsRegister());
       }
     }
@@ -74,6 +79,7 @@ bool LLVMCallConvDesc::verify(const CallDescriptor* call_descriptor)
 
   if (call_descriptor->kind() == CallDescriptor::kCallJSFunction) {
     // handle kfunction param:X1
+    CHECK_LT(static_cast<size_t>(intIdx), intRegList_.size());
     CHECK_EQ(intRegList_[intIdx++], 1);
   }
 
@@ -98,6 +104,7 @@ bool LLVMCallConvDesc::verify(const CallDescriptor* call_descriptor)
   for (size_t i = 0; i < call_descriptor->ReturnCount(); i++) {
     auto p = call_descriptor->GetReturnLocation(i);
     if (p.IsRegister()) {
+      CHECK_LT(static_cast<size_t>(retIdx), retRegList_.size());
       CHECK_EQ(p.AsRegister(), retRegList_[retIdx++]);
     } else {
       UNIMPLEMENTED();

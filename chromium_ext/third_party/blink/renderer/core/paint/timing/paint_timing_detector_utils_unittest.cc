@@ -68,7 +68,7 @@ TEST_F(PaintTimingDetectorUtilsTest, Constructor) {
   EXPECT_NE(test1, nullptr);
   LocalFrameView* view = test1->GetFrameView();
   EXPECT_NE(view, nullptr);
-  auto test = view->GetPaintTimingDetector();
+  auto& test = view->GetPaintTimingDetector();
   EXPECT_NE(&test, nullptr);
   PaintTimingDetector* paint_timing_detector = &view->GetPaintTimingDetector();
   PaintTimingDetectorUtils utils(paint_timing_detector);

@@ -1652,12 +1652,12 @@ uint32_t NWebPreferenceDelegate::GetRotationType() {
 
 #if BUILDFLAG(ARKWEB_ERROR_PAGE)
 void NWebPreferenceDelegate::PutErrorPageEnabled(bool enable) {
-  error_page_enabled_ = enable;
-  WebPreferencesChanged();
+  PutErrorPageEnabled(enable, false);
 }
 
-void NWebPreferenceDelegate::PutSubframeErrorPageEnabled(bool enable) {
-  subframe_error_page_enabled_ = enable;
+void NWebPreferenceDelegate::PutErrorPageEnabled(bool enable, bool includeSubframe) {
+  error_page_enabled_ = enable;
+  subframe_error_page_enabled_ = enable && includeSubframe;
   WebPreferencesChanged();
 }
 #endif

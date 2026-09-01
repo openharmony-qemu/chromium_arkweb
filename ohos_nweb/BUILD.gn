@@ -631,6 +631,13 @@ static_library("nweb_sources") {
     sources += [ "src/capi/nweb_navigation_info.h" ]
   }
 
+  if (defined(arkweb_devtools) && arkweb_devtools) {
+    sources += [
+      "//arkweb/chromium_ext/chrome/browser/devtools/devtools_nweb_tab_factory.cc",
+      "//arkweb/chromium_ext/chrome/browser/devtools/devtools_nweb_tab_factory.h",
+    ]
+  }
+
   deps = [
     ":cef_nweb",
     ":nweb_hilog",
@@ -640,6 +647,7 @@ static_library("nweb_sources") {
     "//ohos_glue:ohos_nweb_glue_source",
     "//cef/libcef/features:buildflags",
     "//arkweb/build/features",
+    "//v8:v8_headers",
   ]
 
   if (defined(arkweb_no_state_prefetch) && arkweb_no_state_prefetch) {
@@ -774,6 +782,8 @@ source_set("unittests") {
   sources = [
     "src/cef_delegate/ai_page_command_dispatcher_unittest.cc",
     "src/cef_delegate/file_upload_observer_unittest.cc",
+    "src/cef_delegate/screenshot_capture_util_unittest.cc",
+    "src/cef_delegate/screenshot_observer_unittest.cc",
     "src/cef_delegate/nweb_access_request_delegate_unittest.cc",
     "src/cef_delegate/nweb_command_action_manager_impl_unittest.cc",
     "src/cef_delegate/nweb_delegate_unittest.cc",

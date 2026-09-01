@@ -82,6 +82,8 @@
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_view.h"
+#include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/media/buffered_data_source_host_impl.h"
 #include "third_party/blink/renderer/platform/media/media_player_util.h"
 #include "third_party/blink/renderer/platform/media/power_status_helper.h"
@@ -171,7 +173,10 @@ void WebMediaPlayerImplUtils::PlayExt() {
   impl->has_page_hidden_when_paused_ = false;
 #endif // ARKWEB_VIDEO_ASSISTANT
   if (impl != nullptr && impl->compositor_ != nullptr) {
-    impl->compositor_->ResetDroppedFrameMetrics();
+    PostCrossThreadTask(
+      *impl->vfc_task_runner_, FROM_HERE,
+      CrossThreadBindOnce(&VideoFrameCompositor::ResetDroppedFrameMetrics,
+                          CrossThreadUnretained(impl->compositor_.get())));
   }
 
   impl->pipeline_controller_->SetMediaPlayerState(false);

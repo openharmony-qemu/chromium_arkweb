@@ -210,7 +210,7 @@ void HTMLMediaElementUtils::GetVideoRecordTime(VideoInfoReport& video_report) {
 
 
 void HTMLMediaElementUtils::GetVideoElementInfo(VideoInfoReport& video_report) {
-  video_report.page_url = String::FromUTF8(GetMainUrl().c_str());
+  video_report.page_url = String::FromUTF8(htmlMediaElement_->page_url_.c_str());
   auto video_src_record = (htmlMediaElement_->currentSrc().ProtocolIsInHTTPFamily() ||
     htmlMediaElement_->HasMediaSource()) ? htmlMediaElement_->currentSrc() : KURL();
   if (video_src_record == video_src_) {

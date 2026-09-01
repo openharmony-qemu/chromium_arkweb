@@ -16,6 +16,9 @@
 #ifndef COMPONENTS_AUTOFILL_CONTENT_RENDERER_AUTOFILL_AGENT_EXT_H_
 #define COMPONENTS_AUTOFILL_CONTENT_RENDERER_AUTOFILL_AGENT_EXT_H_
 
+#include <cstdint>
+#include <optional>
+
 #include "arkweb/build/features/features.h"
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
@@ -26,6 +29,7 @@
 #include "base/timer/timer.h"
 #include "base/types/strong_alias.h"
 #include "components/autofill/content/renderer/autofill_agent.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace blink {
 class WebNode;
@@ -68,24 +72,85 @@ class AutofillAgentExt : public AutofillAgent {
   }
 #endif
 #if BUILDFLAG(ARKWEB_AUTOFILL)
-  void OhAutoFillFormControlElementClicked(const blink::WebNode& node);
+  void OhAutoFillEditableElementClicked(const blink::WebNode& node);
   bool OhAutoFillDidChangeScrollOffset();
+  void OnAutofillFocusedElementChanged(
+      const blink::WebElement& new_focused_element);
+  bool MaybeDeferFocusedElementRequest(
+      bool focused_node_was_last_clicked,
+      bool restart_if_sent);
+  bool MaybeDeferPositionRequest(
+      const blink::WebElement& focused_element,
+      bool focused_node_was_last_clicked);
+  void OnAutofillMainFrameViewportRectangleChanged(
+      const gfx::Rect& main_frame_viewport_rect);
+  bool OnFocusedElementPositionMaybeChanged();
+  void ClearPositionRequestState();
+  void ResetPositionRequestState();
   bool FillFieldWithValue(FieldRendererId field_id,
                           const std::u16string& value);
   void SetIsNeedToCreatedPopup(bool is_need_to_created_popup) {
     is_need_to_created_popup_ = is_need_to_created_popup;
-  }
-  void SetIsPopupCreatedByFocusChange(bool is_popup_created_by_focus_change) {
-    is_popup_created_by_focus_change_ = is_popup_created_by_focus_change;
+    if (!is_need_to_created_popup_) {
+      autofill_scroll_timer_.Stop();
+    }
   }
   void SetCreatedPopupTime(base::TimeTicks created_popup_time) {
     created_popup_time_ = created_popup_time;
   }
 
+  enum class PositionRequestState {
+    kIdle,
+    kWaitingForPositionChange,
+    kWaitingForStablePosition,
+    kRequestDispatched,
+  };
+
+  struct PositionSnapshot {
+    gfx::Rect field_bounds;
+    gfx::Rect view_rect;
+    gfx::Rect window_rect;
+    std::optional<gfx::Rect> main_frame_viewport_rect;
+  };
+
+  bool IsAutofillPositionRequestPending() const;
+  bool IsSameViewportGeometry(const PositionSnapshot& lhs,
+                              const PositionSnapshot& rhs) const;
+  bool IsPositionTrackingElement(
+      const blink::WebElement& element) const;
+  bool IsPasswordAutofillElement(const blink::WebElement& element);
+  bool GetCurrentFocusedElement(blink::WebElement& element);
+  bool TryDeferPositionRequest(
+      const blink::WebElement& element,
+      bool restart_if_sent);
+  bool CapturePositionSnapshot(
+      const blink::WebElement& element,
+      PositionSnapshot& snapshot);
+  bool StartPositionTracking(
+      const blink::WebElement& element);
+  void SchedulePositionCheck();
+  void RunPositionCheck(uint32_t generation);
+
   base::OneShotTimer autofill_scroll_timer_;
-  bool is_popup_created_by_focus_change_ = false;
+  base::OneShotTimer autofill_position_check_timer_;
+  FieldRendererId position_field_id_;
+  PositionSnapshot position_snapshot_;
+  std::optional<PositionSnapshot>
+      last_stable_position_snapshot_;
+  std::optional<gfx::Rect> main_frame_viewport_rect_;
+  PositionRequestState position_request_state_ =
+      PositionRequestState::kIdle;
+  uint32_t position_generation_ = 0;
+  int position_stable_check_count_ = 0;
+  bool is_dispatching_position_request_ = false;
   bool is_need_to_created_popup_ = false;
   base::TimeTicks created_popup_time_ = base::TimeTicks::Now();
+
+protected:
+  void OnDestruct() override;
+ 
+private:
+  base::WeakPtrFactory<AutofillAgentExt> ext_weak_ptr_factory_{this};
 #endif
 };
 }  // namespace autofill

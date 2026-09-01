@@ -25,6 +25,7 @@
 #include "media/base/audio_bus.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/audio_sample_types.h"
+#include "media/base/limits.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/gfx/codec/png_codec.h"
 namespace content {
@@ -80,11 +81,44 @@ std::string WriteAudioDataToFile(
   file_path = file_path.AppendASCII(
       base::Uuid::GenerateRandomV4().AsLowercaseString() + ".wav");
 
+  // Validate audio parameters
+  if (audio_data->channel_count <= 0 || audio_data->frame_count <= 0 ||
+      audio_data->sample_rate <= 0) {
+    LOG(ERROR) << "Invalid audio parameters: channel_count="
+               << audio_data->channel_count
+               << " frame_count=" << audio_data->frame_count
+               << " sample_rate=" << audio_data->sample_rate;
+    return "";
+  }
+
+  if (audio_data->sample_rate > media::limits::kMaxSampleRate) {
+    LOG(ERROR) << "Invalid audio parameters: sample_rate="
+               << audio_data->sample_rate << " exceeds maximum";
+    return "";
+  }
+
+  // Use 64-bit arithmetic to detect integer overflow before multiplication.
+  // Casting to uint64_t first makes negative int32 values wrap positively,
+  // but line 85's positivity check ensures channel_count > 0, so this is safe.
+  auto product = base::CheckMul(audio_data->channel_count, audio_data->frame_count);
+  if (!product.IsValid() ||
+    product.ValueOrDie() > base::checked_cast<uint64_t>(audio_data->data.size())) {
+    LOG(ERROR) << "Audio data size mismatch: channel_count="
+               << audio_data->channel_count
+               << " frame_count=" << audio_data->frame_count
+               << " data.size()=" << audio_data->data.size();
+    return "";
+  }
+
   // Create AudioParameters from AudioData
-  media::AudioParameters params(
-      media::AudioParameters::AUDIO_PCM_LINEAR,
+  media::AudioParameters params(media::AudioParameters::AUDIO_PCM_LINEAR,
       media::ChannelLayoutConfig::Guess(audio_data->channel_count),
       audio_data->sample_rate, audio_data->frame_count);
+
+  if (!params.IsValid()) {
+    LOG(ERROR) << "Invalid audio parameters for WAV output";
+    return "";
+  }
 
   // Create file
   base::File file(file_path, base::File::FLAG_CREATE | base::File::FLAG_WRITE);

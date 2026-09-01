@@ -30,6 +30,7 @@
 // are included after #undef to avoid polluting their privates.
 #define private public
 #include "cef_delegate/ai_page_command_dispatcher.h"
+#include "cef_delegate/nweb_delegate.h"
 #undef private
 
 #include "cef_delegate/file_upload_observer.h"
@@ -833,4 +834,183 @@ TEST_F(AIPageCommandDispatcherTest, FileUploadObserver_Construct_0100) {
       new FileUploadObserver(
           mock_browser_, "//input[@type='file']", files, warnings, cb));
   EXPECT_TRUE(observer);
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdValidationSuccess_0100
+ * @tc.desc: ValidateElementIdCallbackImpl OnResult with ok=true triggers CaptureElementByNodeId.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationSuccess_0100) {
+  EXPECT_CALL(*mock_browser_, AddDevToolsMessageObserver(_))
+      .WillOnce(Return(new FakeRegistration()));
+  EXPECT_CALL(*mock_browser_, ExecuteDevToolsMethod(_, _, _))
+      .WillOnce(Return(1));
+
+  CefRefPtr<CefAIPageCommandCallback> capturedCallback;
+  EXPECT_CALL(*mock_browser_, ValidateElementId(_, _))
+      .WillOnce(SaveArg<1>(&capturedCallback));
+
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|123");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+
+  ASSERT_TRUE(capturedCallback);
+  capturedCallback->OnResult(R"({"ok":true})");
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdValidationFailed_0100
+ * @tc.desc: ValidateElementIdCallbackImpl OnResult with ok=false returns PARAM_INVALID.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationFailed_0100) {
+  CefRefPtr<CefAIPageCommandCallback> capturedCallback;
+  EXPECT_CALL(*mock_browser_, ValidateElementId(_, _))
+      .WillOnce(SaveArg<1>(&capturedCallback));
+
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|123");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+
+  ASSERT_TRUE(capturedCallback);
+  capturedCallback->OnResult(R"({"ok":false,"error":"element not found"})");
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdValidationInvalidJson_0100
+ * @tc.desc: ValidateElementIdCallbackImpl OnResult with invalid JSON returns FAILED.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationInvalidJson_0100) {
+  CefRefPtr<CefAIPageCommandCallback> capturedCallback;
+  EXPECT_CALL(*mock_browser_, ValidateElementId(_, _))
+      .WillOnce(SaveArg<1>(&capturedCallback));
+
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|123");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+
+  ASSERT_TRUE(capturedCallback);
+  capturedCallback->OnResult("not json at all");
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::FAILED));
+}
+
+/**
+ * @tc.name: ScreenCapture_Xpath_Success_0100
+ * @tc.desc: ScreenCapture with xpath parameter calls CaptureElement.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_Xpath_Success_0100) {
+  EXPECT_CALL(*mock_browser_, AddDevToolsMessageObserver(_))
+      .WillOnce(Return(new FakeRegistration()));
+  EXPECT_CALL(*mock_browser_, ExecuteDevToolsMethod(_, _, _))
+      .WillOnce(Return(1));
+
+  base::Value::Dict params;
+  params.Set("xpath", "//div[@id='container']");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: ScreenCapture_FullPage_Success_0100
+ * @tc.desc: ScreenCapture with no xpath triggers full page capture.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_FullPage_Success_0100) {
+  EXPECT_CALL(*mock_browser_, AddDevToolsMessageObserver(_))
+      .WillOnce(Return(new FakeRegistration()));
+  EXPECT_CALL(*mock_browser_, ExecuteDevToolsMethod(_, _, _))
+      .WillOnce(Return(1));
+
+  base::Value::Dict params;
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: ScreenCapture_InvalidNodeId_ErrorCode_0100
+ * @tc.desc: ScreenCapture with invalid nodeid format returns PARAM_INVALID error.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_InvalidNodeId_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("nodeid", "not_a_valid_node_id_format");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+
+/**
+ * @tc.name: ScreenCapture_ValidNodeId_TriggersValidation_0100
+ * @tc.desc: ScreenCapture with valid nodeid format triggers ValidateElementId.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_ValidNodeId_TriggersValidation_0100) {
+  EXPECT_CALL(*mock_browser_, ValidateElementId(_, _));
+
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|123");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdMissingDomSeparator_ErrorCode_0100
+ * @tc.desc: ScreenCapture with nodeid missing dom separator returns PARAM_INVALID.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdMissingDomSeparator_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("nodeid", "frame_doc_123");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdInvalidDomNodeId_ErrorCode_0100
+ * @tc.desc: ScreenCapture with nodeid having non-numeric dom_node_id returns PARAM_INVALID.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdInvalidDomNodeId_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|notanumber");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
+}
+
+/**
+ * @tc.name: ScreenCapture_NodeIdZeroDomNodeId_ErrorCode_0100
+ * @tc.desc: ScreenCapture with nodeid having zero dom_node_id returns PARAM_INVALID.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdZeroDomNodeId_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("nodeid", "frame|doc|0");
+  std::string cmd = BuildCommand("screenCapture", std::move(params));
+  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
 }

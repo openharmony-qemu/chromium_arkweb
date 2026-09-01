@@ -14,23 +14,101 @@
  */
 
 #include "nweb_render_handler.h"
-#include "include/cef_devtools_message_handler_delegate.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "cef/include/cef_drag_data.h"
 #include "include/cef_base.h"
+#include "include/cef_devtools_message_handler_delegate.h"
 #include "include/cef_image.h"
 #include "include/cef_stream.h"
 #include "ohos_nweb/include/nweb_drag_data.h"
 #include "ohos_nweb/include/nweb_errors.h"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-
-#include <memory>
-
 namespace OHOS::NWeb {
 namespace {
 std::shared_ptr<NWebRenderHandler> g_nweb_render_handler = nullptr;
 }
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+class TestNWebInputMethodClient : public NWebInputMethodClient {
+ public:
+  void Attach(CefRefPtr<CefBrowser>, InputInfo, bool, int32_t) override {}
+
+  void Attach(CefRefPtr<CefBrowser>,
+              InputInfo,
+              bool,
+              int32_t,
+              int32_t requestKeyboardReason) override {
+    ++attachCount_;
+    requestKeyboardReason_ = requestKeyboardReason;
+  }
+
+  void ShowTextInput() override {}
+
+  void HideTextInput(uint32_t, HideTextinputType, bool) override {}
+
+  void HideTextInputForce() override {}
+
+  void OnTextSelectionChanged(CefRefPtr<CefBrowser>,
+                              const CefString&,
+                              const CefRange&) override {}
+
+  void OnCursorUpdate(const CefRect&) override {}
+
+  void OnSelectionChanged(CefRefPtr<CefBrowser>,
+                          const CefString&,
+                          const CefRange&) override {}
+
+  void SetFocusStatus(bool) override {}
+
+  void OnEditableChanged(CefRefPtr<CefBrowser>, bool) override {}
+
+  bool GetIsEditableNode() override { return false; }
+
+  bool HasComposition() override { return false; }
+
+  void OnImeCompositionRangeChanged(CefRefPtr<CefBrowser>,
+                                    const CefRange&) override {}
+
+  void OnUpdateTextInputStateCalled(CefRefPtr<CefBrowser>,
+                                    const CefString&,
+                                    const CefRange&,
+                                    const CefRange&) override {}
+
+  bool IsAttached() override { return false; }
+
+  bool IsFocusSwitch() override { return false; }
+
+  bool IsKeyboardShow() override { return false; }
+
+#if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
+  void SetFillContent(const std::string&, int32_t) override {}
+#endif
+
+  void ResetAttachResult() {
+    attachCount_ = 0;
+    requestKeyboardReason_ = -1;
+  }
+
+  int GetAttachCount() const { return attachCount_; }
+
+  int32_t GetRequestKeyboardReason() const { return requestKeyboardReason_; }
+
+ private:
+  int attachCount_ = 0;
+  int32_t requestKeyboardReason_ = -1;
+
+  IMPLEMENT_REFCOUNTING(TestNWebInputMethodClient);
+};
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 class MockCefBrowserHost : public ArkWebBrowserHostExt {
  public:
@@ -1078,6 +1156,66 @@ TEST_F(NWebRenderHandlerTest, OnNativeEmbedGestureEvent) {
                                                    nullptr);
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+TEST_F(NWebRenderHandlerTest, HandleKeyboardAttachUsesValidRequestReason) {
+  CefRefPtr<TestNWebInputMethodClient> inputMethodClient =
+      new TestNWebInputMethodClient();
+  g_nweb_render_handler->SetInputMethodClient(inputMethodClient);
+  NWebInputMethodClient::InputInfo inputInfo = {};
+  const std::vector<std::pair<std::string, int32_t>> testCases = {
+      {"0", 0}, {"1", 1}, {"2", 2}, {"20", 20}};
+
+  for (const auto& [reason, expectedReason] : testCases) {
+    SCOPED_TRACE(reason);
+    inputMethodClient->ResetAttachResult();
+    const std::map<std::string, std::string> attributes = {
+        {"requestKeyboardReason", reason}};
+
+    g_nweb_render_handler->HandleKeyboardAttach(nullptr, inputInfo, false,
+                                                attributes);
+
+    EXPECT_EQ(inputMethodClient->GetAttachCount(), 1);
+    EXPECT_EQ(inputMethodClient->GetRequestKeyboardReason(), expectedReason);
+  }
+}
+
+TEST_F(NWebRenderHandlerTest,
+       HandleKeyboardAttachDefaultsMissingRequestReason) {
+  CefRefPtr<TestNWebInputMethodClient> inputMethodClient =
+      new TestNWebInputMethodClient();
+  g_nweb_render_handler->SetInputMethodClient(inputMethodClient);
+  NWebInputMethodClient::InputInfo inputInfo = {};
+
+  g_nweb_render_handler->HandleKeyboardAttach(nullptr, inputInfo, false, {});
+
+  EXPECT_EQ(inputMethodClient->GetAttachCount(), 1);
+  EXPECT_EQ(inputMethodClient->GetRequestKeyboardReason(), 0);
+}
+
+TEST_F(NWebRenderHandlerTest,
+       HandleKeyboardAttachDefaultsInvalidRequestReason) {
+  CefRefPtr<TestNWebInputMethodClient> inputMethodClient =
+      new TestNWebInputMethodClient();
+  g_nweb_render_handler->SetInputMethodClient(inputMethodClient);
+  NWebInputMethodClient::InputInfo inputInfo = {};
+  const std::vector<std::string> invalidReasons = {
+      "", "abc", "1invalid", " 1", "2147483648", "-2147483649"};
+
+  for (const auto& reason : invalidReasons) {
+    SCOPED_TRACE(reason);
+    inputMethodClient->ResetAttachResult();
+    const std::map<std::string, std::string> attributes = {
+        {"requestKeyboardReason", reason}};
+
+    g_nweb_render_handler->HandleKeyboardAttach(nullptr, inputInfo, false,
+                                                attributes);
+
+    EXPECT_EQ(inputMethodClient->GetAttachCount(), 1);
+    EXPECT_EQ(inputMethodClient->GetRequestKeyboardReason(), 0);
+  }
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
 #if BUILDFLAG(ARKWEB_SCREEN_OFFSET)
 TEST_F(NWebRenderHandlerTest, SetScreenOffset) {
