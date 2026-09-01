@@ -67,6 +67,7 @@
 #include "arkweb/ohos_adapter_ndk/interfaces/hiappevent_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/hiviewdfx_adapter.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/vpe_video_adapter.h"
 
 namespace OHOS::NWeb {
 
@@ -192,6 +193,8 @@ public:
     virtual SurfaceTransactionAdapter& GetSurfaceTransactionAdapter() = 0;
 
     virtual HiViewDfxAdapter& GetHiViewDfxAdapterInstance() = 0;
+
+    virtual std::unique_ptr<VpeVideoAdapter> CreateVpeVideoAdapter() { return nullptr; }
 };
 
 } // namespace OHOS::NWeb

@@ -162,6 +162,8 @@ class ArkOhosAdapterHelperWrapper : public NWeb::OhosAdapterHelper {
 
   NWeb::HiViewDfxAdapter& GetHiViewDfxAdapterInstance() override;
 
+  std::unique_ptr<NWeb::VpeVideoAdapter> CreateVpeVideoAdapter() override;
+
  private:
   ArkWebRefPtr<ArkOhosAdapterHelper> ctocpp_;
 };

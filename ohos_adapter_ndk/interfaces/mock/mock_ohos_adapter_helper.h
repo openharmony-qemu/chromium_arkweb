@@ -80,6 +80,7 @@ public:
     MOCK_METHOD(SurfaceControlAdapter&, GetSurfaceControlAdapter, (), (override));
     MOCK_METHOD(SurfaceTransactionAdapter&, GetSurfaceTransactionAdapter, (), (override));
     MOCK_METHOD(HiViewDfxAdapter&, GetHiViewDfxAdapterInstance, (), (override));
+    MOCK_METHOD(std::unique_ptr<VpeVideoAdapter>, CreateVpeVideoAdapter, (), (override));
 };
 
 } // namespace OHOS::NWeb

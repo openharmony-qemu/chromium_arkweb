@@ -167,6 +167,7 @@ public:
     virtual ArkWebRefPtr<ArkSurfaceControlAdapter> GetSurfaceControlAdapter() {return nullptr;}
     virtual ArkWebRefPtr<ArkSurfaceTransactionAdapter> GetSurfaceTransactionAdapter() {return nullptr;}
     virtual ArkWebRefPtr<ArkHiViewDfxAdapter> GetHiViewDfxAdapterInstance() {return nullptr;}
+    virtual ArkWebRefPtr<ArkVpeVideoAdapter> CreateVpeVideoAdapter() {return nullptr;}
 };
 
 class ArkOhosAdapterHelperWrapperTest : public testing::Test {
@@ -292,5 +293,11 @@ TEST_F(ArkOhosAdapterHelperWrapperTest, GetSurfaceTransactionAdapter) {
     ASSERT_NE(wrapper, nullptr);
     EXPECT_NE(&wrapper->GetSurfaceTransactionAdapter(), nullptr);
     EXPECT_NE(&testWrapper->GetSurfaceTransactionAdapter(), nullptr);
+}
+
+TEST_F(ArkOhosAdapterHelperWrapperTest, CreateVpeVideoAdapter) {
+    ASSERT_NE(wrapper, nullptr);
+    EXPECT_NE(wrapper->CreateVpeVideoAdapter(), nullptr);
+    EXPECT_EQ(testWrapper->CreateVpeVideoAdapter(), nullptr);
 }
 }   // namespace OHOS::Nweb
