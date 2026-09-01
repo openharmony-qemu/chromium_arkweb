@@ -55,6 +55,8 @@ std::string Convert(const FIDO2_ClientCapability& capability)
             return "extension:uvi";
         case FIDO2_EXTENSION_LARGEBLOB:
             return "extension:largeBlob";
+        case FIDO2_EXTENSION_AUTH_TYPE_LIST:
+            return "extension:authTypeList";
   }
   return {};
 }
@@ -398,7 +400,7 @@ AuthenticatorMakeCredentialResponse Convert(
         Convert<std::vector<uint8_t>>(credential.response.clientDataJson);
     ret.response_extra->common.authenticator_data =
         Convert<std::vector<uint8_t>>(credential.response.authenticatorData);
-    ret.response_extra->common.autenticator_attachment =
+    ret.response_extra->common.authenticator_attachment =
         Convert<AuthenticatorAttachment>(credential.authenticatorAttachment);
     ret.response_extra->common.id = ToString(credential.id);
     ret.response_extra->common.type = ToString(credential.type);
@@ -456,7 +458,7 @@ AuthenticatorGetAssertionResponse Convert(
         Convert<std::vector<uint8_t>>(credential.response.clientDataJson);
     ret.response_extra->common.authenticator_data =
         Convert<std::vector<uint8_t>>(credential.response.authenticatorData);
-    ret.response_extra->common.autenticator_attachment =
+    ret.response_extra->common.authenticator_attachment =
         Convert<AuthenticatorAttachment>(credential.authenticatorAttachment);
     ret.response_extra->common.id = ToString(credential.id);
     ret.response_extra->common.type = ToString(credential.type);
@@ -500,6 +502,7 @@ std::string Convert(const FIDO2_CredentialCreationOptions& options)
     ss << "      userVerification: "
        << static_cast<int>(selection.userVerification) << ",\n";
     ss << "    }\n";
+    ss << "    extensions: " << Mask(public_key.extensions) << ",\n";
     ss << "  }\n";
     ss << "}\n";
     return ss.str();

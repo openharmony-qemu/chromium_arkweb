@@ -214,7 +214,9 @@ typedef enum FIDO2_ClientCapability {
     /** Extension params of uvi. */
     FIDO2_EXTENSION_UVI = 9,
     /** Extension params of largeBlob. */
-    FIDO2_EXTENSION_LARGEBLOB = 10
+    FIDO2_EXTENSION_LARGEBLOB = 10,
+    /** Extension params of authType. */
+    FIDO2_EXTENSION_AUTH_TYPE_LIST = 11
 } FIDO2_ClientCapability;
 
 /**

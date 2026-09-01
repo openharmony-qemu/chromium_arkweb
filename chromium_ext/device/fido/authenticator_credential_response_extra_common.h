@@ -16,7 +16,7 @@ struct AuthenticatorCredentialResponseExtraCommon {
   std::vector<uint8_t> raw_id;
   std::vector<uint8_t> client_data_json;
   std::vector<uint8_t> authenticator_data;
-  device::AuthenticatorAttachment autenticator_attachment =
+  device::AuthenticatorAttachment authenticator_attachment =
       device::AuthenticatorAttachment::kAny;
   std::optional<std::string> id;
   std::optional<std::string> type;
