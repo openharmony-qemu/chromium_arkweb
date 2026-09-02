@@ -133,6 +133,9 @@ class ChromeContentBrowserClientUtils {
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kEnableNwebEx)) {
       auto renderer_configuration = obj->GetRendererConfiguration(host);
+      if (!renderer_configuration.is_bound()) {
+        return;
+      }
       RendererContentSettingRules rules;
       content_settings::GetRendererContentSettingRules(
           HostContentSettingsMapFactory::GetForProfile(
