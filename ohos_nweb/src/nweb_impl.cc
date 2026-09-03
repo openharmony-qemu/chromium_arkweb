@@ -5567,6 +5567,20 @@ void NWebImpl::SetOnHideConfirmInfoBarCallback(OnArkWebStaticShowConfirmInfoBarF
 
 void NWebImpl::CancelConfirmInfoBar(const std::string& infoId) {
   LOG(INFO) << " func:" << __FUNCTION__;
+  if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+        content::GetUIThreadTaskRunner({});
+    if (!task_runner) {
+      LOG(ERROR) << "Failed to get UI thread task runner";
+      return;
+    }
+    task_runner->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &extensions::ExtensionDevToolsInfoBarDelegate::CancelConfirmInfoBar,
+            std::string(infoId)));
+    return;
+  }
   extensions::ExtensionDevToolsInfoBarDelegate::CancelConfirmInfoBar(infoId);
 }
 
