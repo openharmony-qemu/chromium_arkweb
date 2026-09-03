@@ -47,6 +47,11 @@ class NWebContentChangeDetection {
  private:
   void StartDetection();
   void StopDetection();
+  bool ValidatePageSceneQueryInput(
+      const std::string& ruleJson,
+      const std::string& ruleId,
+      const std::vector<std::string>& nodeTypes,
+      std::string& outNormalizedRuleJson);
 
   bool enable_ = false;
   int32_t min_report_time_ = 100;
