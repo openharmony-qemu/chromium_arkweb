@@ -179,6 +179,8 @@ class OHOSAudioOutputStream : public AudioOutputStream {
 
   size_t callback_index_ = 0;
 
+  base::TimeTicks last_abnormal_delay_log_time_;
+
   static CallbackSharedWrapper<OHOSAudioOutputCallback> callback_wrapper_;
 
   base::WeakPtrFactory<OHOSAudioOutputStream> weak_factory_{this};
