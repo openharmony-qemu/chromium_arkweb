@@ -82,12 +82,15 @@ const char kEnableNwebExDownload[] = "enable-nweb-ex-download";
 const char kEnableNwebExGetZoomLevel[] = "enable-nweb-ex-get-zoom-level";
 const char kEnableNwebExPullToRefresh[] = "enable-nweb-ex-pull-to-refresh";
 const char kEnableNwebExDelegateCompositing[] = "enable-web-delegate-compositing";
+const char kNwebExContentRenderingDelay[] = "nweb-ex-content-rendering-delay";
 #endif
 
 #if BUILDFLAG(ARKWEB_BFCACHE)
 const char kEnableBFCache[] = "enable-bfcache";
 const char kEnableCacheNativeEmbed[] = "enable-cache-native-embed";
 const char kEnableCacheMediaTakeOver[] = "enable-cache-media-take-over";
+const char kIgnoreBFCacheFeatures[] = "ignore-bfcache-features";
+const char kDisableNetworkRequestRedirectEvict[] = "disable-network-request-redirect-evict";
 #endif
 
 #if BUILDFLAG(ARKWEB_VULKAN)
