@@ -40,6 +40,7 @@
 #include "video_capture_common_ohos.h"
 #include "video_capture_status_callback_listener_ohos.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/hiviewdfx_adapter.h"
 
 using namespace testing;
 
@@ -300,6 +301,10 @@ class OhosAdapterHelperMock : public OhosAdapterHelper {
                 (override));
     MOCK_METHOD(SurfaceTransactionAdapter&,
                 GetSurfaceTransactionAdapter,
+                (),
+                (override));
+    MOCK_METHOD(HiViewDfxAdapter&,
+                GetHiViewDfxAdapterInstance,
                 (),
                 (override));
 };

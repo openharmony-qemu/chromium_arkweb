@@ -541,4 +541,12 @@ void ArkwebDisplayUtils::UpdateFocusAndScreenStatus(bool is_focused,
 #endif
 }
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void ArkwebDisplayUtils::SetAsyncStackId(uint64_t stackId) {
+  if (display_ && display_->renderer_) {
+    display_->renderer_->SetAsyncStackId(stackId);
+  }
+}
+#endif
+
 }  // namespace viz

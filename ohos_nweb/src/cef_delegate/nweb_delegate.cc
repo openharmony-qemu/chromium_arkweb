@@ -7519,4 +7519,14 @@ void NWebDelegate::ExecuteAIPageCommand(
 
   AIPageCommandDispatcher::Dispatch(command, GetBrowser(), callback);
 }
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void NWebDelegate::SetAsyncStackId(uint64_t stackId) {
+  if (GetBrowser() == nullptr || GetBrowser()->GetHost() == nullptr) {
+    LOG(ERROR) << "SetAsyncStackId can not get browser";
+    return;
+  }
+  LOG(INFO) << "NWebDelegate::SetAsyncStackId stackId:" << stackId;
+  GetBrowser()->GetHost()->SetAsyncStackId(stackId);
+}
+#endif
 }  // namespace OHOS::NWeb

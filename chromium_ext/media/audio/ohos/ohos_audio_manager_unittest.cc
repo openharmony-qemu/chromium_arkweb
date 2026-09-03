@@ -29,6 +29,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/surface_control_adapter.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/hiviewdfx_adapter.h"
 #define private public
 #define protected public
 #include "ohos_audio_manager.h"
@@ -213,6 +214,10 @@ class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
               (override));
   MOCK_METHOD(SurfaceTransactionAdapter&,
               GetSurfaceTransactionAdapter,
+              (),
+              (override));
+  MOCK_METHOD(HiViewDfxAdapter&,
+              GetHiViewDfxAdapterInstance,
               (),
               (override));
   static MockOhosAdapterHelper& GetInstance() {

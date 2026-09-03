@@ -116,6 +116,10 @@ class ArkwebDisplayUtils {
 void DiscardCompositingResources();
 void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId);
+#endif
+
  private:
 #if BUILDFLAG(ARKWEB_UNITTESTS)
   friend class ArkwebDisplayUtilsTest;
