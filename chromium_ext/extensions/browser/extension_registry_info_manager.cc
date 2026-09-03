@@ -744,7 +744,8 @@ void ExtensionRegistryInfoManager::Loaded(const std::string& extension_id) {
     return;
   }
 
-  if (!extensions::ui_util::ShouldDisplayInExtensionSettings(*extension)) {
+  if (!extensions::ui_util::ShouldDisplayInExtensionSettings(
+        extension->GetType(), extension->location())) {
     return;
   }
 
@@ -786,7 +787,13 @@ void ExtensionRegistryInfoManager::OnExtensionInstalled(content::BrowserContext*
                                                         const Extension* extension,
                                                         bool is_update) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (!extensions::ui_util::ShouldDisplayInExtensionSettings(*extension)) {
+  if (!extension) {
+    LOG(ERROR) << "OnExtensionInstalled extension is null";
+    return;
+  }
+
+  if (!extensions::ui_util::ShouldDisplayInExtensionSettings(
+        extension->GetType(), extension->location())) {
     return;
   }
 
