@@ -76,7 +76,11 @@ HwVideoNativeBufferGLOwner::HwVideoNativeBufferGLOwner(
                               std::move(texture),
                               std::move(context_state)),
       RefCountedLockHelperDrDc(std::move(drdc_lock)),
+#if BUILDFLAG(ARKWEB_AI_HDR)
+      loader_(gl::OhosNativeImage::CreateWithVpe()),
+#else
       loader_(gl::OhosNativeImage::Create()),
+#endif
       context_(gl::GLContext::GetCurrent()),
       surface_(gl::GLSurface::GetCurrent()) {
   DCHECK(context_);
@@ -405,6 +409,13 @@ void* HwVideoNativeBufferGLOwner::AquireOhosNativeWindow() const {
     return nullptr;
   }
 }
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+bool HwVideoNativeBufferGLOwner::IsAiHdrActive() const {
+  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
+  return loader_ ? loader_->IsAiHdrActive() : false;
+}
+#endif
 
 void HwVideoNativeBufferGLOwner::GetSurfaceId(uint64_t* surface_id) {
   DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);

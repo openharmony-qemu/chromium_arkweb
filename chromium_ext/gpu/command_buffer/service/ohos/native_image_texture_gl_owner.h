@@ -35,6 +35,9 @@ class GPU_GLES2_EXPORT NativeImageTextureGlOwner
   void SetFrameAvailableCallback(
       const base::RepeatingClosure& frame_available_cb) override;
   void* AquireOhosNativeWindow() const override;
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  bool IsAiHdrActive() const override;
+#endif
   void UpdateNativeImage() override;
   void GetSurfaceId(uint64_t* surface_id) override;
   void EnsureNativeImageBound(GLuint service_id) override;

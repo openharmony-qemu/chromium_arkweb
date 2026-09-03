@@ -16,6 +16,11 @@
 #include "ui/gl/gl_bindings.h"
 #include "base/logging.h"
 
+#if BUILDFLAG(ARKWEB_AI_HDR)
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
+#include "base/trace_event/trace_event.h"
+#endif
+
 #ifndef GL_ANGLE_texture_storage_external
 #define GL_ANGLE_texture_storage_external 1
 #define GL_TEXTURE_NATIVE_ID_ANGLE 0x3481
@@ -62,7 +67,31 @@ OhosNativeImage::OhosNativeImage(
   task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 }
 
+namespace {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+OHOS::NWeb::VpeVideoAdapter* GetVpeAdapter() {
+  if (!base::ohos::IsAiHdrEnabledOhos()) {
+    return nullptr;
+  }
+  static auto vpeAdapter =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateVpeVideoAdapter();
+  return vpeAdapter.get();
+}
+#endif
+}  // namespace
+
 OhosNativeImage::~OhosNativeImage() {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (rawSurfaceId_ != 0) {
+    TRACE_EVENT1("viz", "OhosNativeImage::~OhosNativeImage VPE release",
+                 "raw_surface_id", rawSurfaceId_);
+    auto* vpeAdapter = GetVpeAdapter();
+    if (vpeAdapter) {
+      vpeAdapter->ReleaseVpeSurface(rawSurfaceId_);
+    }
+    rawSurfaceId_ = 0;
+  }
+#endif
   if (native_image_adapter_ != nullptr) {
     native_image_adapter_->DestroyNativeImage();
   }
@@ -150,6 +179,17 @@ void OhosNativeImage::DetachFromGLContext() {
 }
 
 void OhosNativeImage::ReleaseNativeImage() {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (rawSurfaceId_ != 0) {
+    TRACE_EVENT1("viz", "OhosNativeImage::ReleaseNativeImage VPE release",
+                 "raw_surface_id", rawSurfaceId_);
+    auto* vpeAdapter = GetVpeAdapter();
+    if (vpeAdapter) {
+      vpeAdapter->ReleaseVpeSurface(rawSurfaceId_);
+    }
+    rawSurfaceId_ = 0;
+  }
+#endif
   if (native_image_adapter_ == nullptr) {
     return;
   }
@@ -160,7 +200,30 @@ void* OhosNativeImage::AquireOhosNativeWindow() {
   if (native_image_adapter_ == nullptr) {
     return nullptr;
   }
-  return native_image_adapter_->AquireNativeWindowFromNativeImage();
+  // Lifecycle: managed by native_image_adapter_, released on DestroyNativeImage.
+  auto window = native_image_adapter_->AquireNativeWindowFromNativeImage();
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (enable_vpe_) {
+    auto* vpeAdapter = GetVpeAdapter();
+    if (!vpeAdapter) {
+      return window;
+    }
+    uint64_t surfaceId = 0;
+    int32_t ret = native_image_adapter_->GetSurfaceId(&surfaceId);
+    if (ret != 0) {
+      return window;
+    }
+    // Lifecycle: managed by VPE adapter, released on ReleaseVpeSurface(rawSurfaceId_).
+    auto vpeWindow = vpeAdapter->CreateVpeSurface(surfaceId, window);
+    is_ai_hdr_active_ = (vpeWindow != window);
+    rawSurfaceId_ = is_ai_hdr_active_ ? surfaceId : 0;
+    TRACE_EVENT2("viz", "OhosNativeImage::AquireOhosNativeWindow",
+                 "raw_surface_id", surfaceId,
+                 "vpe_active", is_ai_hdr_active_);
+    return vpeWindow;
+  }
+#endif
+  return window;
 }
 
 void OhosNativeImage::OnFrameAvailableListener() {
@@ -176,6 +239,16 @@ scoped_refptr<OhosNativeImage> OhosNativeImage::Create() {
   nativeImageAdapter->NewNativeImage();
   return new OhosNativeImage(std::move(nativeImageAdapter));
 }
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+scoped_refptr<OhosNativeImage> OhosNativeImage::CreateWithVpe() {
+  auto instance = Create();
+  if (instance) {
+    instance->enable_vpe_ = true;
+  }
+  return instance;
+}
+#endif
 
 const int32_t IMAGE_READ_ERR = 1;
 int32_t OhosNativeImage::AcquireNativeWindowBuffer(void** windowBuffer,
