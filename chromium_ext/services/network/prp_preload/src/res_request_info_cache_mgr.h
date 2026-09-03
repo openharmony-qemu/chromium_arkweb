@@ -19,6 +19,14 @@ using ResRequestInfoCacheLoadedCB =
     const LinkedHashMap& preconnect_limit_info_list,
     const net::NetworkAnonymizationKey& networkAnonymizationKey,
     const std::string& page_seq_num)>;
+
+enum class JSONParseResult : uint32_t {
+  kSuccess = 0,
+  kValueParseError = 1,
+  kValueInconsistent = 2,
+  kValueInvalid = 3,
+};
+
 class ResReqInfoCacheMgr : public base::RefCountedThreadSafe<ResReqInfoCacheMgr> {
  public:
   ResReqInfoCacheMgr(const std::string& url,
