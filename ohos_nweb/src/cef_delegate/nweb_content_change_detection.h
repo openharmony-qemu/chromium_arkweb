@@ -34,10 +34,20 @@ class NWebContentChangeDetection {
   void SetDomExtractionConfig(bool reportDomTree);
   void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback);
   void StartRunDomExtraction();
+  void RequestPageSceneQuery(
+      const std::string& ruleJson,
+      const std::string& ruleId,
+      const std::vector<std::string>& nodeTypes,
+      std::shared_ptr<NWebMessageValueCallback> callback);
 
  private:
   void StartDetection();
   void StopDetection();
+  bool ValidatePageSceneQueryInput(
+      const std::string& ruleJson,
+      const std::string& ruleId,
+      const std::vector<std::string>& nodeTypes,
+      std::string& outNormalizedRuleJson);
 
   bool enable_ = false;
   int32_t min_report_time_ = 100;

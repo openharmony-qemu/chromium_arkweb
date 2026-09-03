@@ -38,6 +38,11 @@ public:
     void SetDomExtractionConfig(bool reportDomTree) override;
     void SetAgentNeedHighlight(bool enabled) override;
     void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback) override;
+    void RequestPageSceneQuery(
+        const std::string& ruleJson,
+        const std::string& ruleId,
+        const std::vector<std::string>& nodeTypes,
+        std::shared_ptr<NWebMessageValueCallback> callback) override;
 private:
     base::WeakPtr<NWebDelegate> nweb_delegate_;
 
