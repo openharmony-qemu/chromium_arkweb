@@ -13,9 +13,8 @@
  * limitations under the License.
  */
 
-#define protected public
-#include "ohos_audio_input_stream.h"
-#undef protected
+#include <ranges>
+#include <memory>
 #include "arkweb/chromium_ext/media/base/ohos/ohos_media_player_bridge.h"
 #include "base/logging.h"
 #include "content/public/browser/web_contents.h"
@@ -23,6 +22,11 @@
 #include "content/test/test_web_contents.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#define private public
+#define protected public
+#include "ohos_audio_input_stream.h"
+#undef protected
+#undef private
 
 using namespace media;
 using namespace testing;
@@ -198,4 +202,202 @@ TEST_F(OHOSAudioInputStreamTest, GetNWebIdOnUIThread002) {
   params_.set_render_frame_id(frameHost->GetRoutingID());
 
   EXPECT_NE(audioInputStream_->GetNWebIdOnUIThread(params_), -1);
+}
+
+TEST_F(OHOSAudioInputStreamTest, Pause001) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Pause());
+}
+
+TEST_F(OHOSAudioInputStreamTest, Pause002) {
+  audioInputStream_->Start(nullptr);
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Pause());
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, Resume001) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Resume());
+}
+
+TEST_F(OHOSAudioInputStreamTest, Resume002) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->Pause();
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Resume());
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, ResumeMicrophone001) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->ResumeMicrophone());
+}
+
+TEST_F(OHOSAudioInputStreamTest, ResumeMicrophone002) {
+  audioInputStream_->Start(nullptr);
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->ResumeMicrophone());
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, PauseMicrophone001) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->PauseMicrophone());
+}
+
+TEST_F(OHOSAudioInputStreamTest, PauseMicrophone002) {
+  audioInputStream_->Start(nullptr);
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->PauseMicrophone());
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, SetPauseStateChangedCallback001) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->SetPauseStateChangedCallback(
+      base::BindRepeating([](bool paused) {})));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChanged001) {
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChanged(
+          AudioInputStream::AudioCaptureState::ACTIVE));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChanged002) {
+  audioInputStream_->Start(nullptr);
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChanged(
+          AudioInputStream::AudioCaptureState::PAUSE));
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChanged003) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->Pause();
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChanged(
+          AudioInputStream::AudioCaptureState::NONE));
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChanged004_SameState) {
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChanged(
+          AudioInputStream::AudioCaptureState::NONE));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChangedBind001_SameState) {
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChangedBind(
+          AudioInputStream::AudioCaptureState::NONE, AudioInputStream::AudioCaptureState::NONE, params_));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChangedBind002_NullRenderFrameHost) {
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChangedBind(
+          AudioInputStream::AudioCaptureState::NONE, AudioInputStream::AudioCaptureState::ACTIVE, params_));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChangedBind003_WithValidRenderFrameHost) {
+  auto frameHost = main_rfh();
+  ASSERT_NE(frameHost, nullptr);
+  AudioParameters params = params_;
+  params.set_render_process_id(static_cast<int>(frameHost->GetProcess()->GetID()));
+  params.set_render_frame_id(frameHost->GetRoutingID());
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChangedBind(
+          AudioInputStream::AudioCaptureState::NONE, AudioInputStream::AudioCaptureState::ACTIVE, params));
+}
+
+TEST_F(OHOSAudioInputStreamTest, IsMuted001) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->SetVolume(0.5);
+  EXPECT_EQ(audioInputStream_->IsMuted(), false);
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, IsMuted002) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->SetVolume(0);
+  EXPECT_EQ(audioInputStream_->IsMuted(), true);
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, GetAudioParameters001) {
+  AudioParameters result = audioInputStream_->GetAudioParameters();
+  EXPECT_EQ(result.sample_rate(), kDefaultSampleRate);
+  EXPECT_EQ(result.channels(), kDefaultChannelCount);
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnMicrophoneCaptureStateChangedBind004_PauseToActive) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->Pause();
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->OnMicrophoneCaptureStateChanged(
+          AudioInputStream::AudioCaptureState::ACTIVE));
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, SetVolumeWithBaseCapturer) {
+#if BUILDFLAG(ARKWEB_WEBRTC)
+  ohos_audio_manager_->SelectAudioDevice("screen:systemAudio:-2:0", true);
+#endif
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->SetVolume(0.3);
+  EXPECT_EQ(audioInputStream_->GetVolume(), 0.3);
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, SetAutomaticGainControlWithBaseCapturer) {
+#if BUILDFLAG(ARKWEB_WEBRTC)
+  ohos_audio_manager_->SelectAudioDevice("screen:systemAudio:-2:0", true);
+#endif
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->SetAutomaticGainControl(true);
+  EXPECT_EQ(audioInputStream_->GetAutomaticGainControl(), true);
+  audioInputStream_->Stop();
+}
+
+TEST_F(OHOSAudioInputStreamTest, SetOutputDeviceForAecNotStarted) {
+  ASSERT_NO_FATAL_FAILURE(
+      audioInputStream_->SetOutputDeviceForAec("someDeviceId"));
+}
+
+TEST_F(OHOSAudioInputStreamTest, PauseNotStarted) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Pause());
+}
+
+TEST_F(OHOSAudioInputStreamTest, ResumeNotStarted) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Resume());
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnCapturerPaused001_NoCallback) {
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->OnCapturerPaused(true));
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnCapturerPaused002_WithCallback) {
+  static bool paused_received = false;
+  paused_received = false;
+  audioInputStream_->SetPauseStateChangedCallback(
+      base::BindRepeating([](bool paused) { paused_received = paused; }));
+  audioInputStream_->OnCapturerPaused(true);
+  EXPECT_EQ(paused_received, true);
+}
+
+TEST_F(OHOSAudioInputStreamTest, OnCapturerPaused003_CallbackFalse) {
+  static bool paused_received = false;
+  paused_received = true;
+  audioInputStream_->SetPauseStateChangedCallback(
+      base::BindRepeating([](bool paused) { paused_received = paused; }));
+  audioInputStream_->OnCapturerPaused(false);
+  EXPECT_EQ(paused_received, false);
+}
+
+TEST_F(OHOSAudioInputStreamTest, Close001_StopReleasesCapturerSources) {
+  audioInputStream_->Start(nullptr);
+  EXPECT_TRUE(audioInputStream_->capturer_source_ != nullptr ||
+              audioInputStream_->base_capturer_source_ != nullptr);
+
+  audioInputStream_->Stop();
+  EXPECT_EQ(audioInputStream_->capturer_source_, nullptr);
+  EXPECT_EQ(audioInputStream_->base_capturer_source_, nullptr);
+}
+
+TEST_F(OHOSAudioInputStreamTest, Close002_DoubleStopSafe) {
+  audioInputStream_->Start(nullptr);
+  audioInputStream_->Stop();
+  ASSERT_NO_FATAL_FAILURE(audioInputStream_->Stop());
 }
