@@ -410,6 +410,10 @@ OnArkWebStaticRequestCloseBrowserFunc
 #include "arkweb/chromium_ext/content/public/browser/spare_render_process_manager_ohos.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+#include "net/http/http_util.h"
+#endif
+
 namespace {
 uint32_t g_nweb_count = 0;
 const uint32_t kSurfaceMaxWidth = 7680;
@@ -7610,11 +7614,17 @@ void NWebImpl::ClearHostIP(const std::string& hostName) {
 
 #if BUILDFLAG(ARKWEB_USERAGENT)
 void NWebImpl::SetAppCustomUserAgent(const std::string& user_agent) {
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+  net::HttpUtil::EnsureValidHeaderValue(user_agent, "setAppCustomUserAgent");
+#endif
   AlloyBrowserUAConfig::GetInstance()->SetAppCustomUserAgent(user_agent);
 }
 
 void NWebImpl::SetUserAgentForHosts(const std::string& user_agent,
                                     const std::vector<std::string>& hosts) {
+#if BUILDFLAG(ARKWEB_DFX_LOGGING)
+  net::HttpUtil::EnsureValidHeaderValue(user_agent, "setUserAgentForHosts");
+#endif
   AlloyBrowserUAConfig::GetInstance()->SetUserAgentForHosts(user_agent, hosts);
 }
 
