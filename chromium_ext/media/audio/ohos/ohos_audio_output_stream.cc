@@ -19,6 +19,8 @@
 namespace media {
 std::vector<AudioParameters> OHOSAudioOutputStream::audioParameterSet_ = {};
 CallbackSharedWrapper<OHOSAudioOutputCallback> OHOSAudioOutputStream::callback_wrapper_;
+constexpr base::TimeDelta kMaxAudioDelay = base::Seconds(10);
+constexpr base::TimeDelta kAbnormalDelayLogInterval = base::Seconds(100);
 
 OHOSAudioOutputStream::OHOSAudioOutputStream(OHOSAudioManager* manager,
                                              const AudioParameters& parameters,
@@ -630,8 +632,19 @@ base::TimeDelta OHOSAudioOutputStream::GetDelay(
 
   // Calculate the latency between write time and presentation time. At startup
   // we may end up with negative values here.
-  return std::max(base::TimeDelta(),
-                  next_frame_pts - (delay_timestamp - base::TimeTicks()));
+  auto delay = std::max(base::TimeDelta(),
+                        next_frame_pts - (delay_timestamp - base::TimeTicks()));
+  if (delay > kMaxAudioDelay) {
+    base::TimeTicks now = base::TimeTicks::Now();
+    if (now - last_abnormal_delay_log_time_ >= kAbnormalDelayLogInterval) {
+      last_abnormal_delay_log_time_ = now;
+      LOG(ERROR) << "Abnormal delay: " << delay.InMillisecondsF()
+                 << "ms, frames=" << frames
+                 << ", existing_frame_index=" << existing_frame_index
+                 << ", existing_frame_pts=" << existing_frame_pts;
+    }
+  }
+  return delay;
 }
 
 // LCOV_EXCL_START
@@ -681,7 +694,7 @@ void OHOSAudioOutputStream::OnWriteData(void* buffer, int32_t length) {
   }
   // Request more samples from |callback_|.
   int frames_filled =
-      callback_->OnMoreData(delay, now, {}, audio_bus_.get(), false);
+      callback_->OnMoreData(BoundedDelay(delay), now, {}, audio_bus_.get(), false);
   DCHECK_EQ(frames_filled, audio_bus_->frames());
   audio_bus_->Scale(volume_);
   frames_filled = std::min(frames_filled, length / bytes_per_frame_);
