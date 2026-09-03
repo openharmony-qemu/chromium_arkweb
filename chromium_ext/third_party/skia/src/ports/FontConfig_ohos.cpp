@@ -52,14 +52,17 @@ void BindHostReceiverOnMainThread(
 FontConfig_OHOS::FontConfig_OHOS(const SkFontScanner& fontScanner,
                                  const char* fname)
 {
-  if (base::ohos::IsMobileDevice() || base::ohos::IsWearableDevice()) {
-    LOG(DEBUG) << "The program follows the old font engine path.";
-    int err = parseConfig(fname);
-    if (err != NO_ERROR) {
-      return;
-    }
-    scanFontsBackup(fontScanner);
+  LOG(DEBUG) << "The program follows the old font engine path.";
+  int err = parseConfig(fname);
+  if (err != NO_ERROR) {
+    return;
   }
+  scanFontsBackup(fontScanner);
+
+  if (base::ohos::IsTabletDevice() || base::ohos::IsPcDevice()) {
+    scanFonts(fontScanner, OHOS_FONT_INSTALL_DIR, true);
+  }
+
   resetGenericValue();
   resetFallbackValue();
 }
@@ -87,6 +90,9 @@ int FontConfig_OHOS::checkNewFontengineISOK()
 
 void FontConfig_OHOS::PrepareFontConfig(const SkFontScanner& fontScanner) {
   if (base::ohos::IsMobileDevice() || base::ohos::IsWearableDevice()) {
+    return;
+  }
+  if (!genericFamilySet.empty() || !fallbackSet.empty()) {
     return;
   }
   main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
@@ -283,49 +289,34 @@ void FontConfig_OHOS::buildNameToFamilyMap() {
  */
 void FontConfig_OHOS::buildStyleNameToFamilyMap(
     OHOS::NWeb::ArkWeb_Drawing_SystemFontType fontType) {
-  void* fontList = nullptr;
-  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
-      .GetSystemFontFullNamesByType(fontType,
-                                    reinterpret_cast<void**>(&fontList));
-  int32_t size = 0;
-  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextTypographyAdapter()
-      .GetDrawingArraySize(fontList, size);
+  // Fetch stylish font list from browser process via Mojo,
+  // instead of calling NDK directly in the renderer process.
+  font_data_service::mojom::FontDataService& remote =
+      GetRemoteFontDataService();
+  std::optional<std::vector<font_data_service::mojom::FontStylishInfoPtr>>
+      stylishList;
+  remote.GetStylishFontList(static_cast<int32_t>(fontType), &stylishList);
+
+  if (!stylishList.has_value() || stylishList->empty()) {
+    LOG(ERROR) << "buildStyleNameToFamilyMap: stylish font list is empty";
+    return;
+  }
+
   SkString fallbackFor("");
   unsigned int startPos = 0;
-  for (size_t index = 0; index < size; ++index) {
-    const void* fontFullName = nullptr;
-    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
-        .GetSystemFontFullNameByIndex(fontList, index, &fontFullName);
-    OHOS::NWeb::ArkWeb_Drawing_FontDescriptor* description = nullptr;
-    const OHOS::NWeb::ArkWeb_Drawing_String* drawingString =
-        static_cast<const OHOS::NWeb::ArkWeb_Drawing_String*>(fontFullName);
-    OHOS::NWeb::ArkWeb_Drawing_String* nonConstDrawingString =
-        const_cast<OHOS::NWeb::ArkWeb_Drawing_String*>(drawingString);
-    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
-        .GetFontDescriptorByFullName(nonConstDrawingString, fontType,
-                                     reinterpret_cast<void**>(&description));
-    if (description == nullptr) {
-      LOG(ERROR) << "one font description was empty at index:" << index;
-      continue;
-    }
+  for (const auto& info : *stylishList) {
     std::unique_ptr<FallbackInfo> fallback = std::make_unique<FallbackInfo>();
-    fallback->familyName = SkString(description->fontFamily);
+    fallback->familyName = SkString(info->familyName.c_str());
     fallback->typefaceSet = std::make_shared<TypefaceSet>();
-    fallbackNames.set(SkString(description->fontFamily), fallbackSet.size());
+    fallbackNames.set(SkString(info->familyName.c_str()), fallbackSet.size());
     fallbackSet.emplace_back(std::move(fallback));
-    pathToFamily.set(SkString(description->path),
-                     SkString(description->fontFamily));
-    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
-        .DestroyFontDescriptor(description);
-    description = nullptr;
+    pathToFamily.set(SkString(info->path.c_str()),
+                     SkString(info->familyName.c_str()));
   }
 
   FallbackSetPos setPos = {startPos,
                            (unsigned int)(fallbackSet.size() - startPos)};
   fallbackForMap.set(fallbackFor, setPos);
-  OHOS::NWeb::OhosAdapterHelper::GetInstance().GetOhosDrawingTextFontAdapter()
-      .DestroySystemFontFullNames(fontList);
-  fontList = nullptr;
   static bool enableClear = OHOS::NWeb::OhosAdapterHelper::GetInstance().GetSystemPropertiesInstance()
     .GetBoolParameter("persist.web.cache_clear.enabled", true);
   if (enableClear) {

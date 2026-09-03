@@ -216,6 +216,10 @@ HeadlessScreenListener::HeadlessScreenListener(
 
 void HeadlessScreenListener::OnCreate(OHOS::NWeb::DisplayId display_id) {
   DCHECK(task_runner_.get());
+  if (!headless_screen_ohos_) {
+    LOG(WARNING) << "headless_screen_ohos_ is null";
+    return;
+  }
   if (task_runner_) {
     task_runner_->PostTask(FROM_HERE,
                            base::BindOnce(&HeadlessScreenOhos::OnDisplayCreate,
@@ -225,6 +229,10 @@ void HeadlessScreenListener::OnCreate(OHOS::NWeb::DisplayId display_id) {
 
 void HeadlessScreenListener::OnDestroy(OHOS::NWeb::DisplayId display_id) {
   DCHECK(task_runner_.get());
+  if (!headless_screen_ohos_) {
+    LOG(WARNING) << "headless_screen_ohos_ is null";
+    return;
+  }
   if (task_runner_) {
     task_runner_->PostTask(FROM_HERE,
                            base::BindOnce(&HeadlessScreenOhos::OnDisplayDestroy,
@@ -234,6 +242,10 @@ void HeadlessScreenListener::OnDestroy(OHOS::NWeb::DisplayId display_id) {
 
 void HeadlessScreenListener::OnChange(OHOS::NWeb::DisplayId display_id) {
   DCHECK(task_runner_.get());
+  if (!headless_screen_ohos_) {
+    LOG(WARNING) << "headless_screen_ohos_ is null";
+    return;
+  }
   if (task_runner_) {
     task_runner_->PostTask(FROM_HERE,
                            base::BindOnce(&HeadlessScreenOhos::OnDisplayChange,

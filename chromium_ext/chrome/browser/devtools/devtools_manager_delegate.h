@@ -32,6 +32,12 @@ class DevToolsManagerDelegate : public ChromeDevToolsManagerDelegate {
  private:
   using List = content::DevToolsAgentHost::List;
   List RemoteDebuggingTargets(TargetType target_type) override;
+
+  // Async version that supports NWeb popup flow.
+  void CreateNewTargetAsync(const GURL& url,
+                            TargetType target_type,
+                            bool new_window,
+                            CreateNewTargetCallback callback) override;
 };
 
 } // namespace ohos

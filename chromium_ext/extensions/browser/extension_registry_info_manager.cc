@@ -660,6 +660,9 @@ std::vector<NWebContextMenusItem> ExtensionRegistryInfoManager::GetAllExtensionC
   for (const auto& id : menu_manager->ExtensionIds()) {
     if (extensionId == id.extension_id) {
       const extensions::MenuItem::OwnedList* top_items = menu_manager->MenuItems(id);
+      if (!top_items) {
+        continue;
+      }
       for (const std::unique_ptr<extensions::MenuItem>& item : *top_items) {
         GetFlattenedMenuItemSubtree(items, item);
       }
@@ -680,6 +683,9 @@ std::vector<NWebContextMenusItemV2> ExtensionRegistryInfoManager::GetAllExtensio
   for (const auto& id : menu_manager->ExtensionIds()) {
     if (extensionId == id.extension_id) {
       const extensions::MenuItem::OwnedList* top_items = menu_manager->MenuItems(id);
+      if (!top_items) {
+        continue;
+      }
       for (const std::unique_ptr<extensions::MenuItem>& item : *top_items) {
         GetFlattenedMenuItemSubtreeV2(items, item);
       }

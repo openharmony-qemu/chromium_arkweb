@@ -22,6 +22,12 @@ namespace OHOS::NWeb {
 
 class HiAppeventAdapter {
 public:
+    // Shared constants for dynamic frame loss reporting
+    static constexpr char kDomain[] = "OS";
+    static constexpr char kEventName[] = "SCROLL_ARKWEB_FLING_JANK";
+    static constexpr int32_t kEventTypeStatistic = 2;
+    static constexpr int32_t kJankReportThreshold = 50;
+
     struct DynamicFrameDropInfo {
         int64_t start_time;
         int64_t duration;

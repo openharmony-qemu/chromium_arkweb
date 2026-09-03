@@ -106,7 +106,7 @@ class ExtensionRegistryInfoManagerTest : public ExtensionsTest {
     scoped_refptr<Extension> extension(
         Extension::Create(path, mojom::ManifestLocation::kInternal, manifest,
                           Extension::NO_FLAGS, name, &error));
-    EXPECT_TRUE(extension.get()) << error;
+    EXPECT_TRUE(extension) << error;
     return extension;
   }
 
@@ -117,13 +117,19 @@ class ExtensionRegistryInfoManagerTest : public ExtensionsTest {
     std::string error;
     scoped_refptr<Extension> extension(Extension::Create(path, mojom::ManifestLocation::kInternal, manifest,
                                        Extension::NO_FLAGS, name, &error));
-    EXPECT_TRUE(extension.get()) << error;
+    EXPECT_TRUE(extension) << error;
+    if (!extension) {
+      return extension;
+    }
 
     std::unique_ptr<SettingsOverrides> info = nullptr;
     const base::Value::Dict* dict = manifest.FindDict(manifest_keys::kSettingsOverride);
     if (dict != nullptr) {
       auto settings = ChromeSettingsOverrides::FromValue(*dict);
-      EXPECT_TRUE(settings.has_value()) << base::UTF16ToUTF8(settings.error());
+      if (!settings.has_value()) {
+        ADD_FAILURE() << base::UTF16ToUTF8(settings.error());
+        return info;
+      }
       info = std::make_unique<SettingsOverrides>();
       if (settings->homepage) {
         info->homepage = CreateManifestURL(*settings->homepage);
@@ -175,7 +181,9 @@ class ExtensionRegistryInfoManagerTest : public ExtensionsTest {
              overrides.startup_pages->begin();
          i != overrides.startup_pages->end(); ++i) {
       std::optional<GURL> manifest_url = CreateManifestURL(*i);
-      urls.push_back(std::move(*manifest_url));
+      if (manifest_url) {
+        urls.push_back(std::move(*manifest_url));
+      }
     }
     return urls;
   }
@@ -190,7 +198,7 @@ class ExtensionRegistryInfoManagerTest : public ExtensionsTest {
     }
     if (overrides->search_provider->favicon_url) {
       if (!CreateManifestURL(*overrides->search_provider->favicon_url)) {
-        return std::move(*overrides->search_provider);
+        overrides->search_provider->favicon_url.reset();
       }
     }
     return std::move(*overrides->search_provider);
@@ -252,7 +260,7 @@ void SetIncognitoMode(Extension* extension,
 
 TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionIncognitoMode) {
   scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
-  ASSERT_TRUE(extension.get() != nullptr);
+  ASSERT_TRUE(extension);
 
   // IsIncognitoAllowed true
   SetIncognitoMode(extension.get(), api::incognito::IncognitoMode::kNotAllowed);
@@ -275,7 +283,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionIncognitoMode) {
 
 TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionInstalled) {
   scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
-  ASSERT_TRUE(extension.get() != nullptr);
+  ASSERT_TRUE(extension);
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   std::shared_ptr<ArkWebExtensionManagerCallBack> callback = std::make_shared<ArkWebExtensionManagerCallBack>();
@@ -291,6 +299,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionInstalled) {
 
   g_expect_reason = 0;
   auto extension2 = CreateTestExtension();
+  ASSERT_TRUE(extension2);
   ASSERT_NO_FATAL_FAILURE(GetInfoManager()->OnExtensionInstalled(
       browser_context(), extension2.get(), false));
 #if BUILDFLAG(ARKWEB_NWEB_EX)
@@ -301,7 +310,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionInstalled) {
 
 TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionUnloaded_DisableReason) {
   scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
-  ASSERT_TRUE(extension.get() != nullptr);
+  ASSERT_TRUE(extension);
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   std::shared_ptr<ArkWebExtensionManagerCallBack> callback = std::make_shared<ArkWebExtensionManagerCallBack>();
   callback->OnArkWebExtensionUnLoadedFunV2 = [](const char* extensionId, int reason) {
@@ -416,6 +425,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionManifestInfo) {
   const std::string extension_id = "test-extension-id";
   const std::string launch_url = "https://chrome.google.com/launch";
   scoped_refptr<Extension> extension(CreateTestExtension(extension_id));
+  ASSERT_TRUE(extension);
   WebExtensionManifestInfo manifest;
   // invalid launch
   GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
@@ -475,6 +485,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionManifestInfo_UrlOverride) {
     helper.initManifest(manifest_tmp);
     scoped_refptr<Extension> extension(
         CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+    ASSERT_TRUE(extension);
     WebExtensionManifestInfo manifest;
     GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
     helper.checkManifest(manifest);
@@ -544,6 +555,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionManifestInfo_SettingsOverri
             .Set("incognito", "split")
             .Set("chrome_settings_overrides", std::move(settings_override));
     scoped_refptr<Extension> extension(CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+    ASSERT_TRUE(extension);
     WebExtensionManifestInfo manifest;
     GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
     helper.checkManifest(manifest);
@@ -563,6 +575,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionManifestInfo_options_ui) {
                           .Set("options_ui", std::move(options_ui));
   scoped_refptr<Extension> extension(
       CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+  ASSERT_TRUE(extension);
   WebExtensionManifestInfo manifest;
 
   GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
@@ -586,6 +599,7 @@ TEST_F(ExtensionRegistryInfoManagerTest,
                           .Set("options_ui", std::move(options_ui));
   scoped_refptr<Extension> extension(
       CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+  ASSERT_TRUE(extension);
   WebExtensionManifestInfo manifest;
 
   GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);
@@ -607,6 +621,7 @@ TEST_F(ExtensionRegistryInfoManagerTest, GetExtensionManifestInfo_ShortName) {
                           .Set("short_name", short_name);
   scoped_refptr<Extension> extension(
       CreateTestExtensionWithManifest(extension_id, std::move(manifest_tmp)));
+  ASSERT_TRUE(extension);
   WebExtensionManifestInfo manifest;
 
   GetInfoManager()->GetExtensionManifestInfo(*extension.get(), manifest);

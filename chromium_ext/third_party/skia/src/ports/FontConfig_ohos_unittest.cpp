@@ -3018,6 +3018,10 @@ class TestFontConfigServiceApp : public font_data_service::mojom::FontDataServic
     }
   }
 
+  void GetStylishFontList(int32_t fontType, GetStylishFontListCallback callback) override {
+    std::move(callback).Run(std::nullopt);
+  }
+
   size_t get_font_config_info_call_count() const {
     return get_font_config_info_call_count_;
   }

@@ -277,6 +277,10 @@ arkweb_content_public_browser_sources = [
   "//arkweb/chromium_ext/content/public/browser/https_upgrades_policy.h",
 ]
 
+arkweb_content_public_browser_fullscreen_overlay_sources = [
+  "//arkweb/chromium_ext/content/public/browser/fullscreen_overlay_media_player_controller.h",
+]
+
 arkweb_content_render_sources = []
 if (arkweb_renderer_anr_dump) {
   arkweb_content_render_sources += [
@@ -713,6 +717,10 @@ arkweb_components_download_internal_common_test_sources = [
 arkweb_components_content_settings_renderer_sources = [
   "//arkweb/chromium_ext/components/content_settings/renderer/arkweb_content_settings_agent_impl_ext.cc",
   "//arkweb/chromium_ext/components/content_settings/renderer/arkweb_content_settings_agent_impl_ext.h",
+]
+
+arkweb_components_pdf_browser_test_sources = [
+  "//arkweb/chromium_ext/components/pdf/browser/pdf_document_helper_for_include_unittest.cpp"
 ]
 
 arkweb_components_subresource_filter_content_renderer_sources = [
@@ -1621,6 +1629,18 @@ arkweb_components_cookie_config_sources = [
 arkweb_content_browser_media_video_assistant = [
     "//arkweb/chromium_ext/content/browser/media/video_assistant/video_assistant.cc",
     "//arkweb/chromium_ext/content/browser/media/video_assistant/video_assistant.h",
+]
+
+arkweb_content_browser_media_fullscreen_overlay_sources = [
+  "//arkweb/chromium_ext/content/browser/media/fullscreen_video_overlay/fullscreen_overlay_media_player_controller.cc",
+  "//arkweb/chromium_ext/content/browser/media/fullscreen_video_overlay/fullscreen_overlay_media_player_controller.h",
+]
+
+arkweb_components_safe_browsing_content_browser_sources = [
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.cc",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_navigation_entry_safe_browsing_data.h",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_threat_type.h",
+  "//arkweb/chromium_ext/components/safe_browsing/content/browser/ohos_sb_blocking_page_info.h",
 ]
 
 arkweb_services_network_mojom_traits_sources = []

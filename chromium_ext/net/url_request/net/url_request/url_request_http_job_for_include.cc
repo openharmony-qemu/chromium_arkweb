@@ -28,6 +28,7 @@
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
 #include "arkweb/chromium_ext/net/base/request_attempt.h"
 #include "base/i18n/time_formatting.h"
+#include <unordered_set>
 #endif
 
 #if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
@@ -212,9 +213,13 @@ void PopulateSocketInfo(const net::ConnectionAttempts& connection_attempts,
                         net::SocketInfo& socket_info) {
   socket_info.host = url.host();
   socket_info.result = result;
+  std::unordered_set<std::string> seen(socket_info.address_list.begin(),
+                                       socket_info.address_list.end());
   for (const auto& connection_attempt : connection_attempts) {
-    socket_info.address_list.emplace_back(
-        connection_attempt.endpoint.ToStringWithoutPort());
+    std::string addr = connection_attempt.endpoint.ToStringWithoutPort();
+    if (seen.insert(addr).second) {
+      socket_info.address_list.emplace_back(std::move(addr));
+    }
   }
 }
 #endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)

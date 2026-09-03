@@ -91,6 +91,8 @@ struct RunJavaScriptParam;
 #include "capi/nweb_request_open_dev_tools_callback.h"
 #endif // ARKWEB_DEVTOOLS
 
+#include "capi/nweb_request_close_browser_callback.h"
+
 namespace base {
   class RetainingOneShotTimer;
 }
@@ -104,6 +106,7 @@ namespace base {
 #endif // ARKWEB_READER_MODE
 
 #include "ohos_nweb/src/capi/nweb_custom_font_info.h"
+#include "base/memory/memory_pressure_level.h"
 
 namespace OHOS::NWeb {
 #if BUILDFLAG(IS_ARKWEB)
@@ -862,6 +865,10 @@ class NWebImpl : public NWeb {
   static void ResumeDownloadStatic(
       std::shared_ptr<NWebDownloadItem> download_item);
 
+#if BUILDFLAG(ARKWEB_TRIM_RENDER_PROCESS_MEMORY)
+  static void ForwardMemoryPressureToRenderers(base::MemoryPressureLevel memory_pressure_level);
+#endif  // ARKWEB_TRIM_RENDER_PROCESS_MEMORY
+
 #if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
   static void SetFileRenameOption(const int file_rename_option);
 #endif  // BUILDFLAG(ARKWEB_EX_DOWNLOAD)
@@ -1177,6 +1184,10 @@ class NWebImpl : public NWeb {
   static void LanguageStatusRequest(const std::string& lang,
                                     const std::string& client_id);
 #endif  // ARKWEB_ARKWEB_EXTENSIONS
+
+  static void SetOnRequestCloseBrowserCallback(
+      OnArkWebStaticRequestCloseBrowserFunc func);
+  static void OnRequestCloseBrowser();
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   void ViewSource();
@@ -1555,6 +1566,8 @@ void SetVisibility(bool isVisible) override;
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   static OnArkWebStaticRequestOpenDevToolsFunc on_request_open_dev_tools_callback_;
 #endif  // ARKWEB_DEVTOOLS
+
+  static OnArkWebStaticRequestCloseBrowserFunc on_request_close_browser_callback_;
 
   void RegisterNativeJavaScriptProxy(const std::string& objName,
                                      const std::vector<std::string>& methodName,

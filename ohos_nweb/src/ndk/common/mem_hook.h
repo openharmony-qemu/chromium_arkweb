@@ -24,6 +24,7 @@ namespace OHOS::NWeb {
  
 char* malloc_wrapper(size_t size);
 void* memalign_wrapper(size_t alignment, size_t size);
+void free_wrapper(void* ptr);
  
 }
  

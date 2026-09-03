@@ -21,6 +21,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
+#include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -49,6 +50,10 @@
 #define MIN_CERT_NUM 1
 #define DER_ENCODED 0x30
 namespace net {
+BASE_FEATURE(kEnableSslPartialChainFeature,
+             "EnableSslPartialChainFeature",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // OH ignores the authType parameter to
 // X509TrustManager.checkServerTrusted, so pass in a dummy value. See
 // https://crbug.com/627154.
@@ -75,10 +80,9 @@ void GetChainDEREncodedBytes(X509Certificate* cert,
   }
 }
 
-void X509_d2i_free(X509* server_cert[], uint32_t server_cert_sum) {
-  uint32_t i;
-  for (i = 0; i < server_cert_sum; i++) {
-    X509_free(server_cert[i]);
+void X509_d2i_free(const std::vector<X509*>& server_cert) {
+  for (auto* cert : server_cert) {
+    X509_free(cert);
   }
 }
 
@@ -97,32 +101,6 @@ X509* p2i_X509(const char* pem) {
   BIO_free(bio);
 
   return x509;
-}
-
-int CertChainRootVerify(X509* server_cert[],
-                        int32_t index,
-                        X509_STORE* ca_store) {
-  if (!server_cert || !ca_store || index <= 0) {
-    return X509_V_ERR_UNSPECIFIED;
-  }
-
-  STACK_OF(X509)* ca_stack = nullptr;
-  X509_STORE_CTX* ctx = nullptr;
-  ctx = X509_STORE_CTX_new();
-  if (!ctx) {
-    return X509_V_ERR_UNSPECIFIED;
-  }
-  X509_STORE_CTX_init(ctx, ca_store, server_cert[index], ca_stack);
-  if (!X509_verify_cert(ctx)) {
-    auto error = ctx->error;
-    LOG(ERROR) << "Certificate verify error: " << error
-               << ", Certificate verify info: "
-               << X509_verify_cert_error_string(ctx->error);
-    X509_STORE_CTX_free(ctx);
-    return error;
-  }
-  X509_STORE_CTX_free(ctx);
-  return X509_V_OK;
 }
 
 int GetVerifiedChain(X509_STORE_CTX* ctx,
@@ -174,8 +152,7 @@ int GetVerifiedChain(X509_STORE_CTX* ctx,
   return X509_V_OK;
 }
 
-int CertChainVerify(X509* server_cert[],
-                    int32_t server_cert_sum,
+int CertChainVerify(const std::vector<X509*>& server_cert,
                     X509_STORE* ca_store,
                     std::vector<std::string>* verified_chain) {
   X509_STORE_CTX* ctx = nullptr;
@@ -183,12 +160,12 @@ int CertChainVerify(X509* server_cert[],
   STACK_OF(X509)* ca_stack = sk_X509_new_null();
   if (ca_stack == nullptr) {
     LOG(ERROR) << "Create ca_stack failed";
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_free(ca_store);
     return X509_V_ERR_UNSPECIFIED;
     }
 
-  for (int i = 1; i < server_cert_sum; i++) {
+  for (size_t i = 1; i < server_cert.size(); i++) {
     sk_X509_push(ca_stack, server_cert[i]);
     X509_up_ref(server_cert[i]);
   }
@@ -198,7 +175,7 @@ int CertChainVerify(X509* server_cert[],
   if (ctx == nullptr) {
     LOG(ERROR) << "Create certificate store context function failed";
     sk_X509_pop_free(ca_stack, X509_free);
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_free(ca_store);
     return X509_V_ERR_UNSPECIFIED;
   }
@@ -212,9 +189,9 @@ int CertChainVerify(X509* server_cert[],
     LOG(ERROR) << "Certificate verify error: " << error
                << ", Certificate verify info: "
                << X509_verify_cert_error_string(ctx->error)
-               << ", Total number of server certificate: " << server_cert_sum;
+               << ", Total number of server certificate: " << server_cert.size();
     sk_X509_pop_free(ca_stack, X509_free);
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(ca_store);
     return error;
@@ -223,7 +200,7 @@ int CertChainVerify(X509* server_cert[],
   if (GetVerifiedChain(ctx, verified_chain) != X509_V_OK) {
     LOG(ERROR) << "Get verified chain failed";
     sk_X509_pop_free(ca_stack, X509_free);
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(ca_store);
     return X509_V_ERR_UNSPECIFIED;
@@ -231,7 +208,7 @@ int CertChainVerify(X509* server_cert[],
 
   sk_X509_pop_free(ca_stack, X509_free);
   X509_STORE_CTX_free(ctx);
-  X509_d2i_free(server_cert, server_cert_sum);
+  X509_d2i_free(server_cert);
   X509_STORE_free(ca_store);
 
   return X509_V_OK;
@@ -315,7 +292,7 @@ int CertVerify(const std::vector<std::string>& cert_bytes,
 
   // Convert cert_bytes to internal X509 data structure(server_cert[]), If the
   // conversion fails, see ERR_reason_error_string()/kLibraryNames
-  X509* server_cert[server_cert_sum];
+  std::vector<X509*> server_cert(server_cert_sum);
   for (i = 0; i < server_cert_sum; i++) {
     der_encoded_tmp = (unsigned char*)cert_bytes[i].c_str();
     server_cert[i] = d2i_X509(nullptr, &der_encoded_tmp, cert_bytes[i].size());
@@ -326,7 +303,7 @@ int CertVerify(const std::vector<std::string>& cert_bytes,
           << "\nTotal number of server certificate: " << server_cert_sum
           << "\nError certificate count:" << i;
       ERR_clear_error();
-      X509_d2i_free(server_cert, i);
+      X509_d2i_free(server_cert);
       return X509_V_ERR_UNSPECIFIED;
     }
   }
@@ -335,19 +312,21 @@ int CertVerify(const std::vector<std::string>& cert_bytes,
   ca_store = X509_STORE_new();
   if (ca_store == nullptr) {
     LOG(ERROR) << "Create X509 certificate store failed";
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     return X509_V_ERR_UNSPECIFIED;
   }
 
-  // Allow partial chains if at least one certificate is in trusted store
-  X509_STORE_set_flags(ca_store, X509_V_FLAG_PARTIAL_CHAIN);
+  if (base::FeatureList::IsEnabled(kEnableSslPartialChainFeature)) {
+    // Allow partial chains if at least one certificate is in trusted store
+    X509_STORE_set_flags(ca_store, X509_V_FLAG_PARTIAL_CHAIN);
+  }
 
   // Create X509_LOOKUP, the store_ctx member of this data structure is
   // associated with the newly created certificate store ca_store
   look_up = X509_STORE_add_lookup(ca_store, X509_LOOKUP_hash_dir());
   if (look_up == nullptr) {
     LOG(ERROR) << "Create X509 LOOKUP failed";
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_free(ca_store);
     return X509_V_ERR_UNSPECIFIED;
   }
@@ -355,7 +334,7 @@ int CertVerify(const std::vector<std::string>& cert_bytes,
   // Parse the root certificate dir
   if (X509_LOOKUP_add_dir(look_up, ROOT_CERT_PATH, X509_FILETYPE_PEM) == 0) {
     LOG(ERROR) << "Add root certificate dir failed";
-    X509_d2i_free(server_cert, server_cert_sum);
+    X509_d2i_free(server_cert);
     X509_STORE_free(ca_store);
     return X509_V_ERR_UNSPECIFIED;
   }
@@ -363,8 +342,7 @@ int CertVerify(const std::vector<std::string>& cert_bytes,
   // Add user cert to ca store
   AddAppCert(hostname, ca_store);
 
-  return CertChainVerify(server_cert, server_cert_sum, ca_store,
-                         verified_chain);
+  return CertChainVerify(server_cert, ca_store, verified_chain);
 }
 
 // Starting at certs[start], this function searches |certs| for an issuer of
@@ -587,29 +565,6 @@ int TryVerifyWithAIAFetching(const std::vector<std::string>& cert_bytes,
   NOTREACHED();
 }
 
-void SetCertStatus(int status, CertVerifyResult* verify_result) {
-  switch (status) {
-      case X509_V_ERR_UNSPECIFIED:
-        return false;
-      case X509_V_OK:
-        break;
-      case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
-      case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-        verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
-        break;
-      case X509_V_ERR_CERT_HAS_EXPIRED:
-      case X509_V_ERR_CERT_NOT_YET_VALID:
-        verify_result->cert_status |= CERT_STATUS_DATE_INVALID;
-        break;
-      case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
-        verify_result->cert_status |= CERT_STATUS_DEPTH_ZERO_SELF_SIGNED_CERT;
-        break;
-      default:
-        verify_result->cert_status |= CERT_STATUS_INVALID;
-        break;
-  }
-}
-
 // Returns true if the certificate verification call was successful (regardless
 // of its result), i.e. if |verify_result| was set. Otherwise returns false.
 bool VerifyFromOhosTrustManager(const std::vector<std::string>& cert_bytes,
@@ -633,7 +588,26 @@ bool VerifyFromOhosTrustManager(const std::vector<std::string>& cert_bytes,
                                       verify_result, &verified_chain);
   }
 
-  SetCertStatus(status, verify_result);
+  switch (status) {
+    case X509_V_ERR_UNSPECIFIED:
+      return false;
+    case X509_V_OK:
+      break;
+    case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
+    case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+      verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
+      break;
+    case X509_V_ERR_CERT_HAS_EXPIRED:
+    case X509_V_ERR_CERT_NOT_YET_VALID:
+      verify_result->cert_status |= CERT_STATUS_DATE_INVALID;
+      break;
+    case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+      verify_result->cert_status |= CERT_STATUS_DEPTH_ZERO_SELF_SIGNED_CERT;
+      break;
+    default:
+      verify_result->cert_status |= CERT_STATUS_INVALID;
+      break;
+  }
 
   // Save the verified chain.
   if (!verified_chain.empty()) {
@@ -701,7 +675,7 @@ int CertVerifyProcOHOS::VerifyInternal(X509Certificate* cert,
   if (!VerifyFromOhosTrustManager(cert_bytes, hostname, cert_net_fetcher_,
                                   verify_result)) {
     LOG(ERROR) << "VerifyInternal: Trust manager verify cert failed";
-    NOTREACHED();
+    return ERR_FAILED;
   }
 
   if (IsCertStatusError(verify_result->cert_status)) {
