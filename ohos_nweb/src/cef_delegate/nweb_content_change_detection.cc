@@ -17,6 +17,8 @@
 
 #include "base/logging.h"
 #include "base/strings/string_util.h"
+#include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ohos_resources/content_change_detection/grit/content_change_detection_resources.h"
 #include "ohos_resources/dom_tree_extractor/grit/dom_tree_extractor_resources.h"
@@ -33,27 +35,43 @@ namespace {
 // Escape for embedding in a JS single-quoted string.
 // IMPORTANT: backslash MUST be escaped first, before other characters
 // that introduce backslashes (e.g. ' → \'), to avoid double-escaping.
+//   1. JSONWriter output (normalizedRuleJson, nodeTypesJson): control chars
+//      (\t \b \f \v \0 U+2028 U+2029) are already escaped by JSONWriter as
+//      \uXXXX, so only \\ and \' replacements are strictly needed; the
+//      remaining replacements are harmless no-ops.
+//   2. Raw input (ruleId): all replacements are necessary since the string
+//      may contain literal control characters.
 std::string EscapeForJsSingleQuotedString(const std::string& input) {
   std::string escaped = input;
   base::ReplaceChars(escaped, "\\", "\\\\", &escaped);
   base::ReplaceChars(escaped, "'", "\\'", &escaped);
   base::ReplaceChars(escaped, "\n", "\\n", &escaped);
   base::ReplaceChars(escaped, "\r", "\\r", &escaped);
-  return escaped;
-}
-
-// Escape a value for embedding inside a JSON double-quoted string
-// (used when building nodeTypesJson array entries).
-std::string EscapeForJsonStringValue(const std::string& input) {
-  std::string escaped = input;
-  base::ReplaceChars(escaped, "\\", "\\\\", &escaped);
-  base::ReplaceChars(escaped, "\"", "\\\"", &escaped);
+  base::ReplaceChars(escaped, "\t", "\\t", &escaped);
+  base::ReplaceChars(escaped, "\b", "\\b", &escaped);
+  base::ReplaceChars(escaped, "\f", "\\f", &escaped);
+  base::ReplaceChars(escaped, "\v", "\\v", &escaped);
+  base::ReplaceChars(escaped, std::string(1, '\0'), "\\x00", &escaped);
+  // U+2028 (Line Separator) and U+2029 (Paragraph Separator) are line
+  // terminators in JS and would break single-quoted string literals.
+  const std::string kUtf8LineSeparator("\xe2\x80\xa8");
+  const std::string kUtf8ParagraphSeparator("\xe2\x80\xa9");
+  base::ReplaceChars(escaped, kUtf8LineSeparator, "\\u2028", &escaped);
+  base::ReplaceChars(escaped, kUtf8ParagraphSeparator, "\\u2029", &escaped);
   return escaped;
 }
 
 }  // namespace
 
 namespace OHOS::NWeb {
+
+// Input size limits to prevent excessively large JS injection.
+constexpr size_t kMaxRuleJsonLength = 128 * 1024; // 128 KB
+constexpr size_t kMaxRuleIdLength = 1024;
+constexpr size_t kMaxNodeTypesCount = 128;
+constexpr size_t kMaxNodeTypeLength = 1024;
+// Maximum nesting depth for JSON parsing to prevent stack overflow.
+constexpr int kJsonMaxNestingDepth = 32;
 
 constexpr std::string_view kStartTemplate = "(function(window) { window.viewportFontMonitor.start($1, $2); })(window);";
 constexpr std::string_view kStopTemplate = "(function(window) { window.viewportFontMonitor.stop(); })(window);";
@@ -213,38 +231,81 @@ void NWebContentChangeDetection::StartRunDomExtraction() {
   nweb_delegate_->ExecuteJavaScript(dom_final_js);
 }
 
+bool NWebContentChangeDetection::ValidatePageSceneQueryInput(
+    const std::string& ruleJson,
+    const std::string& ruleId,
+    const std::vector<std::string>& nodeTypes,
+    std::string& outNormalizedRuleJson) {
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "RequestPageSceneQuery, nweb_delegate_ is nullptr";
+    return false;
+  }
+  if (ruleJson.size() > kMaxRuleJsonLength) {
+    LOG(ERROR) << "RequestPageSceneQuery, ruleJson exceeds max length: "
+               << ruleJson.size() << " > " << kMaxRuleJsonLength;
+    return false;
+  }
+  if (ruleId.size() > kMaxRuleIdLength) {
+    LOG(ERROR) << "RequestPageSceneQuery, ruleId exceeds max length: "
+               << ruleId.size() << " > " << kMaxRuleIdLength;
+    return false;
+  }
+  if (nodeTypes.size() > kMaxNodeTypesCount) {
+    LOG(ERROR) << "RequestPageSceneQuery, nodeTypes count exceeds max: "
+               << nodeTypes.size() << " > " << kMaxNodeTypesCount;
+    return false;
+  }
+  for (const auto& nodeType : nodeTypes) {
+    if (nodeType.size() > kMaxNodeTypeLength) {
+      LOG(ERROR) << "RequestPageSceneQuery, nodeType exceeds max length: "
+                 << nodeType.size() << " > " << kMaxNodeTypeLength;
+      return false;
+    }
+  }
+
+  // Validate ruleJson is valid JSON and re-serialize for normalization (CHR-01).
+  // Re-serialization ensures canonical JSON output (e.g. U+2028/U+2029 escaping)
+  // and consistency with nodeTypes handling via JSONWriter.
+  auto parsed = base::JSONReader::Read(ruleJson, base::JSON_PARSE_RFC,
+                                       kJsonMaxNestingDepth);
+  if (!parsed) {
+    LOG(ERROR) << "RequestPageSceneQuery, ruleJson is not valid JSON";
+    return false;
+  }
+  base::JSONWriter::Write(*parsed, &outNormalizedRuleJson);
+  return true;
+}
+
 void NWebContentChangeDetection::RequestPageSceneQuery(
     const std::string& ruleJson,
     const std::string& ruleId,
     const std::vector<std::string>& nodeTypes,
     std::shared_ptr<NWebMessageValueCallback> callback) {
   LOG(INFO) << "NWebContentChangeDetection::RequestPageSceneQuery"
-            << ", ruleId: " << ruleId
+            << ", ruleId length: " << ruleId.size()
             << ", nodeTypes: " << nodeTypes.size();
-  if (!nweb_delegate_) {
-    LOG(ERROR) << "RequestPageSceneQuery, nweb_delegate_ is nullptr";
+
+  std::string normalizedRuleJson;
+  if (!ValidatePageSceneQueryInput(ruleJson, ruleId, nodeTypes, normalizedRuleJson)) {
     return;
   }
+
   const auto& rb = ui::ResourceBundle::GetSharedInstance();
   std::string_view js_resource = rb.GetRawDataResource(IDR_PAGE_SCENE_QUERY_JS);
   if (js_resource.empty()) {
     LOG(ERROR) << "get page scene query script failed";
     return;
   }
-  std::string escapedRuleJson = EscapeForJsSingleQuotedString(ruleJson);
+  std::string escapedRuleJson = EscapeForJsSingleQuotedString(normalizedRuleJson);
   std::string escapedRuleId = EscapeForJsSingleQuotedString(ruleId);
 
-  // Build nodeTypes JSON array string ([] when empty → JS side skips observer)
-  // Each value is escaped for JSON double-quoted string context, then the
-  // whole array is escaped for JS single-quoted string context ($3 placeholder).
-  std::string nodeTypesJson = "[";
-  for (size_t i = 0; i < nodeTypes.size(); i++) {
-    if (i > 0) {
-      nodeTypesJson += ",";
-    }
-    nodeTypesJson += "\"" + EscapeForJsonStringValue(nodeTypes[i]) + "\"";
+  // Build nodeTypes JSON array using base::Value + JSONWriter (CHR-01).
+  base::Value::List node_types_list;
+  for (const auto& nodeType : nodeTypes) {
+    node_types_list.Append(nodeType);
   }
-  nodeTypesJson += "]";
+  std::string nodeTypesJson;
+  base::JSONWriter::Write(node_types_list, &nodeTypesJson);
   nodeTypesJson = EscapeForJsSingleQuotedString(nodeTypesJson);
 
   std::string call_js = base::ReplaceStringPlaceholders(
