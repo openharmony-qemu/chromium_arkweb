@@ -7048,6 +7048,45 @@ void NWebImpl::OnSafeBrowsingDetectionResult(
   nweb_delegate_->OnSafeBrowsingDetectionResult(safeBrowsingDetectionResult);
 }
 
+void NWebImpl::EnableSafeBrowsingExternalInterstitial(bool enable) const {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+  nweb_delegate_->EnableSafeBrowsingExternalInterstitial(enable);
+}
+
+void NWebImpl::SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SafeBrowsingResponseShowInterstitial(response_key, html);
+}
+
+void NWebImpl::SafeBrowsingResponseProceed(int64_t response_key) const {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SafeBrowsingResponseProceed(response_key);
+}
+
+void NWebImpl::SafeBrowsingResponseBackToSafety(int64_t response_key) const {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SafeBrowsingResponseBackToSafety(response_key);
+}
+
+void NWebImpl::SafeBrowsingResponseDelete(int64_t response_key) {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SafeBrowsingResponseDelete(response_key);
+}
+
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 
 void NWebImpl::StartCamera() {

@@ -239,13 +239,16 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   bool is_safe_browsing_config_ = false;
   bool is_safe_browsing_enabled_ = false;
+  bool is_safe_browsing_external_interstitial_ = false;
   GURL safe_browsing_check_url_;
   int safe_browsing_check_code_ = 0;
   int safe_browsing_check_threat_type_ = 0;
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override;
+  void EnableSafeBrowsingExternalInterstitial(bool enable) override;
   bool IsSafeBrowsingDetectionConfig() override;
   bool IsSafeBrowsingDetectionStrict() override;
   bool IsSafeBrowsingDetectionDisabled() override;
+  bool IsSafeBrowsingExternalInterstitialEnabled() override;
   void SetSafeBrowsingCheckDetail(int code, int threat_type, const GURL& url);
   void GetSafeBrowsingCheckDetail(int& code, int& threat_type, GURL& url) const;
 #endif

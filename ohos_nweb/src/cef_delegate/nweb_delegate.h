@@ -520,6 +520,11 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override;
   void OnSafeBrowsingDetectionResult(
       const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) override;
+  void EnableSafeBrowsingExternalInterstitial(bool enable) override;
+  void SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const override;
+  void SafeBrowsingResponseProceed(int64_t response_key) const override;
+  void SafeBrowsingResponseBackToSafety(int64_t response_key) const override;
+  void SafeBrowsingResponseDelete(int64_t response_key) override;
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 
 #if BUILDFLAG(IS_OHOS)
