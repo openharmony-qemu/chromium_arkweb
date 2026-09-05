@@ -43,6 +43,9 @@ public:
         const std::string& ruleId,
         const std::vector<std::string>& nodeTypes,
         std::shared_ptr<NWebMessageValueCallback> callback) override;
+    void RequestWebDomJsonStringWithOptions(
+        std::shared_ptr<NWebMessageValueCallback> callback,
+        int32_t mode) override;    
 private:
     base::WeakPtr<NWebDelegate> nweb_delegate_;
 
