@@ -926,8 +926,10 @@ int32_t CommandActionDOMHelper::ExecuteScroll(Document* document,
     const ComputedStyle* style = parent->GetComputedStyle();
     if (style) {
       EOverflow overflow_y = style->OverflowY();
+      int scroll_h = parent->scrollHeight();
+      int client_h = parent->clientHeight();
       if ((overflow_y == EOverflow::kAuto || overflow_y == EOverflow::kScroll) &&
-          parent->scrollHeight() > parent->clientHeight()) {
+          scroll_h > client_h) {
         scroll_container = parent;
         break;
       }
@@ -939,31 +941,48 @@ int32_t CommandActionDOMHelper::ExecuteScroll(Document* document,
                    scroll_container == document->documentElement() ||
                    scroll_container == document->body();
 
-  // Get element bounding rect
-  gfx::RectF element_rect = element->GetBoundingClientRectNoLifecycleUpdateNoAdjustment();
+  // Get zoom factor — internal scroll APIs (GetScrollOffset/SetScrollOffset) work
+  // in physical (layout) pixels which include zoom, while DOM APIs (scrollTop/
+  // setScrollTop) and getBoundingClientRect work in CSS pixels. The window scroll
+  // branch uses internal APIs, so we must convert explicitly: read offset ÷ zoom,
+  // write offset × zoom.
+  float layout_zoom = 1.0f;
+  {
+    LocalFrame* frame = document->GetFrame();
+    if (frame) {
+      layout_zoom = frame->LayoutZoomFactor();
+    }
+  }
+
+  // Use CSS-pixel rect (zoom-adjusted) to match scrollTop() which also returns CSS pixels
+  gfx::RectF element_rect = element->GetBoundingClientRectNoLifecycleUpdate();
 
   // Calculate current scroll position and container dimensions
   double current_top = 0;
   double container_height = 0;
   double container_top = 0;
+  double container_client_top = 0;  // border-top width, JS subtracts this
   if (is_window) {
     LocalFrame* frame = document->GetFrame();
     if (frame && frame->View()) {
       ScrollableArea* scrollable = frame->View()->GetScrollableArea();
       if (scrollable) {
-        current_top = scrollable->GetScrollOffset().y();
-        container_height = scrollable->VisibleContentRect().height();
+        // GetScrollOffset() and VisibleContentRect() return physical (layout)
+        // pixels; convert to CSS pixels to match element_rect coordinate system.
+        current_top = scrollable->GetScrollOffset().y() / layout_zoom;
+        container_height = scrollable->VisibleContentRect().height() / layout_zoom;
       }
       container_top = 0;
     }
   } else {
     current_top = scroll_container->scrollTop();
     container_height = scroll_container->clientHeight();
-    gfx::RectF container_rect = scroll_container->GetBoundingClientRectNoLifecycleUpdateNoAdjustment();
+    gfx::RectF container_rect = scroll_container->GetBoundingClientRectNoLifecycleUpdate();
     container_top = container_rect.y();
+    container_client_top = scroll_container->clientTop();
   }
 
-  double absolute_top = current_top + (element_rect.y() - container_top);
+  double absolute_top = current_top + (element_rect.y() - container_top) - container_client_top;
 
   // Calculate target position based on align
   double target = 0;
@@ -985,14 +1004,16 @@ int32_t CommandActionDOMHelper::ExecuteScroll(Document* document,
     if (frame && frame->View()) {
       ScrollableArea* scrollable = frame->View()->GetScrollableArea();
       if (scrollable) {
+        // final_pos is in CSS pixels; SetScrollOffset expects physical (layout) pixels.
+        double physical_final_pos = final_pos * layout_zoom;
         scrollable->SetScrollOffset(
-            ScrollOffset(scrollable->GetScrollOffset().x(), final_pos),
+            ScrollOffset(scrollable->GetScrollOffset().x(), physical_final_pos),
             mojom::blink::ScrollType::kProgrammatic,
             cc::ScrollSourceType::kAbsoluteScroll);
       }
     }
   } else {
-    scroll_container->setScrollTop(static_cast<int>(final_pos));
+    scroll_container->setScrollTop(final_pos);
   }
 
   return static_cast<int32_t>(WebCommandErrorCode::SUCCESS);
