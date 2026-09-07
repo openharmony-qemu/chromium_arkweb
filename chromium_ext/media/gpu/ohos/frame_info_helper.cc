@@ -190,9 +190,17 @@ class FrameInfoHelperImpl : public FrameInfoHelper,
     auto& request = requests_.front();
 
     if (frame_info) {
-      visible_size_ = buffer_renderer->size();
-      frame_info_ = *frame_info;
-      std::move(request.callback).Run(std::move(buffer_renderer), frame_info_);
+      const gfx::Size size = buffer_renderer->size();
+      if (frame_info->coded_size == size) {
+        visible_size_ = size;
+        frame_info_ = *frame_info;
+        std::move(request.callback).Run(std::move(buffer_renderer), frame_info_);
+      } else {
+        LOG(WARNING) << "Coded size " << frame_info->coded_size.ToString()
+                     << " doesn't match buffer size " << size.ToString()
+                     << ", NOT CACHING stale frame info";
+        std::move(request.callback).Run(std::move(buffer_renderer), *frame_info);
+      }
     } else {
       auto info = GetFrameInfoWithVisibleSize(buffer_renderer->size());
       std::move(request.callback)
