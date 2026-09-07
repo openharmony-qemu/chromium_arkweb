@@ -726,7 +726,6 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
   }
 
   bool BeginReadAccess(gfx::GpuFenceHandle& acquire_fence) override {
-    TRACE_EVENT0("gpu", "DelegateVideoImageRepresentation::BeginReadAccess");
     base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     DCHECK(!scoped_native_buffer_);
     if (scoped_native_buffer_ != nullptr) {
@@ -746,7 +745,6 @@ class HwVideoNativeBufferImageBacking::DelegateVideoImageRepresentation
   }
 
   void EndReadAccess(gfx::GpuFenceHandle release_fence) override {
-    TRACE_EVENT0("gpu", "DelegateVideoImageRepresentation::EndReadAccess");
     base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
     DCHECK(scoped_native_buffer_);
     if (scoped_native_buffer_ == nullptr) {
