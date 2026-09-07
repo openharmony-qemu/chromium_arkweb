@@ -186,6 +186,9 @@ void RenderFrameImplUtils::ChangeCompleteInitialize(bool complete) {
 void RenderFrameImpl::SendCommitNavigationTime(int64_t start_time) {
   implUtils->ChangeCommitNavigationTime(start_time);
   implUtils->ChangeCompleteInitialize(true);
+  if (initialized_) {
+    implUtils->ReportRenderInitBlock();
+  }
 }
 #endif
 #endif

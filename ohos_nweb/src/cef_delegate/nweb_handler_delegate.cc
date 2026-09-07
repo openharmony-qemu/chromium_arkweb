@@ -5984,11 +5984,16 @@ void NWebHandlerDelegate::OnRenderProcessNotResponding(
       static_cast<RenderProcessNotRespondingReason>(reason);
   nweb_handler_->OnRenderProcessNotResponding(js_stack, pid, anr_reason);
 #if defined(REPORT_SYS_EVENT)
+  GURL url;
+  if (browser && browser->GetMainFrame()) {
+    url = GURL(browser->GetMainFrame()->GetURL().ToString());
+  }
   ReportRenderProcessNotResponding(
         std::to_string(pid),
         anr_reason == RenderProcessNotRespondingReason::INPUT_TIMEOUT
             ? "INPUT_TIMEOUT"
-            : "NAVIGATION_COMMIT_TIMEOUT");
+            : "NAVIGATION_COMMIT_TIMEOUT",
+        url);
 #endif
 }
 

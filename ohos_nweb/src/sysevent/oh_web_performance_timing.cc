@@ -8,6 +8,7 @@
 void OhWebPerformanceTiming::Reset() {
   navigation_id = -1;
   navigation_start = -1;
+  actual_navigation_start = -1;
   redirect_count = 0;
   redirect_start = -1;
   redirect_end = -1;
@@ -33,5 +34,12 @@ void OhWebPerformanceTiming::Reset() {
   input_time = -1;
   is_paint_done = false;
   first_meaningful_paint = -1;
+  first_input_delay = -1;
+  total_web_contents = -1;
+  is_ssl_cert_error = false;
+  current_connection_type =
+      net::NetworkChangeNotifier::CONNECTION_UNKNOWN;
+  effective_connection_type =
+      net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN;
 }
  

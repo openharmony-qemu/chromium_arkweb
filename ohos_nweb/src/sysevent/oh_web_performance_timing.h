@@ -8,12 +8,20 @@
 
 #include <cstdint>
 
+#include "net/base/network_change_notifier.h"
+#include "net/nqe/effective_connection_type.h"
+
 struct OhWebPerformanceTiming {
   OhWebPerformanceTiming() = default;
   void Reset();
 
   int64_t navigation_id = -1;
   int64_t navigation_start = -1;
+  // Updated on every navigation including reloads and renderer-initiated
+  // navigations. Unlike navigation_start (which is read from a static variable
+  // only updated in LoadURLWithParams), this field always reflects the
+  // actual start time of the current navigation.
+  int64_t actual_navigation_start = -1;
   uint32_t redirect_count = 0;
   int64_t redirect_start = -1;
   int64_t redirect_end = -1;
@@ -39,6 +47,13 @@ struct OhWebPerformanceTiming {
   int64_t input_time = -1;
   bool is_paint_done = false;
   int64_t first_meaningful_paint = -1;
+  int64_t first_input_delay = -1;
+  int64_t total_web_contents = -1;
+  bool is_ssl_cert_error = false;
+  net::NetworkChangeNotifier::ConnectionType current_connection_type =
+      net::NetworkChangeNotifier::CONNECTION_UNKNOWN;
+  net::EffectiveConnectionType effective_connection_type =
+      net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN;
 };
 
 #endif  // OH_WEB_PERFORMANCE_TIMING_H_
