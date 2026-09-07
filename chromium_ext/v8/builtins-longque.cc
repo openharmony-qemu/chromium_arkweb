@@ -133,7 +133,7 @@ class DelegateBuilder {
     ParsePropertyFilterFlags();
   }
 
-  Handle<JSObject> CreateDelegate();
+  MaybeHandle<JSObject> CreateDelegate();
 
   Handle<String> GetRedefinedProperty() const { return redefined_property_; }
 
@@ -175,8 +175,9 @@ static inline bool IsDelegate(Isolate* isolate, Handle<JSObject> object) {
   return result.ToChecked();
 }
 
-static inline void SetDelegateKey(Isolate* isolate, Handle<JSObject> object,
-                                  Handle<JSObject> value) {
+static inline Maybe<bool> SetDelegateKey(Isolate* isolate,
+                                          Handle<JSObject> object,
+                                          Handle<JSObject> value) {
   DCHECK(!IsDelegate(isolate, object));
   PropertyDescriptor desc;
   desc.set_enumerable(false);
@@ -184,10 +185,8 @@ static inline void SetDelegateKey(Isolate* isolate, Handle<JSObject> object,
   desc.set_writable(false);
   desc.set_value(value);
   Handle<Name> delegate_key = GetDelegateKey(isolate);
-  Maybe<bool> result = JSReceiver::OrdinaryDefineOwnProperty(
-      isolate, object, delegate_key, &desc, Just(kDontThrow));
-  (void)result;
-  DCHECK(result.ToChecked());
+  return JSReceiver::OrdinaryDefineOwnProperty(isolate, object, delegate_key,
+                                                &desc, Just(kDontThrow));
 }
 
 static void GetterForDelegate(v8::Local<v8::Name> name,
@@ -200,11 +199,16 @@ static void GetterForDelegate(v8::Local<v8::Name> name,
         Utils::ToLocal(isolate->factory()->undefined_value()));
     return;
   }
-  Tagged<JSObject> holder =
-      Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2()));
+  Handle<JSObject> holder = handle(
+      Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2())), isolate);
   auto symbol_key = GetDelegateKey(isolate);
   Handle<Object> target =
-      JSReceiver::GetDataProperty(isolate, handle(holder, isolate), symbol_key);
+      JSReceiver::GetDataProperty(isolate, holder, symbol_key);
+  if (!IsJSReceiver(*target)) {
+    info.GetReturnValue().Set(
+        Utils::ToLocal(isolate->factory()->undefined_value()));
+    return;
+  }
   // Maybe not data property
   Handle<Name> property_name = Utils::OpenHandle(*name);
   MaybeHandle<Object> maybe;
@@ -235,11 +239,17 @@ static void SetterForDelegate(Local<v8::Name> property, Local<v8::Value> value,
     info.GetReturnValue().Set(v8::False(info.GetIsolate()));
     return;
   }
-  Tagged<JSObject> holder =
-      Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2()));
+  Handle<JSObject> holder = handle(
+      Cast<JSObject>(*Utils::OpenDirectHandle(*info.HolderV2())), isolate);
   auto symbol_key = GetDelegateKey(isolate);
   Handle<Object> target =
-      JSReceiver::GetDataProperty(isolate, handle(holder, isolate), symbol_key);
+      JSReceiver::GetDataProperty(isolate, holder, symbol_key);
+  // Keep accessors left by a failed construction harmless until the object is
+  // successfully initialized as a delegate.
+  if (!IsJSReceiver(*target)) {
+    info.GetReturnValue().Set(v8::False(info.GetIsolate()));
+    return;
+  }
   AllowGarbageCollection allow_gc;
   // Handle exception if needed
   (void)i::Object::SetPropertyOrElement(isolate, Cast<JSReceiver>(target),
@@ -328,26 +338,44 @@ Handle<JSObject> DelegateBuilder::GetOrCreateInitObject() const {
   return isolate_->factory()->NewJSObject(isolate_->object_function());
 }
 
-Handle<JSObject> DelegateBuilder::CreateDelegate() {
+MaybeHandle<JSObject> DelegateBuilder::CreateDelegate() {
   Handle<JSObject> result = GetOrCreateInitObject();
-  SetDelegateKey(isolate_, result, underlying_object_);
+  Maybe<bool> set_delegate_key_result =
+      SetDelegateKey(isolate_, result, underlying_object_);
+  if (set_delegate_key_result.IsNothing()) {
+    return MaybeHandle<JSObject>();
+  }
+  if (!set_delegate_key_result.FromJust()) {
+    ThrowTypeError(isolate_, "Failed to initialize delegate object");
+    return MaybeHandle<JSObject>();
+  }
   Handle<JSReceiver> holder = underlying_object_;
   do {
     MaybeHandle<FixedArray> maybe = KeyAccumulator::GetKeys(
         isolate_, holder, KeyCollectionMode::kOwnOnly, ENUMERABLE_STRINGS,
         GetKeysConversion::kConvertToString);
-    Handle<FixedArray> prop_names = maybe.ToHandleChecked();
+    Handle<FixedArray> prop_names;
+    if (!maybe.ToHandle(&prop_names)) {
+      // Key collection threw (for example, an uninitialized module export).
+      // Return the empty MaybeHandle so the builtin can propagate the pending
+      // exception instead of returning a normal object.
+      return MaybeHandle<JSObject>();
+    }
     int length = prop_names->length();
     for (int i = 0; i < length; i++) {
       Handle<Object> key = Handle<Object>(prop_names->get(i), isolate_);
       DCHECK(IsString(*key));
       MayDefineAccessor(result, *key);
+      if (isolate_->has_exception()) {
+        return MaybeHandle<JSObject>();
+      }
     }
     if (skip_prototype_chain_) {
       break;
     }
     holder = handle(NextHolder(isolate_, holder->map()), isolate_);
   } while (!(*holder).is_null());
+
   return result;
 }
 
@@ -427,7 +455,9 @@ BUILTIN(CreateDelegate) {
 
   DelegateBuilder builder(isolate, Cast<JSObject>(underlying_object),
                           real_init_object, filter, skip_prototype_chain);
-  Handle<Object> result = builder.CreateDelegate();
+  Handle<JSObject> result;
+  ASSIGN_RETURN_FAILURE_ON_EXCEPTION(isolate, result,
+                                     builder.CreateDelegate());
   Handle<String> redefined_property = builder.GetRedefinedProperty();
   if (!redefined_property.is_null()) {
     THROW_NEW_ERROR_RETURN_FAILURE(
