@@ -3532,6 +3532,7 @@ void NWebImpl::OnFocus(const FocusReason& focusReason) {
   }
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
   nweb_delegate_->SetFocusWebId(nweb_id_);
+  ReportLossFrame::GetInstance()->SetUrl(GetUrl());
 #endif
   if (nweb_delegate_->IsCustomKeyboard()) {
     LOG(INFO) << "WebCustomKeyboard NWebImpl::OnFocus";

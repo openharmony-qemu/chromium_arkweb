@@ -60,8 +60,9 @@ const char kErrorPageReloadInfo[]               = "102_015002"; // Reload失败
 const char kNotifyChannelLagResult[]            = "102_015003"; // WirelessKitChanne切换
 const char kErrorWithWirelesskit[]              = "102_015004"; // WirelessKit错误
 
-// 资源加载错误
-const char kResourceLoadError[]    = "102_021001";
+// 资源加载性能/错误
+const char kResourceLoadError[]                 = "102_021001"; // 资源加载错误
+const char kPageLoadTimeStats[]                 = "102_021002"; // 页面加载时间统计
 // html解析错误
 const char kHtmlParseError[]       = "102_031001";
 // DOM树
@@ -85,6 +86,8 @@ const char kMediaError[] = "102_091001";
 const char kHardwareAccelerateError[] = "102_101001";
 // 网页滑动错误
 const char kWebpageSlideError[] = "102_111001";
+const char kJankStats[]         = "102_111002"; // 卡顿统计
+const char kSlideJankStats[]    = "102_111003"; // 滑动卡顿统计
 // 网页输入事件捕捉处理错误
 const char kWebpageInputEventError[] = "102_121001";
 // 下载业务模块
@@ -92,7 +95,12 @@ const char kDownloadError[] = "102_131001";
 // 广告拦截模块
 const char kAdblockError[] = "102_141001";
 // 进程启动错误
-const char kLauchProcessError[] = "102_142001";
+const char kLauchProcessError[]              = "102_142001"; // 进程启动错误
+const char kChildProcessInitFail[]           = "102_142002"; // 子进程初始化失败
+const char kRenderProcessTerminate[]         = "102_142003"; // 渲染进程终止
+const char kRenderJsFreeze[]                 = "102_142004"; // 渲染JS冻结
+const char kRenderProcessNotResponding[]     = "102_142005"; // 渲染进程无响应
+const char kSkiaOOMError[]                   = "102_142006";
 // 密码管理模块
 const char kPasswordManagerError[] = "102_151001";
 

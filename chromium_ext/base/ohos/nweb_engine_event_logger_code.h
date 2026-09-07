@@ -27,7 +27,7 @@ namespace ohos {
 /********************************************
   *错误码*     *描述*
 102_01****  网络请求错误
-102_021001  资源加载错误
+102_02****  资源加载性能/错误
 102_031001  html解析错误
 102_041001  DOM树
 102_051001  网页layer tree创建错误
@@ -36,11 +36,11 @@ namespace ohos {
 102_08****  渲染
 102_091001  媒体错误（音视频播放等）
 102_101001  硬件加速错误
-102_111001  网页滑动错误
+102_111***  网页滑动错误
 102_121001  网页输入事件捕捉处理错误
 102_131001  下载业务模块
 102_141001  广告拦截模块
-102_142001  进程启动错误
+102_142***  进程错误
 102_151001  密码管理模块
 **********************************************/
 
@@ -86,8 +86,10 @@ BASE_EXPORT extern const char kErrorPageReloadInfo[];
 BASE_EXPORT extern const char kNotifyChannelLagResult[];
 BASE_EXPORT extern const char kErrorWithWirelesskit[];
 
-// 资源加载错误
+// 资源加载性能/错误
 BASE_EXPORT extern const char kResourceLoadError[];
+BASE_EXPORT extern const char kPageLoadTimeStats[];
+
 // html解析错误
 BASE_EXPORT extern const char kHtmlParseError[];
 // DOM树
@@ -111,6 +113,8 @@ BASE_EXPORT extern const char kMediaError[];
 BASE_EXPORT extern const char kHardwareAccelerateError[];
 // 网页滑动错误
 BASE_EXPORT extern const char kWebpageSlideError[];
+BASE_EXPORT extern const char kJankStats[];
+BASE_EXPORT extern const char kSlideJankStats[];
 // 网页输入事件捕捉处理错误
 BASE_EXPORT extern const char kWebpageInputEventError[];
 // 下载业务模块
@@ -119,6 +123,11 @@ BASE_EXPORT extern const char kDownloadError[];
 BASE_EXPORT extern const char kAdblockError[];
 // 进程启动错误
 BASE_EXPORT extern const char kLauchProcessError[];
+BASE_EXPORT extern const char kChildProcessInitFail[];
+BASE_EXPORT extern const char kRenderProcessTerminate[];
+BASE_EXPORT extern const char kRenderJsFreeze[];
+BASE_EXPORT extern const char kRenderProcessNotResponding[];
+BASE_EXPORT extern const char kSkiaOOMError[];
 // 密码管理模块
 BASE_EXPORT extern const char kPasswordManagerError[];
 
