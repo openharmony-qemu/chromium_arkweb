@@ -357,9 +357,14 @@ void CreateAndBindEglImageFromNativeBuffer(OHOSNativeBuffer buffer,
   DCHECK(buffer);
 
   EGLClientBuffer egl_client_buffer;
-  gl::ohos::GetEGLClientBufferFromNativeBuffer(buffer, &egl_client_buffer);
+  if (gl::ohos::GetEGLClientBufferFromNativeBuffer(buffer,
+                                                   &egl_client_buffer) != 0) {
+    LOG(ERROR) << "Failed to get EGLClientBuffer!";
+    return;
+  }
 
   auto egl_image = gl::ohos::CreateEGLImageForVideo(egl_client_buffer);
+  gl::ohos::FreeEGLClientBuffer(egl_client_buffer);
 
   if (egl_image == EGL_NO_IMAGE_KHR) {
     LOG(ERROR) << "Failed to create EGLImage! ";
