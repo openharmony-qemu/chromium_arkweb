@@ -605,7 +605,7 @@ class ClipboardOHOSInternal {
 
     if (copy_option_cb_.is_null()) {
       LOG(ERROR) << "copy_option_cb_ is null.";
-      return;
+      return nullptr;
     }
     auto copy_option = static_cast<CopyOptionMode>(copy_option_cb_.Run());
 
@@ -803,7 +803,7 @@ class ClipboardDataBuilder {
   static void WriteText(std::string_view text) {
     ClipboardData* data = GetCurrentData();
     if (data) {
-      data->set_text(text.data());
+      data->set_text(std::string(text));
     }
   }
 
