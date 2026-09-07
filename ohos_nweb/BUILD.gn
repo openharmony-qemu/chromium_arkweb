@@ -442,7 +442,10 @@ static_library("cef_nweb") {
   }
 
   if (defined(arkweb_nweb_ex) && arkweb_nweb_ex) {
-    deps += [ "//ohos_nweb_ex/overrides/ohos_nweb" ]
+    deps += [
+      "//ohos_nweb_ex/overrides/cef",
+      "//ohos_nweb_ex/overrides/ohos_nweb",
+    ]
   } else {
     sources += [ "src/cef_delegate/nweb_delegate_ohos.cc" ]
   }

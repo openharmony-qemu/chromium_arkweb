@@ -36,7 +36,7 @@ class RenderRemoteProxy : public OHOS::NWeb::AafwkRenderSchedulerHostAdapter {
 
   static void CreateAndRegist(const base::CommandLine& command_line,
                              const std::string& process_type);
-  static bool WaitForBrowserFd();
+  static bool WaitForBrowserFd(bool is_gpu = false);
   static bool IsFdsChannelReady();
 
  private:

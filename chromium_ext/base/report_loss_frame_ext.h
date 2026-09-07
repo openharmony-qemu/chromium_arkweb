@@ -55,6 +55,8 @@ class BASE_EXPORT ReportLossFrame {
 
   void SetVsyncPeriod(int64_t vsync_period);
 
+  void SetUrl(const std::string& url);
+
   int64_t GetCurrentTimestampMS();
 
  private:
@@ -71,6 +73,8 @@ class BASE_EXPORT ReportLossFrame {
   int64_t start_time_ = 0;
 
   int64_t vsync_period_ = 0;
+
+  std::string url_;
 
   bool need_report_ = false;
 
