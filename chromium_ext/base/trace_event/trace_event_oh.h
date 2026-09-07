@@ -61,10 +61,11 @@ std::string GetStringFromArgs(const char* name,
 
 template<typename T>
 std::string OHOSTracetoString(T&& value) {
-  if constexpr (std::is_same_v<std::decay_t<T>, std::string> || 
-                std::is_same_v<std::decay_t<T>, const char*> || 
-                std::is_same_v<std::decay_t<T>, char*>) {
+  if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
     return value;
+  } else if constexpr (std::is_same_v<std::decay_t<T>, const char*> ||
+                       std::is_same_v<std::decay_t<T>, char*>) {
+    return value ? value : "";
   } else {
     return std::to_string(value);
   }
