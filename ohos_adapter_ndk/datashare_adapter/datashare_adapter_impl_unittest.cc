@@ -57,11 +57,11 @@ TEST_F(DatashareAdapterImplTest, GetRealPath_Fail) {
 }
 
 TEST_F(DatashareAdapterImplTest, GetRealPath_Success) {
-  const std::string expectedPath = "/data/valid/path";
+  const std::string expectedPath = "/data/storage/el2/base/files/valid";
 
   EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
-              GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
-                                validUri_.length(), testing::_))
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
     .WillOnce(testing::Invoke([&](const char*, unsigned int, char** out) {
       *out = strdup(expectedPath.c_str());
       return ERR_OK;
@@ -69,6 +69,47 @@ TEST_F(DatashareAdapterImplTest, GetRealPath_Success) {
 
   std::string result = adapter_->GetRealPath(validUri_);
   EXPECT_EQ(result, expectedPath);
+}
+
+TEST_F(DatashareAdapterImplTest, GetRealPath_RejectParentPath) {
+  const std::string traversalPath =
+      "/data/storage/el2/media/../../../../etc/passwd";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
+    .WillOnce(testing::Invoke([&](const char*, unsigned int, char** out) {
+      *out = strdup(traversalPath.c_str());
+      return ERR_OK;
+    }));
+
+  EXPECT_TRUE(adapter_->GetRealPath(validUri_).empty());
+}
+
+TEST_F(DatashareAdapterImplTest, GetRealPath_RejectIllegalPathPrefix) {
+  const std::string illegalPath = "/etc/passwd";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
+    .WillOnce(testing::Invoke([&](const char*, unsigned int, char** out) {
+      *out = strdup(illegalPath.c_str());
+      return ERR_OK;
+    }));
+
+  EXPECT_TRUE(adapter_->GetRealPath(validUri_).empty());
+}
+
+TEST_F(DatashareAdapterImplTest, GetRealPath_RejectNulEncodedUri) {
+  const std::string uri =
+      "file://docs/storage/Users/currentUser/Documents/a%00b";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(uri.c_str()), uri.length(),
+                                 testing::_))
+    .Times(0);
+
+  EXPECT_TRUE(adapter_->GetRealPath(uri).empty());
 }
 
 TEST_F(DatashareAdapterImplTest, GetFileDisplayName_Success) {
@@ -98,10 +139,51 @@ TEST_F(DatashareAdapterImplTest, GetFileDisplayName_Failure) {
 
 TEST_F(DatashareAdapterImplTest, OpenDataShareUriForRead_Failure_GetPath) {
   EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
-              GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
-                                validUri_.length(), testing::_))
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
     .WillOnce(testing::Return(ERR_ENOMEM));
 
   int fd = adapter_->OpenDataShareUriForRead(validUri_);
   EXPECT_EQ(fd, -1);
+}
+
+TEST_F(DatashareAdapterImplTest, OpenDataShareUriForRead_RejectParentPath) {
+  const std::string traversalPath =
+      "/data/storage/el2/media/../../../../etc/passwd";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
+    .WillOnce(testing::Invoke([&](const char*, unsigned int, char** out) {
+      *out = strdup(traversalPath.c_str());
+      return ERR_OK;
+    }));
+
+  EXPECT_EQ(adapter_->OpenDataShareUriForRead(validUri_), -1);
+}
+
+TEST_F(DatashareAdapterImplTest, OpenDataShareUriForRead_RejectIllegalPathPrefix) {
+  const std::string illegalPath = "/etc/passwd";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(validUri_.c_str()),
+                                 validUri_.length(), testing::_))
+    .WillOnce(testing::Invoke([&](const char*, unsigned int, char** out) {
+      *out = strdup(illegalPath.c_str());
+      return ERR_OK;
+    }));
+
+  EXPECT_EQ(adapter_->OpenDataShareUriForRead(validUri_), -1);
+}
+
+TEST_F(DatashareAdapterImplTest, OpenDataShareUriForRead_RejectNulEncodedUri) {
+  const std::string uri =
+      "file://docs/storage/Users/currentUser/Documents/a%00b";
+
+  EXPECT_CALL(MockDatashareCommonEventSupport::GetInstance(),
+               GetPathFromUriMock(testing::StrEq(uri.c_str()), uri.length(),
+                                 testing::_))
+    .Times(0);
+
+  EXPECT_EQ(adapter_->OpenDataShareUriForRead(uri), -1);
 }
