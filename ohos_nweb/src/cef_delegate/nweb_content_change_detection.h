@@ -17,6 +17,7 @@
 #define NWEB_CONTENT_CHANGE_DETECTION_H
 
 #include "nweb_delegate_interface.h"
+#include "ohos_nweb/include/nweb_agent_manager.h"
 #include "arkweb/build/features/features.h"
 #include "base/feature_list.h"
 
@@ -33,6 +34,9 @@ class NWebContentChangeDetection {
   void SetContentChangeDetectionConfig(int32_t min_report_time, float text_content_ratio);
   void SetDomExtractionConfig(bool reportDomTree);
   void RequestWebDomJsonString(std::shared_ptr<NWebMessageValueCallback> callback);
+  void RequestWebDomJsonStringWithOptions(
+      std::shared_ptr<NWebMessageValueCallback> callback,
+      int32_t mode);
   void StartRunDomExtraction();
   void RequestPageSceneQuery(
       const std::string& ruleJson,

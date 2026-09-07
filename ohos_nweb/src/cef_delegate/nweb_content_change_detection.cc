@@ -76,6 +76,7 @@ constexpr int kJsonMaxNestingDepth = 32;
 constexpr std::string_view kStartTemplate = "(function(window) { window.viewportFontMonitor.start($1, $2); })(window);";
 constexpr std::string_view kStopTemplate = "(function(window) { window.viewportFontMonitor.stop(); })(window);";
 constexpr std::string_view kRequestWebDomTemplate = "window.__arkWebDomTree.getWebDom();";
+constexpr std::string_view kRequestWebDomViewportTemplate = "window.__arkWebDomTree.getWebDom();";
 constexpr std::string_view kWebDomReportedTemplate = "window.__arkWebDomTree.addDomTreeReported();";
 constexpr std::string_view kWebDomReportedAsyncTemplate = "window.__arkWebDomTree.addDomTreeReportedAsync();";
 constexpr std::string_view kRemoveWebDomReportedTemplate = "window.__arkWebDomTree.removeDomTreeReported();";
@@ -178,6 +179,35 @@ void NWebContentChangeDetection::RequestWebDomJsonString(std::shared_ptr<NWebMes
   std::string dom_script_extractor(js_dom_extrator);
   std::string dom_final_js = dom_script_extractor + std::string(kRequestWebDomTemplate);
   nweb_delegate_->ExecuteJavaScript(dom_final_js, callback, false);
+}
+
+void NWebContentChangeDetection::RequestWebDomJsonStringWithOptions(
+    std::shared_ptr<NWebMessageValueCallback> callback,
+    int32_t mode) {
+  LOG(INFO) << "NWebContentChangeDetection::RequestWebDomJsonStringWithOptions, mode: " << mode;
+  const auto& rb = ui::ResourceBundle::GetSharedInstance();
+
+  if (mode == static_cast<int32_t>(OHOS::NWeb::NWebDomExtractionMode::VIEWPORT_ONLY)) {
+    // Viewport-only mode: load viewport JS extractor
+    std::string_view js_dom_extractor = rb.GetRawDataResource(IDR_DOM_TREE_EXTRACTOR_VIEWPORT_JS);
+    if (js_dom_extractor.empty()) {
+      LOG(ERROR) << "get dom tree viewport extractor script failed";
+      return;
+    }
+    std::string dom_script_extractor(js_dom_extractor);
+    std::string dom_final_js = dom_script_extractor + std::string(kRequestWebDomViewportTemplate);
+    nweb_delegate_->ExecuteJavaScript(dom_final_js, callback, false);
+  } else {
+    // Default (FULL_TREE) mode: same as RequestWebDomJsonString
+    std::string_view js_dom_extractor = rb.GetRawDataResource(IDR_DOM_TREE_EXTRACTOR_JS);
+    if (js_dom_extractor.empty()) {
+      LOG(ERROR) << "get dom tree extractor script failed";
+      return;
+    }
+    std::string dom_script_extractor(js_dom_extractor);
+    std::string dom_final_js = dom_script_extractor + std::string(kRequestWebDomTemplate);
+    nweb_delegate_->ExecuteJavaScript(dom_final_js, callback, false);
+  }
 }
 
 void NWebContentChangeDetection::StartRunDomExtraction() {

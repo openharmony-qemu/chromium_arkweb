@@ -86,4 +86,12 @@ void NWebAgentManagerImpl::RequestPageSceneQuery(
           ruleJson, ruleId, nodeTypes, callback);
     }
 }
+
+void NWebAgentManagerImpl::RequestWebDomJsonStringWithOptions(
+    std::shared_ptr<NWebMessageValueCallback> callback,
+    int32_t mode) {
+    if (content_change_detection_) {
+      content_change_detection_->RequestWebDomJsonStringWithOptions(callback, mode);
+    }
+}
 }  // namespace OHOS::NWeb
