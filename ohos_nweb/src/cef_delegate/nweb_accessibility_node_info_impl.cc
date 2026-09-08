@@ -476,4 +476,21 @@ std::string NWebAccessibilityNodeInfoImpl::GetExpandedState() {
   return expanded_state_;
 }
 
+void NWebAccessibilityNodeInfoImpl::SetAddText(const std::string& add_text) {
+  add_text_ = add_text;
+}
+
+std::string NWebAccessibilityNodeInfoImpl::GetAddText() {
+  return add_text_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetRemoveText(
+    const std::string& remove_text) {
+  remove_text_ = remove_text;
+}
+
+std::string NWebAccessibilityNodeInfoImpl::GetRemoveText() {
+  return remove_text_;
+}
+
 }  // namespace OHOS::NWeb
