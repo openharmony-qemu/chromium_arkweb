@@ -248,6 +248,14 @@ class NWebAccessibilityNodeInfoImpl : public NWebAccessibilityNodeInfo {
 
   std::string GetExpandedState() override;
 
+  void SetAddText(const std::string& add_text);
+
+  std::string GetAddText() override;
+
+  void SetRemoveText(const std::string& remove_text);
+
+  std::string GetRemoveText() override;
+
  private:
   int64_t accessibility_id_ = -1;
   size_t item_counts_ = 0;
@@ -308,6 +316,8 @@ class NWebAccessibilityNodeInfoImpl : public NWebAccessibilityNodeInfo {
   bool deletable_ : 1;
   bool accessibility_focus_ : 1;
   bool accessibility_group_ : 1;
+  std::string add_text_;
+  std::string remove_text_;
 };
 
 }  // namespace OHOS::NWeb

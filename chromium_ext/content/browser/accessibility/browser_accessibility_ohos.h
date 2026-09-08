@@ -42,6 +42,8 @@ class CONTENT_EXPORT BrowserAccessibilityOHOS : public BrowserAccessibility {
   ~BrowserAccessibilityOHOS() override;
 
   int64_t GetAccessibilityId() const;
+  void OnDataChanged() override;
+  std::pair<std::string, std::string> GetTextChangedInTextFieldV2() const;
 
   bool IsEnabled() const;
 
@@ -265,8 +267,13 @@ class CONTENT_EXPORT BrowserAccessibilityOHOS : public BrowserAccessibility {
                               const gfx::Rect& itemRect,
                               const gfx::Rect& tempBest);
 
+  static bool IsLowSurrogate(char16_t c);
+  static bool IsHighSurrogate(char16_t c);
+
   int64_t accessibility_id_ = -1;
   std::string html_element_id_;
+  std::u16string old_value_;
+  std::u16string new_value_;
 };
 }  // namespace ui
 
