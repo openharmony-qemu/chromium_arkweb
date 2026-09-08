@@ -42,8 +42,8 @@ bool ArkwebCustomFontManager::SetCustomFonts(
     ::base::FilePath file_path = ::base::FilePath(customFont.fontPath);
     if (file_path.Extension() == ".ttf" || file_path.Extension() == ".ttc" ||
         file_path.Extension() == ".otf") {
-      LOG(INFO) << "add custom font {" << customFont.fontName << ": "
-                << customFont.fontPath << "}";
+      LOG(DEBUG) << "add custom font {" << customFont.fontName << ": "
+                 << customFont.fontPath << "}";
       arkweb_custom_fonts_.emplace(blink::IcuFoldCase(customFont.fontName),
                                    std::move(file_path));
     } else {
@@ -97,7 +97,7 @@ ArkwebCustomFontManager::GetFontByUniqueName(const std::string &name) {
       LOG(DEBUG) << "found valid font file for " << name;
       return fontFile;
     } else {
-      LOG(WARNING) << "found invalid font file: " << fontPath.value();
+      LOG(DEBUG) << "found invalid font file: " << fontPath.value();
     }
   }
   return ::base::File();
@@ -113,7 +113,7 @@ ArkwebCustomFontManager::GetAllCustomFonts() {
     if (fontFile.IsValid()) {
       fonts.emplace(iter->first, std::move(fontFile));
     } else {
-      LOG(WARNING) << "invalid font file: " << iter->second.value();
+      LOG(DEBUG) << "invalid font file: " << iter->second.value();
     }
   }
   LOG(DEBUG) << "all custom font size " << fonts.size();
