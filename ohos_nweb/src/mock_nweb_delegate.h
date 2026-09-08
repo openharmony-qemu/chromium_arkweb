@@ -1168,6 +1168,36 @@ class MockNWebDelegate : public NWebDelegateInterface {
                const std::vector<int32_t>& indexes,
                const std::vector<std::string>& values),
               (override));
+  MOCK_METHOD(int32_t,
+              ExecuteFocusCommand,
+              (const std::string& xpath, bool suppress_keyboard),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputModifyCommand,
+              (const std::string& content),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputInsertCommand,
+              (const std::string& content, int32_t index),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteClickCommand,
+              (const std::string& xpath),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteScrollCommand,
+              (const std::string& xpath,
+               const std::string& align,
+               int32_t offset),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputSelectCommand,
+              (int32_t start_index, int32_t finish_index),
+              (override));
+  MOCK_METHOD(int32_t,
+              ExecuteInputSetCursorCommand,
+              (int32_t index),
+              (override));
   MOCK_METHOD(std::shared_ptr<NWebCommandActionManager>,
               GetCommandActionManager,
               (),

@@ -26,6 +26,25 @@
 
 namespace OHOS::NWeb {
 
+// Concrete implementation of AutoFillItem for internal use in arkweb.
+class AutoFillItemImpl : public AutoFillItem {
+public:
+    AutoFillItemImpl(const std::string& xpath, const std::string& content,
+                     int32_t index, AutoFillMode mode)
+        : xpath_(xpath), content_(content), index_(index), mode_(mode) {}
+
+    std::string GetXPath() const override { return xpath_; }
+    std::string GetContent() const override { return content_; }
+    int32_t GetIndex() const override { return index_; }
+    AutoFillMode GetMode() const override { return mode_; }
+
+private:
+    std::string xpath_;
+    std::string content_;
+    int32_t index_ = 0;
+    AutoFillMode mode_ = AutoFillMode::Overwrite;
+};
+
 NWebCommandActionManagerImpl::NWebCommandActionManagerImpl(
     base::WeakPtr<NWebDelegate> nweb_delegate)
     : nweb_delegate_(nweb_delegate) {}
@@ -231,6 +250,118 @@ std::string NWebCommandActionManagerImpl::BuildPinchGestureCommand(
     params += ",\"gestureSourceType\": \"mouse\""
              "}";
     return "\"method\": \"Input.synthesizePinchGesture\"," + params;
+}
+
+int32_t NWebCommandActionManagerImpl::HandleAutoFillCommand(
+    std::shared_ptr<NWebCommandActionInfo> info) {
+  LOG(INFO) << "[WebCommandAction] HandleAutoFillCommand";
+  if (!info) {
+    LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: info is null";
+    return static_cast<int32_t>(WebCommandErrorCode::FAILED);
+  }
+  if (!nweb_delegate_) {
+    LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: delegate is null";
+    return static_cast<int32_t>(WebCommandErrorCode::DELEGATE_NULL);
+  }
+
+  // Prevent reentrancy: if a batch autofill is already running,
+  // reject the new call immediately.
+  if (is_autofill_running_) {
+    LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: reentrant call rejected";
+    return static_cast<int32_t>(WebCommandErrorCode::FAILED);
+  }
+  is_autofill_running_ = true;
+
+  auto items = info->GetAutoFillItems();
+
+  if (items.empty()) {
+    LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: items is empty";
+    is_autofill_running_ = false;
+    return static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEMS);
+  }
+
+  if (items.size() > 10) {
+    LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: items count="
+               << items.size() << " exceeds limit 10, truncating";
+    items.resize(10);
+  }
+
+  AutoFillMode default_mode = info->GetDefaultMode();
+
+  int32_t first_error = static_cast<int32_t>(WebCommandErrorCode::SUCCESS);
+  bool has_error = false;
+
+  // Batch autofill timeout: 5s total, 500ms per item (in ExecuteAutoFillCommand)
+  constexpr int32_t kTotalTimeoutMs = 5000;
+
+  const base::TimeTicks deadline = base::TimeTicks::Now() +
+                                    base::Milliseconds(kTotalTimeoutMs);
+
+  for (size_t i = 0; i < items.size(); ++i) {
+    base::TimeDelta remaining = deadline - base::TimeTicks::Now();
+    if (remaining <= base::TimeDelta()) {
+      LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: total 5s timeout";
+      break;
+    }
+
+    const auto& item = items[i];
+
+    // Validate item parameters — skip invalid items but continue processing
+    if (item->GetXPath().empty()) {
+      LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: item[" << i
+                 << "] xpath is empty, skipping";
+      if (!has_error) {
+        first_error = static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_XPATH);
+        has_error = true;
+      }
+      continue;
+    }
+    if (item->GetContent().empty()) {
+      LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: item[" << i
+                 << "] content is empty, skipping";
+      if (!has_error) {
+        first_error = static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_CONTENT);
+        has_error = true;
+      }
+      continue;
+    }
+    if (item->GetIndex() < 0) {
+      LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: item[" << i
+                 << "] index is invalid: " << item->GetIndex() << ", skipping";
+      if (!has_error) {
+        first_error = static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_INDEX);
+        has_error = true;
+      }
+      continue;
+    }
+
+    AutoFillMode mode = item->GetMode();
+    if (mode == AutoFillMode::Unspecified) {
+      mode = default_mode;
+    }
+
+    // Single ExecuteAutoFillCommand call per item
+    // remaining is passed down so the per-item timer respects the total deadline
+    int32_t result = nweb_delegate_->ExecuteAutoFillCommand(
+        item->GetXPath(), item->GetContent(),
+        item->GetIndex(), static_cast<int32_t>(mode),
+        static_cast<int32_t>(remaining.InMilliseconds()));
+
+    if (result != static_cast<int32_t>(WebCommandErrorCode::SUCCESS)) {
+      LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: item[" << i
+                 << "] ExecuteAutoFillCommand failed, mode="
+                 << static_cast<int>(mode) << " code=" << result;
+      if (!has_error) {
+        first_error = result;
+        has_error = true;
+      }
+      continue;
+    }
+  }
+
+  is_autofill_running_ = false;
+  return has_error ? first_error
+                   : static_cast<int32_t>(WebCommandErrorCode::SUCCESS);
 }
 
 }  // namespace OHOS::NWeb

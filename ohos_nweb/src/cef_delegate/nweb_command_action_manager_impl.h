@@ -45,6 +45,8 @@ public:
     int32_t HandleSelectCommand(std::shared_ptr<NWebCommandActionInfo> info) override;
     int32_t HandleGestureCommand(std::shared_ptr<NWebCommandActionInfo> info) override;
 
+    int32_t HandleAutoFillCommand(std::shared_ptr<NWebCommandActionInfo> info) override;
+
     CefRefPtr<CefBrowser> GetBrowser() const;
     std::string BuildTapGestureCommand(double x, double y, int32_t duration, int32_t tapCount) const;
     std::string BuildScrollGestureCommand(double x, double y, double distanceX, double distanceY, int32_t speed) const;
@@ -52,6 +54,7 @@ public:
 private:
     base::WeakPtr<NWebDelegate> nweb_delegate_;
     int32_t pending_message_id_ = 1;
+    bool is_autofill_running_ = false;  // Prevents reentrant HandleAutoFillCommand calls
 };
 
 }  // namespace OHOS::NWeb
