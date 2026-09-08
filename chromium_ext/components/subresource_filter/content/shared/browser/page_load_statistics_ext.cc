@@ -60,8 +60,13 @@ void PageLoadStatisticsExt::NotifyAndResetStatistics() {
       LOG(INFO)
           << "[AdBlock] On url blocked reported after loaded finish, size:"
           << subresource_map.size();
+      base::WeakPtr<PageLoadStatisticsExt> weak_this =
+          weak_ptr_factory_.GetWeakPtr();
       web_contents_->OnAdsBlocked(web_contents_->GetLastCommittedURL().spec(),
                                   subresource_map, IsFirstReport());
+      if (!weak_this) {
+        return;
+      }
       if (IsFirstReport()) {
         SetReported();
       }
@@ -138,8 +143,13 @@ void PageLoadStatisticsExt::UserNotifyAndResetStatistics() {
       LOG(INFO) << "[User AdBlock] On url blocked reported after loaded "
                    "finish, size:"
                 << subresource_map.size();
+      base::WeakPtr<PageLoadStatisticsExt> weak_this =
+          weak_ptr_factory_.GetWeakPtr();
       web_contents_->OnAdsBlocked(web_contents_->GetLastCommittedURL().spec(),
                                   subresource_map, IsFirstReport());
+      if (!weak_this) {
+        return;
+      }
       if (IsFirstReport()) {
         SetReported();
       }
