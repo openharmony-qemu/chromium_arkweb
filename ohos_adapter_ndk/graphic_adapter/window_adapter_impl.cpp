@@ -85,6 +85,28 @@ void WindowAdapterNdkImpl::NativeWindowUnRef(NWebNativeWindow window)
     }
 }
 
+void WindowAdapterNdkImpl::NativeWindowSetUsage(NWebNativeWindow window)
+{
+    if (window == nullptr) {
+        WVLOG_E("window is nullptr");
+        return;
+    }
+
+    uint64_t usage = 0;
+    auto* native_window = static_cast<OHNativeWindow*>(window);
+    int32_t ret = OH_NativeWindow_NativeWindowHandleOpt(native_window, GET_USAGE, &usage);
+    if (ret != 0) {
+        WVLOG_E("failed to get window usage, ret=%{public}d", ret);
+        return;
+    }
+
+    usage &= ~static_cast<uint64_t>(NATIVEBUFFER_USAGE_CPU_READ);
+    ret = OH_NativeWindow_NativeWindowHandleOpt(native_window, SET_USAGE, usage);
+    if (ret != 0) {
+        WVLOG_E("failed to set window usage, ret=%{public}d", ret);
+    }
+}
+
 int WindowAdapterNdkImpl::GetNativeWindowRequestBuffer(NWebNativeWindow window,
     OHNativeWindowBuffer **buffer, int *fenceFd)
 {

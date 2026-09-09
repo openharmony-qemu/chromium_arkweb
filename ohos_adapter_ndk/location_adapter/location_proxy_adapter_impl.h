@@ -67,7 +67,7 @@ private:
 class LocationProxyAdapterImpl : public LocationProxyAdapter {
 public:
     LocationProxyAdapterImpl();
-    virtual ~LocationProxyAdapterImpl() = default;
+    ~LocationProxyAdapterImpl() override;
 
     int32_t StartLocating(
         std::shared_ptr<LocationRequestConfig> requestConfig,
@@ -77,7 +77,7 @@ public:
     bool IsLocationEnabled() override;
 
 private:
-    Location_RequestConfig* ohRequestConfig;
+    Location_RequestConfig* ohRequestConfig_ = nullptr;
     std::shared_ptr<LocationCallbackAdapter> ohCallback_;
 };
 }

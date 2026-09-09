@@ -544,6 +544,8 @@ static_library("nweb_sources") {
     "src/nweb_inputmethod_handler.h",
     "src/nweb_output_handler.cc",
     "src/nweb_output_handler.h",
+    "src/nweb_render_main.cc",
+    "src/nweb_gpu_main.cc",
     "src/nweb_url_resource_error_impl.hh",
     "src/nweb_url_resource_request_impl.cc",
     "src/nweb_url_resource_request_impl.h",
@@ -670,6 +672,7 @@ static_library("nweb_sources") {
 
   deps += [
     "//ohos_glue:ohos_adapter_glue_source",
+    "//arkweb/ohos_adapter_ndk:ohos_adapter_napi",
   ]
 
   if (defined(arkweb_ai) && arkweb_ai) {
@@ -704,6 +707,12 @@ static_library("nweb_sources") {
     ]
   }
   #endif ARKWEB_VIDEO_ASSISTANT
+
+  libs = [
+    "child_process",
+    "ipc_capi",
+    "native_window",
+  ]
 }
 
 #################################################

@@ -16,31 +16,98 @@
 #include <unistd.h>
 
 #include <sstream>
+#include <string>
+#include <vector>
 
+#include <AbilityKit/native_child_process.h>
+
+#include "base/posix/global_descriptors.h"
+#include "content/public/common/content_descriptors.h"
 #include "include/cef_app.h"
 #include "nweb_export.h"
 #include "nweb_hilog.h"
 
-extern "C" OHOS_NWEB_EXPORT void NWebRenderMain(const char* args) {
+namespace {
+constexpr char kIpcFdName[] = "IPC_FD";
+constexpr char kSharedFdName[] = "SHARED_FD";
+constexpr char kCrashFdName[] = "CRASH_FD";
+
+bool SetGlobalDescriptor(int key, int fd, bool required) {
+  if (fd <= 0) {
+    return !required;
+  }
+
+  base::GlobalDescriptors *descriptors = base::GlobalDescriptors::GetInstance();
+  if (descriptors == nullptr) {
+    WVLOG_E("GlobalDescriptors is null");
+    return false;
+  }
+
+  int duplicated_fd = dup(fd);
+  if (duplicated_fd < 0) {
+    WVLOG_E("duplicate fd failed, key=%{public}d", key);
+    descriptors->Set(key, fd);
+  } else {
+    descriptors->Set(key, duplicated_fd);
+    close(fd);
+  }
+  return true;
+}
+} // namespace
+
+bool SetGlobalDescriptors(int ipc_fd, int shared_fd, int crash_fd) {
+  return SetGlobalDescriptor(kMojoIPCChannel, ipc_fd, true) &&
+         SetGlobalDescriptor(kFieldTrialDescriptor, shared_fd, true) &&
+         SetGlobalDescriptor(kCrashDumpSignal, crash_fd, false);
+}
+
+extern "C" OHOS_NWEB_EXPORT void NWebRenderMain(NativeChildProcess_Args args) {
   WVLOG_I("NWebRenderMain start, sandbox pid=%{public}d", getpid());
 
-  std::string args_str = args;
-  std::stringstream args_ss(args_str);
-  const char separator = '#';
-  std::vector<std::string> argv_str;
-  std::string arg_str;
-  while (std::getline(args_ss, arg_str, separator)) {
-    argv_str.push_back(arg_str);
+  if (args.entryParams == nullptr) {
+    WVLOG_E("render entry params are null");
+    return;
   }
-  std::vector<char*> argv_cstr;
-  int argc = static_cast<int>(argv_str.size());
-  argv_cstr.reserve(argc + 1);
-  for (const auto& arg : argv_str) {
-    argv_cstr.push_back(const_cast<char*>(arg.c_str()));
-  }
-  argv_cstr.push_back(nullptr);
 
-  CefMainArgs main_args(argc, const_cast<char**>(argv_cstr.data()));
+  int ipc_fd = -1;
+  int shared_fd = -1;
+  int crash_fd = -1;
+  for (NativeChildProcess_Fd *fd_node = args.fdList.head; fd_node != nullptr;
+       fd_node = fd_node->next) {
+    if (fd_node->fdName == nullptr) {
+      continue;
+    }
+    std::string fd_name(fd_node->fdName);
+    if (fd_name == kIpcFdName) {
+      ipc_fd = fd_node->fd;
+    } else if (fd_name == kSharedFdName) {
+      shared_fd = fd_node->fd;
+    } else if (fd_name == kCrashFdName) {
+      crash_fd = fd_node->fd;
+    }
+  }
+
+  if (!SetGlobalDescriptors(ipc_fd, shared_fd, crash_fd)) {
+    WVLOG_E("failed to set global descriptors");
+    return;
+  }
+
+  std::stringstream args_stream{std::string(args.entryParams)};
+  constexpr char kSeparator = '#';
+  std::vector<std::string> argv_strings;
+  std::string argument;
+  while (std::getline(args_stream, argument, kSeparator)) {
+    argv_strings.push_back(argument);
+  }
+
+  std::vector<char *> argv;
+  argv.reserve(argv_strings.size() + 1);
+  for (const auto &value : argv_strings) {
+    argv.push_back(const_cast<char *>(value.c_str()));
+  }
+  argv.push_back(nullptr);
+
+  CefMainArgs main_args(static_cast<int>(argv_strings.size()), argv.data());
   (void)CefExecuteProcess(main_args, nullptr, nullptr);
 
   WVLOG_I("NWebRenderMain end, sandbox pid=%{public}d", getpid());

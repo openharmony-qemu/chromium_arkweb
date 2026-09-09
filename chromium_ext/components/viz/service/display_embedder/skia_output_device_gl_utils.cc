@@ -22,6 +22,9 @@
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_surface.h"
 
+extern bool QueryBoolFromBrowserProcess(const std::string& key,
+                                        bool default_value);
+
 namespace viz {
 #if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
 // 100 ms : minimum time interval between two clean buffers 
@@ -32,9 +35,8 @@ static const int32_t CLEAN_BUFFERS_TIME_INTERVAL_MIN = 100;
 SkiaOutputDeviceGLUtils::SkiaOutputDeviceGLUtils(SkiaOutputDeviceGL* impl)
     : skiaOutPutDeviceGl_(impl)
 {
-  supports_damage_region_ = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-                                .GetSystemPropertiesInstance()
-                                .GetBoolParameter("web.damageRegion.enable", 1);
+  supports_damage_region_ =
+      QueryBoolFromBrowserProcess("web.damageRegion.enable", true);
 #if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
   clean_buffers_when_invisible_enabled_ = OHOS::NWeb::OhosAdapterHelper::GetInstance()
     .GetSystemPropertiesInstance().GetBoolParameter("const.web.clean_buffers_when_invisible.enabled", false);

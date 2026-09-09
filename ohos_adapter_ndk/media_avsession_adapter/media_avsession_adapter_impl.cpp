@@ -156,7 +156,7 @@ bool MediaAVSessionAdapterImpl::CreateAVSession(MediaAVSessionType type) {
         DestroyAVSession();
     }
     auto findIter = avSessionMap.find(avSessionKey_->ToString());
-    if (findIter != avSessionMap.end() && findIter->second && findIter->second->avSession_ != avSession_) {
+    if (findIter != avSessionMap.end() && findIter->second && findIter->second != this) {
         findIter->second->UnregisterMediaCastOutputDeviceCallback();
     }
     if (!avSession_) {
@@ -166,7 +166,7 @@ bool MediaAVSessionAdapterImpl::CreateAVSession(MediaAVSessionType type) {
         return CreateNewSession(type);
     } else {
         if (findIter != avSessionMap.end()) {
-            if (findIter->second && findIter->second->avSession_ != avSession_) {
+            if (findIter->second && findIter->second != this) {
                 DestroyAndEraseSession();
                 DestroyAVSession();
             } else {
@@ -214,7 +214,7 @@ void MediaAVSessionAdapterImpl::DestroyAVSession() {
     if (avSessionKey_) {
         std::lock_guard<std::recursive_mutex> map_lock(g_avsession_map_mutex_);
         auto iter = avSessionMap.find(avSessionKey_->ToString());
-        if (iter != avSessionMap.end()) {
+        if (iter != avSessionMap.end() && iter->second == this) {
             if (iter->second && iter->second->is_avcast_) {
                 WVLOG_I("DestroyAVSession, current process is casting, no need to clear avSessionMap");
             } else {
@@ -597,16 +597,16 @@ void MediaAVSessionAdapterImpl::DestroyAndEraseSession() {
             media->NotifyCastControlShow(false);
         }
     }
-    ret = OH_AVCastController_Destroy(avCastController_);
-    if (ret != AV_SESSION_ERR_SUCCESS) {
-        WVLOG_E("DestroyAVSession OH_AVCastController_Destroy failed, ret: %{public}d", ret);
+    if (iter->second->avCastController_ != nullptr) {
+        ret = OH_AVCastController_Destroy(iter->second->avCastController_);
+        if (ret != AV_SESSION_ERR_SUCCESS) {
+            WVLOG_E("DestroyAVSession OH_AVCastController_Destroy failed, ret: %{public}d", ret);
+        }
     }
     // clear adapter->avSession, otherwise it will crash when callback
     iter->second->avSession_ = nullptr;
     iter->second->avCastController_ = nullptr;
 
-    avSession_ = nullptr;
-    avCastController_ = nullptr;
     avSessionMap.erase(iter);    
     WVLOG_I("DestroyAndEraseSession out");
 }

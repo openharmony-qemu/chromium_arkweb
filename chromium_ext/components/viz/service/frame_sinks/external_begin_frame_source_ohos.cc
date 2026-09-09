@@ -33,6 +33,8 @@
 
 #if BUILDFLAG(ARKWEB_D_VSYNC)
 #include "arkweb/chromium_ext/base/ohos/d_vsync/include/d_vsync_controller.h"
+extern bool QueryBoolFromBrowserProcess(const std::string& key,
+                                        bool default_value);
 #endif
 
 #if BUILDFLAG(ARKWEB_PERFORMANCE_JITTER)
@@ -98,6 +100,7 @@ ExternalBeginFrameSourceOHOS::ExternalBeginFrameSourceOHOS(
 
 #if BUILDFLAG(ARKWEB_D_VSYNC)
   last_dvsync_state_ = base::ohos::DVsyncController::GetInstance().GetIsFling();
+  dvsync_enable_ = QueryBoolFromBrowserProcess("web.ohos.dvsync", false);
 #endif
   managerImplUtils = std::make_unique<FrameSinkManagerImplUtils>(frame_sink_manager);
 }
@@ -235,14 +238,20 @@ ReportLossFrame::GetInstance()->SetVsyncPeriod(vsync_period_);
 #endif
 
 #if BUILDFLAG(ARKWEB_D_VSYNC)
-bool currentDysyncState = base::ohos::DVsyncController::GetInstance().GetIsFling();
-if (last_dvsync_state_ != currentDysyncState) {
-    LOG(INFO) << "ExternalBeginFrameSourceOHOS::OnVSyncImpl::SetDVSyncSwitch: " << currentDysyncState;
-    TRACE_EVENT1("viz", "ExternalBeginFrameSourceOHOS::OnVSyncImpl::SetDVSyncSwitch", "SetDVSyncSwitch",
-            currentDysyncState);
-    vsync_adapter_.SetDVSyncSwitch(currentDysyncState);
-    last_dvsync_state_ = currentDysyncState;
-}
+  if (dvsync_enable_) {
+    bool current_dvsync_state =
+        base::ohos::DVsyncController::GetInstance().GetIsFling();
+    if (last_dvsync_state_ != current_dvsync_state) {
+      LOG(INFO)
+          << "ExternalBeginFrameSourceOHOS::OnVSyncImpl::SetDVSyncSwitch: "
+          << current_dvsync_state;
+      TRACE_EVENT1(
+          "viz", "ExternalBeginFrameSourceOHOS::OnVSyncImpl::SetDVSyncSwitch",
+          "SetDVSyncSwitch", current_dvsync_state);
+      vsync_adapter_.SetDVSyncSwitch(current_dvsync_state);
+      last_dvsync_state_ = current_dvsync_state;
+    }
+  }
 #endif
 
   base::TimeDelta vsync_period(base::Nanoseconds(vsync_period_));

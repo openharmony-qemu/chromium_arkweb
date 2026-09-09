@@ -26,6 +26,8 @@ constexpr char kProcessType[] = "type";
 constexpr char kGpuProcess[] = "gpu-process";
 }  // namespace
 
+extern void DestroyPassedSurfaceFromGpuProcess(int64_t surface_id);
+
 namespace gl {
 
 std::mutex& GetNativeImageMutex() {
@@ -64,7 +66,20 @@ OhosNativeImage::OhosNativeImage(
 
 OhosNativeImage::~OhosNativeImage() {
   if (native_image_adapter_ != nullptr) {
+    DestroyPassedSurfaceFromGpuProcess();
     native_image_adapter_->DestroyNativeImage();
+  }
+}
+
+void OhosNativeImage::DestroyPassedSurfaceFromGpuProcess() {
+  auto process_type =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(kProcessType);
+  if (process_type != kGpuProcess || native_image_adapter_ == nullptr) {
+    return;
+  }
+  uint64_t surface_id = 0;
+  if (native_image_adapter_->GetSurfaceId(&surface_id) == 0) {
+    ::DestroyPassedSurfaceFromGpuProcess(static_cast<int64_t>(surface_id));
   }
 }
 //LCOV_EXCL_STOP
@@ -153,6 +168,7 @@ void OhosNativeImage::ReleaseNativeImage() {
   if (native_image_adapter_ == nullptr) {
     return;
   }
+  DestroyPassedSurfaceFromGpuProcess();
   native_image_adapter_->DestroyNativeImage();
 }
 
