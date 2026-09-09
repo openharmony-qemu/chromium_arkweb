@@ -43,9 +43,9 @@
   // std::vector<uint8_t>: the ArrayBuffer.
   std::vector<uint8_t> array_buffer;
   MessageType type_ = MessageType::NONE;
-  bool bool_value_;
-  double double_value_;
-  int64_t int64_value_;
+  bool bool_value_ = false;
+  double double_value_ = 0;
+  int64_t int64_value_ = 0;
   std::vector<std::u16string> string_arr_;
   std::vector<bool> bool_arr_;
   std::vector<double> double_arr_;

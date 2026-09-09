@@ -437,6 +437,11 @@ bool ReadOneByteString(base::BufferIterator<const uint8_t>& iter,
     return false;
   }
   auto span = iter.Span<unsigned char>(num_bytes / sizeof(unsigned char));
+  size_t expected_chars = num_bytes / sizeof(unsigned char);
+  if (span.size() < expected_chars) {
+    LOG(ERROR) << "Buffer truncated";
+    return false;
+  }
   std::u16string result(span.begin(), span.end());
   str = result;
   return true;
@@ -450,6 +455,11 @@ bool ReadTwoByteString(base::BufferIterator<const uint8_t>& iter,
     return false;
   }
   auto span = iter.Span<char16_t>(num_bytes / sizeof(char16_t));
+  size_t expected_chars = num_bytes / sizeof(char16_t);
+  if (span.size() < expected_chars) {
+    LOG(ERROR) << "Buffer truncated";
+    return false;
+  }
   std::u16string result(span.begin(), span.end());
   str = result;
   return true;
@@ -479,11 +489,17 @@ bool ReadU16string(base::BufferIterator<const uint8_t>& iter,
   }
   switch (tag) {
     case kOneByteStringTag: {
-      ReadOneByteString(iter, str);
+      if (!ReadOneByteString(iter, str)) {
+        LOG(ERROR) << "ReadOneByteString failed";
+        return false;
+      }
       break;
     }
     case kTwoByteStringTag: {
-      ReadTwoByteString(iter, str);
+      if (!ReadTwoByteString(iter, str)) {
+        LOG(ERROR) << "ReadTwoByteString failed";
+        return false;
+      }
       break;
     }
     default:
@@ -731,7 +747,10 @@ bool ReadError(base::BufferIterator<const uint8_t>& iter,
     switch (static_cast<ErrorTag>(tag)) {
       case ErrorTag::kStack: {
         std::u16string stack_err;
-        ReadU16string(iter, stack_err);
+        if (!ReadU16string(iter, stack_err)) {
+          LOG(ERROR) << "ReadU16string for stack failed";
+          return false;
+        }
         break;
       }
       case ErrorTag::kEvalErrorPrototype:
@@ -745,7 +764,10 @@ bool ReadError(base::BufferIterator<const uint8_t>& iter,
         break;
       case ErrorTag::kMessage: {
         std::u16string msg_err;
-        ReadU16string(iter, msg_err);
+        if (!ReadU16string(iter, msg_err)) {
+          LOG(ERROR) << "ReadU16string for message failed";
+          return false;
+        }
         decoded_msg.err_msg_ = std::move(msg_err);
         decoded_msg.type_ = WebMessagePort::Message::MessageType::ERROR;
         break;
