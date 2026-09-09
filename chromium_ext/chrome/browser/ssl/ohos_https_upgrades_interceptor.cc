@@ -340,6 +340,7 @@ void OhosHttpsUpgradesInterceptor::MaybeCreateLoaderOnHstsQueryCompleted(
 
   auto* rfh = web_contents->GetPrimaryMainFrame();
   if (rfh == nullptr) {
+    std::move(callback).Run({});
     return;
   }
 

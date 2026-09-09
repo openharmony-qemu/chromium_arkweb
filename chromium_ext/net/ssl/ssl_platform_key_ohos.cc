@@ -35,6 +35,27 @@ namespace net {
 
 namespace {
 
+void FreeUriCertExData(void* /*parent*/, void* ptr, CRYPTO_EX_DATA* /*ad*/,
+                       int /*index*/, long /*argl*/, void* /*argp*/) {
+  if (ptr) {
+    free(ptr);
+  }
+}
+
+int GetUriCertExDataIndexImpl() {
+  static int index = X509_get_ex_new_index(0, nullptr, nullptr, nullptr,
+                                           FreeUriCertExData);
+  return index;
+}
+
+}  // namespace
+
+int GetUriCertExDataIndex() {
+  return GetUriCertExDataIndexImpl();
+}
+
+namespace {
+
 class SSLPlatformKeyOHOS : public ThreadedSSLPrivateKey::Delegate {
  public:
   SSLPlatformKeyOHOS(int type,
@@ -151,12 +172,13 @@ scoped_refptr<SSLPrivateKey> FetchClientCertPrivateKey(
     return nullptr;
   }
 
-  char* uri_cert = (char*)X509_get_ex_data(bssl_cert, 0);
+  char* uri_cert = (char*)X509_get_ex_data(bssl_cert, GetUriCertExDataIndex());
   if (!uri_cert) {
     return nullptr;
   }
   std::string str_uri(uri_cert);
   free(uri_cert);
+  X509_set_ex_data(bssl_cert, GetUriCertExDataIndex(), nullptr);
 
   int type;
   size_t max_length;

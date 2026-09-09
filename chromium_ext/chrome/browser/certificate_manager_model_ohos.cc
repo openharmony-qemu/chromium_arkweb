@@ -140,6 +140,7 @@ void CertificateManagerModel::Refresh() {
 
 void CertificateManagerModel::ConvertCertInfos(
     CertManagerAdapter::CertInfoList ohos_cert_info_list) {
+  cert_models_.clear();
   std::vector<std::unique_ptr<CertificateManagerModel::CertInfo>> cert_infos;
   cert_infos.reserve(ohos_cert_info_list.size());
 
@@ -167,9 +168,8 @@ void CertificateManagerModel::ConvertCertInfos(
 
     common_name = model.GetSubjectCommonName();
     org_name = model.GetSubjectOrgName();
-    if (absl::holds_alternative<x509_certificate_model::NotPresent>(
-            common_name) ||
-        absl::holds_alternative<x509_certificate_model::NotPresent>(org_name)) {
+    if (!absl::holds_alternative<std::string>(common_name) ||
+        !absl::holds_alternative<std::string>(org_name)) {
       continue;
     }
     name = base::UTF8ToUTF16(absl::get<std::string>(common_name));

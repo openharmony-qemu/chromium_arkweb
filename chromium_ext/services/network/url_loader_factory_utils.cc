@@ -25,6 +25,9 @@
 namespace network {
     URLLoaderFactoryUtils::URLLoaderFactoryUtils(URLLoaderFactory* factory)
     {
+        if (!factory) {
+            LOG(WARNING) << "URLLoaderFactoryUtils created with null factory";
+        }
         this->urlLoaderFactory = factory;
     }
 

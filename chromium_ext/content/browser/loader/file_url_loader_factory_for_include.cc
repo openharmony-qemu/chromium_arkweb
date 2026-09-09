@@ -116,9 +116,8 @@ class ResourceURLLoader : public network::mojom::URLLoader {
       return;
     }
 
-    LOG(INFO) << "ResourceURLLoader url: " 
-              << url::LogUtils::ConvertUrlWithMask(request.url.spec())
-              << ", path: " << resourcesPath;
+    LOG(INFO) << "ResourceURLLoader url: "
+              << url::LogUtils::ConvertUrlWithMask(request.url.spec());
     std::string hapPath =
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             switches::kOhosHapPath);

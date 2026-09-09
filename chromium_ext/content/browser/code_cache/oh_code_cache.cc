@@ -212,7 +212,9 @@ bool ResponseCache::CreateStream() {
 
   metadata_file_stream_ =
       std::make_shared<std::fstream>(metadata_file_path_.AsUTF8Unsafe());
-  if (!metadata_file_stream_) {
+  if (!metadata_file_stream_ || !metadata_file_stream_->is_open()) {
+    LOG(WARNING) << "CreateStream failed to open file";
+    metadata_file_stream_.reset();
     return false;
   }
 

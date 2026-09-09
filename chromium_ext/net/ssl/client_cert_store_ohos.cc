@@ -170,7 +170,7 @@ std::vector<bssl::UniquePtr<X509>> FindSSLCertsOHOS(bool only_client) {
         return {};
       }
 
-      X509_set_ex_data(bssl_cert.get(), 0, uri_cert);
+      X509_set_ex_data(bssl_cert.get(), GetUriCertExDataIndex(), uri_cert);
       if (!only_client) {
         certs.push_back(std::move(bssl_cert));
       } else if (X509_check_ca(cert) == 0 &&
