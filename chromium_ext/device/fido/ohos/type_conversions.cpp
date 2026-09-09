@@ -324,11 +324,13 @@ std::string Convert(const FIDO2_PublicKeyCredentialHintArray& hints)
 {
     std::stringstream ss;
     ss << "[";
-    for (uint32_t i = 0; i < hints.hintNum; i++) {
-        if (i > 0) {
-            ss << ", ";
+    if (hints.hints) {
+        for (uint32_t i = 0; i < hints.hintNum; i++) {
+            if (i > 0) {
+                ss << ", ";
+            }
+            ss << static_cast<int>(hints.hints[i]);
         }
-        ss << static_cast<int>(hints.hints[i]);
     }
     ss << "]";
     return ss.str();
@@ -340,12 +342,12 @@ std::string Convert(const FIDO2_AuthenticatorTransportArray& transports)
     std::stringstream ss;
     ss << "[";
     if (transports.transports) {
-      for (uint32_t i = 0; i < transports.transportNum; i++) {
-          if (i > 0) {
-              ss << ", ";
-          }
-          ss << static_cast<int>(transports.transports[i]);
-      }
+        for (uint32_t i = 0; i < transports.transportNum; i++) {
+            if (i > 0) {
+                ss << ", ";
+            }
+            ss << static_cast<int>(transports.transports[i]);
+        }
     }
     ss << "]";
     return ss.str();
@@ -522,13 +524,15 @@ std::string Convert(const FIDO2_CredentialRequestOptions& options)
     ss << "    timeout: " << options.publicKey.timeout << ",\n";
     ss << "    rpId: " << Mask(public_key.rpId) << ",\n";
     ss << "    allowCredentials: [\n";
-    for (uint32_t i = 0; i < descriptors.allowCredentiallNum; i++) {
-        const auto& descriptor = descriptors.allowCredentials[i];
-        ss << "      {\n";
-        ss << "        type: " << static_cast<int>(descriptor.type) << ",\n";
-        ss << "        id: " << Mask(descriptor.id) << ",\n";
-        ss << "        transports: " << Convert<std::string>(descriptor.transports) << ",\n";
-        ss << "      },\n";
+    if (descriptors.allowCredentials) {
+        for (uint32_t i = 0; i < descriptors.allowCredentiallNum; i++) {
+            const auto& descriptor = descriptors.allowCredentials[i];
+            ss << "      {\n";
+            ss << "        type: " << static_cast<int>(descriptor.type) << ",\n";
+            ss << "        id: " << Mask(descriptor.id) << ",\n";
+            ss << "        transports: " << Convert<std::string>(descriptor.transports) << ",\n";
+            ss << "      },\n";
+        }
     }
     ss << "    ],\n";
     ss << "    userVerification: " << static_cast<int>(public_key.userVerification) << ",\n";
@@ -544,13 +548,15 @@ std::string Convert(const FIDO2_CapabilityArray& capabilities)
 {
     std::stringstream ss;
     ss << "[";
-    for (uint32_t i = 0; i < capabilities.number; i++) {
-      const auto& capability = capabilities.capability[i];
-      if (i > 0) {
-        ss << ", ";
-      }
-      ss << "{" << static_cast<int>(capability.capability)
-         << ":" << capability.isSupported << "}";
+    if (capabilities.capability) {
+        for (uint32_t i = 0; i < capabilities.number; i++) {
+            const auto& capability = capabilities.capability[i];
+            if (i > 0) {
+                ss << ", ";
+            }
+            ss << "{" << static_cast<int>(capability.capability)
+               << ":" << capability.isSupported << "}";
+        }
     }
     ss << "]";
     return ss.str();
