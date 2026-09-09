@@ -103,6 +103,7 @@ void PdfViewWebPlugin::ConvertAndUpdateSelectionBounds(gfx::Rect& clipped_select
 void PdfViewWebPlugin::SelectionChangedAtScrollStopped() {
   if (!engine_) {
     LOG(ERROR) << __func__ << ", PDF engine_ is null.";
+    return;
   }
   engine_->SelectionChangedAtScrollStopped();
 }
@@ -217,6 +218,7 @@ void PdfViewWebPlugin::HandleClickBookmarkMessage(const base::Value::Dict& messa
   }
   if (!engine_) {
     LOG(ERROR) << __func__ << ", PDF engine_ is null.";
+    return;
   }
   engine_->OnClickBookmark(*nullableId);
 }
@@ -241,6 +243,7 @@ void PdfViewWebPlugin::SelectionChangedAfterDelay() {
 void PdfViewWebPlugin::ClearTextSelection() {
   if (!engine_) {
     LOG(ERROR) << __func__ << ", PDF engine_ is null.";
+    return;
   }
   engine_->ClearTextSelection();
 }
@@ -269,6 +272,7 @@ void PdfViewWebPlugin::DoPaintAfterDelay() {
 void PdfViewWebPlugin::OnScaleChanged() {
   if (!engine_) {
     LOG(ERROR) << __func__ << ", PDF engine_ is null.";
+    return;
   }
   engine_->ClearTextSelection();
 }

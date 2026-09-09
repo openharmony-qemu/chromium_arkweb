@@ -371,6 +371,7 @@ class ClipboardOHOSInternal {
     if (!result->Wait(kGetPasteDataTimeout)) {
       LOG(ERROR) << "GetPasteData timeout after "
                  << kGetPasteDataTimeout.InMilliseconds() << " ms";
+      g_get_paste_data_pending.store(false);
       return std::nullopt;
     }
 
@@ -612,8 +613,12 @@ class ClipboardOHOSInternal {
   }
 
   // Writes |data| to the ClipboardData and returns the previous data.
+  // |privacy_types| carries Clipboard::PrivacyTypes flags; when kNoDisplay is
+  // set the data is restricted to in-app paste only to prevent sensitive
+  // content (e.g. passwords) from being exposed to other applications.
   std::unique_ptr<ClipboardData> WriteData(
-      std::unique_ptr<ClipboardData> data) {
+      std::unique_ptr<ClipboardData> data,
+      uint32_t privacy_types) {
     DCHECK(data);
     std::unique_ptr<ClipboardData> previous_data = std::move(data_);
     data_ = std::move(data);
@@ -683,6 +688,13 @@ class ClipboardOHOSInternal {
       return nullptr;
     }
     auto copy_option = static_cast<CopyOptionMode>(copy_option_cb_.Run());
+
+    // When the data is marked as concealed (e.g. passwords), restrict paste to
+    // in-app only so that sensitive content is not exposed to other
+    // applications via the system clipboard.
+    if (privacy_types & Clipboard::PrivacyTypes::kNoDisplay) {
+      copy_option = CopyOptionMode::IN_APP;
+    }
 
     base::ThreadPool::PostTask(
         FROM_HERE,
@@ -868,12 +880,16 @@ class ClipboardDataBuilder {
  public:
   // If |data_src| is nullptr, this means that the data source isn't
   // confidential and the data can be pasted in any document.
+  // |privacy_types| carries Clipboard::PrivacyTypes flags that control how
+  // the data is handled by the system clipboard (e.g. kNoDisplay for
+  // passwords).
   static void CommitToClipboard(ClipboardOHOSInternal* clipboard,
-                                std::optional<DataTransferEndpoint> data_src) {
+                                std::optional<DataTransferEndpoint> data_src,
+                                uint32_t privacy_types) {
     ClipboardData* data = GetCurrentData();
     if (data) {
       data->set_source(std::move(data_src));
-      clipboard->WriteData(TakeCurrentData());
+      clipboard->WriteData(TakeCurrentData(), privacy_types);
     }
   }
 
@@ -1220,7 +1236,8 @@ void ClipboardOHOS::WritePortableAndPlatformRepresentations(
   }
 
   ClipboardDataBuilder::CommitToClipboard(
-      clipboard_internal_.get(), base::OptionalFromPtr(data_src.get()));
+      clipboard_internal_.get(), base::OptionalFromPtr(data_src.get()),
+      privacy_types);
 }
 
 void ClipboardOHOS::WriteText(std::string_view text) {

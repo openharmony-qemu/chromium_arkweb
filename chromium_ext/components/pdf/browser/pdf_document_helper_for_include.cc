@@ -95,7 +95,15 @@ void PDFDocumentHelper::UpdateQuickMenu() {
 }
 
 int32_t PDFDocumentHelper::SafeScale(int32_t value, float scale_factor) {
+  if (!std::isfinite(scale_factor)) {
+    return 0;
+  }
   double result = static_cast<double>(value) * static_cast<double>(scale_factor);
+  // Check if it is finite (handles NaN and infinity from multiplication).
+  if (!std::isfinite(result)) {
+    return result < 0 ? std::numeric_limits<int32_t>::min()
+                      : std::numeric_limits<int32_t>::max();
+  }
   // Check if it exceeds the range of int32_t.
   if (result > std::numeric_limits<int32_t>::max()) {
     return std::numeric_limits<int32_t>::max();
@@ -140,7 +148,7 @@ void PDFDocumentHelper::UpdateScaleFactor() {
     return;
   }
   float page_scale_factor = host_impl->GetPageScaleFactor();
-  if (page_scale_factor <= 0) {
+  if (!std::isfinite(page_scale_factor) || page_scale_factor <= 0) {
     LOG(ERROR) << __func__ << ", PDF invalid scale factor.";
     return;
   }
