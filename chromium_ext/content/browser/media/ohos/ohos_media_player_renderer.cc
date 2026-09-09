@@ -86,6 +86,13 @@ OHOSMediaPlayerRenderer::~OHOSMediaPlayerRenderer() {
   }
 }
 
+bool OHOSMediaPlayerRenderer::IsClientExtensionValid() const {
+  if (client_extension_.is_bound() && client_extension_.is_connected()) {
+    return true;
+  }
+  return false;
+}
+
 void OHOSMediaPlayerRenderer::Initialize(
     media::MediaResource* media_resource,
     media::RendererClient* client,
@@ -345,7 +352,9 @@ void OHOSMediaPlayerRenderer::OnMediaDurationChanged(base::TimeDelta duration) {
 
   if (duration_ != duration) {
     duration_ = duration;
-    client_extension_->OnDurationChange(duration);
+    if (IsClientExtensionValid()) {
+      client_extension_->OnDurationChange(duration);
+    }
   }
 }
 
@@ -374,7 +383,9 @@ void OHOSMediaPlayerRenderer::OnVideoSizeChanged(int width, int height) {
     // Send via |client_extension_| instead of |renderer_client_|, so
     // MediaPlayerRendererClient can update its texture size.
     // MPRClient will then continue propagating changes via its RendererClient.
-    client_extension_->OnVideoSizeChange(video_size_);
+    if (IsClientExtensionValid()) {
+      client_extension_->OnVideoSizeChange(video_size_);
+    }
   }
 }
 

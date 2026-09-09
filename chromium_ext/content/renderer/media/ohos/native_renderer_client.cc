@@ -85,7 +85,10 @@ void NativeRenderClient::OnFrameAvailable() {
   // each new VideoFrame will have a different unique_id() when it changes, so
   // we need to add a wrapping frame with a new unique_id().
   auto frame = native_texture_wrapper_->GetCurrentFrame();
-
+  if (!frame) {
+    LOG(ERROR) << "NativeRenderClient frame is null";
+    return;
+  }
   auto unique_frame = media::VideoFrame::WrapVideoFrame(
       frame, frame->format(), frame->visible_rect(), frame->natural_size());
 

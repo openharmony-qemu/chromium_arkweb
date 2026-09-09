@@ -25,13 +25,13 @@ MediaStreamManagerExt::ScreenCaptureCallback
 // static
 void MediaStreamManagerExt::SetScreenCaptureDelegateCallback(
     ScreenCaptureCallback callback) {
-  if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
-    auto io_task_runner = GetIOThreadTaskRunner({});
-    if (!io_task_runner) {
-      LOG(ERROR) << "SetScreenCaptureDelegateCallback io_task_runner is nullptr";
+  if (!BrowserThread::CurrentlyOn(BrowserThread::UI)) {
+    auto ui_task_runner = GetUIThreadTaskRunner({});
+    if (!ui_task_runner) {
+      LOG(ERROR) << "SetScreenCaptureDelegateCallback ui_task_runner is nullptr";
       return;
     }
-    io_task_runner->PostTask(
+    ui_task_runner->PostTask(
         FROM_HERE,
         base::BindOnce(&MediaStreamManagerExt::SetScreenCaptureDelegateCallback,
                        std::move(callback)));
@@ -218,23 +218,27 @@ int MediaStreamManagerExt::GetNWebIdMatchStreamType(GlobalRenderFrameHostId host
 }
 
 void MediaStreamManagerExt::CloseAudioCapture(int32_t nweb_id) {
+  if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
+    auto io_task_runner = GetIOThreadTaskRunner({});
+    if (!io_task_runner) {
+      LOG(ERROR) << "CloseAudioCapture io_task_runner is nullptr";
+      return;
+    }
+    io_task_runner->PostTask(
+        FROM_HERE,
+        base::BindOnce(&MediaStreamManagerExt::CloseAudioCapture,
+                       weak_factory_.GetWeakPtr(), nweb_id));
+    return;
+  }
   if (!audio_input_device_manager()) {
     LOG(ERROR) << "audio_input_device_manager() is nullptr.";
     return;
   }
-  auto io_task_runner = GetIOThreadTaskRunner({});
   auto audio_nweb_id_map = audio_input_device_manager()->GetNWebIdMap();
   for (auto& audio : audio_nweb_id_map) {
     if (audio.second == nweb_id) {
       blink::mojom::MediaStreamType type =
           audio_input_device_manager()->GetDeviceType(audio.first);
-      if (!BrowserThread::CurrentlyOn(BrowserThread::IO) && io_task_runner) {
-        io_task_runner->PostTask(
-            FROM_HERE,
-            base::BindOnce(&MediaStreamManager::StopDevice,
-                           weak_factory_.GetSafeRef(), type, audio.first));
-        continue;
-      }
       StopDevice(type, audio.first);
     }
   }
