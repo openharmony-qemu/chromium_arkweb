@@ -604,6 +604,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 #endif
   int32_t GetLastCommittedEntryPageTransition() override { return 0; }
 #endif  // BUILDFLAG(IS_OHOS)
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId) override {}
+#endif
 };
 
 class MockIMFAdapterFunctionKeyAdapter : public IMFAdapterFunctionKeyAdapter {

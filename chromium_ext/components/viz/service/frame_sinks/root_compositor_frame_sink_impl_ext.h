@@ -120,6 +120,10 @@ void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
   void SetPipActive(bool active);
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId) override;
+#endif
+
   RootCompositorFrameSinkImplExt* AsExt() override { return this; }
 
  private:

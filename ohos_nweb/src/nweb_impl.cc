@@ -341,6 +341,9 @@ extern bool g_siteIsolationMode;
 #if BUILDFLAG(ARKWEB_CUSTOM_FONTS)
 #include "arkweb/chromium_ext/content/browser/font_unique_name_lookup/arkweb_custom_font_manager.h"
 #endif // ARKWEB_CUSTOM_FONTS
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#endif
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 OnReportStatisticLogFunc
@@ -1783,6 +1786,12 @@ NWebImpl::~NWebImpl() {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   nweb_ex::NWebExtensionDelegateImpl::GetInstance().CheckDevtoolsNwebClosed(nweb_id_);
 #endif
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  if (async_stack_id_) {
+    OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiViewDfxAdapterInstance().ReleaseAsyncContext(async_stack_id_);
+  }
+#endif
 }
 
 bool NWebImpl::Init(std::shared_ptr<NWebCreateInfo> create_info) {
@@ -2139,6 +2148,10 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
   inputmethod_handler_->SetVirtualDeviceRatio(device_pixel_ratio_);
 
   nweb_delegate_->SetNWebId(nweb_id_);
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  async_stack_id_ = create_info->GetAsyncStackId();
+  nweb_delegate_->SetAsyncStackId(async_stack_id_);
+#endif
 #if BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
   if (set_whole_page_drawing) {
     nweb_delegate_->SetWholePageDrawing();

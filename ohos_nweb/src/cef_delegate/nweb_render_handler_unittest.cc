@@ -899,6 +899,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
                          int32_t transition_type) override {}
   void EnableHttpsUpgrades(bool enable) override {}
   int32_t GetLastCommittedEntryPageTransition() override { return 0; }
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  void SetAsyncStackId(uint64_t stackId) override {}
+#endif
 };
 
 class MockCefBrowser : public ArkWebBrowserExt {

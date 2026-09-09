@@ -1338,6 +1338,9 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (const std::string& command,
               std::shared_ptr<NWebStringValueCallback> callback),
               (override));
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  MOCK_METHOD(void, SetAsyncStackId, (uint64_t), (override));
+#endif
 
 };
 }  // namespace OHOS::NWeb

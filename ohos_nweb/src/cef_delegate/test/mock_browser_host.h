@@ -787,6 +787,9 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(void, ViewSource, (), (override));
   MOCK_METHOD(bool, IsViewSourceEnabled, (), (override));
 #endif
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+  MOCK_METHOD(void, SetAsyncStackId, (uint64_t), (override));
+#endif
 
   IMPLEMENT_REFCOUNTING(MockBrowserHost);
 };

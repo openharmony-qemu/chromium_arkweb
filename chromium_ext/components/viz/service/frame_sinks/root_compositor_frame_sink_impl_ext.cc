@@ -212,4 +212,14 @@ void RootCompositorFrameSinkImplExt::SetPipActive(bool active) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void RootCompositorFrameSinkImplExt::SetAsyncStackId(uint64_t stackId) {
+#if !defined(COMPONENT_BUILD) // FIXME
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->SetAsyncStackId(stackId);
+  }
+#endif
+}
+#endif
+
 }  // namespace viz

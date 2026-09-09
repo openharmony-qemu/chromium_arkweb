@@ -160,6 +160,8 @@ class ArkOhosAdapterHelperWrapper : public NWeb::OhosAdapterHelper {
 
   NWeb::SurfaceTransactionAdapter& GetSurfaceTransactionAdapter() override;
 
+  NWeb::HiViewDfxAdapter& GetHiViewDfxAdapterInstance() override;
+
  private:
   ArkWebRefPtr<ArkOhosAdapterHelper> ctocpp_;
 };
