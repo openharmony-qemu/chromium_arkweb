@@ -19,6 +19,7 @@
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/strings/string_split.h"
 #include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/public/common/content_switches.h"
 #endif
@@ -40,6 +41,22 @@ bool GetArkWebBackForwardCacheFeatures(
         blink::scheduler::StringToFeature("EnableCacheMediaTakeOver");
     if (feature.has_value()) {
       features.Put(feature.value());
+    }
+  }
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kIgnoreBFCacheFeatures)) {
+    std::vector<std::string> tokens = base::SplitString(
+        base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+            switches::kIgnoreBFCacheFeatures),
+        ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    for (const std::string& token : tokens) {
+      auto feature = blink::scheduler::StringToFeature(token);
+      if (feature.has_value()) {
+        features.Put(feature.value());
+      } else if (!blink::scheduler::IsRemovedFeature(token)) {
+        DLOG(WARNING) << "Invalid feature string: " << token;
+      }
     }
   }
   return true;
