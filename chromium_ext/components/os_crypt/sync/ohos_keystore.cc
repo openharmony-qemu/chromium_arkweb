@@ -123,7 +123,7 @@ std::string GetKey(const std::string& alias) {
         return local_key;
       }
     }
-    return local_key;
+    return std::string();
   }
 }
 
