@@ -14,13 +14,25 @@
  */
 
 #include <deviceinfo.h>
+#include <sstream>
 #include "event_reporter.h"
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "arkweb/chromium_ext/third_party/crashpad/crashpad/util/linux/crashpad_dfx.h"
+#include "arkweb/chromium_ext/base/ohos/nweb_engine_event_logger.h"
+#include "arkweb/chromium_ext/base/ohos/nweb_engine_event_logger_code.h"
+#include "arkweb/chromium_ext/url/ohos/log_utils.h"
 #include "oh_web_performance_timing.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "base/logging.h"
+#include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+#include "ohos_nweb_ex/overrides/cef/libcef/browser/alloy/alloy_ark_web_global_config.h"
+#endif
 
 using OHOS::NWeb::HiSysEventAdapter;
 using OHOS::NWeb::OhosAdapterHelper;
@@ -181,6 +193,103 @@ constexpr char HISTOGRAM_CONTENT[] = "HISTOGRAM_CONTENT";
 constexpr char CACHE_DATA_SEPARATE_STATISTICS[] = "CACHE_DATA_SEPARATE_STATISTICS";
 constexpr char CACHE_DATA_MIGRATE_STATISTICS[] = "CACHE_DATA_MIGRATE_STATISTICS";
 
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+bool ShouldReportByPerformanceSampleRate() {
+  int sample_rate =
+      nweb_ex::AlloyArkWebGlobalConfig::GetInstance()->GetPerformanceSampleRate();
+  if (sample_rate <= 0 || sample_rate > 10000) {
+    return false;
+  }
+  int sample_random_value = base::RandInt(0, 9999);
+  return sample_random_value < sample_rate;
+}
+
+bool ShouldReportByProcessSampleRate() {
+  int sample_rate =
+      nweb_ex::AlloyArkWebGlobalConfig::GetInstance()->GetProcessSampleRate();
+  if (sample_rate <= 0 || sample_rate > 10000) {
+    return false;
+  }
+  int sample_random_value = base::RandInt(0, 9999);
+  return sample_random_value < sample_rate;
+}
+
+bool ShouldReportByJankSampleRate() {
+  int sample_rate =
+      nweb_ex::AlloyArkWebGlobalConfig::GetInstance()->GetJankSampleRate();
+  if (sample_rate <= 0 || sample_rate > 10000) {
+    return false;
+  }
+  int sample_random_value = base::RandInt(0, 9999);
+  return sample_random_value < sample_rate;
+}
+
+const char* ConnectionTypeToString(net::NetworkChangeNotifier::ConnectionType type) {
+  switch (type) {
+    case net::NetworkChangeNotifier::CONNECTION_UNKNOWN:   return "UNKNOWN";
+    case net::NetworkChangeNotifier::CONNECTION_ETHERNET:  return "ETHERNET";
+    case net::NetworkChangeNotifier::CONNECTION_WIFI:      return "WIFI";
+    case net::NetworkChangeNotifier::CONNECTION_2G:        return "2G";
+    case net::NetworkChangeNotifier::CONNECTION_3G:        return "3G";
+    case net::NetworkChangeNotifier::CONNECTION_4G:        return "4G";
+    case net::NetworkChangeNotifier::CONNECTION_NONE:      return "NONE";
+    case net::NetworkChangeNotifier::CONNECTION_BLUETOOTH: return "BLUETOOTH";
+    case net::NetworkChangeNotifier::CONNECTION_5G:        return "5G";
+    default: return "UNKNOWN";
+  }
+}
+
+const char* EffectiveConnectionTypeToString(net::EffectiveConnectionType type) {
+  switch (type) {
+    case net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN:   return "UNKNOWN";
+    case net::EFFECTIVE_CONNECTION_TYPE_OFFLINE:   return "OFFLINE";
+    case net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G:   return "SLOW_2G";
+    case net::EFFECTIVE_CONNECTION_TYPE_2G:        return "2G";
+    case net::EFFECTIVE_CONNECTION_TYPE_3G:        return "3G";
+    case net::EFFECTIVE_CONNECTION_TYPE_4G:        return "4G";
+    default: return "UNKNOWN";
+  }
+}
+
+std::string BuildPageLoadTimeStatsMessage(const OhWebPerformanceTiming& timing,
+                                          const std::string& masked_url) {
+  std::ostringstream ostr;
+  ostr << "navigation_id: " << timing.navigation_id
+       << ", navigation_start: " << timing.actual_navigation_start
+       << ", redirect_count: " << timing.redirect_count
+       << ", redirect_start: " << timing.redirect_start
+       << ", redirect_end: " << timing.redirect_end
+       << ", fetch_start: " << timing.fetch_start
+       << ", worker_start: " << timing.worker_start
+       << ", domain_lookup_start: " << timing.domain_lookup_start
+       << ", domain_lookup_end: " << timing.domain_lookup_end
+       << ", connect_start: " << timing.connect_start
+       << ", secure_connect_start: " << timing.secure_connect_start
+       << ", connect_end: " << timing.connect_end
+       << ", request_start: " << timing.request_start
+       << ", response_start: " << timing.response_start
+       << ", response_end: " << timing.response_end
+       << ", dom_interactive: " << timing.dom_interactive
+       << ", dom_content_loaded_event_start: " << timing.dom_content_loaded_event_start
+       << ", dom_content_loaded_event_end: " << timing.dom_content_loaded_event_end
+       << ", load_event_start: " << timing.load_event_start
+       << ", load_event_end: " << timing.load_event_end
+       << ", first_paint: " << timing.first_paint
+       << ", first_contentful_paint: " << timing.first_contentful_paint
+       << ", largest_contentful_paint: " << timing.largest_contentful_paint
+       << ", render_init_block: " << timing.render_init_block
+       << ", first_input_delay: " << timing.first_input_delay
+       << ", total_web_contents: " << timing.total_web_contents
+       << ", is_ssl_cert_error: " << timing.is_ssl_cert_error
+       << ", current_connection_type: "
+       << ConnectionTypeToString(timing.current_connection_type)
+       << ", effective_connection_type: "
+       << EffectiveConnectionTypeToString(timing.effective_connection_type)
+       << ", url: " << masked_url;
+  return ostr.str();
+}
+#endif  // ARKWEB_NWEB_EX
+
 }  // namespace
 
 void ReportChildProcessInitFail(bool is_gpu, int err) {
@@ -188,6 +297,18 @@ void ReportChildProcessInitFail(bool is_gpu, int err) {
       CHILD_PROCESS_INIT_FAIL, HiSysEventAdapter::EventType::FAULT,
       {PROCESS_TYPE, is_gpu ? std::string("gpu") : std::string("render"),
       ERROR_CODE, std::to_string(err)});
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByProcessSampleRate()) {
+    std::ostringstream ostr;
+    ostr << "process_type: " << (is_gpu ? "gpu" : "render")
+         << ", error_code: " << err;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleComponent,
+                                  base::ohos::kDefaultUrl,
+                                  base::ohos::kChildProcessInitFail,
+                                  ostr.str());
+    LOG(INFO) << "event_message[ChildProcessInitFail]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportRenderJsFreeze(int32_t pid, const std::string& packageName, const std::string& processName,
@@ -201,6 +322,21 @@ void ReportRenderJsFreeze(int32_t pid, const std::string& packageName, const std
         "MSG", freezeMsg,
         "UID", uid
       });
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByProcessSampleRate()) {
+    std::ostringstream ostr;
+    ostr << "pid: " << pid
+         << ", package_name: " << packageName
+         << ", process_name: " << processName
+         << ", msg: " << freezeMsg
+         << ", uid: " << uid;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleContentRender,
+                                  base::ohos::kDefaultUrl,
+                                  base::ohos::kRenderJsFreeze,
+                                  ostr.str());
+    LOG(INFO) << "event_message[RenderJsFreeze]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportRenderProcessTerminate(bool is_gpu, int32_t pid, const std::string& reason, int32_t error) {
@@ -212,6 +348,20 @@ void ReportRenderProcessTerminate(bool is_gpu, int32_t pid, const std::string& r
         "REASON", reason,
         "ERROR", std::to_string(error)
       });
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByProcessSampleRate()) {
+    std::ostringstream ostr;
+    ostr << "process_type: " << (is_gpu ? "gpu" : "render")
+         << ", pid: " << pid
+         << ", reason: " << reason
+         << ", error: " << error;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleContentRender,
+                                  base::ohos::kDefaultUrl,
+                                  base::ohos::kRenderProcessTerminate,
+                                  ostr.str());
+    LOG(INFO) << "event_message[RenderProcessTerminate]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportPageLoadStats(int instanceId,
@@ -259,11 +409,27 @@ void ReportPageLoadErrorInfo(int instanceId,
 void ReportJankStats(int64_t startTime,
                      int duration,
                      std::vector<uint16_t> jankStats,
-                     int jankStatsVer) {
+                     int jankStatsVer,
+                     const GURL& url) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       JANK_STATS_APP, HiSysEventAdapter::EventType::STATISTIC,
       {STARTTIME, startTime, DURATION, duration, JANK_STATS, jankStats,
        JANK_STATS_VER, jankStatsVer});
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByJankSampleRate()) {
+    std::string masked_url = url::LogUtils::ConvertUrl(url.spec(), true);
+    std::ostringstream ostr;
+    ostr << "start_time: " << startTime
+         << ", duration: " << duration
+         << ", jank_stats_ver: " << jankStatsVer
+         << ", url: " << masked_url;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleComponent,
+                                  url.is_empty() ? base::ohos::kDefaultUrl : url.GetHost(),
+                                  base::ohos::kJankStats,
+                                  ostr.str());
+    LOG(INFO) << "event_message[JankStats]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportLockdownModeStatus(void) {
@@ -291,7 +457,7 @@ void ReportPageDownLoadErrorInfo(long downloadId, int errorCode) {
        std::to_string(errorCode)});
 }
 
-void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime) {
+void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime, const GURL& url) {
   const std::string input = "NAVIGATION_ID" + std::to_string(loadPageTime.navigation_id) +
     "NAVIGATION_START" + std::to_string(loadPageTime.navigation_start) +
     "REDIRECT_COUNT" + std::to_string(loadPageTime.redirect_count) +
@@ -319,6 +485,17 @@ void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime) {
 
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       "PAGE_LOAD_TIME", HiSysEventAdapter::EventType::STATISTIC,{input, ""});
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByPerformanceSampleRate()) {
+    std::string masked_url = url::LogUtils::ConvertUrl(url.spec(), true);
+    std::string message = BuildPageLoadTimeStatsMessage(loadPageTime, masked_url);
+    base::ohos::ReportEngineEvent(base::ohos::kModuleNet,
+                                  url.is_empty() ? base::ohos::kDefaultUrl : url.GetHost(),
+                                  base::ohos::kPageLoadTimeStats,
+                                  message);
+    LOG(INFO) << "event_message[PageLoadTimeStats]: " << message;
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportAudioPlayErrorInfo(const std::string errorType,
@@ -409,6 +586,22 @@ void ReportSlideJankStats(int64_t startTime,
        totalAppFrames, TOTAL_APP_MISSED_FRAMES, totalAppMissedFrames,
        MAX_APP_FRAMETIME, maxAppFrametime, MAX_APP_SEQ_MISSSED_FRAMES,
        maxAppSeqMissedFrames});
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByJankSampleRate()) {
+    std::ostringstream ostr;
+    ostr << "start_time: " << startTime
+         << ", duration: " << duration
+         << ", total_app_frames: " << totalAppFrames
+         << ", total_app_missed_frames: " << totalAppMissedFrames
+         << ", max_app_frametime: " << maxAppFrametime
+         << ", max_app_seq_missed_frames: " << maxAppSeqMissedFrames;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleComponent,
+                                  base::ohos::kDefaultUrl,
+                                  base::ohos::kSlideJankStats,
+                                  ostr.str());
+    LOG(INFO) << "event_message[SlideJankStats]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportSiteIsolationMode(const std::string site_isolation_status) {
@@ -618,15 +811,40 @@ void ReportSkiaOOMError(const std::string errorDesc) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       SKIA_OOM_ERROR, HiSysEventAdapter::EventType::FAULT,
       {ERROR_DESC, error_desc});
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByProcessSampleRate()) {
+    std::ostringstream ostr;
+    ostr << "error_desc: " << error_desc;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleComponent,
+                                  base::ohos::kDefaultUrl,
+                                  base::ohos::kSkiaOOMError,
+                                  ostr.str());
+    LOG(INFO) << "event_message[SkiaOOMError]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
-void ReportRenderProcessNotResponding(const std::string&pid, const std::string&reason) {
+void ReportRenderProcessNotResponding(const std::string&pid, const std::string&reason, const GURL& url) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       RENDER_PROCESS_NOTRESPONDING, HiSysEventAdapter::EventType::FAULT,
       {
         "PID", pid,
         "REASON", reason
       });
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (ShouldReportByProcessSampleRate()) {
+    std::string masked_url = url::LogUtils::ConvertUrl(url.spec(), true);
+    std::ostringstream ostr;
+    ostr << "pid: " << pid
+         << ", reason: " << reason
+         << ", url: " << masked_url;
+    base::ohos::ReportEngineEvent(base::ohos::kModuleContentRender,
+                                  url.is_empty() ? base::ohos::kDefaultUrl : url.GetHost(),
+                                  base::ohos::kRenderProcessNotResponding,
+                                  ostr.str());
+    LOG(INFO) << "event_message[RenderProcessNotResponding]: " << ostr.str();
+  }
+#endif  // ARKWEB_NWEB_EX
 }
 
 void ReportRenderProcessResponding() {

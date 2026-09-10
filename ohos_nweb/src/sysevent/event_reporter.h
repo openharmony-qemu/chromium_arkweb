@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "url/gurl.h"
 #include "oh_web_performance_timing.h"
 
 enum class CrashType {
@@ -52,11 +53,12 @@ void ReportPageLoadErrorInfo(int instanceId,
 void ReportJankStats(int64_t startTime,
                      int duration,
                      std::vector<uint16_t> jankStats,
-                     int jankStatsVer);
+                     int jankStatsVer,
+                     const GURL& url = GURL());
 
 void ReportLockdownModeStatus(void);
 
-void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime);
+void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime, const GURL& url = GURL());
 
 void ReportAudioPlayErrorInfo(const std::string errorType,
                               int errorCode,
@@ -154,7 +156,7 @@ void ReportSkiaOOMError(const std::string errorDesc);
 
 void ReportGetAllImage(const std::string& error_code);
 
-void ReportRenderProcessNotResponding(const std::string& pid, const std::string& reason);
+void ReportRenderProcessNotResponding(const std::string& pid, const std::string& reason, const GURL& url = GURL());
 
 void ReportRenderProcessResponding();
 

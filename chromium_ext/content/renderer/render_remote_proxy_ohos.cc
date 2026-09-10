@@ -200,7 +200,7 @@ void RenderRemoteProxy::CreateAndRegist(const base::CommandLine& command_line,
   }
 }
 
-bool RenderRemoteProxy::WaitForBrowserFd() {
+bool RenderRemoteProxy::WaitForBrowserFd(bool is_gpu) {
   if (is_for_test_) {
     return true;
   }
@@ -222,7 +222,7 @@ bool RenderRemoteProxy::WaitForBrowserFd() {
     }
   }
 #if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
-  ReportChildProcessInitFail(false, RenderError::RENDER_START_TIMEOUT);
+  ReportChildProcessInitFail(is_gpu, RenderError::RENDER_START_TIMEOUT);
 #endif
   LOG(ERROR)
       << "Request to AMS to obtain the main process IPC fd failed, timeout("

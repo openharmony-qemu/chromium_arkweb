@@ -41,6 +41,10 @@ void ReportLossFrame::SetVsyncPeriod(int64_t vsync_period) {
   vsync_period_ = vsync_period;
 }
 
+void ReportLossFrame::SetUrl(const std::string& url) {
+  url_ = url;
+}
+
 int64_t ReportLossFrame::GetCurrentTimestampMS() {
   auto currentTime = std::chrono::system_clock::now().time_since_epoch();
   return std::chrono::duration_cast<std::chrono::milliseconds>(currentTime)
@@ -59,7 +63,7 @@ void ReportLossFrame::Report() {
   base::ThreadPool::PostTask(
       FROM_HERE, {base::TaskPriority::LOWEST},
       base::BindOnce(&ReportJankStats, start_time_for_scroll_, duration,
-                     jank_stats_, JANK_STATS_VER));
+                     jank_stats_, JANK_STATS_VER, GURL(url_)));
 #endif
 #endif
   Reset();
