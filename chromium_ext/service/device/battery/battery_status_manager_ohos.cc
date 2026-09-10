@@ -58,6 +58,7 @@ class BatteryManagerListener
     LOG(INFO) << "fisrt request battery info";
     std::shared_ptr<WebBatteryInfo> batteryInfo =
         batteryClient->RequestBatteryInfo();
+    scoped_refptr<BatteryManagerListener> keep_alive(this);
     if (batteryInfo != nullptr) {
       mojom::BatteryStatus status;
       status.level = batteryInfo->GetLevel();
