@@ -87,13 +87,8 @@ public:
 
     virtual std::unique_ptr<NetConnectAdapter> CreateNetConnectAdapter() = 0;
 
-    virtual OhosWebDataBaseAdapter& GetOhosWebDataBaseAdapterInstance() = 0;
-
     virtual OhosWebDataBaseAdapter& GetOhosWebDataBaseAdapterInstance(
-        const std::string&)
-    {
-        return GetOhosWebDataBaseAdapterInstance();
-    }
+        const std::string& userPath = "") = 0;
 
     virtual PasteBoardClientAdapter& GetPasteBoard() = 0;
 
@@ -103,13 +98,8 @@ public:
 
     virtual AudioSystemManagerAdapter& GetAudioSystemManager() = 0;
 
-    virtual OhosWebPermissionDataBaseAdapter& GetWebPermissionDataBaseInstance() = 0;
-
     virtual OhosWebPermissionDataBaseAdapter& GetWebPermissionDataBaseInstance(
-        const std::string&)
-    {
-        return GetWebPermissionDataBaseInstance();
-    }
+        const std::string& userPath = "") = 0;
 
     virtual std::unique_ptr<MMIAdapter> CreateMMIAdapter() = 0;
 
@@ -173,7 +163,7 @@ public:
 
     virtual std::unique_ptr<SensorAdapter> CreateSensorAdapter() = 0;
 
-    virtual void SetApplicationResourceManager(void*) {}
+    virtual void SetApplicationResourceManager(void* mgr) = 0;
 
     virtual void SetArkWebCoreHapPathOverride(const std::string& hapPath) = 0;
 

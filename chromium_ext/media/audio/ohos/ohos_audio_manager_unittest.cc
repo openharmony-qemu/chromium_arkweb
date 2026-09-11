@@ -175,6 +175,7 @@ class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
               CreateSensorAdapter,
               (),
               (override));
+  MOCK_METHOD(void, SetApplicationResourceManager, (void*), (override));
   MOCK_METHOD(void,
               SetArkWebCoreHapPathOverride,
               (const std::string&),

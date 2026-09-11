@@ -164,6 +164,7 @@ class MockWindowAdapter : public WindowAdapter {
               (override));
   MOCK_METHOD(void, AddNativeWindowRef, (NWebNativeWindow window), (override));
   MOCK_METHOD(void, NativeWindowUnRef, (NWebNativeWindow window), (override));
+  MOCK_METHOD(void, NativeWindowSetUsage, (NWebNativeWindow window), (override));
 };
 
 class MockMediaCodecDecoderAdapter : public MediaCodecDecoderAdapter {
@@ -348,6 +349,7 @@ class MockOhosAdapterHelper : public OhosAdapterHelper {
               CreateSensorAdapter,
               (),
               (override));
+  MOCK_METHOD(void, SetApplicationResourceManager, (void*), (override));
   MOCK_METHOD(void,
               SetArkWebCoreHapPathOverride,
               (const std::string&),

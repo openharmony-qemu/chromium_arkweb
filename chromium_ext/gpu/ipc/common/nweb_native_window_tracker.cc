@@ -18,6 +18,7 @@ NWebNativeWindowTracker* g_instance = nullptr;
 extern void* QueryRenderWindowFromBrowserProcess(int32_t window_id);
 extern void DestroyRenderWindowFromBrowserProcess(int32_t window_id);
 extern void PassWindowToBrowserProcess(int64_t window_id);
+extern void DestroyPassedSurfaceFromGpuProcess(int64_t surface_id);
 
 namespace {
 constexpr char kGpuProcess[] = "gpu-process";
@@ -48,6 +49,10 @@ class BrowserClientAdapterImpl : public OHOS::NWeb::AafwkBrowserClientAdapter {
   void DestroyRenderSurface(int32_t surface_id) override {
     LOG(INFO) << "DestroyRenderSurface, surface_id=" << surface_id;
     DestroyRenderWindowFromBrowserProcess(surface_id);
+  }
+
+  void DestroyPassedSurface(int64_t surface_id) override {
+    DestroyPassedSurfaceFromGpuProcess(surface_id);
   }
 };
 }  // namespace

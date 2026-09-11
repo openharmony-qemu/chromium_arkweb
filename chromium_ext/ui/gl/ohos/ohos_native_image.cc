@@ -26,8 +26,6 @@ constexpr char kProcessType[] = "type";
 constexpr char kGpuProcess[] = "gpu-process";
 }  // namespace
 
-extern void DestroyPassedSurfaceFromGpuProcess(int64_t surface_id);
-
 namespace gl {
 
 std::mutex& GetNativeImageMutex() {
@@ -79,7 +77,8 @@ void OhosNativeImage::DestroyPassedSurfaceFromGpuProcess() {
   }
   uint64_t surface_id = 0;
   if (native_image_adapter_->GetSurfaceId(&surface_id) == 0) {
-    ::DestroyPassedSurfaceFromGpuProcess(static_cast<int64_t>(surface_id));
+    NWebNativeWindowTracker::GetInstance()
+        ->g_browser_client_->DestroyPassedSurface(surface_id);
   }
 }
 //LCOV_EXCL_STOP

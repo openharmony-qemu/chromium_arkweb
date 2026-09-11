@@ -107,10 +107,7 @@ std::shared_ptr<LocationCallbackAdapter> GetLocationCallback(void* userData)
 
 static void LocationCallback(Location_Info* location, void* userData)
 {
-    if (location == nullptr || userData == nullptr) {
-        WVLOG_E("location or user data is null");
-        return;
-    }
+    WVLOG_I("LocationCallback");
     Location_BasicInfo basicInfo = OH_LocationInfo_GetBasicInfo(location);
     char additions[MAX_ADDITION_LEN] = { 0 };
     OH_LocationInfo_GetAdditionalInfo(location, additions, MAX_ADDITION_LEN);
@@ -269,21 +266,12 @@ int32_t LocationProxyAdapterImpl::StartLocating(
     std::shared_ptr<LocationRequestConfig> requestConfig, std::shared_ptr<LocationCallbackAdapter> callback)
 {
     int32_t id = -1;
-    if (!requestConfig || !callback) {
-        WVLOG_E("request config or callback is nullptr");
+    if (!callback) {
+        WVLOG_E("callback is nullptr");
         return id;
-    }
-    if (ohRequestConfig_ != nullptr) {
-        OH_Location_StopLocating(ohRequestConfig_);
-        OH_Location_DestroyRequestConfig(ohRequestConfig_);
-        ohRequestConfig_ = nullptr;
     }
     LocationRequestConfigImpl* requestConfigImpl = static_cast<LocationRequestConfigImpl*>(requestConfig.get());
     ohRequestConfig_ = OH_Location_CreateRequestConfig();
-    if (ohRequestConfig_ == nullptr) {
-        WVLOG_E("create location request config failed");
-        return id;
-    }
     if (requestConfigImpl->GetScenario() != OHOS::NWeb::LocationRequestConfig::Scenario::UNSET) {
         OH_LocationRequestConfig_SetUseScene(ohRequestConfig_, (Location_UseScene)requestConfigImpl->GetScenario());
     } else {
@@ -301,7 +289,7 @@ int32_t LocationProxyAdapterImpl::StartLocating(
         return id;
     }
 
-    WVLOG_I("LocationProxyAdapterImpl::StartLocating out");
+    WVLOG_I("LocationProxyAdapterImpl::StartLocating");
     return 0;
 }
 

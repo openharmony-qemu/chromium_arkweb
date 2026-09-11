@@ -60,6 +60,7 @@ class MockSocPerfClientAdapter {
 class MockOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
  public:
   MOCK_METHOD(std::unique_ptr<OHOS::NWeb::SocPerfClientAdapter>, CreateSocPerfClientAdapter, (), (override));
+  MOCK_METHOD(void, SetApplicationResourceManager, (void*), (override));
 };
 
 class MockTouchObserver : public base::ohos::TouchObserver {
@@ -121,5 +122,4 @@ TEST_F(DocumentUtilsTest, Trace_DoesNotCrash) {
 }
 
 } // namespace blink
-
 
