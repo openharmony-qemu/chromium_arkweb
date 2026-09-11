@@ -125,6 +125,86 @@ int32_t RenderFrameImpl::ExecuteSelectCommand(
   return web_frame_widget->ExecuteSelectCommand(xpath, indexes, values);
 }
 
+int32_t RenderFrameImpl::ExecuteFocusCommand(const std::string& xpath,
+                                              bool suppress_keyboard) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteFocusCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteFocusCommand(xpath, suppress_keyboard);
+}
+
+int32_t RenderFrameImpl::ExecuteInputModifyCommand(const std::string& content) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputModifyCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteInputModifyCommand(content);
+}
+
+int32_t RenderFrameImpl::ExecuteInputInsertCommand(const std::string& content,
+                                                    int32_t index) {
+  auto web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputInsertCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteInputInsertCommand(content, index);
+}
+
+int32_t RenderFrameImpl::ExecuteAutoFillCommand(const std::string& xpath,
+                                                 const std::string& content,
+                                                 int32_t index,
+                                                 int32_t mode) {
+  auto* web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteAutoFillCommand(xpath, content, index, mode);
+}
+
+int32_t RenderFrameImpl::ExecuteClickCommand(const std::string& xpath) {
+  auto* web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteClickCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteClickCommand(xpath);
+}
+
+int32_t RenderFrameImpl::ExecuteScrollCommand(const std::string& xpath,
+                                                const std::string& align,
+                                                int32_t offset) {
+  auto* web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteScrollCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteScrollCommand(xpath, align, offset);
+}
+
+int32_t RenderFrameImpl::ExecuteInputSelectCommand(int32_t start_index,
+                                                      int32_t finish_index) {
+  auto* web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSelectCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteInputSelectCommand(start_index, finish_index);
+}
+
+int32_t RenderFrameImpl::ExecuteInputSetCursorCommand(int32_t index) {
+  auto* web_frame_widget = GetLocalRootWebFrameWidget();
+  if (!web_frame_widget) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSetCursorCommand: web frame widget is null";
+    return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return web_frame_widget->ExecuteInputSetCursorCommand(index);
+}
+
 #if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
 gfx::Vector2dF RenderFrameImpl::GetOverScrollOffset() {
   gfx::Vector2dF overscroll_offset;

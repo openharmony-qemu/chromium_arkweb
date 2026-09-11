@@ -3955,6 +3955,80 @@ int32_t NWebDelegate::ExecuteSelectCommand(
   return GetBrowser()->GetHost()->ExecuteSelectCommand(xpath, indexes, values);
 }
 
+int32_t NWebDelegate::ExecuteFocusCommand(const std::string& xpath,
+                                          bool suppress_keyboard) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteFocusCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteFocusCommand(xpath, suppress_keyboard);
+}
+
+int32_t NWebDelegate::ExecuteInputModifyCommand(const std::string& content) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputModifyCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteInputModifyCommand(content);
+}
+
+int32_t NWebDelegate::ExecuteInputInsertCommand(const std::string& content,
+                                                  int32_t index) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputInsertCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteInputInsertCommand(content, index);
+}
+
+int32_t NWebDelegate::ExecuteAutoFillCommand(const std::string& xpath,
+                                               const std::string& content,
+                                               int32_t index,
+                                               int32_t mode,
+                                               int32_t remaining_timeout_ms) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteAutoFillCommand(
+      xpath, content, index, mode, remaining_timeout_ms);
+}
+
+int32_t NWebDelegate::ExecuteClickCommand(const std::string& xpath) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteClickCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteClickCommand(xpath);
+}
+
+int32_t NWebDelegate::ExecuteScrollCommand(const std::string& xpath,
+                                            const std::string& align,
+                                            int32_t offset) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteScrollCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteScrollCommand(xpath, align, offset);
+}
+
+int32_t NWebDelegate::ExecuteInputSelectCommand(int32_t start_index,
+                                                  int32_t finish_index) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSelectCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteInputSelectCommand(start_index, finish_index);
+}
+
+int32_t NWebDelegate::ExecuteInputSetCursorCommand(int32_t index) {
+  if (!GetBrowser().get()) {
+    LOG(ERROR) << "[WebCommandAction] ExecuteInputSetCursorCommand: browser is null";
+    return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
+  }
+  return GetBrowser()->GetHost()->ExecuteInputSetCursorCommand(index);
+}
+
 std::shared_ptr<NWebCommandActionManager>
 NWebDelegate::GetCommandActionManager() const {
   return command_action_manager_;

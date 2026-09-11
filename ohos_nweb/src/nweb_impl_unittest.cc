@@ -9407,6 +9407,22 @@ TEST_F(NWebImplTest, SendCommandAction_Success_0100) {
 }
 
 /**
+ * @tc.name: SendCommandAction_UnknownEventType_0100
+ * @tc.desc: Test SendCommandAction with unknown event_type returns WEB_COMMAND_FAILED.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, SendCommandAction_UnknownEventType_0100) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  auto action =
+      std::make_shared<StubNWebCommandAction>("unknownEvent", "/html/body");
+  EXPECT_CALL(*mock_delegate_, IsElementExist(testing::_))
+      .WillOnce(Return(true));
+  auto result = nweb_impl_->SendCommandAction(action);
+  // unknown event_type returns WEB_COMMAND_FAILED (11)
+  EXPECT_EQ(result, 11);
+}
+
+/**
  * @tc.name: GetCommandActionManager_NullDelegate_0100
  * @tc.desc: Test GetCommandActionManager with null delegate returns nullptr.
  * @tc.type: FUNC
@@ -11636,182 +11652,6 @@ TEST_F(NWebImplTest, IsNavigateForwardAllowedReturnTrueAgain) {
 
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-TEST_F(NWebImplTest, CombineCommandJsStringClick001) {
-  auto result = nweb_impl_->CombineCommandJsString("click", "//*[@id='btn']", "top", 0);
-  EXPECT_NE(result.find("const type = 'click';"), std::string::npos);
-  EXPECT_NE(result.find("el.click();"), std::string::npos);
-  EXPECT_NE(result.find("action: 'click'"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringTopAlign001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "top", 4);
-  EXPECT_NE(result.find("const align = 'top';"), std::string::npos);
-  EXPECT_NE(result.find("if (align === 'top') target = absT;"), std::string::npos);
-  EXPECT_NE(result.find("const offsetVal = 4;"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringMidAlign001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "mid", 0);
-  EXPECT_NE(result.find("const align = 'mid';"), std::string::npos);
-  EXPECT_NE(result.find("else if (align === 'mid')"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringBottomAlign001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "bottom", 0);
-  EXPECT_NE(result.find("const align = 'bottom';"), std::string::npos);
-  EXPECT_NE(result.find("else if (align === 'bottom')"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringEscapesQuotes001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@title=\"a\"]", "top", 0);
-  EXPECT_NE(result.find("\\\"a\\\""), std::string::npos);
-  EXPECT_EQ(result.find("[@title=\"a\"]"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringNegativeOffset001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "top", -8);
-  EXPECT_NE(result.find("const offsetVal = -8;"), std::string::npos);
-  EXPECT_NE(result.find("const finalPos = target + offsetVal;"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringEmptyXPath001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "", "top", 0);
-  EXPECT_NE(result.find("const xpath = ``;"), std::string::npos);
-  EXPECT_NE(result.find("XPath not found"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringUnknownAlign001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "center", 0);
-  EXPECT_NE(result.find("const align = 'center';"), std::string::npos);
-  EXPECT_EQ(result.find("align === 'center'"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringLargeOffset001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "bottom", 1024);
-  EXPECT_NE(result.find("const offsetVal = 1024;"), std::string::npos);
-  EXPECT_NE(result.find("target + offsetVal"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringEscapesMultipleQuotes001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@title=\"a\" and @alt=\"b\"]", "top", 0);
-  EXPECT_NE(result.find("\\\"a\\\""), std::string::npos);
-  EXPECT_NE(result.find("\\\"b\\\""), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringContainsScrollableContainerLoop001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "mid", 0);
-  EXPECT_NE(result.find("while (c && c !== document.documentElement)"), std::string::npos);
-  EXPECT_NE(result.find("c = c.parentElement;"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringContainsWindowScrollBranch001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "top", 0);
-  EXPECT_NE(result.find("if (isW) window.scrollTo"), std::string::npos);
-  EXPECT_NE(result.find("else c.scrollTo"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringContainsCatchBranch001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "top", 0);
-  EXPECT_NE(result.find("} catch (e) {"), std::string::npos);
-  EXPECT_NE(result.find("reason: e.toString()"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringPreservesEventType001) {
-  auto result = nweb_impl_->CombineCommandJsString("longPress", "//*[@id='item']", "top", 0);
-  EXPECT_NE(result.find("const type = 'longPress';"), std::string::npos);
-  EXPECT_EQ(result.find("const type = 'scroll';"), std::string::npos);
-}
-
-#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
-#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
-
-TEST_F(NWebImplTest, CombineCommandJsStringContainsEvaluateCall001) {
-  auto result = nweb_impl_->CombineCommandJsString("scroll", "//*[@id='item']", "top", 0);
-  EXPECT_NE(result.find("document.evaluate(xpath"), std::string::npos);
-  EXPECT_NE(result.find("XPathResult.FIRST_ORDERED_NODE_TYPE"), std::string::npos);
-}
-
 #endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 

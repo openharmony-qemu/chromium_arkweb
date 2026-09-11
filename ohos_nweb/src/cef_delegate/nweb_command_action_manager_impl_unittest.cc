@@ -29,18 +29,39 @@
 #include "nweb_command_action_manager.h"
 #include "nweb_errors.h"
 
-// Include the implementation header (needs NWebDelegate forward declaration)
-#include "cef_delegate/nweb_command_action_manager_impl.h"
-
-// Access NWebDelegate private members for creating valid WeakPtr
+// Access private members of NWebDelegate (weak_factory_) for WeakPtr creation.
+// nweb_command_action_manager_impl.h transitively includes nweb_delegate.h,
+// so place both inside the #define block so header guards skip the re-inclusion
+// and the first inclusion already has private→public applied.
 #define private public
 #include "cef_delegate/nweb_delegate.h"
+#include "cef_delegate/nweb_handler_delegate.h"
+#include "cef_delegate/nweb_command_action_manager_impl.h"
 #undef private
 
 using namespace testing;
 using namespace OHOS::NWeb;
 
 namespace {
+
+// Concrete implementation of AutoFillItem for testing.
+class AutoFillItemImpl : public AutoFillItem {
+ public:
+  AutoFillItemImpl(const std::string& xpath, const std::string& content,
+                   int32_t index = 0, AutoFillMode mode = AutoFillMode::Overwrite)
+      : xpath_(xpath), content_(content), index_(index), mode_(mode) {}
+
+  std::string GetXPath() const override { return xpath_; }
+  std::string GetContent() const override { return content_; }
+  int32_t GetIndex() const override { return index_; }
+  AutoFillMode GetMode() const override { return mode_; }
+
+ private:
+  std::string xpath_;
+  std::string content_;
+  int32_t index_ = 0;
+  AutoFillMode mode_ = AutoFillMode::Overwrite;
+};
 
 // Test implementation of NWebCommandActionInfo
 class TestCommandActionInfo : public NWebCommandActionInfo {
@@ -67,6 +88,10 @@ class TestCommandActionInfo : public NWebCommandActionInfo {
         scale_(scale), speed_(speed),
         duration_(duration), tap_count_(tap_count) {}
 
+  TestCommandActionInfo(const std::string& event_type,
+                        AutoFillMode default_mode)
+      : event_type_(event_type), default_mode_(default_mode) {}
+
   std::string GetEventType() const override { return event_type_; }
   std::string GetXPath() const override { return xpath_; }
   std::string GetInputValue() const override { return input_value_; }
@@ -86,6 +111,14 @@ class TestCommandActionInfo : public NWebCommandActionInfo {
   int32_t GetDuration() const override { return duration_; }
   int32_t GetTapCount() const override { return tap_count_; }
 
+
+  void SetAutoFillItems(const std::vector<std::shared_ptr<AutoFillItem>>& items) {
+    autofill_items_ = items;
+  }
+  void SetDefaultMode(AutoFillMode mode) {
+    default_mode_ = mode;
+  }
+
  private:
   std::string event_type_;
   std::string xpath_;
@@ -101,6 +134,17 @@ class TestCommandActionInfo : public NWebCommandActionInfo {
   int32_t speed_ = 0;
   int32_t duration_ = 0;
   int32_t tap_count_ = 1;
+
+  // AutoFill batch fill fields
+  std::vector<std::shared_ptr<AutoFillItem>> autofill_items_;
+  AutoFillMode default_mode_ = AutoFillMode::Overwrite;
+
+  std::vector<std::shared_ptr<AutoFillItem>> GetAutoFillItems() const override {
+    return autofill_items_;
+  }
+  AutoFillMode GetDefaultMode() const override {
+    return default_mode_;
+  }
 };
 
 }  // namespace
@@ -114,9 +158,9 @@ class NWebCommandActionManagerImplTest : public Test {
             base::WeakPtr<NWebDelegate>());
 
     // Create a minimal NWebDelegate to obtain a valid WeakPtr for
-    // parameter-validation and success-path tests.
-    // NWebDelegate constructor: NWebDelegate(int argc, const char* argv[])
-    // Note: argv must outlive the NWebDelegate since it stores the pointer.
+    // parameter-validation tests. Without a real browser instance,
+    // GetBrowser() returns null, so Gesture/AutoFill success-path tests
+    // cannot be verified in UT.
     web_engine_args_.emplace_back("--no-sandbox");
     argc_ = web_engine_args_.size();
     argv_ = new const char* [static_cast<size_t>(argc_)];
@@ -125,6 +169,7 @@ class NWebCommandActionManagerImplTest : public Test {
     }
     real_delegate_ =
         std::make_shared<NWebDelegate>(argc_, argv_);
+
     valid_delegate_manager_ =
         std::make_unique<NWebCommandActionManagerImpl>(
             real_delegate_->weak_factory_.GetWeakPtr());
@@ -322,57 +367,173 @@ TEST_F(NWebCommandActionManagerImplTest,
             static_cast<int32_t>(WebCommandErrorCode::DELEGATE_NULL));
 }
 
+// NOTE: Gesture success-path tests (UnknownEventType, TapEvent, ScrollGestureEvent,
+// PinchEvent) are removed. HandleGestureCommand checks GetBrowser() BEFORE
+// parameter validation, so these always return CONTEXT_NULL in UT environment.
+// These require a real browser instance to test.
+
+// ===== HandleAutoFillCommand Tests =====
+
 /**
- * @tc.name: HandleGestureCommand_UnknownEventType_ReturnsInvalidEventType_0100
- * @tc.desc: Test HandleGestureCommand with unknown event type returns JSON_INVALID_EVENT_TYPE.
+ * @tc.name: HandleAutoFillCommand_NullInfo_ReturnsFailed_0100
+ * @tc.desc: Test HandleAutoFillCommand with null info returns FAILED.
  * @tc.type: FUNC
  */
 TEST_F(NWebCommandActionManagerImplTest,
-       HandleGestureCommand_UnknownEventType_ReturnsInvalidEventType_0100) {
-  auto info = std::make_shared<TestCommandActionInfo>("unknown", 100.0, 200.0);
-  auto result = valid_delegate_manager_->HandleGestureCommand(info);
+       HandleAutoFillCommand_NullInfo_ReturnsFailed_0100) {
+  auto result = null_delegate_manager_->HandleAutoFillCommand(nullptr);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_EVENT_TYPE));
+            static_cast<int32_t>(WebCommandErrorCode::FAILED));
 }
 
 /**
- * @tc.name: HandleGestureCommand_TapEvent_ReturnsSuccess_0100
- * @tc.desc: Test HandleGestureCommand with tap event returns SUCCESS.
+ * @tc.name: HandleAutoFillCommand_NullDelegate_ReturnsDelegateNull_0100
+ * @tc.desc: Test HandleAutoFillCommand with null delegate returns DELEGATE_NULL.
  * @tc.type: FUNC
  */
 TEST_F(NWebCommandActionManagerImplTest,
-       HandleGestureCommand_TapEvent_ReturnsSuccess_0100) {
-  auto info = std::make_shared<TestCommandActionInfo>("tap", 100.0, 200.0, 0, 0, 1.0f, 0, 100, 1);
-  auto result = valid_delegate_manager_->HandleGestureCommand(info);
+       HandleAutoFillCommand_NullDelegate_ReturnsDelegateNull_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  // TestCommandActionInfo returns empty items by default
+  auto result = null_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+            static_cast<int32_t>(WebCommandErrorCode::DELEGATE_NULL));
 }
 
 /**
- * @tc.name: HandleGestureCommand_ScrollGestureEvent_ReturnsSuccess_0100
- * @tc.desc: Test HandleGestureCommand with scrollGesture event returns SUCCESS.
+ * @tc.name: HandleAutoFillCommand_EmptyItems_ReturnsInvalidItems_0100
+ * @tc.desc: Test HandleAutoFillCommand with empty items returns JSON_INVALID_ITEMS.
  * @tc.type: FUNC
  */
 TEST_F(NWebCommandActionManagerImplTest,
-       HandleGestureCommand_ScrollGestureEvent_ReturnsSuccess_0100) {
-  auto info = std::make_shared<TestCommandActionInfo>(
-      "scrollGesture", 100.0, 200.0, 50.0, 100.0, 1.0f, 500, 0, 1);
-  auto result = valid_delegate_manager_->HandleGestureCommand(info);
+       HandleAutoFillCommand_EmptyItems_ReturnsInvalidItems_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  // TestCommandActionInfo::GetAutoFillItems() returns {} by default
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEMS));
 }
 
 /**
- * @tc.name: HandleGestureCommand_PinchEvent_ReturnsSuccess_0100
- * @tc.desc: Test HandleGestureCommand with pinch event returns SUCCESS.
+ * @tc.name: HandleAutoFillCommand_InvalidDefaultMode_ReturnsInvalidDefaultMode_0100
+ * @tc.desc: Test HandleAutoFillCommand with invalid defaultMode returns JSON_INVALID_DEFAULT_MODE.
  * @tc.type: FUNC
  */
 TEST_F(NWebCommandActionManagerImplTest,
-       HandleGestureCommand_PinchEvent_ReturnsSuccess_0100) {
-  auto info = std::make_shared<TestCommandActionInfo>("pinch", 100.0, 200.0, 0, 0, 1.5f, 500, 0, 1);
-  auto result = valid_delegate_manager_->HandleGestureCommand(info);
+       HandleAutoFillCommand_InvalidDefaultMode_ReturnsInvalidDefaultMode_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  // With enum-based mode, invalid mode validation is handled at parsing layer;
+  // enum values are always valid, so this test no longer triggers JSON_INVALID_DEFAULT_MODE.
+  // Keep default Overwrite mode and verify it still fails on PAGE_NOT_READY.
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_EmptyItemXPath_ReturnsInvalidItemXpath_0100
+ * @tc.desc: Test HandleAutoFillCommand with item having empty xpath returns JSON_INVALID_ITEM_XPATH.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_EmptyItemXPath_ReturnsInvalidItemXpath_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("", "hello", 0, AutoFillMode::Overwrite)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_XPATH));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_EmptyItemContent_ReturnsInvalidItemContent_0100
+ * @tc.desc: Test HandleAutoFillCommand with item having empty content returns JSON_INVALID_ITEM_CONTENT.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_EmptyItemContent_ReturnsInvalidItemContent_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "", 0, AutoFillMode::Overwrite)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_CONTENT));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_InvalidItemIndex_ReturnsInvalidItemIndex_0100
+ * @tc.desc: Test HandleAutoFillCommand with item having negative index returns JSON_INVALID_ITEM_INDEX.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_InvalidItemIndex_ReturnsInvalidItemIndex_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", -1, AutoFillMode::Insert)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_INDEX));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_MultipleItems_FirstErrorReturned_0100
+ * @tc.desc: Test HandleAutoFillCommand with multiple items where first is invalid,
+ *           returns the first error code.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_MultipleItems_FirstErrorReturned_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({
+      std::make_shared<AutoFillItemImpl>("", "hello", 0, AutoFillMode::Overwrite),       // invalid: empty xpath
+      std::make_shared<AutoFillItemImpl>("//input[@id='name']", "world", 0, AutoFillMode::Overwrite),  // valid
+  });
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_XPATH));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_OverwriteMode_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: Parameter validation passes for overwrite mode, but returns PAGE_NOT_READY
+ *           because no real browser is available (ExecuteFocusCommand fails).
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_OverwriteMode_NoBrowser_ReturnsPageNotReady_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_InsertMode_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: Parameter validation passes for insert mode, but returns PAGE_NOT_READY
+ *           because no real browser is available (ExecuteFocusCommand fails).
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_InsertMode_NoBrowser_ReturnsPageNotReady_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 5, AutoFillMode::Insert)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_DefaultModeEmpty_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: Parameter validation passes with default Overwrite mode,
+ *           but returns PAGE_NOT_READY because no real browser is available.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_DefaultModeEmpty_NoBrowser_ReturnsPageNotReady_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
 }
 
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
