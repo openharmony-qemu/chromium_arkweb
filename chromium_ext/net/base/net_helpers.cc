@@ -5,11 +5,14 @@
 #include "arkweb/chromium_ext/net/base/net_helpers.h"
 
 #include "base/base_paths_ohos.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
-#include "base/path_service.h"
 #include "base/logging.h"
+#include "base/path_service.h"
+#include "base/strings/escape.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "net/base/filename_util.h"
 #include "net/base/load_flags.h"
 #include "url/gurl.h"
 
@@ -30,6 +33,10 @@
 #endif
 
 namespace net_service {
+
+BASE_FEATURE(kArkwebSecureFilePathGuard,
+             "ArkwebSecureFilePathGuard",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -55,6 +62,27 @@ int UpdateCacheLoadFlags(int load_flags, int cache_control_flags) {
   unsigned_load_flags &= ~all_cache_control_flags;
   unsigned_load_flags |= unsigned_cache_flags;
   return static_cast<int>(unsigned_load_flags);
+}
+
+static GURL NormalizeFileUrl(const GURL& url) {
+  if (!url.is_valid() || !url.SchemeIsFile() || !url.has_path()) {
+    return url;
+  }
+
+  if (!base::FeatureList::IsEnabled(kArkwebSecureFilePathGuard)) {
+    return url;
+  }
+
+  base::FilePath path;
+  if (!net::FileURLToFilePath(url, &path)) {
+    return url;
+  }
+
+  std::string encoded = base::EscapePath(path.value());
+
+  GURL::Replacements replacements;
+  replacements.SetPathStr(encoded);
+  return url.ReplaceComponents(replacements);
 }
 }  // namespace
 
@@ -244,12 +272,13 @@ bool IsAnomalousFilePath(const GURL& url) {
 }
 #endif
 
-bool IsURLBlocked(const GURL& url
+bool IsURLBlocked(const GURL& ori_url
 #if BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
 ,
                   struct NetHelperSetting setting
 #endif  // BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
 ) {
+  GURL url = NormalizeFileUrl(ori_url);
 #if BUILDFLAG(ARKWEB_EXT_FILE_ACCESS)
   if (IsAnomalousFilePath(url)) {
     LOG(WARNING) << "Blocked anomalous file";
