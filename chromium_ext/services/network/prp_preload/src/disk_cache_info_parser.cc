@@ -218,14 +218,26 @@ bool DiskCacheInfoParser::GetAcceptedStreamTypesFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetAcceptedStreamTypesFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const base::Value::List* accepted_stream_types_list =
       json.GetDict().FindList(param_name);
   if (accepted_stream_types_list != nullptr) {
     std::vector<net::SourceStreamType> accepted_stream_types;
     for (const auto& accepted_stream_type : *accepted_stream_types_list) {
+      if (!accepted_stream_type.is_int()) {
+        return false;
+      }
+      auto type_value = accepted_stream_type.GetInt();
+      if (type_value < static_cast<int>(net::SourceStreamType::kBrotli) ||
+          type_value > static_cast<int>(net::SourceStreamType::kNone)) {
+        return false;
+      }
       accepted_stream_types.push_back(
-          static_cast<net::SourceStreamType>(
-              accepted_stream_type.GetInt()));
+        static_cast<net::SourceStreamType>(type_value));
     }
     if (accepted_stream_types.size()) {
       info->set_accepted_stream_types(accepted_stream_types);
@@ -246,6 +258,11 @@ bool DiskCacheInfoParser::GetAdTaggedFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetAdTaggedFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<bool> ad_tagged =
       json.GetDict().FindBool(param_name);
   if (!ad_tagged.has_value()) {
@@ -268,6 +285,11 @@ bool DiskCacheInfoParser::GetAllowCredentialsFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetAllowCredentialsFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<bool> allow_credentials =
       json.GetDict().FindBool(param_name);
   if (!allow_credentials.has_value()) {
@@ -333,6 +355,11 @@ bool DiskCacheInfoParser::GetCacheTypeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetCacheTypeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> cache_type = json.GetDict().FindInt(param_name);
   if (!cache_type.has_value() ||
       cache_type.value() <
@@ -358,6 +385,10 @@ bool DiskCacheInfoParser::GetETagFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetETagFromJson json is not dict";
+    return false;
+  }
   const std::string* e_tag = json.GetDict().FindString(param_name);
   if (!e_tag) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetETagFromJson e_tag is invalid";
@@ -378,6 +409,10 @@ bool DiskCacheInfoParser::GetFreshnessLifeTimesFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetFreshnessLifeTimesFromJson json is not dict";
+    return false;
+  }
   const std::string* freshness_life_times_str =
       json.GetDict().FindString(param_name);
   if (!freshness_life_times_str || freshness_life_times_str->empty()) {
@@ -410,6 +445,11 @@ bool DiskCacheInfoParser::GetLastModifiedFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetLastModifiedFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::string* last_modified = json.GetDict().FindString(param_name);
   if (!last_modified) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -436,6 +476,11 @@ bool DiskCacheInfoParser::GetCookieSettingOverridesFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetCookieSettingOverridesFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const base::Value::List* cookie_setting_overrides_list =
       json.GetDict().FindList(param_name);
   net::CookieSettingOverrides cookie_setting_overrides;
@@ -446,8 +491,17 @@ bool DiskCacheInfoParser::GetCookieSettingOverridesFromJson(
     return false;
   }
   for (const auto& cookie_setting_override : *cookie_setting_overrides_list) {
-    cookie_setting_overrides.Put(static_cast<net::CookieSettingOverride>(
-        cookie_setting_override.GetInt()));
+    if (!cookie_setting_override.is_int()) {
+      return false;
+    }
+    auto override_value = cookie_setting_override.GetInt();
+    if (override_value < static_cast<int>(net::CookieSettingOverride::kMinValue) ||
+        override_value > static_cast<int>(net::CookieSettingOverride::kMaxValue)) {
+      LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetCookieSettingOverridesFromJson" <<
+                    "override_value is out of range";
+      return false;
+    }
+    cookie_setting_overrides.Put(static_cast<net::CookieSettingOverride>(override_value));
   }
   info->set_cookie_setting_overrides(cookie_setting_overrides);
   return true;
@@ -464,6 +518,11 @@ bool DiskCacheInfoParser::GetDoNotPromptForLoginFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetDoNotPromptForLoginFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<bool> do_not_prompt_for_login =
       json.GetDict().FindBool(param_name);
   if (!do_not_prompt_for_login.has_value()) {
@@ -490,6 +549,11 @@ bool DiskCacheInfoParser::GetDynamicHeaderKeysFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetDynamicHeaderKeysFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const base::Value::List* dynamic_header_key_list =
       json.GetDict().FindList(param_name);
   if (!dynamic_header_key_list) {
@@ -499,6 +563,11 @@ bool DiskCacheInfoParser::GetDynamicHeaderKeysFromJson(
   }
   std::set<std::string> dynamic_header_keys;
   for (const auto& dynamic_header_key : *dynamic_header_key_list) {
+    if (!dynamic_header_key.is_string()) {
+      LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetDynamicHeaderKeysFromJson" <<
+        "dynamic header key is not a string";
+      return false;
+    }
     (void)dynamic_header_keys.emplace(dynamic_header_key.GetString());
   }
   if (!dynamic_header_keys.empty()) {
@@ -524,6 +593,11 @@ bool DiskCacheInfoParser::GetExtraRequestHeadersFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetExtraRequestHeadersFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const base::Value::Dict* extra_request_headers_dict =
       json.GetDict().FindDict(param_name);
   net::HttpRequestHeaders extra_request_headers;
@@ -535,6 +609,11 @@ bool DiskCacheInfoParser::GetExtraRequestHeadersFromJson(
   }
   for (std::pair<const std::string&, const base::Value&> extra_request_header :
        *extra_request_headers_dict) {
+    if (!extra_request_header.second.is_string()) {
+      LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
+                    "GetExtraRequestHeadersFromJson extra_request_header.second is not string ";
+      return false;
+    }
     extra_request_headers.SetHeader(extra_request_header.first,
                                     extra_request_header.second.GetString());
   }
@@ -552,6 +631,11 @@ bool DiskCacheInfoParser::GetFirstPartyUrlPolicyFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetFirstPartyUrlPolicyFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<int> first_party_url_policy =
       json.GetDict().FindInt(param_name);
   if (!first_party_url_policy.has_value() ||
@@ -583,6 +667,11 @@ bool DiskCacheInfoParser::GetForceIgnoreSiteForCookiesFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetForceIgnoreSiteForCookiesFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<bool> force_ignore_site_for_cookies =
       json.GetDict().FindBool(param_name);
   if (!force_ignore_site_for_cookies.has_value()) {
@@ -607,6 +696,11 @@ bool DiskCacheInfoParser::GetForceMainFrameForSameSiteCookiesFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetForceMainFrameForSameSiteCookiesFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<bool> force_main_frame_for_same_site_cookies =
       json.GetDict().FindBool(param_name);
   if (!force_main_frame_for_same_site_cookies.has_value()) {
@@ -632,6 +726,11 @@ bool DiskCacheInfoParser::GetIdempotencyFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetIdempotencyFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<int> idempotency = json.GetDict().FindInt(param_name);
   if (!idempotency.has_value() ||
       idempotency.value() < net::Idempotency::DEFAULT_IDEMPOTENCY ||
@@ -660,6 +759,11 @@ bool DiskCacheInfoParser::GetInitiatorFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetInitiatorFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::string* initiator = json.GetDict().FindString(param_name);
   if (!initiator) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -683,6 +787,11 @@ bool DiskCacheInfoParser::GetIsForWebsocketsFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetIsForWebsocketsFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<bool> is_for_websockets =
       json.GetDict().FindBool(param_name);
   if (!is_for_websockets.has_value()) {
@@ -708,6 +817,11 @@ bool DiskCacheInfoParser::GetKeepaliveFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetKeepaliveFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<bool> keepalive = json.GetDict().FindBool(param_name);
   if (!keepalive.has_value()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -730,6 +844,10 @@ bool DiskCacheInfoParser::GetLoadFlagsFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetLoadFlagsFromJson json is not dict";
+    return false;
+  }
   const std::optional<int> load_flags = json.GetDict().FindInt(param_name);
   if (!load_flags.has_value()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -753,6 +871,11 @@ bool DiskCacheInfoParser::GetMethodFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetMethodFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* method = json.GetDict().FindString(param_name);
   if (!method) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -775,6 +898,11 @@ bool DiskCacheInfoParser::GetLimitNumFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetLimitNumFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* limit_num_str = json.GetDict().FindString(param_name);
   if (!limit_num_str || limit_num_str->empty()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -809,6 +937,11 @@ bool DiskCacheInfoParser::GetPreloadFlagsFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetPreloadFlagsFromJson" <<
+                    "json is not dict ";
+    return false;
+  }
   const std::optional<int> preload_flag = json.GetDict().FindInt(param_name);
   if (!preload_flag.has_value() ||
       preload_flag.value() < static_cast<int>(PRRequestFlags::PRPP_FLAGS_NONE) ||
@@ -833,6 +966,11 @@ bool DiskCacheInfoParser::GetPreloadSeqNumFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetPreloadSeqNumFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* preload_seq_num = json.GetDict().FindString(param_name);
   if (!preload_seq_num) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetETagFromJson preload_seq_num is invalid";
@@ -853,6 +991,11 @@ bool DiskCacheInfoParser::GetReferrerFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetReferrerFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* referrer = json.GetDict().FindString(param_name);
   if (!referrer) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -875,6 +1018,11 @@ bool DiskCacheInfoParser::GetReferrerPolicyFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetReferrerPolicyFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> referrer_policy =
       json.GetDict().FindInt(param_name);
   if (!referrer_policy.has_value() ||
@@ -903,6 +1051,11 @@ bool DiskCacheInfoParser::GetRequestCredentialsModeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestCredentialsModeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> request_credentials_mode =
       json.GetDict().FindInt(param_name);
   if (!request_credentials_mode.has_value()) {
@@ -926,6 +1079,11 @@ bool DiskCacheInfoParser::GetRequestDestinationFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestDestinationFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> request_destination =
       json.GetDict().FindInt(param_name);
   if (!request_destination.has_value()) {
@@ -949,6 +1107,11 @@ bool DiskCacheInfoParser::GetRequestEndTimeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestEndTimeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* request_end_time_str =
       json.GetDict().FindString(param_name);
   if (!request_end_time_str || request_end_time_str->empty()) {
@@ -984,6 +1147,11 @@ bool DiskCacheInfoParser::GetRequestInfoTypeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestInfoTypeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> type = json.GetDict().FindInt(param_name);
   if (!type.has_value() ||
       type.value() < static_cast<int>(PRRequestInfoType::TYPE_DEFAULT) ||
@@ -1006,6 +1174,11 @@ bool DiskCacheInfoParser::GetRequestModeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestModeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> request_mode = json.GetDict().FindInt(param_name);
   if (!request_mode.has_value()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestModeFromJson " <<
@@ -1027,6 +1200,10 @@ bool DiskCacheInfoParser::GetRequestStartTimeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetRequestStartTimeFromJson json is not dict";
+    return false;
+  }
   const std::string* request_start_time_str =
       json.GetDict().FindString(param_name);
   if (!request_start_time_str || request_start_time_str->empty()) {
@@ -1062,6 +1239,11 @@ bool DiskCacheInfoParser::GetResourceTypeFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetResourceTypeFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> resource_type = json.GetDict().FindInt(param_name);
   if (!resource_type.has_value()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetResourceTypeFromJson " <<
@@ -1083,6 +1265,11 @@ bool DiskCacheInfoParser::GetSecureDnsPolicyFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetSecureDnsPolicyFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<int> secure_dns_policy =
       json.GetDict().FindInt(param_name);
   if (!secure_dns_policy.has_value() ||
@@ -1111,6 +1298,10 @@ bool DiskCacheInfoParser::GetSendClientCertsFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info) {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetSendClientCertsFromJson json is not dict";
+    return false;
+  }
   const std::optional<bool> send_client_certs =
       json.GetDict().FindBool(param_name);
   if (!send_client_certs.has_value()) {
@@ -1138,6 +1329,10 @@ bool DiskCacheInfoParser::GetStorageAccessStatusFromJson(
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info)
 {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetStorageAccessStatusFromJson json is not dict";
+    return false;
+  }
   const std::optional<int> storage_access_status =
       json.GetDict().FindInt(param_name);
   if (!storage_access_status.has_value()) {
@@ -1163,11 +1358,17 @@ void DiskCacheInfoParser::SetUpgradeIfInsecureToJson(
 {
   dict.Set(param_name, info->upgrade_if_insecure());
 }
+
 bool DiskCacheInfoParser::GetUpgradeIfInsecureFromJson(
     const base::Value& json,
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info)
 {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetUpgradeIfInsecureFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::optional<bool> upgrade_if_insecure =
       json.GetDict().FindBool(param_name);
   if (!upgrade_if_insecure.has_value()) {
@@ -1199,6 +1400,10 @@ bool DiskCacheInfoParser::GetUrlFromJson(
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info)
 {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetUrlFromJson json is not dict";
+    return false;
+  }
   const std::string* url = json.GetDict().FindString(param_name);
   if (!url || url->empty()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetUrlFromJson " <<
@@ -1223,6 +1428,11 @@ bool DiskCacheInfoParser::GetPageIndexFromJson(
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info)
 {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetPageIndexFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* page_index_str = json.GetDict().FindString(param_name);
   if (!page_index_str || page_index_str->empty()) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::" <<
@@ -1259,6 +1469,11 @@ bool DiskCacheInfoParser::GetPageOriginFromJson(
     const std::string& param_name,
     const std::shared_ptr<PRRequestInfo>& info)
 {
+  if (!json.is_dict()) {
+    LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetPageOriginFromJson" <<
+                    " json is not dict";
+    return false;
+  }
   const std::string* page_origin = json.GetDict().FindString(param_name);
   if (!page_origin) {
     LOG(DEBUG) << "PRPPreload.DiskCacheInfoParser::GetETagFromJson page_origin is invalid";
