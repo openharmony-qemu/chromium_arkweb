@@ -183,6 +183,11 @@ struct NWebExtensionOptionalPermission {
   bool granted;
 };
 
+struct NWebAccessModifier {
+  bool is_enabled;
+  bool is_active;
+};
+
 struct NWebInstalledExtensionInfo {
   std::string id;
   std::string name;
@@ -196,6 +201,14 @@ struct NWebInstalledExtensionInfo {
   int location;
   std::vector<NWebExtensionOptionalPermission> optional_permissions;
   std::optional<NWebExtensionActionIconV2> icons;
+  std::optional<NWebAccessModifier> file_access;
+  std::optional<NWebAccessModifier> user_scripts_access;
+};
+
+struct NWebExtensionConfigurationUpdate {
+  std::string extension_id;
+  std::optional<bool> file_access;
+  std::optional<bool> user_scripts_access;
 };
 
 typedef void (*OnWebExtensionLoadedFun)(const WebExtensionInfo& load_info);
