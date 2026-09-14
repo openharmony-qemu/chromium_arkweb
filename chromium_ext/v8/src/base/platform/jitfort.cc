@@ -22,7 +22,33 @@
 #include <unistd.h>
 
 #include "src/base/platform/platform.h"
+#if defined(ARKWEB_ENABLE_JITFORT)
+#include "arkweb/build/features/features.h"
+#include "arkweb/chromium_ext/v8/jitfort_feature.h"
+#include "arkweb/chromium_ext/v8/ohlog.h"
+#include "third_party/bounds_checking_function/include/securec.h"
+#define JITFORT_LOG_IMPL_DEBUG(...)                                       \
+  do {                                                                   \
+    char _jitfort_buf[256];                                              \
+    snprintf_s(_jitfort_buf, sizeof(_jitfort_buf),                       \
+               sizeof(_jitfort_buf) - 1, __VA_ARGS__);                   \
+    StreamHilogDebug(std::string(_jitfort_buf));                         \
+  } while (0)
+#define JITFORT_LOG_IMPL_INFO(...)                                        \
+  do {                                                                   \
+    char _jitfort_buf[256];                                              \
+    snprintf_s(_jitfort_buf, sizeof(_jitfort_buf),                       \
+               sizeof(_jitfort_buf) - 1, __VA_ARGS__);                   \
+    StreamHilog(std::string(_jitfort_buf));                              \
+  } while (0)
+#define JITFORT_LOG_IMPL_FATAL JITFORT_LOG_IMPL_INFO
+#define JITFORT_LOG(logLevel, ...) JITFORT_LOG_IMPL_##logLevel(__VA_ARGS__)
+#elif defined(USING_OHOS)
 #include "hilog.h"
+#define JITFORT_LOG(logLevel, ...) HilogPrint(logLevel, __VA_ARGS__)
+#else
+#define JITFORT_LOG(logLevel, ...)
+#endif
 
 namespace v8 {
 namespace base {
@@ -79,45 +105,66 @@ bool JITFort::IsSupported()
 {
     static bool isSupported = []() -> bool {
         long version = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_QUERY_VERSION);
-        HilogPrint(INFO, "[jitfort]: JitFort os version is %{public}ld", version);
+        JITFORT_LOG(INFO, "[jitfort]: JitFort os version is %ld", version);
         if (version >= 2) {
-            HilogPrint(INFO, "[jitfort]: JitFort is supported in current os");
+            JITFORT_LOG(INFO, "[jitfort]: JitFort is supported in current os");
             return true;
         } else {
-            HilogPrint(INFO, "[jitfort]: JitFort is not supported in current os");
+            JITFORT_LOG(INFO, "[jitfort]: JitFort is not supported in current os");
             return false;
         }
     }();
     return isSupported;
 }
 
+// Tracks whether Init() has fully completed (cloud control enabled + /dev/xpm
+// ioctl succeeded + copgtable created). SetJITMemoryWritable/Executable must
+// not issue prctl SWITCH_IN/OUT unless this is true — switching on a process
+// that never created a copgtable is undefined behavior.
+static bool& IsInitialized()
+{
+    static bool initialized = false;
+    return initialized;
+}
+
 void JITFort::Init()
 {
-    // TODO: Open EnableJitfort in hdc param.
+#if defined(ARKWEB_ENABLE_JITFORT)
+    if (!IsJitFortEnabled()) {
+        JITFORT_LOG(INFO, "[jitfort]: disabled by --disable-features=JitFort, degraded");
+        return;
+    }
+#endif
     if (!IsSupported()) return;
     JITFort::EnableJitfort();
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_CREATE_COPGTABLE);
     if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: InitJitfort create copytable faild, return value is %{public}ld", ret);
+        JITFORT_LOG(FATAL, "[jitfort]: InitJitfort create copytable faild, return value is %ld", ret);
+        return;
     }
+    IsInitialized() = true;
 }
 
 void JITFort::SetJITMemoryWritable()
 {
-    if (!IsSupported()) return;
+    if (!IsInitialized()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_IN);
 	if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: Writable prctl in failed, return value is %{public}ld", ret);
-	}
+        JITFORT_LOG(DEBUG, "[jitfort]: Writable prctl in failed, return value is %ld", ret);
+	} else {
+        JITFORT_LOG(DEBUG, "[jitfort]: Writable success");
+    }
 }
 
 void JITFort::SetJITMemoryExecutable()
 {
-    if (!IsSupported()) return;
+    if (!IsInitialized()) return;
     long ret = PrctlWrapper(JITFORT_PRCTL_OPTION, JITFORT_SWITCH_OUT);
 	if (ret != 0) {
-        HilogPrint(FATAL, "[jitfort]: Executable prctl out failed, return value is %{public}ld", ret);
-	}
+        JITFORT_LOG(DEBUG, "[jitfort]: Executable prctl out failed, return value is %ld", ret);
+	} else {
+        JITFORT_LOG(DEBUG, "[jitfort]: Executable prctl out success");
+    }
 }
 
 RwxMemoryNonWriteScope::RwxMemoryNonWriteScope(const char *comment) {}

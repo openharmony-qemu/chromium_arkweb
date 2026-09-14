@@ -372,6 +372,10 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
     if (sysno == __NR_prctl) {
 #define PR_SET_JITFORT_OPTION 0x6a6974
 #define JITFORT_CPU_FEATURES 7
+#define JITFORT_SWITCH_IN 3
+#define JITFORT_SWITCH_OUT 4
+#define JITFORT_CREATE_COPGTABLE 5
+#define JITFORT_QUERY_VERSION 8
 #define HM_PR_SILK_BLOCKAWARE_OPS 0x534b4241
 #define BLOCKAWARE_SUBOPS_INIT 1
 #define BLOCKAWARE_SUBOPS_REG 2
@@ -382,7 +386,9 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
 
         return Switch(option)
             .Cases({PR_SET_JITFORT_OPTION},
-                If(arg == JITFORT_CPU_FEATURES, Allow()).Else(CrashSIGSYSPrctl()))
+                If(AnyOf(arg == JITFORT_CPU_FEATURES, arg == JITFORT_SWITCH_IN,
+                    arg == JITFORT_SWITCH_OUT, arg == JITFORT_CREATE_COPGTABLE,
+                    arg == JITFORT_QUERY_VERSION), Allow()).Else(CrashSIGSYSPrctl()))
             .Cases({HM_PR_SILK_BLOCKAWARE_OPS},
                 If(AnyOf(arg == BLOCKAWARE_SUBOPS_INIT, arg == BLOCKAWARE_SUBOPS_REG,
                     arg == BLOCKAWARE_SUBOPS_UNREG, arg == BLOCKAWARE_SUBOPS_MONITORFD),

@@ -264,6 +264,7 @@ declare_args() {
   arkweb_vsync_schedule = true
   arkweb_gpu_image_persistent_cache_limit = true
   arkweb_pip = !is_component_build
+  arkweb_enable_jitfort = true
   arkweb_fullscreen_video_overlay = true
   arkweb_immediate_destory = false
   arkweb_cwnd = true

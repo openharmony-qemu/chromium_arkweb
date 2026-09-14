@@ -330,6 +330,7 @@ if (!enable_arkweb) {
   arkweb_canvas_commit = false
   arkweb_vsync_schedule = false
   arkweb_pip = true
+  arkweb_enable_jitfort = true
   arkweb_fullscreen_video_overlay = true
   arkweb_immediate_destory = false
   arkweb_cwnd = false
@@ -632,6 +633,7 @@ buildflag_header("features") {
     "ARKWEB_CANVAS_COMMIT=$arkweb_canvas_commit",
     "ARKWEB_VSYNC_SCHEDULE=$arkweb_vsync_schedule",
     "ARKWEB_PIP=$arkweb_pip",
+    "ARKWEB_ENABLE_JITFORT=$arkweb_enable_jitfort",
     "ARKWEB_FULLSCREEN_VIDEO_OVERLAY=$arkweb_fullscreen_video_overlay",
     "ARKWEB_IMMEDIATE_DESTORY=$arkweb_immediate_destory",
     "ARKWEB_CWND=$arkweb_cwnd",
