@@ -207,6 +207,9 @@ OhosWebAuthnApi::GetClientCapabilitiesResult OhosWebAuthnApiImpl::GetClientCapab
     }
     LOG(INFO) << "capability_array_ptr: "
               << Convert<std::string>(*capability_array_ptr);
+    if (!capability_array_ptr->capability) {
+      break;
+    }
     capabilities.reserve(capability_array_ptr->number);
     for (uint32_t i = 0; i < capability_array_ptr->number; i++) {
       const auto& capability = capability_array_ptr->capability[i];

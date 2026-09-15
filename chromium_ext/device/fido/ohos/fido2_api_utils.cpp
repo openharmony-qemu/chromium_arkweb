@@ -20,7 +20,12 @@ std::optional<base::Value::Dict> ExtractAttestationObjectAsJson(
         return std::nullopt;
     }
     const Uint8Buff& buffer = credential_ptr->response.attestationObject;
-    std::string attestation_json_data(buffer.val, buffer.val + buffer.length);
+    if (buffer.val == nullptr || buffer.length == 0) {
+        LOG(INFO) << "exit ExtractAttestationObjectAsJson, no buffer";
+        return std::nullopt;
+    }
+    std::string attestation_json_data(
+        reinterpret_cast<const char*>(buffer.val), buffer.length);
     std::optional<base::Value> json_response =
         base::JSONReader::Read(
             attestation_json_data, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
