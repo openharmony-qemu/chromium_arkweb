@@ -22,6 +22,12 @@ namespace content {
 void ClipboardHostImpl::OnClipboardDataGuard(
     bool status,
     OnClipboardDataGuardCallback callback) {
+  // Allow DropSnapshot() to release an existing guard after navigation.
+  if (status && render_frame_host().IsInactiveAndDisallowActivation(
+                    DisallowActivationReasonId::kClipboard)) {
+    std::move(callback).Run();
+    return;
+  }
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   if (clipboard) {
     clipboard->OnClipboardDataGuard(status);
@@ -31,6 +37,11 @@ void ClipboardHostImpl::OnClipboardDataGuard(
 
 void ClipboardHostImpl::UpdateClipboardData(
     UpdateClipboardDataCallback callback) {
+  if (render_frame_host().IsInactiveAndDisallowActivation(
+          DisallowActivationReasonId::kClipboard)) {
+    std::move(callback).Run();
+    return;
+  }
   ui::Clipboard::GetForCurrentThread()->UpdateClipboardData(
       std::move(callback));
 }
@@ -38,6 +49,11 @@ void ClipboardHostImpl::UpdateClipboardData(
 
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
 void ClipboardHostImpl::HandlePasswordVault(HandlePasswordVaultCallback callback) {
+  if (render_frame_host().IsInactiveAndDisallowActivation(
+          DisallowActivationReasonId::kClipboard)) {
+    std::move(callback).Run(false);
+    return;
+  }
   auto* contents = WebContents::FromRenderFrameHost(&render_frame_host());
   if (!contents) {
     std::move(callback).Run(false);
