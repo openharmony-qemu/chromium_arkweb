@@ -25,7 +25,9 @@
 #include "build/build_config.h"
 #include "media/capture/video/blob_utils.h"
 #include "media/capture/video/ohos/ohos_capture_delegate.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
 #include "ohos_adapter_helper.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/hiviewdfx_adapter.h"
 #include "third_party/libyuv/include/libyuv.h"
 #include "video_capture_common_ohos.h"
 
@@ -1074,5 +1076,63 @@ TEST_F(OHOSCaptureDelegateTest, OnBufferAvailable_NonNullClient_CallsOnIncomingC
         .WillOnce(testing::Return());
     SetFirstRefTime(base::TimeTicks::Now());
     c_delegate->OnBufferAvailable(surface, buffer, roration_info);
+}
+
+// allocateAndStart failure must be reported via client->OnError(), never
+// silently returned: a silent failure hangs the renderer-side UserMediaClient
+// FIFO queue and leaks the camera (front/back camera switching black screen).
+class OHOSCaptureDelegateAllocateAndStartTest : public testing::Test {
+public:
+    void SetUp() override
+    {
+        instance_ = new OHOS::NWeb::MockOhosAdapterHelper();
+        OHOS::NWeb::OhosAdapterHelper::SetInstance(instance_);
+        camera_manager_adapter_mock_ = std::make_unique<CameraManagerAdapterMock>();
+        ON_CALL(*instance_, GetCameraManagerAdapter())
+            .WillByDefault(testing::ReturnRef(*camera_manager_adapter_mock_));
+
+        VideoCaptureDeviceDescriptor device_descriptor;
+        scoped_refptr<SingleThreadTaskRunnerMock> capture_stask_runner;
+        VideoCaptureParamsMock capture_params;
+        c_delegate = std::make_shared<OHOSCaptureDelegate>(device_descriptor, capture_stask_runner,
+            capture_params);
+    }
+    void TearDown() override
+    {
+        c_delegate = nullptr;
+        camera_manager_adapter_mock_.reset();
+        OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+        delete instance_;
+    }
+
+    OHOS::NWeb::MockOhosAdapterHelper* instance_ = nullptr;
+    std::unique_ptr<CameraManagerAdapterMock> camera_manager_adapter_mock_;
+    std::shared_ptr<OHOSCaptureDelegate> c_delegate;
+};
+
+TEST_F(OHOSCaptureDelegateAllocateAndStartTest, AllocateAndStart_ShouldReportError_WhenCameraNotClosed)
+{
+    // Camera occupied (UNAVAILABLE): failure must surface through
+    // client->OnError(), never a silent return.
+    EXPECT_CALL(*camera_manager_adapter_mock_, GetCameraStatus())
+        .WillRepeatedly(Return(CameraStatusAdapter::UNAVAILABLE));
+    auto client = std::make_unique<ClientMock>();
+    EXPECT_CALL(*client, OnError(VideoCaptureError::kWebRtcStartCaptureFailed, testing::_, testing::_))
+        .WillOnce(testing::Return());
+    c_delegate->AllocateAndStart(std::move(client));
+}
+
+TEST_F(OHOSCaptureDelegateAllocateAndStartTest, AllocateAndStart_ShouldReportError_WhenNoMatchedParams)
+{
+    // Camera idle (AVAILABLE) but no supported format matches: fails in
+    // TransToOHOSCaptrueParams, still must surface through client->OnError().
+    EXPECT_CALL(*camera_manager_adapter_mock_, GetCameraStatus())
+        .WillRepeatedly(Return(CameraStatusAdapter::AVAILABLE));
+    EXPECT_CALL(*camera_manager_adapter_mock_, GetDevicesInfo())
+        .WillRepeatedly(Return(std::vector<std::shared_ptr<VideoDeviceDescriptorAdapter>> {}));
+    auto client = std::make_unique<ClientMock>();
+    EXPECT_CALL(*client, OnError(VideoCaptureError::kWebRtcStartCaptureFailed, testing::_, testing::_))
+        .WillOnce(testing::Return());
+    c_delegate->AllocateAndStart(std::move(client));
 }
 }  // namespace media

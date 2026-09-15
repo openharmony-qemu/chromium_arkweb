@@ -122,6 +122,14 @@ void OHOSCaptureDelegate::AllocateAndStart(
 
   if (!StartStream()) {
     LOG(ERROR) << "start stream failed";
+    // The failure must be reported to the client. A silent return leaves the
+    // browser-side VideoCaptureController and the renderer-side
+    // UserMediaProcessor waiting forever, which also blocks the FIFO queue
+    // in UserMediaClient (e.g. a pending stopTrack() of another camera can
+    // never run, leaking the camera device; front/back camera switching
+    // black screen).
+    SetErrorState(VideoCaptureError::kWebRtcStartCaptureFailed, FROM_HERE,
+                  "OHOSCaptureDelegate failed to start stream");
     return;
   }
 
@@ -489,6 +497,11 @@ void OHOSCaptureDelegate::SetErrorState(VideoCaptureError error,
                                         const base::Location& from_here,
                                         const std::string& reason) {
   DCHECK(capture_stask_runner_->BelongsToCurrentThread());
+  if (!client_) {
+    LOG(ERROR) << "SetErrorState client is nullptr, error: "
+               << static_cast<int>(error) << ", reason: " << reason;
+    return;
+  }
   client_->OnError(error, from_here, reason);
 }
 
