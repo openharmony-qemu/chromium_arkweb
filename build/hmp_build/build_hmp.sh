@@ -32,3 +32,4 @@ fi
 echo -e "sign success "
 
 cp NWeb-$ohos_mr_build_type.hap $HW_HARMONY_ENGINE_OUT_RELEASE/
+
