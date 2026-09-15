@@ -44,6 +44,7 @@ void WebDownloader_PutDownloadCallback(int32_t nweb_id,
       std::make_shared<NWebDownloadDelegateCallback>(*callback));
 }
 
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
 void WebDownloader_StartDownload(int32_t nweb_id, const char* url) {
   OHOS::NWeb::NWebImpl* nweb = OHOS::NWeb::NWebImpl::FromID(nweb_id);
   if (!nweb) {
@@ -52,6 +53,7 @@ void WebDownloader_StartDownload(int32_t nweb_id, const char* url) {
   }
   nweb->StartDownload(url);
 }
+#endif
 
 void WebDownloader_ResumeDownload(int32_t nweb_id,
                                   const NWebDownloadItem* download_item) {
@@ -540,6 +542,7 @@ void DestroyDownloadItemCallbackWrapper(
   return;
 }
 
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
 void WebScreenCapture_CreateScreenCaptureDelegateCallback(
     NWebScreenCaptureDelegateCallback** callback) {
 #if BUILDFLAG(ARKWEB_EX_SCREEN_CAPTURE)
@@ -616,6 +619,7 @@ void WebScreenCapture_DisableSessionReuse(int32_t nweb_id) {
   nweb->DisableSessionReuse();
 #endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
 }
+#endif
 
 #ifdef __cplusplus
 }

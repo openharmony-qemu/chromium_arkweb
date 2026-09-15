@@ -18,7 +18,6 @@
 
 #include <native_image/native_image.h>
 
-#include "base/memory/raw_ptr.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/graphic_adapter.h"
 #include "arkweb/ohos_adapter_ndk/ndk_callback_wrapper/callback_shared_wrapper.h"
 
@@ -71,7 +70,7 @@ public:
     static void OnFrameAvailable(void *context);
 
 private:
-    raw_ptr<OH_NativeImage> ohNativeImage_ = nullptr;
+    OH_NativeImage* ohNativeImage_ = nullptr;
 
     size_t callback_index_ = 0;
     static CallbackSharedWrapper<FrameAvailableListener> callback_wrapper_;
