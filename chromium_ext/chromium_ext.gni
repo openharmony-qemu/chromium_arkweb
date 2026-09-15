@@ -867,6 +867,7 @@ arkweb_base_unittest_sources = [
   "//arkweb/chromium_ext/base/ohos/sys_info_utils_ext_unittests.cc",
   "//arkweb/chromium_ext/base/ohos/task_scheduler/task_runner_ohos_unittest.cc",
   "//arkweb/chromium_ext/base/report_loss_frame_unittest.cc",
+  "//arkweb/chromium_ext/base/trace_event/hitrace_interceptor_oh_unittest.cc",
   "//arkweb/chromium_ext/base/trace_event/trace_event_ohos_unittest.cc",
   "//arkweb/chromium_ext/components/crx_file/crx_key_service_unittest.cc",
   "//arkweb/chromium_ext/components/download/internal/common/arkweb_download_item_impl_ext_unittest.cc",
