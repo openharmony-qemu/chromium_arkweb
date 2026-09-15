@@ -47,11 +47,14 @@ const gfx::RectF kDefaultViewportRect(0, 0, 560, 1200);
 struct MockDrawableData {
   TouchHandleOrientation orientation = TouchHandleOrientation::UNDEFINED;
   float alpha = 0.f;
+  int set_alpha_calls = 0;
   bool mirror_horizontal = false;
   bool mirror_vertical = false;
   bool enabled = false;
   bool visible = false;
   gfx::RectF rect{0, 0, kDefaultDrawableSize, kDefaultDrawableSize};
+  gfx::PointF edge_top;
+  gfx::PointF edge_bottom;
 };
 
 class MockTouchHandleDrawable : public TouchHandleDrawable {
@@ -75,6 +78,7 @@ class MockTouchHandleDrawable : public TouchHandleDrawable {
 
   void SetAlpha(float alpha) override {
     data_->alpha = alpha;
+    ++data_->set_alpha_calls;
     data_->visible = alpha > 0;
   }
 
@@ -85,6 +89,8 @@ class MockTouchHandleDrawable : public TouchHandleDrawable {
   gfx::RectF GetVisibleBounds() const override { return data_->rect; }
 
   void SetEdge(const gfx::PointF& top, const gfx::PointF& bottom) override {
+    data_->edge_top = top;
+    data_->edge_bottom = bottom;
   }
 
  private:
@@ -225,6 +231,18 @@ TEST_F(TouchHandleExtTest, ResetPositionAfterDragEnd) {
   SetEnalbeDrawable(false);
 }
 
+TEST_F(TouchHandleExtTest, ResetPositionAfterDragEndWithNoDrawable) {
+  TouchHandleExt handle(this, TouchHandleOrientation::CENTER,
+                        kDefaultViewportRect);
+  handle.SetVisible(true, TouchHandle::AnimationStyle::ANIMATION_NONE);
+  handle.drawable_.reset();
+
+  handle.ResetPositionAfterDragEnd();
+
+  EXPECT_TRUE(handle.is_visible_);
+  EXPECT_EQ(handle.drawable_, nullptr);
+}
+
 TEST_F(TouchHandleExtTest, SetFocus) {
   std::shared_ptr<TouchHandle> handle = std::make_shared<TouchHandleExt>(this, TouchHandleOrientation::CENTER, kDefaultViewportRect);
   gfx::PointF focus_top(10.0f, 200.0f);
@@ -252,6 +270,35 @@ TEST_F(TouchHandleExtTest, SetInsertHandleAlpha) {
   EXPECT_EQ(handle.alpha_, 0.3f);
   handle.SetInsertHandleAlpha(0.7f);
   EXPECT_EQ(handle.alpha_, 0.7f);
+}
+
+TEST_F(TouchHandleExtTest, SetEdgeForwardsEndpointsToDrawable) {
+  TouchHandleExt handle(this, TouchHandleOrientation::CENTER,
+                        kDefaultViewportRect);
+  const gfx::PointF top(12.5f, 30.0f);
+  const gfx::PointF bottom(18.0f, 46.5f);
+
+  handle.SetEdge(top, bottom);
+
+  EXPECT_EQ(drawable().edge_top, top);
+  EXPECT_EQ(drawable().edge_bottom, bottom);
+}
+
+TEST_F(TouchHandleExtTest, SetInsertHandleAlphaClampsAndSkipsDuplicates) {
+  TouchHandleExt handle(this, TouchHandleOrientation::CENTER,
+                        kDefaultViewportRect);
+
+  handle.SetInsertHandleAlpha(-0.5f);
+  EXPECT_EQ(handle.alpha_, 0.0f);
+  EXPECT_EQ(drawable().alpha, 0.0f);
+
+  handle.SetInsertHandleAlpha(1.5f);
+  EXPECT_EQ(handle.alpha_, 1.0f);
+  EXPECT_EQ(drawable().alpha, 1.0f);
+  const int calls_after_clamp = drawable().set_alpha_calls;
+
+  handle.SetInsertHandleAlpha(1.0f);
+  EXPECT_EQ(drawable().set_alpha_calls, calls_after_clamp);
 }
 }  // namespace
 }  // namespace ui

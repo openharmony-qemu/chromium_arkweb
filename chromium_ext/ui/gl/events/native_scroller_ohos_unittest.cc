@@ -18,11 +18,16 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <memory>
 
 #include "arkweb/chromium_ext/ui/events/gestures/blink/native_scroller_ohos_device_source_util.h"
+#include "arkweb/ohos_adapter_ndk/hiviewdfx_adapter/hitrace_adapter_impl.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
 #include "base/time/time.h"
 #include "third_party/blink/public/platform/web_gesture_curve.h"
+#include "ui/events/gesture_detection/gesture_configuration.h"
 #include "ui/events/gestures/blink/web_gesture_curve_impl.h"
 #include "ui/events/gestures/fling_curve.h"
 
@@ -49,6 +54,25 @@ const std::vector<FlingTestCase> kTestCases = {
      "Touchpad - High speed"},
     {blink::WebGestureDevice::kTouchpad, 1000, 350, 210,
      "Touchpad - Low speed"},
+};
+
+class NativeScrollerOhosPropertyTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+    EXPECT_CALL(helper_, GetHiTraceAdapterInstance())
+        .Times(testing::AnyNumber())
+        .WillRepeatedly(testing::ReturnRef(
+            OHOS::NWeb::HiTraceAdapterImpl::GetInstance()));
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(&helper_);
+  }
+
+  void TearDown() override {
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  }
+
+  testing::NiceMock<OHOS::NWeb::MockOhosAdapterHelper> helper_;
+  testing::NiceMock<OHOS::NWeb::MockSystemPropertiesAdapter> system_properties_;
 };
 
 TEST(NativeScrollerOhosTest, ParameterizedFlingTest) {
@@ -269,5 +293,58 @@ TEST(NativeScrollerOhosTest, ComputeScrollOffsetFinishedState) {
   curve->Advance(1.5, current_velocity, current_scroll_delta);
 
   EXPECT_FALSE(curve->Advance(2.0, current_velocity, current_scroll_delta));
+}
+
+TEST_F(NativeScrollerOhosPropertyTest, UsesConfiguredScrollFriction) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0.5"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(1.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, 5000, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_TRUE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(250),
+                                           &offset, &velocity));
+  EXPECT_NEAR(velocity.y(), 5000.0 * std::exp(-2.1 * 0.25), 0.1);
+  EXPECT_GT(offset.y(), 0);
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
+
+TEST_F(NativeScrollerOhosPropertyTest,
+       ZeroConfiguredFrictionUsesDeviceDefaultAndZeroPixelRatio) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(0.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, -5000, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_TRUE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(250),
+                                           &offset, &velocity));
+  EXPECT_NEAR(velocity.y(), -5000.0 * std::exp(-3.15 * 0.25), 0.1);
+  EXPECT_LT(offset.y(), 0);
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
 }
 }  // namespace ui

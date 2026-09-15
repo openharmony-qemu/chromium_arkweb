@@ -14,13 +14,16 @@
  */
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 
-#include "content/browser/renderer_host/input/mock_input_router_client.h"
-#include "content/browser/renderer_host/input/mock_input_disposition_handler.h"
 #include "components/input/event_with_latency_info.h"
+#include "content/browser/renderer_host/input/mock_input_disposition_handler.h"
+#include "content/browser/renderer_host/input/mock_input_router_client.h"
+#include "content/public/test/browser_task_environment.h"
 #if BUILDFLAG(ARKWEB_TEST)
 #define private public
+#include "components/input/arkweb_input_router_impl_ext.h"
 #include "components/input/arkweb_input_router_impl_utils.h"
 #include "components/input/input_router_impl.h"
 #endif
@@ -46,7 +49,7 @@ public:
         ASSERT_TRUE(client_);
         handler_ = std::make_unique<MockInputDispositionHandler>();
         ASSERT_TRUE(handler_);
-        impl_ = std::make_unique<InputRouterImpl>(
+        impl_ = std::make_unique<ArkwebInputRouterImplExt>(
             client_.get(), handler_.get(), client_.get(), config_);
         ASSERT_TRUE(impl_);
         client_->set_input_router(impl_.get());
@@ -55,11 +58,12 @@ public:
     }
 
 private:
-    std::shared_ptr<InputRouterImpl> impl_;
-    std::shared_ptr<MockInputDispositionHandler> handler_;
-    std::shared_ptr<MockInputRouterClient> client_;
-    std::shared_ptr<ArkwebInputRouterImplUtils> implUtils_;
-    InputRouter::Config config_;
+ content::BrowserTaskEnvironment task_environment_;
+ std::shared_ptr<InputRouterImpl> impl_;
+ std::shared_ptr<MockInputDispositionHandler> handler_;
+ std::shared_ptr<MockInputRouterClient> client_;
+ std::shared_ptr<ArkwebInputRouterImplUtils> implUtils_;
+ InputRouter::Config config_;
 };
 
 TEST_F(ArkwebInputRouterImplUtilsTest, SendGestureEventEx001) {
@@ -93,36 +97,78 @@ TEST_F(ArkwebInputRouterImplUtilsTest, TracingAndSceneReport001) {
 }
 
 TEST_F(ArkwebInputRouterImplUtilsTest, ProcessFilteredEvent001) {
-    WebMouseEvent scrollEvent(WebInputEvent::Type::kGestureScrollUpdate,
-                              WebInputEvent::kNoModifiers, base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(scrollEvent);
+  ArkwebInputRouterImplExt* impl_ext = impl_->AsArkwebInputRouterImplExt();
+  ASSERT_NE(impl_ext, nullptr);
+  impl_ext->SetGestureEventResult(true, false, 0);
+  impl_ext->SetMouseEventResult(true, false);
 
-    WebMouseEvent moveEvent(WebInputEvent::Type::kTouchMove, WebInputEvent::kNoModifiers,
-        base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(moveEvent);
+  WebMouseEvent scrollEvent(WebInputEvent::Type::kGestureScrollUpdate,
+                            WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(scrollEvent);
 
-    WebMouseEvent pinchEvent(WebInputEvent::Type::kGesturePinchUpdate,
-        WebInputEvent::kNoModifiers, base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(pinchEvent);
+  WebMouseEvent moveEvent(WebInputEvent::Type::kTouchMove,
+                          WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(moveEvent);
 
-    WebMouseEvent actionEvent(WebInputEvent::Type::kPointerCausedUaAction,
-        WebInputEvent::kNoModifiers,
-            base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(actionEvent);
+  WebMouseEvent pinchEvent(WebInputEvent::Type::kGesturePinchUpdate,
+                           WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(pinchEvent);
 
-    WebMouseEvent touchStartEvent(WebInputEvent::Type::kTouchStart,
-        WebInputEvent::kNoModifiers, base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(touchStartEvent);
-    ASSERT_NE(implUtils_->input_router_impl_, nullptr);
-    EXPECT_EQ(implUtils_->input_router_impl_->GetNativeResult(), false);
+  WebMouseEvent actionEvent(WebInputEvent::Type::kPointerCausedUaAction,
+                            WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(actionEvent);
+  EXPECT_TRUE(implUtils_->input_router_impl_->GetNativeResult());
+  EXPECT_TRUE(implUtils_->input_router_impl_->GetMouseNativeResult());
 
-    WebMouseEvent mouseDownEvent(WebInputEvent::Type::kMouseDown,
-        WebInputEvent::kNoModifiers, base::TimeTicks());
-    implUtils_->ProcessFilteredEvent(mouseDownEvent);
-    EXPECT_EQ(implUtils_->input_router_impl_->GetMouseNativeResult(), false);
+  WebMouseEvent touchStartEvent(WebInputEvent::Type::kTouchStart,
+                                WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(touchStartEvent);
+  ASSERT_NE(implUtils_->input_router_impl_, nullptr);
+  EXPECT_FALSE(implUtils_->input_router_impl_->GetNativeResult());
+  EXPECT_TRUE(implUtils_->input_router_impl_->GetMouseNativeResult());
+
+  WebMouseEvent mouseDownEvent(WebInputEvent::Type::kMouseDown,
+                               WebInputEvent::kNoModifiers, base::TimeTicks());
+  implUtils_->ProcessFilteredEvent(mouseDownEvent);
+  EXPECT_FALSE(implUtils_->input_router_impl_->GetMouseNativeResult());
 }
 
-} // namespace input
+TEST_F(ArkwebInputRouterImplUtilsTest, SendGestureEventExScrollEnd001) {
+  GestureEventWithLatencyInfo gesture(WebInputEvent::Type::kGestureScrollEnd,
+                                      WebInputEvent::kNoModifiers,
+                                      base::TimeTicks(), ui::LatencyInfo());
+  implUtils_->prePerfTimeStamp_ = GESTURE_MOVE_PERIOD;
+
+  implUtils_->SendGestureEventEx(gesture);
+
+  EXPECT_EQ(implUtils_->prePerfTimeStamp_, ZERO_VAL);
+}
+
+TEST_F(ArkwebInputRouterImplUtilsTest,
+       SendGestureEventExUpdateWithinPeriod001) {
+  GestureEventWithLatencyInfo gesture(WebInputEvent::Type::kGestureScrollUpdate,
+                                      WebInputEvent::kNoModifiers,
+                                      base::TimeTicks(), ui::LatencyInfo());
+  implUtils_->prePerfTimeStamp_ = std::numeric_limits<int64_t>::max();
+
+  implUtils_->SendGestureEventEx(gesture);
+
+  EXPECT_EQ(implUtils_->prePerfTimeStamp_, std::numeric_limits<int64_t>::max());
+}
+
+TEST_F(ArkwebInputRouterImplUtilsTest, SendGestureEventExIgnoresOtherEvents) {
+  GestureEventWithLatencyInfo gesture(WebInputEvent::Type::kGestureTap,
+                                      WebInputEvent::kNoModifiers,
+                                      base::TimeTicks(), ui::LatencyInfo());
+  implUtils_->prePerfTimeStamp_ = GESTURE_MOVE_PERIOD;
+
+  implUtils_->SendGestureEventEx(gesture);
+
+  EXPECT_EQ(implUtils_->prePerfTimeStamp_, GESTURE_MOVE_PERIOD);
+  EXPECT_GT(implUtils_->timeStamp_, ZERO_VAL);
+}
+
+}  // namespace input
 
 #if BUILDFLAG(ARKWEB_TEST)
 #undef private
