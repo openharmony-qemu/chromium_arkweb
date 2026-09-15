@@ -1243,6 +1243,11 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void OnSafeBrowsingCheckDetail(int code, int policy, int threat) override;
+  void OnSafeBrowsingHit(const std::string& url,
+                         int code,
+                         int policy,
+                         int threat,
+                         int64_t response_key) override;
   void SaveEnableSafeBrowsingDetection(bool enable, bool strictMode);
 #endif
 

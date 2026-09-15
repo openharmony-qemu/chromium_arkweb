@@ -771,6 +771,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               EnableSafeBrowsingDetection,
               (bool enable, bool strictMode),
               (override));
+  MOCK_METHOD(void, EnableSafeBrowsingExternalInterstitial, (bool enable), (override));
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 #if BUILDFLAG(IS_OHOS)
   MOCK_METHOD(void,
@@ -1206,6 +1207,22 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(void,
               OnSafeBrowsingDetectionResult,
               (const SafeBrowsingDetectionResult&),
+              (override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseShowInterstitial,
+              (int64_t, const std::string&),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseProceed,
+              (int64_t),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseBackToSafety,
+              (int64_t),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseDelete,
+              (int64_t),
               (override));
 #endif
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)

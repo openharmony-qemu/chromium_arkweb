@@ -643,6 +643,24 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               OnSafeBrowsingDetectionResult,
               (const SafeBrowsingDetectionResult& safeBrowsingDetectionResult),
               (override));
+  MOCK_METHOD(void, EnableSafeBrowsingExternalInterstitial, (bool), (override));
+  MOCK_METHOD(bool, IsSafeBrowsingExternalInterstitialEnabled, (), (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseShowInterstitial,
+              (int64_t, const std::string&),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseProceed,
+              (int64_t),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseBackToSafety,
+              (int64_t),
+              (const, override));
+  MOCK_METHOD(void,
+              SafeBrowsingResponseDelete,
+              (int64_t),
+              (override));
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   MOCK_METHOD(int, InsertBackForwardEntry, (int, const CefString&), (override));
   MOCK_METHOD(int,

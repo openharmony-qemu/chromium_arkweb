@@ -738,6 +738,11 @@ void WebContentsImplExt::EnableSafeBrowsingDetection(bool enable,
   }
 }
 
+void WebContentsImplExt::EnableSafeBrowsingExternalInterstitial(bool enable) {
+  LOG(INFO) << "EnableSafeBrowsingExternalInterstitial enable " << enable;
+  is_safe_browsing_external_interstitial_ = enable;
+}
+
 bool WebContentsImplExt::IsSafeBrowsingDetectionConfig() {
   return is_safe_browsing_config_;
 }
@@ -748,6 +753,10 @@ bool WebContentsImplExt::IsSafeBrowsingDetectionStrict() {
 
 bool WebContentsImplExt::IsSafeBrowsingDetectionDisabled() {
   return !is_safe_browsing_enabled_;
+}
+
+bool WebContentsImplExt::IsSafeBrowsingExternalInterstitialEnabled() {
+  return is_safe_browsing_external_interstitial_;
 }
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 

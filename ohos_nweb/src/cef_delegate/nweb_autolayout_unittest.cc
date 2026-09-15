@@ -403,6 +403,12 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void EnableAdsBlock(bool) override {}
   int SetUrlTrustListWithErrMsg(const CefString&, bool, bool, CefString&) override { return 0; }
   void EnableSafeBrowsingDetection(bool, bool) override {}
+  void EnableSafeBrowsingExternalInterstitial(bool) override {}
+  bool IsSafeBrowsingExternalInterstitialEnabled() const override { return false; }
+  void SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const override {}
+  void SafeBrowsingResponseProceed(int64_t response_key) const override {}
+  void SafeBrowsingResponseBackToSafety(int64_t response_key) const override {}
+  void SafeBrowsingResponseDelete(int64_t response_key) override {}
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   int InsertBackForwardEntry(int, const CefString&) override { return 0; }
   int UpdateNavigationEntryUrl(int, const CefString&) override { return 0; }
