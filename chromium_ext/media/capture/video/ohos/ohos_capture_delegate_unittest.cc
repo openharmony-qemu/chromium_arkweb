@@ -190,6 +190,7 @@ public:
     MOCK_METHOD(std::shared_ptr<MediaAVSessionAdapter>, CreateMediaAVSessionAdapter, (), (override));
     MOCK_METHOD(std::unique_ptr<OhosImageDecoderAdapter>, CreateOhosImageDecoderAdapter, (), (override));
     MOCK_METHOD(std::unique_ptr<SensorAdapter>, CreateSensorAdapter, (), (override));
+    MOCK_METHOD(void, SetApplicationResourceManager, (void *), (override));
     MOCK_METHOD(void, SetArkWebCoreHapPathOverride, (const std::string &hapPath), (override));
     MOCK_METHOD(OhosNativeBufferAdapter &, GetOhosNativeBufferAdapter, (), (override));
     MOCK_METHOD(std::unique_ptr<AudioCodecDecoderAdapter>, CreateAudioCodecDecoderAdapter, (), (override));

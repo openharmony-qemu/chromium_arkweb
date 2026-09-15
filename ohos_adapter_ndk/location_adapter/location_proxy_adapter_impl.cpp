@@ -17,9 +17,12 @@
 
 #include <LocationKit/oh_location.h>
 
+#include <mutex>
+#include <vector>
+
 #include "json/json.h"
 #include "location_adapter.h"
-#include "arkweb/ohos_nweb/src/nweb_hilog.h"
+#include "nweb_log.h"
 
 namespace {
 int32_t ConvertScenario(int32_t scenario)
@@ -72,8 +75,39 @@ Location_PowerConsumptionScene ConvertPriority(int32_t priority)
 
 namespace OHOS::NWeb {
 #define MAX_ADDITION_LEN 1024
+
+namespace {
+std::vector<std::weak_ptr<LocationCallbackAdapter>> g_location_callbacks;
+std::mutex g_location_callbacks_mutex;
+
+void AddLocationCallback(const std::shared_ptr<LocationCallbackAdapter>& callback)
+{
+    std::lock_guard<std::mutex> lock(g_location_callbacks_mutex);
+    g_location_callbacks.emplace_back(callback);
+}
+
+std::shared_ptr<LocationCallbackAdapter> GetLocationCallback(void* userData)
+{
+    std::lock_guard<std::mutex> lock(g_location_callbacks_mutex);
+    auto it = g_location_callbacks.begin();
+    while (it != g_location_callbacks.end()) {
+        auto callback = it->lock();
+        if (!callback) {
+            it = g_location_callbacks.erase(it);
+            continue;
+        }
+        if (callback.get() == userData) {
+            return callback;
+        }
+        ++it;
+    }
+    return nullptr;
+}
+} // namespace
+
 static void LocationCallback(Location_Info* location, void* userData)
 {
+    WVLOG_I("LocationCallback");
     Location_BasicInfo basicInfo = OH_LocationInfo_GetBasicInfo(location);
     char additions[MAX_ADDITION_LEN] = { 0 };
     OH_LocationInfo_GetAdditionalInfo(location, additions, MAX_ADDITION_LEN);
@@ -81,7 +115,11 @@ static void LocationCallback(Location_Info* location, void* userData)
     locationInfoImpl->SetBasicInfo(&basicInfo);
     locationInfoImpl->SetAdditions(additions);
     std::shared_ptr<LocationInfo> locationInfo = locationInfoImpl;
-    LocationCallbackAdapter* locationCallbackAdapter = (LocationCallbackAdapter*)(userData);
+    auto locationCallbackAdapter = GetLocationCallback(userData);
+    if (!locationCallbackAdapter) {
+        WVLOG_E("location callback user data is invalid");
+        return;
+    }
     locationCallbackAdapter->OnLocationReport(locationInfo);
 }
 
@@ -213,7 +251,16 @@ void LocationInfoImpl::SetAdditions(char* additions)
     }
 }
 
-LocationProxyAdapterImpl::LocationProxyAdapterImpl() : ohRequestConfig(nullptr), ohCallback_(nullptr) {}
+LocationProxyAdapterImpl::LocationProxyAdapterImpl() = default;
+
+LocationProxyAdapterImpl::~LocationProxyAdapterImpl()
+{
+    if (ohRequestConfig_ != nullptr) {
+        OH_Location_StopLocating(ohRequestConfig_);
+        OH_Location_DestroyRequestConfig(ohRequestConfig_);
+        ohRequestConfig_ = nullptr;
+    }
+}
 
 int32_t LocationProxyAdapterImpl::StartLocating(
     std::shared_ptr<LocationRequestConfig> requestConfig, std::shared_ptr<LocationCallbackAdapter> callback)
@@ -224,37 +271,38 @@ int32_t LocationProxyAdapterImpl::StartLocating(
         return id;
     }
     LocationRequestConfigImpl* requestConfigImpl = static_cast<LocationRequestConfigImpl*>(requestConfig.get());
-    ohRequestConfig = OH_Location_CreateRequestConfig();
+    ohRequestConfig_ = OH_Location_CreateRequestConfig();
     if (requestConfigImpl->GetScenario() != OHOS::NWeb::LocationRequestConfig::Scenario::UNSET) {
-        OH_LocationRequestConfig_SetUseScene(ohRequestConfig, (Location_UseScene)requestConfigImpl->GetScenario());
+        OH_LocationRequestConfig_SetUseScene(ohRequestConfig_, (Location_UseScene)requestConfigImpl->GetScenario());
     } else {
-        OH_LocationRequestConfig_SetPowerConsumptionScene(ohRequestConfig, requestConfigImpl->GetPriority());
+        OH_LocationRequestConfig_SetPowerConsumptionScene(ohRequestConfig_, requestConfigImpl->GetPriority());
     }
-    OH_LocationRequestConfig_SetInterval(ohRequestConfig, requestConfigImpl->GetTimeInterval());
+    OH_LocationRequestConfig_SetInterval(ohRequestConfig_, requestConfigImpl->GetTimeInterval());
     ohCallback_ = std::move(callback);
-    OH_LocationRequestConfig_SetCallback(ohRequestConfig, LocationCallback, ohCallback_.get());
-    Location_ResultCode errCode = OH_Location_StartLocating(ohRequestConfig);
+    AddLocationCallback(ohCallback_);
+    OH_LocationRequestConfig_SetCallback(ohRequestConfig_, LocationCallback, ohCallback_.get());
+    Location_ResultCode errCode = OH_Location_StartLocating(ohRequestConfig_);
     if (errCode != LOCATION_SUCCESS) {
-        OH_Location_DestroyRequestConfig(ohRequestConfig);
-        ohRequestConfig = nullptr;
+        OH_Location_DestroyRequestConfig(ohRequestConfig_);
+        ohRequestConfig_ = nullptr;
         WVLOG_E("StartLocating failed, errcode:%{public}d", errCode);
         return id;
     }
 
-    WVLOG_I("LocationProxyAdapterImpl::StartLocating out");
+    WVLOG_I("LocationProxyAdapterImpl::StartLocating");
     return 0;
 }
 
 bool LocationProxyAdapterImpl::StopLocating(int32_t callbackId)
 {
-    if (callbackId < 0) {
+    if (callbackId < 0 || ohRequestConfig_ == nullptr) {
         WVLOG_E("callback is null");
         return false;
     }
     WVLOG_I("LocationProxyAdapterImpl::StopLocating");
-    Location_ResultCode errCode = OH_Location_StopLocating(ohRequestConfig);
-    OH_Location_DestroyRequestConfig(ohRequestConfig);
-    ohRequestConfig = nullptr;
+    Location_ResultCode errCode = OH_Location_StopLocating(ohRequestConfig_);
+    OH_Location_DestroyRequestConfig(ohRequestConfig_);
+    ohRequestConfig_ = nullptr;
     return errCode == LOCATION_SUCCESS ? true : false;
 }
 

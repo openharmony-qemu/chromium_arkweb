@@ -12,7 +12,7 @@
 
 #include "base/memory/singleton.h"
 #include "base/synchronization/lock.h"
-#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 
 class NWEB_EXPORT NWebNativeWindowTracker {
  public:
@@ -27,7 +27,7 @@ class NWEB_EXPORT NWebNativeWindowTracker {
   void* GetNativeWindow(int32_t native_window_id, bool is_ref = false);
   void DestroyNativeWindow(int32_t native_window_id);
   static NWebNativeWindowTracker* GetInstance();
-  std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> g_browser_client_;
+  std::shared_ptr<OHOS::NWeb::AafwkBrowserClientAdapter> g_browser_client_ = nullptr;
 
  private:
   NWebNativeWindowTracker();

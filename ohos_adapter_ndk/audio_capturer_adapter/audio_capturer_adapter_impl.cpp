@@ -90,6 +90,7 @@ static AudioCapturerAdapterImpl* FindAudioCapturerAdapter(OH_AudioCapturer* capt
 AudioCapturerAdapterImpl::~AudioCapturerAdapterImpl() {
     std::unique_lock<std::shared_mutex> lock(adapterMutex_);
     if (audio_capturer_ != nullptr) {
+        Stop();
         Release();
     }
     if (callback_index_ > 0) {

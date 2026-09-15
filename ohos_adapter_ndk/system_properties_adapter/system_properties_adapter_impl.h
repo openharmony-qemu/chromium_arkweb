@@ -28,6 +28,13 @@
 
 namespace OHOS::NWeb {
 
+enum class LTPOStrategy {
+    DISABLED = 0,
+    APS_FLING = 1,
+    HGM_FLING = 2,
+    ALL = 3
+};
+
 class SystemPropertiesAdapterImpl : public SystemPropertiesAdapter {
 public:
     static SystemPropertiesAdapterImpl& GetInstance();
@@ -120,8 +127,11 @@ private:
     SystemPropertiesAdapterImpl& operator=(const SystemPropertiesAdapterImpl&) = delete;
 
     void InitPreferences();
+    void InitParam();
     bool GetBoolParameter(const char *key, bool defaultValue);
+    void SetBoolParameter(const char *key, const bool value);
     int GetIntParameter(const char *key, int defaultValue);
+    void SetIntParameter(const char *key, const int value);
     std::string GetStringParameter(const char *key, std::string defaultValue);
     void SetStringParameter(const char *key, const char *value);
 

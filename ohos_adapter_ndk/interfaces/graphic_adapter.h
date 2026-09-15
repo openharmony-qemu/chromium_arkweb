@@ -241,6 +241,8 @@ public:
     virtual void NativeWindowUnRef(NWebNativeWindow window) = 0;
 
     virtual void SetWindowNodeIdAndRSHandle(void* native_window, uint64_t node_id, uint64_t handle) {}
+
+    virtual void NativeWindowSetUsage(NWebNativeWindow window) = 0;
 };
 
 class AshmemAdapter {

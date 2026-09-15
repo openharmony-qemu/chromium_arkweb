@@ -166,8 +166,9 @@ NDKOhosAdapterHelper::CreateNetConnectAdapter() {
 }
 
 NWeb::OhosWebDataBaseAdapter&
-NDKOhosAdapterHelper::GetOhosWebDataBaseAdapterInstance() {
-  return NWeb::OhosWebDataBaseAdapterImpl::GetInstance();
+NDKOhosAdapterHelper::GetOhosWebDataBaseAdapterInstance(
+    const std::string& userPath) {
+  return NWeb::OhosWebDataBaseAdapterImpl::GetInstance(userPath);
 }
 
 NWeb::PasteBoardClientAdapter& NDKOhosAdapterHelper::GetPasteBoard() {
@@ -195,8 +196,9 @@ NWeb::AudioSystemManagerAdapter& NDKOhosAdapterHelper::GetAudioSystemManager() {
 }
 
 NWeb::OhosWebPermissionDataBaseAdapter&
-NDKOhosAdapterHelper::GetWebPermissionDataBaseInstance() {
-  return NWeb::OhosWebPermissionDataBaseAdapterImpl::GetInstance();
+NDKOhosAdapterHelper::GetWebPermissionDataBaseInstance(
+    const std::string& userPath) {
+  return NWeb::OhosWebPermissionDataBaseAdapterImpl::GetInstance(userPath);
 }
 
 std::unique_ptr<NWeb::MMIAdapter> NDKOhosAdapterHelper::CreateMMIAdapter() {
@@ -345,6 +347,10 @@ NDKOhosAdapterHelper::CreateOhosImageDecoderAdapter() {
 std::unique_ptr<NWeb::SensorAdapter>
 NDKOhosAdapterHelper::CreateSensorAdapter() {
   return std::make_unique<NWeb::SensorAdapterImpl>();
+}
+
+void NDKOhosAdapterHelper::SetApplicationResourceManager(void* mgr) {
+  NWeb::OhosResourceAdapterImpl::SetApplicationResourceManager(mgr);
 }
 
 void NDKOhosAdapterHelper::SetArkWebCoreHapPathOverride(

@@ -516,8 +516,9 @@ class WrappedOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
       override {
     return nullptr;
   }
-  OHOS::NWeb::OhosWebDataBaseAdapter& GetOhosWebDataBaseAdapterInstance()
-      override {
+  OHOS::NWeb::OhosWebDataBaseAdapter& GetOhosWebDataBaseAdapterInstance(
+      const std::string& user_path = "") override {
+    (void)user_path;
     return UnusedAdapterRef<OHOS::NWeb::OhosWebDataBaseAdapter>();
   }
   OHOS::NWeb::PasteBoardClientAdapter& GetPasteBoard() override {
@@ -535,7 +536,9 @@ class WrappedOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
     return UnusedAdapterRef<OHOS::NWeb::AudioSystemManagerAdapter>();
   }
   OHOS::NWeb::OhosWebPermissionDataBaseAdapter&
-  GetWebPermissionDataBaseInstance() override {
+  GetWebPermissionDataBaseInstance(
+      const std::string& user_path = "") override {
+    (void)user_path;
     return UnusedAdapterRef<OHOS::NWeb::OhosWebPermissionDataBaseAdapter>();
   }
   std::unique_ptr<OHOS::NWeb::MMIAdapter> CreateMMIAdapter() override {
@@ -650,6 +653,9 @@ class WrappedOhosAdapterHelper : public OHOS::NWeb::OhosAdapterHelper {
   }
   std::unique_ptr<OHOS::NWeb::SensorAdapter> CreateSensorAdapter() override {
     return nullptr;
+  }
+  void SetApplicationResourceManager(void* mgr) override {
+    (void)mgr;
   }
   void SetArkWebCoreHapPathOverride(const std::string& hap_path) override {
     (void)hap_path;

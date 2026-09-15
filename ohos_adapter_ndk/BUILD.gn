@@ -96,6 +96,16 @@ config("adapter_ndk_config") {
   ldflags = wrapper_ldflags
 }
 
+source_set("ohos_adapter_napi") {
+  sources = [ "ohos_adapter_napi/ohos_adapter_napi.cpp" ]
+  include_dirs = [ "interfaces" ]
+  libs = [
+    "ace_napi.z",
+    "hilog_ndk.z",
+    "rawfile.z",
+  ]
+}
+
 source_set("adapter_ndk_wrapper") {
   sources = wrapper_sources
   sources += [

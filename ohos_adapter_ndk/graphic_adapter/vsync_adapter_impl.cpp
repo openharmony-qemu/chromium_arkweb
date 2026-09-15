@@ -16,11 +16,17 @@
 #include "vsync_adapter_impl.h"
 
 #include "arkweb/ohos_nweb/src/nweb_hilog.h"
+#include <deviceinfo.h>
 #include <string>
 #include <unistd.h>
 #include <native_vsync/graphic_error_code.h>
 
 namespace OHOS::NWeb {
+
+constexpr int MAX_FRAME_RATE = 120;
+constexpr int MIN_FRAME_RATE = 60;
+constexpr int DISABLE_FRAME_RATE = 0;
+constexpr int FRAME_RATE_API_VERSION = 20;
 
 namespace {
 const std::string THREAD_NAME = "VSync-webview";
@@ -121,12 +127,29 @@ int64_t VSyncAdapterNdkImpl::GetVSyncPeriod()
 
 void VSyncAdapterNdkImpl::SetFrameRateLinkerEnable(bool enabled)
 {
-    WVLOG_D("[adapter mock] SetFrameRateLinkerEnable");
+    if (enabled || OH_GetSdkApiVersion() < FRAME_RATE_API_VERSION) {
+        return;
+    }
+    OH_NativeVSync_ExpectedRateRange range = {
+        DISABLE_FRAME_RATE, MAX_FRAME_RATE, DISABLE_FRAME_RATE};
+    int ret = OH_NativeVSync_SetExpectedFrameRateRange(vsyncReceiver_, &range);
+    if (ret != NATIVE_ERROR_OK) {
+        WVLOG_E("set expected frame rate range failed, ret=%{public}d", ret);
+    }
 }
 
 void VSyncAdapterNdkImpl::SetFramePreferredRate(int32_t preferredRate)
 {
-    WVLOG_D("[adapter mock] SetFrameRateLinkerEnable");
+    if (preferredRate < MIN_FRAME_RATE || preferredRate > MAX_FRAME_RATE ||
+        OH_GetSdkApiVersion() < FRAME_RATE_API_VERSION) {
+        return;
+    }
+    OH_NativeVSync_ExpectedRateRange range = {
+        MIN_FRAME_RATE, MAX_FRAME_RATE, preferredRate};
+    int ret = OH_NativeVSync_SetExpectedFrameRateRange(vsyncReceiver_, &range);
+    if (ret != NATIVE_ERROR_OK) {
+        WVLOG_E("set preferred frame rate failed, ret=%{public}d", ret);
+    }
 }
 
 void VSyncAdapterNdkImpl::SetOnVsyncCallback(void (*callback)())
@@ -151,7 +174,21 @@ void VSyncAdapterNdkImpl::SetScene(const std::string& sceneName, uint32_t state)
 
 void VSyncAdapterNdkImpl::SetDVSyncSwitch(bool dvsyncSwitch)
 {
-    WVLOG_D("[adapter mock] SetDVSyncSwitch");
+    if (Init() != VSyncErrorCode::SUCCESS) {
+        WVLOG_E("VSyncAdapterNdkImpl init failed");
+        return;
+    }
+
+    if (!vsyncReceiver_) {
+        WVLOG_E("SetDVSyncSwitch: receiver is nullptr");
+        return;
+    }
+
+    WVLOG_D("SetDVSyncSwitch: dvsyncSwitch = %{public}d", dvsyncSwitch);
+    int ret = OH_NativeVSync_DVSyncSwitch(vsyncReceiver_, dvsyncSwitch);
+    if (ret != NATIVE_ERROR_OK) {
+        WVLOG_E("SetDVSyncSwitch failed, ret = %{public}d", ret);
+    }
 }
 
 } // namespace OHOS::NWeb

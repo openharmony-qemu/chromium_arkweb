@@ -15,6 +15,7 @@
 
 #include "system_properties_adapter_impl.h"
 
+#include <dlfcn.h>
 #include <locale>
 #include <sstream>
 
@@ -38,6 +39,11 @@ constexpr size_t INT_MAX_LEN = 10;
 
 const std::string PROP_RENDER_DUMP = "web.render.dump";
 const std::string PROP_DEBUG_TRACE = "web.debug.trace";
+const std::string WEB_SCROLL_NUM = "web.scroll.num";
+const std::string WEB_SCROLL_MIN = "web.scroll.min";
+const std::string WEB_SCROLL_MAX = "web.scroll.max";
+const std::string WEB_SCROLL_FPS = "web.scroll.fps";
+const std::string WEB_LTPO_STRATEGY = "web.ltpo.strategy";
 const int MAX_SIZE_OF_MAP = 2; // Currently, only 2 instructions need to be registered
 const int VERSION_SIZE = 4;
 const int DOT_SIZE = 3;
@@ -48,6 +54,46 @@ const int ARRAY_INDEX_3 = 3;
 const std::unordered_map<std::string, PropertiesKey> PROP_KEY_MAP = {
     {PROP_RENDER_DUMP, PropertiesKey::PROP_RENDER_DUMP},
     {PROP_DEBUG_TRACE, PropertiesKey::PROP_DEBUG_TRACE}};
+
+namespace {
+int32_t (*AdvancedSecurityModeGetStateByFeature)(const char *feature, uint32_t featureLen,
+    const char *param, uint32_t paramLen, uint32_t *state) = nullptr;
+
+typedef int32_t (*AdvSecModeGetPtr)(const char *feature, uint32_t featureLen,
+    const char *param, uint32_t paramLen, uint32_t *state);
+
+bool CheckAdvSecMode()
+{
+    constexpr uint32_t invalidMode = 0xffffffff; // invalidMode:0xffffffff
+    static uint32_t mode = invalidMode;
+    if (mode != invalidMode) {
+        WVLOG_I("AdvancedSecurityMode: %{public}d", !!mode);
+        return !!mode;
+    }
+
+    void *hdl = dlopen("/system/lib64/platformsdk/libdsmm_innersdk.z.so", RTLD_LAZY);
+    if (hdl == nullptr) {
+        WVLOG_I("failed to dlopen libdsmm_innersdk");
+        return false;
+    }
+
+    AdvancedSecurityModeGetStateByFeature = (AdvSecModeGetPtr)dlsym(hdl, "AdvancedSecurityModeGetStateByFeature");
+    if (AdvancedSecurityModeGetStateByFeature == nullptr) {
+        WVLOG_I("failed to dlsym AdvancedSecurityModeGetStateByFeature");
+        return false;
+    }
+
+    // returns 0 if success or errcode
+    int32_t ret = AdvancedSecurityModeGetStateByFeature("default", 7, "default", 7, &mode); // len:7
+    if (ret != 0) {
+        WVLOG_I("failed to get  AdvancedSecurityMode");
+        mode = invalidMode;
+        return false;
+    }
+    WVLOG_I("Succeeded in obtaining the AdvancedSecurityMode: %{public}d", !!mode);
+    return !!mode;
+}
+} // namespace
 
 void SystemPropertiesChangeCallback(void *context, const OH_PreferencesPair *pairs, uint32_t count)
 {
@@ -95,6 +141,7 @@ SystemPropertiesAdapterImpl::SystemPropertiesAdapterImpl()
 {
     InitPreferences();
     AddAllSysPropWatchers();
+    InitParam();
     std::string osFullName = OH_GetOSFullName();
     if (osFullName.empty()) {
         WVLOG_E("get os full name failed");
@@ -171,6 +218,25 @@ void SystemPropertiesAdapterImpl::InitPreferences()
     }
     WVLOG_D("open preferences, bundle name %{public}s", bundleName);
     // If necessary, initialize the configuration here.
+}
+
+void SystemPropertiesAdapterImpl::InitParam()
+{
+    SetIntParameter(WEB_LTPO_STRATEGY.c_str(), static_cast<int>(LTPOStrategy::DISABLED));
+
+    constexpr int configCount = 3;
+    const int configs[configCount][configCount] = {
+        {77, -1, 120},
+        {25, 77, 90},
+        {0, 25, 60}
+    };
+
+    SetIntParameter(WEB_SCROLL_NUM.c_str(), configCount);
+    for (int i = 0; i < configCount; i++) {
+        SetIntParameter((WEB_SCROLL_MIN + std::to_string(i)).c_str(), configs[i][0]);
+        SetIntParameter((WEB_SCROLL_MAX + std::to_string(i)).c_str(), configs[i][1]);
+        SetIntParameter((WEB_SCROLL_FPS + std::to_string(i)).c_str(), configs[i][2]);
+    }
 }
 
 bool SystemPropertiesAdapterImpl::GetResourceUseHapPathEnable()
@@ -251,8 +317,7 @@ bool SystemPropertiesAdapterImpl::GetWebOptimizationValue()
 
 bool SystemPropertiesAdapterImpl::IsAdvancedSecurityMode()
 {
-    // Only open to system applications, return false
-    return false;
+    return CheckAdvSecMode();
 }
 
 std::string SystemPropertiesAdapterImpl::GetUserAgentOSName()
@@ -501,6 +566,26 @@ bool SystemPropertiesAdapterImpl::GetBoolParameter(const char *key, bool default
     return value;
 }
 
+void SystemPropertiesAdapterImpl::SetBoolParameter(const char *key, const bool value)
+{
+    if (preferences_ == nullptr) {
+        WVLOG_E("preferences is null");
+        return;
+    }
+
+    if (key == nullptr) {
+        WVLOG_E("param is nullptr");
+        return;
+    }
+
+    int ret = OH_Preferences_SetBool(preferences_, key, value);
+    if (ret != PREFERENCES_OK) {
+        WVLOG_E("failed to set bool, ret %{public}d", ret);
+        return;
+    }
+    WVLOG_D("set bool param, key:%{public}s, value:%{public}d", key, value);
+}
+
 int SystemPropertiesAdapterImpl::GetIntParameter(const char *key, int defaultValue)
 {
     if (preferences_ == nullptr) {
@@ -523,6 +608,26 @@ int SystemPropertiesAdapterImpl::GetIntParameter(const char *key, int defaultVal
 
     WVLOG_D("get int param, key:%{public}s, value:%{public}d", key, value);
     return value;
+}
+
+void SystemPropertiesAdapterImpl::SetIntParameter(const char *key, const int value)
+{
+    if (preferences_ == nullptr) {
+        WVLOG_E("preferences is null");
+        return;
+    }
+
+    if (key == nullptr) {
+        WVLOG_E("param is nullptr");
+        return;
+    }
+
+    int ret = OH_Preferences_SetInt(preferences_, key, value);
+    if (ret != PREFERENCES_OK) {
+        WVLOG_E("failed to set int, ret %{public}d", ret);
+        return;
+    }
+    WVLOG_D("set int param, key:%{public}s, value:%{public}d", key, value);
 }
 
 std::string SystemPropertiesAdapterImpl::GetStringParameter(const std::string& key, const std::string& defaultValue)
@@ -584,14 +689,22 @@ void SystemPropertiesAdapterImpl::SetStringParameter(const char *key, const char
     WVLOG_D("set string param, key:%{public}s, value:%{public}s", key, value);
 }
 
-std::vector<FrameRateSetting> SystemPropertiesAdapterImpl::GetLTPOConfig(const std::string& settingName)
+std::vector<FrameRateSetting> SystemPropertiesAdapterImpl::GetLTPOConfig(const std::string&)
 {
-#ifdef WEBVIEW_ONLY
-    return NWebConfigHelper::Instance().GetPerfConfig(settingName);
-#else
     std::vector<FrameRateSetting> vector;
+
+    int32_t num = GetIntParameter(WEB_SCROLL_NUM.c_str(), 0);
+    if (num <= 0) {
+        return vector;
+    }
+
+    for (int32_t i = 0; i < num; i++) {
+        int32_t min = GetIntParameter((WEB_SCROLL_MIN + std::to_string(i)).c_str(), 0);
+        int32_t max = GetIntParameter((WEB_SCROLL_MAX + std::to_string(i)).c_str(), 0);
+        int32_t fps = GetIntParameter((WEB_SCROLL_FPS + std::to_string(i)).c_str(), 0);
+        vector.push_back({min, max, fps});
+    }
     return vector;
-#endif
 }
 
 bool SystemPropertiesAdapterImpl::IsLTPODynamicApp(const std::string& bundleName)
@@ -605,11 +718,7 @@ bool SystemPropertiesAdapterImpl::IsLTPODynamicApp(const std::string& bundleName
 
 int32_t SystemPropertiesAdapterImpl::GetLTPOStrategy()
 {
-#ifdef WEBVIEW_ONLY
-    return NWebConfigHelper::Instance().GetLTPOStrategy();
-#else
-    return 0;
-#endif
+    return GetIntParameter(WEB_LTPO_STRATEGY.c_str(), static_cast<int>(LTPOStrategy::DISABLED));
 }
 
 std::string SystemPropertiesAdapterImpl::GetVulkanStatus()

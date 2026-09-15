@@ -323,11 +323,12 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
         return Switch(request)
             .Cases({ASHMEM_SET_NAME, ASHMEM_GET_NAME, ASHMEM_SET_SIZE,
                     ASHMEM_GET_SIZE, ASHMEM_SET_PROT_MASK, ASHMEM_GET_PROT_MASK,
-                    ASHMEM_PIN, ASHMEM_UNPIN, ASHMEM_GET_PIN_STATUS},
+                    ASHMEM_PIN, ASHMEM_UNPIN, ASHMEM_GET_PIN_STATUS,
+                    QOS_CTRL_BASIC_OPERATION},
                     Allow())
             .Cases({kBinderWriteRead32, kBinderWriteRead64, BINDER_SET_MAX_THREADS, BINDER_GET_CALLING_USER_INFO,
                     BINDER_THREAD_EXIT, BINDER_VERSION, BINDER_ENABLE_ONEWAY_SPAM_DETECTION,
-                    BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ,
+                    BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, TIOCGWINSZ,
                     ACCESS_TOKENID_GET_TOKENID, BINDER_GET_ACCESS_TOKEN},
                     Error(EPERM))
             .Default(RestrictIoctl());
@@ -347,9 +348,9 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
                         kBinderWriteRead32, kBinderWriteRead64, BINDER_SET_MAX_THREADS,
                         BINDER_THREAD_EXIT, BINDER_VERSION, BINDER_ENABLE_ONEWAY_SPAM_DETECTION,
                         BINDER_FEATURE_SET, BINDER_GET_SENDER_INFO, BINDER_GET_CALLING_USER_INFO,
-                        BINDER_GET_ACCESS_TOKEN},
+                        BINDER_GET_ACCESS_TOKEN, QOS_CTRL_BASIC_OPERATION},
                     Allow())
-            .Cases({QOS_CTRL_BASIC_OPERATION, TIOCGWINSZ},
+            .Cases({TIOCGWINSZ},
                     Error(EPERM))
             .Default(RestrictIoctl());
 #endif  // BUILDFLAG(ARKWEB_RENDER_REMOVE_BINDER)
@@ -397,7 +398,7 @@ constexpr unsigned int QOS_CTRL_IPC_MAGIC = 0xCC;
 
         return Switch(clockid)
             .Cases({CLOCK_MONOTONIC},
-                If(flags == (TFD_CLOEXEC | TFD_NONBLOCK), Error(EPERM)).Else(CrashSIGSYS()))
+                If(flags == (TFD_CLOEXEC | TFD_NONBLOCK), Allow()).Else(CrashSIGSYS()))
             .Default(BaselinePolicy::EvaluateSyscall(sysno));
     }
 
