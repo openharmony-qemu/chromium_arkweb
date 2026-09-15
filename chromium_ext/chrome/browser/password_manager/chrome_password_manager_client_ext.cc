@@ -264,7 +264,11 @@ void ChromePasswordManagerClientExt::AutoFillWithIMFEvent(
                                                username, password, &imf_info);
   if (json_str.has_value()) {
     LOG(INFO) << "call autofill for request from IMF";
+    auto weak_this = weak_ptr_factory_.GetWeakPtr();
     bool result = autofill_client->OnAutofillEvent(json_str.value());
+    if (!weak_this) {
+      return;
+    }
     if (!result) {
       LOG(ERROR) << "failed to call autofill for request";
       return;

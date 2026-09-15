@@ -199,12 +199,20 @@ void EchoAIManagerOHOS::CreateLanguageModel(
     }
   }
 
+  std::vector<blink::mojom::AILanguageModelExpectedPtr> expected_inputs;
+  if (options->expected_inputs) {
+    expected_inputs = std::move(*options->expected_inputs);
+  }
+  std::vector<blink::mojom::AILanguageModelExpectedPtr> expected_outputs;
+  if (options->expected_outputs) {
+    expected_outputs = std::move(*options->expected_outputs);
+  }
+
   auto return_language_model_callback =
       base::BindOnce(&EchoAIManagerOHOS::ReturnAILanguageModelCreationResult,
                      weak_ptr_factory_.GetWeakPtr(), std::move(client_remote),
                      std::move(options->sampling_params), enabled_input_types,
-                     std::move(options->expected_inputs.value()),
-                     std::move(options->expected_outputs.value()),
+                     std::move(expected_inputs), std::move(expected_outputs),
                      std::move(options->initial_prompts), initial_size);
 
   if (!IsModelDownloadedForCurrentReciever()) {

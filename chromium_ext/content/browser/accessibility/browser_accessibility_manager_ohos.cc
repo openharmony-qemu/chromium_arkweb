@@ -347,22 +347,26 @@ void BrowserAccessibilityManagerOHOS::FireGeneratedEvent(
       break;
     }
     case AXEventGenerator::Event::EXPANDED: {
-      if (ui::SupportsExpandCollapse(nodeOHOS->GetRole()) &&
-          GetFocus()->IsDescendantOf(nodeOHOS)) {
-        SendAccessibilityEvent(
-            accessibilityId,
-            OHOS::NWeb::AccessibilityEventType::ANNOUNCE_FOR_ACCESSIBILITY,
-            base::UTF16ToUTF8(nodeOHOS->GetComboboxExpandedText()));
+      if (ui::SupportsExpandCollapse(nodeOHOS->GetRole())) {
+        BrowserAccessibility* focus = GetFocus();
+        if (focus && focus->IsDescendantOf(nodeOHOS)) {
+          SendAccessibilityEvent(
+              accessibilityId,
+              OHOS::NWeb::AccessibilityEventType::ANNOUNCE_FOR_ACCESSIBILITY,
+              base::UTF16ToUTF8(nodeOHOS->GetComboboxExpandedText()));
+        }
       }
       break;
     }
     case AXEventGenerator::Event::COLLAPSED: {
-      if (ui::SupportsExpandCollapse(nodeOHOS->GetRole()) &&
-          GetFocus()->IsDescendantOf(nodeOHOS)) {
-        SendAccessibilityEvent(
-            accessibilityId,
-            OHOS::NWeb::AccessibilityEventType::ANNOUNCE_FOR_ACCESSIBILITY,
-            base::UTF16ToUTF8(nodeOHOS->GetComboboxCollapsedText()));
+      if (ui::SupportsExpandCollapse(nodeOHOS->GetRole())) {
+        BrowserAccessibility* focus = GetFocus();
+        if (focus && focus->IsDescendantOf(nodeOHOS)) {
+          SendAccessibilityEvent(
+              accessibilityId,
+              OHOS::NWeb::AccessibilityEventType::ANNOUNCE_FOR_ACCESSIBILITY,
+              base::UTF16ToUTF8(nodeOHOS->GetComboboxCollapsedText()));
+        }
       }
       break;
     }
