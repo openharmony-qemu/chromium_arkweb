@@ -79,8 +79,12 @@ void HTMLVideoElement::RequestDownloadUrl() {
     request.SetReferrerPolicy(referrer.referrer_policy);
   }
 
-  GetDocument().GetFrame()->DownloadURL(
-      request, network::mojom::blink::RedirectMode::kError);
+  LocalFrame* frame = GetDocument().GetFrame();
+  if (!frame) {
+    LOG(ERROR) << "HTMLVideoElement::RequestDownloadUrl frame is null";
+    return;
+  }
+  frame->DownloadURL(request, network::mojom::blink::RedirectMode::kError);
 }
 #endif  // ARKWEB_VIDEO_ASSISTANT
 // LCOV_EXCL_STOP

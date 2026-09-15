@@ -119,6 +119,13 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
 
   void UpdateVolume();
 
+  // Returns true if |client_extension_| is bound and still connected, so that
+  // Mojo callbacks can be safely issued. The Remote may be unbound when
+  // constructed from an empty PendingRemote, or disconnected when the renderer
+  // side is destroyed (navigation, page close) while async media callbacks are
+  // still in flight.
+  bool IsClientExtensionValid() const;
+
   void GetGrantMediaFileAccessDirs(std::vector<std::string>& grantMediaFileAccessDirs);
 
   // media::DevToolsNetworkEventSink implementation. Each forwards to

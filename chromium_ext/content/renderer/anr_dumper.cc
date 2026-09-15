@@ -64,11 +64,13 @@ void AnrDumper::DumpCurrentJavaScriptStack(
         callback) {
   auto* scheduler = blink::Thread::MainThread()->Scheduler()->ToMainThreadScheduler();
   if (scheduler == nullptr) {
+    std::move(callback).Run("");
     return;
   }
   v8::Isolate* isolate = scheduler->Isolate();
   if (!isolate) {
     std::move(callback).Run("");
+    return;
   }
   InterruptData* interrupt_data = new InterruptData(std::move(callback));
 
