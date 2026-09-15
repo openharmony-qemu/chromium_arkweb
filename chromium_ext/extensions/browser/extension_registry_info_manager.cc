@@ -871,12 +871,11 @@ void ExtensionRegistryInfoManager::OnExtensionIconImageChanged(
     return;
   }
  
-  std::shared_ptr<BrowserNotifier> notifier = it->second;
+  std::shared_ptr<BrowserNotifier> notifier = std::move(it->second);
+  pending_notifiers_.erase(it);
   if (notifier) {
     notifier->HandleImageEvent(image);
   }
- 
-  pending_notifiers_.erase(it);
 }
 
 void ExtensionRegistryInfoManager::AddIconImageObservation(

@@ -400,7 +400,11 @@ void NotificationPlatformBridgeOhos::OnShowed(const std::string id) {
   scoped_refptr<message_center::NotificationDelegate> delegate = notification.delegate();
   if (!delegate) {
     return;
-  } 
+  }
+  if (!profile_notification->profile()) {
+    LOG(ERROR) << "NotificationPlatformBridgeOhos::OnShowed: profile is null";
+    return;
+  }
   NotificationHandler* handler = NotificationDisplayServiceImpl::GetForProfile(profile_notification->profile())
       ->GetNotificationHandler(profile_notification->type());
   if (handler) {
@@ -419,8 +423,10 @@ void NotificationPlatformBridgeOhos::OnClosed(const std::string id) {
   const message_center::Notification& notification = profile_notification->notification();
   scoped_refptr<message_center::NotificationDelegate> delegate = notification.delegate();
   if (delegate) {
+    ProfileNotification::ProfileID profile_id =
+        ProfileNotification::GetProfileID(profile_notification->profile());
     delegate->Close(true);
-    CancelById(id, ProfileNotification::GetProfileID(profile_notification->profile()));
+    CancelById(id, profile_id);
   }
 }
 
