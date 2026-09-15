@@ -353,9 +353,12 @@ void HEIFImageDecoder::Decode(wtf_size_t index) {
   int height = buffer.Bitmap().height();
   size_t rowBytes = buffer.Bitmap().rowBytes();
   int bytesPerPixel = buffer.Bitmap().bytesPerPixel();
+  size_t copy_bytes = static_cast<size_t>(width) * bytesPerPixel;
   for (int i = 0; i < height; i++) {
-    if (memcpy_s((uint8_t*)pixel + i * width * bytesPerPixel, rowBytes,
-                 (uint8_t*)ptr + i * stride, width * bytesPerPixel) != EOK) {
+    size_t dst_offset = static_cast<size_t>(i) * rowBytes;
+    size_t src_offset = static_cast<size_t>(i) * stride;
+    if (memcpy_s((uint8_t*)pixel + dst_offset, rowBytes,
+                 (uint8_t*)ptr + src_offset, copy_bytes) != EOK) {
       LOG(ERROR) << "[HeifSupport] HEIFImageDecoder::Decode memcpy failed."
                  << "width = " << width << ", height = " << height
                  << ", rowBytes = " << rowBytes
@@ -539,12 +542,13 @@ bool HEIFImageDecoder::DecodeHeifSync(wtf_size_t index) {
   // Copy pixel data (copy line by line, for greater security)
   const uint8_t* src = pixels.data();
   size_t rowBytes = frame.Bitmap().rowBytes();
+  size_t row_bytes_source = static_cast<size_t>(size.width()) * kPixelFormatBytes;
 
   for (int y = 0; y < size.height(); ++y) {
     ImageFrame::PixelData* row = frame.GetAddr(0, y);
-    const uint8_t* src_row = src + y * size.width() * kPixelFormatBytes;
-    
-    errno_t err = memcpy_s(row, rowBytes, src_row, size.width() * kPixelFormatBytes);
+    const uint8_t* src_row = src + static_cast<size_t>(y) * row_bytes_source;
+
+    errno_t err = memcpy_s(row, rowBytes, src_row, row_bytes_source);
     if (err != 0) {
       LOG(ERROR) << "[HeifSupport] memcpy_s failed at row " << y 
                 << ", error: " << err;

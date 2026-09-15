@@ -269,18 +269,25 @@ void BaseWindowCapturer::HandleBuffer() {
   LOG(DEBUG) << "screen capture buffer, width: " << width
              << ", height: " << height << "; buffSize: " << buffSize
              << ", stride:" << stride;
-  if (buffSize < static_cast<uint32_t>(height * stride)) {
+  if (width <= 0 || height <= 0 || stride <= 0) {
+    LOG(ERROR) << "screen capture invalid dimensions, width: " << width
+               << ", height: " << height << ", stride: " << stride;
+    BaseScreenCaptureSource::GetInstance().ReleaseVideoBuffer(nweb_id_);
+    return;
+  }
+
+  size_t required_buff_size = static_cast<size_t>(height) * stride;
+  if (static_cast<size_t>(buffSize) < required_buff_size) {
     LOG(ERROR) << "screen capture buff size error";
     BaseScreenCaptureSource::GetInstance().ReleaseVideoBuffer(nweb_id_);
     return;
   }
 
   std::unique_ptr<DesktopFrame> current_frame;
-  uint32_t frameStride = static_cast<uint32_t>(width * DesktopFrame::kBytesPerPixel);
+  size_t frameStride = static_cast<size_t>(width) * DesktopFrame::kBytesPerPixel;
+  size_t total_frame_size = static_cast<size_t>(height) * frameStride;
   if (factory_) {
-    uint32_t frame_size =
-        static_cast<uint32_t>(width * height * DesktopFrame::kBytesPerPixel);
-    auto shared_memory = factory_->CreateSharedMemory(frame_size);
+    auto shared_memory = factory_->CreateSharedMemory(total_frame_size);
     current_frame = std::make_unique<webrtc::SharedMemoryDesktopFrame>(
         webrtc::DesktopSize(width, height), frameStride, webrtc::FOURCC_ABGR,
         std::move(shared_memory));
@@ -296,14 +303,16 @@ void BaseWindowCapturer::HandleBuffer() {
     BaseScreenCaptureSource::GetInstance().ReleaseVideoBuffer(nweb_id_);
     return;
   }
+  size_t remaining_dest = total_frame_size;
   for (int32_t i = 0; i < height; i++) {
-    if (memcpy_s(pData, frameStride, pSrcData, frameStride) != EOK) {
+    if (memcpy_s(pData, remaining_dest, pSrcData, frameStride) != EOK) {
       LOG(ERROR) << "data memcpy_s failed";
       BaseScreenCaptureSource::GetInstance().ReleaseVideoBuffer(nweb_id_);
       return;
     }
     pData += frameStride;
     pSrcData += stride;
+    remaining_dest -= frameStride;
   }
   current_frame->mutable_updated_region()->SetRect(
       DesktopRect::MakeSize(current_frame->size()));

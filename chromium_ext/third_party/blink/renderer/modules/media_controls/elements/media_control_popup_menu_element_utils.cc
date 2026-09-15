@@ -171,6 +171,7 @@ Element* MediaControlPopupMenuElementUtils::ShouldPlaybackSpeedButton() {
     return &element->GetMediaControls().mediaControlsImplUtils_.Playback_Speed_Button();
   }
 #endif
+  return nullptr;
 }
 
 void MediaControlPopupMenuElementUtils::Trace(Visitor* visitor) const {
