@@ -20,7 +20,7 @@ constexpr char kTimeoutResponse[] = R"({"code":504,"msg":"browser message respon
 constexpr base::TimeDelta kBrowserMessageTimeout = base::Seconds(10);
 }  // namespace
 
-BrowserMessagePort::BrowserMessagePort(base::WeakPtr<ChannelDelegate> channel_delegate, const PortId &port_id,
+BrowserMessagePort::BrowserMessagePort(base::WeakPtr<ChannelDelegate> channel_delegate, const PortId& port_id,
                      ExtensionId extension_id, BrowserMessageHandler browser_message_handler)
   : MessagePort(std::move(channel_delegate), port_id),
     extension_id_(std::move(extension_id)),
@@ -36,7 +36,7 @@ bool BrowserMessagePort::IsValidPort() {
   return true;
 }
 
-void BrowserMessagePort::DispatchOnMessage(const Message &message) {
+void BrowserMessagePort::DispatchOnMessage(const Message& message) {
   DCHECK(thread_checker_.CalledOnValidThread());
   if (!weak_channel_delegate_ || response_pending_) {
     if (response_pending_) {

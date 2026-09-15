@@ -31,7 +31,7 @@
 #include "base/functional/callback.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/timer/timer.h"
-#include "ohos_nweb_ex/public/capi/nweb_extension_runtime_interface.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_extension_runtime_delegate_impl.h"
 #endif
 
 namespace OHOS::NWeb {
@@ -162,8 +162,8 @@ class NWebConnectNativeManager {
   std::unordered_map<int, base::Process> connectid_process_map_;
 
 #if BUILDFLAG(IS_ARKWEB_EXT)
-  // C API callback handle (opaque), lazily initialized.
-  void* runtime_callback_ = nullptr;
+  // Tracks whether the runtime callback has been registered.
+  bool initialized_ = false;
 
   // Monotonically increasing request ID.  Guarded by |lock_|.
   uint64_t next_request_id_ = 1;
