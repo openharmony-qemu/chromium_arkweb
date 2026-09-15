@@ -17,6 +17,8 @@
 #include <dlfcn.h>
 #include <window_manager/oh_window.h>
 #include "arkweb/ohos_nweb/src/nweb_hilog.h"
+#include "base/ohos/sys_info_utils_ext.h"
+#include "arkweb/ohos_adapter_ndk/multimodalinputnew_adapter/mmi_new_adapter_impl.h"
 
 namespace OHOS::NWeb {
 using OHWindowManagerLockCursor = int32_t (*)(int32_t windowId, bool isCursorFollowMovement);
@@ -41,6 +43,12 @@ bool WindowManagerAdapterImpl::GetWindowPrivacyMode(uint32_t windowId)
 }
 
 int32_t WindowManagerAdapterImpl::LockPointer(int32_t windowId) {
+  bool isPc = base::ohos::IsPcDevice();
+  if (!isPc && !MMINewAdapterImpl::GetInstance().HasKeyboardAndMouse()) {
+    WVLOG_W("LockPointer: denied, windowId=%{public}d, isPcDevice=%{public}s", windowId, isPc ? "yes" : "no");
+    return WINDOW_MANAGER_ERRORCODE_NO_PERMISSION;
+  }
+
 #if defined(__aarch64__)
   void* dl = dlopen("/system/lib64/ndk/libnative_window_manager.so", RTLD_LAZY);
 #else
