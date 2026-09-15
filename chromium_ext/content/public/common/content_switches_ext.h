@@ -84,16 +84,15 @@ CONTENT_EXPORT extern const char kEnableNwebExDownload[];
 CONTENT_EXPORT extern const char kEnableNwebExGetZoomLevel[];
 CONTENT_EXPORT extern const char kEnableNwebExPullToRefresh[];
 CONTENT_EXPORT extern const char kEnableNwebExDelegateCompositing[];
-#endif
-
-#if BUILDFLAG(ARKWEB_BFCACHE)
-CONTENT_EXPORT extern const char kEnableBFCache[];
+CONTENT_EXPORT extern const char kNwebExContentRenderingDelay[];
 #endif
 
 #if BUILDFLAG(ARKWEB_BFCACHE)
 CONTENT_EXPORT extern const char kEnableBFCache[];
 CONTENT_EXPORT extern const char kEnableCacheNativeEmbed[];
 CONTENT_EXPORT extern const char kEnableCacheMediaTakeOver[];
+CONTENT_EXPORT extern const char kIgnoreBFCacheFeatures[];
+CONTENT_EXPORT extern const char kDisableNetworkRequestRedirectEvict[];
 #endif
 
 #if BUILDFLAG(ARKWEB_VULKAN)

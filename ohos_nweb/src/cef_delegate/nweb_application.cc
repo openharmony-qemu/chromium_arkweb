@@ -277,7 +277,13 @@ void NWebApplication::OnBeforeChildProcessLaunch(
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   for (const auto& arg : NWebImpl::GetCommandLineArgsForNWebEx()) {
-    command_line->AppendSwitch(arg);
+    size_t equals_pos = arg.find('=');
+    if (equals_pos != std::string::npos) {
+      command_line->AppendSwitchWithValue(arg.substr(0, equals_pos),
+                                          arg.substr(equals_pos + 1));
+    } else {
+      command_line->AppendSwitch(arg);
+    }
   }
 #if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
   std::string extension_name;
