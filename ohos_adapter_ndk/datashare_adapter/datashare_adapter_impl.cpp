@@ -28,6 +28,65 @@
 #include <filemanagement/file_uri/oh_file_uri.h>
 
 namespace OHOS::NWeb {
+namespace {
+// OH_FileUri_GetPathFromUri 底层的 FileUri::GetRealPath() 只做字符串替换，
+// 不做路径校验。此处仅放行其合法产物前缀：
+//   /data/storage/  应用沙箱视图（el2/base、el2/media、el2/share 等）
+//   /storage/       文件管理器视图（file://docs/... 的换算结果）
+// "datashare://"、"dataability://" 前缀的 uri 经该接口换算得到的是无效路径
+// （如 "/datashare://..."），一律落在白名单之外被拒绝。
+constexpr const char* ALLOWED_REAL_PATH_PREFIXES[] = {
+    "/data/storage/",
+    "/storage/",
+};
+
+// 拒绝 ".." 路径组件。系统生成的 uri 不含该组件，仅构造输入才会出现。
+bool ContainsParentComponent(const std::string& path)
+{
+    size_t pos = path.find("../");
+    while (pos != std::string::npos) {
+        if (pos == 0 || path[pos - 1] == '/') {
+            return true;
+        }
+        pos = path.find("../", pos + 3);
+    }
+    size_t tail = path.rfind("/..");
+    return tail != std::string::npos && (path.size() - tail) == 3;
+}
+
+bool HasAllowedRealPathPrefix(const std::string& path)
+{
+    for (const char* prefix : ALLOWED_REAL_PATH_PREFIXES) {
+        if (path.rfind(prefix, 0) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// uri -> path 换算并校验结果。返回 false 表示 uri 非法或换算结果不可信。
+bool ConvertUriToValidPath(const std::string& uriStr, std::string& path)
+{
+    // "%00" 会被换算接口解码为 NUL 并截断 C 字符串，导致路径被静默缩短。
+    if (uriStr.empty() || uriStr.find("%00") != std::string::npos) {
+        return false;
+    }
+    char *uriResult = nullptr;
+    FileManagement_ErrCode ret =
+        OH_FileUri_GetPathFromUri(uriStr.c_str(), uriStr.length(), &uriResult);
+    if (ret != ERR_OK || uriResult == nullptr) {
+        return false;
+    }
+    path = std::string(uriResult);
+    free(uriResult);
+    if (path.empty() || !HasAllowedRealPathPrefix(path) ||
+        ContainsParentComponent(path)) {
+        return false;
+    }
+    return true;
+}
+} // namespace
+
 // static
 DatashareAdapterImpl& DatashareAdapterImpl::GetInstance()
 {
@@ -37,34 +96,22 @@ DatashareAdapterImpl& DatashareAdapterImpl::GetInstance()
 
 std::string DatashareAdapterImpl::GetRealPath(const std::string& uriStr)
 {
-    const char *uri = uriStr.c_str();
-    unsigned int length = uriStr.length();
-    char *uriResult = nullptr;
-
-    FileManagement_ErrCode ret = OH_FileUri_GetPathFromUri(uri, length, &uriResult);
-    if (ret == ERR_OK) {
-        std::string realpath(uriResult);
-        free(uriResult);
-        return realpath;
-    } else {
+    std::string realPath;
+    if (!ConvertUriToValidPath(uriStr, realPath)) {
+        WVLOG_E("get real path rejected, uri is invalid or converted path is illegal");
         return std::string();
     }
+    return realPath;
 }
 
 int DatashareAdapterImpl::OpenDataShareUriForRead(const std::string& uriStr)
 {
-    const char *uri = uriStr.c_str();
-    unsigned int length = uriStr.length();
-    char *uriResult = nullptr;
-
-    FileManagement_ErrCode ret = OH_FileUri_GetPathFromUri(uri, length, &uriResult);
-    if (ret != ERR_OK) {
+    std::string realPath;
+    if (!ConvertUriToValidPath(uriStr, realPath)) {
+        WVLOG_E("open datashare uri rejected, uri is invalid or converted path is illegal");
         return -1;
-    } else {
-        int fd = open(uriResult, O_RDONLY);
-        free(uriResult);
-        return fd;
     }
+    return open(realPath.c_str(), O_RDONLY);
 }
 
 std::string DatashareAdapterImpl::GetFileDisplayName(const std::string& uriStr)
