@@ -6289,7 +6289,7 @@ void NWebDelegate::WebExtensionTabRemoved(int tab_id,
 void NWebDelegate::WebExtensionTabUpdated(
     int tab_id,
     std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo,
-    std::unique_ptr<NWebExtensionTab> tab) {
+    std::unique_ptr<NWebExtensionTabV2> tab) {
   LOG(DEBUG) << "WebExtensionTabUpdated:" << tab_id;
   if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
     LOG(ERROR) << "WebExtensionTabUpdated failed, get browser failed";

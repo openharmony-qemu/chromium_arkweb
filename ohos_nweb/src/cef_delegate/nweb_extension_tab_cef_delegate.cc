@@ -68,7 +68,7 @@ bool NWebExtensionTabCefDelegate::CreateTab(
 
 void NWebExtensionTabCefDelegate::TabCreateCallback(
     int request_id,
-    const NWebExtensionTab& tab,
+    const NWebExtensionTabV2& tab,
     const std::optional<std::string>& error) {
   if (g_tab_created_map_.count(request_id)) {
     std::move(g_tab_created_map_[request_id]).Run(tab, error);
@@ -96,7 +96,7 @@ bool NWebExtensionTabCefDelegate::UpdateTab(
 
 void NWebExtensionTabCefDelegate::TabUpdateCallback(
     int request_id,
-    NWebExtensionTab& tab,
+    NWebExtensionTabV2& tab,
     const std::optional<std::string>& error) {
   if (g_tab_updated_map_.count(request_id)) {
     std::move(g_tab_updated_map_[request_id]).Run(tab, error);
@@ -126,7 +126,7 @@ bool NWebExtensionTabCefDelegate::MoveTab(
 
 void NWebExtensionTabCefDelegate::TabMoveCallback(
     int request_id,
-    const std::vector<NWebExtensionTab>& tabs,
+    const std::vector<NWebExtensionTabV2>& tabs,
     const std::optional<std::string>& error) {
   if (g_tab_moved_map_.count(request_id)) {
     std::move(g_tab_moved_map_[request_id]).Run(tabs, error);
@@ -182,7 +182,7 @@ bool NWebExtensionTabCefDelegate::DiscardTab(
 
 void NWebExtensionTabCefDelegate::TabDiscardCallback(
     int request_id,
-    NWebExtensionTab& tab, const std::optional<std::string>& error) {
+    NWebExtensionTabV2& tab, const std::optional<std::string>& error) {
   if (g_tab_discarded_map_.count(request_id)) {
     std::move(g_tab_discarded_map_[request_id]).Run(tab, error);
     g_tab_discarded_map_.erase(request_id);
@@ -209,7 +209,7 @@ bool NWebExtensionTabCefDelegate::DuplicateTab(
 
 void NWebExtensionTabCefDelegate::TabDuplicateCallback(
     int request_id,
-    NWebExtensionTab& tab, const std::optional<std::string>& error) {
+    NWebExtensionTabV2& tab, const std::optional<std::string>& error) {
   if (g_tab_duplicated_map_.count(request_id)) {
     std::move(g_tab_duplicated_map_[request_id]).Run(tab, error);
     g_tab_duplicated_map_.erase(request_id);
@@ -290,7 +290,7 @@ bool NWebExtensionTabCefDelegate::HighlightTab(
 
 void NWebExtensionTabCefDelegate::TabHighlightCallback(
     int request_id,
-    WebExtensionWindow& window,
+    WebExtensionWindowV2& window,
     const std::optional<std::string>& error) {
   if (g_tab_highlighted_map_.count(request_id)) {
     std::move(g_tab_highlighted_map_[request_id]).Run(window, error);
@@ -298,7 +298,7 @@ void NWebExtensionTabCefDelegate::TabHighlightCallback(
   }
 }
 
-std::unique_ptr<NWebExtensionTab> NWebExtensionTabCefDelegate::GetTab(
+std::unique_ptr<NWebExtensionTabV2> NWebExtensionTabCefDelegate::GetTab(
     int tabId,
     std::optional<std::string> contextType,
     std::optional<bool> includeIncognitoInfo) {
@@ -310,12 +310,13 @@ std::unique_ptr<NWebExtensionTab> NWebExtensionTabCefDelegate::GetTab(
 #endif
 }
 
-std::vector<NWebExtensionTab> NWebExtensionTabCefDelegate::QueryTab(
+std::vector<NWebExtensionTabV2> NWebExtensionTabCefDelegate::QueryTab(
     NWebExtensionTabQueryInfoV2& queryInfo) {
 #if !BUILDFLAG(ARKWEB_NWEB_EX)
-  return std::vector<NWebExtensionTab>();
+  return std::vector<NWebExtensionTabV2>();
 #else
-  return nweb_ex::NWebExtensionTabDelegateImpl::GetInstance().QueryTabV2(queryInfo);
+  return nweb_ex::NWebExtensionTabDelegateImpl::GetInstance().QueryTabV2(
+      queryInfo);
 #endif
 }
 
@@ -343,7 +344,8 @@ void NWebExtensionTabCefDelegate::OnTabActivated(std::unique_ptr<NWebExtensionTa
       ->TabActivated(activeInfo->tabId, activeInfo->windowId, browser_context);
 }
 
-void NWebExtensionTabCefDelegate::OnTabCreated(std::unique_ptr<NWebExtensionTab> tab) {
+void NWebExtensionTabCefDelegate::OnTabCreated(
+    std::unique_ptr<NWebExtensionTabV2> tab) {
   if (!tab) {
     LOG(ERROR) << "OnTabCreated tab is null";
     return;
@@ -355,7 +357,7 @@ void NWebExtensionTabCefDelegate::OnTabCreated(std::unique_ptr<NWebExtensionTab>
   }
 
   auto browserContextInUse = browserContext;
-  if (tab->incognito) {
+  if (tab->tab_v1.incognito) {
     browserContextInUse = GetIncognitoContext(browserContext);
     if (!browserContextInUse) {
       LOG(ERROR) << "OnTabCreated get incognito context failed";
@@ -363,7 +365,7 @@ void NWebExtensionTabCefDelegate::OnTabCreated(std::unique_ptr<NWebExtensionTab>
     }
   }
 
-  int tabId = tab->id ? tab->id.value() : -1;
+  int tabId = tab->tab_v1.id ? tab->tab_v1.id.value() : -1;
   extensions::TabsWindowsAPI::Get(browserContext)
       ->TabCreated(tabId, browserContextInUse, std::move(tab));
 }

@@ -24,6 +24,7 @@
 #include <string>
 #include <thread>
 
+#include "arkweb/ohos_nweb/src/capi/web_extension_tab_items.h"
 #include "cef_browser.h"
 #include "arkweb/build/features/features.h"
 #if BUILDFLAG(IS_ARKWEB_EXT)
@@ -6691,11 +6692,11 @@ TEST_F(NWebImplTest, GetUsageScenario002) {
 TEST_F(NWebImplTest, WebExtensionTabUpdated001) {
   int tab_id = 0;
   std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo = std::make_unique<NWebExtensionTabChangeInfo>();
-  std::unique_ptr<NWebExtensionTab> tab = std::make_unique<NWebExtensionTab>();
+  std::unique_ptr<NWebExtensionTabV2> tab = std::make_unique<NWebExtensionTabV2>();
   nweb_impl_->nweb_delegate_ = nullptr;
   EXPECT_CALL(*mock_delegate_, WebExtensionTabUpdated(tab_id,
       ::testing::A<std::unique_ptr<NWebExtensionTabChangeInfo>>(),
-      ::testing::A<std::unique_ptr<NWebExtensionTab>>())).Times(0);
+      ::testing::A<std::unique_ptr<NWebExtensionTabV2>>())).Times(0);
   nweb_impl_->WebExtensionTabUpdated(tab_id, std::move(changeInfo), std::move(tab));
   EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
 }
@@ -6703,11 +6704,11 @@ TEST_F(NWebImplTest, WebExtensionTabUpdated001) {
 TEST_F(NWebImplTest, WebExtensionTabUpdated002) {
   int tab_id = 0;
   std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo = std::make_unique<NWebExtensionTabChangeInfo>();
-  std::unique_ptr<NWebExtensionTab> tab = std::make_unique<NWebExtensionTab>();
+  std::unique_ptr<NWebExtensionTabV2> tab = std::make_unique<NWebExtensionTabV2>();
   nweb_impl_->nweb_delegate_ = mock_delegate_;
   EXPECT_CALL(*mock_delegate_, WebExtensionTabUpdated(tab_id,
       ::testing::A<std::unique_ptr<NWebExtensionTabChangeInfo>>(),
-      ::testing::A<std::unique_ptr<NWebExtensionTab>>())).Times(1);
+      ::testing::A<std::unique_ptr<NWebExtensionTabV2>>())).Times(1);
   nweb_impl_->WebExtensionTabUpdated(tab_id, std::move(changeInfo), std::move(tab));
   EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
 }
@@ -10949,7 +10950,7 @@ TEST_F(NWebImplTest, GetUsageScenarioReturnZeroFromDelegate) {
 TEST_F(NWebImplTest, WebExtensionTabUpdatedWithPositiveTabId) {
   int tab_id = 10;
   std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo = std::make_unique<NWebExtensionTabChangeInfo>();
-  std::unique_ptr<NWebExtensionTab> tab = std::make_unique<NWebExtensionTab>();
+  std::unique_ptr<NWebExtensionTabV2> tab = std::make_unique<NWebExtensionTabV2>();
   nweb_impl_->nweb_delegate_ = mock_delegate_;
   EXPECT_CALL(*mock_delegate_, WebExtensionTabUpdated(tab_id, ::testing::_, ::testing::_)).Times(1);
   nweb_impl_->WebExtensionTabUpdated(tab_id, std::move(changeInfo), std::move(tab));
@@ -10963,7 +10964,7 @@ TEST_F(NWebImplTest, WebExtensionTabUpdatedWithPositiveTabId) {
 TEST_F(NWebImplTest, WebExtensionTabUpdatedWithNegativeTabId) {
   int tab_id = -10;
   std::unique_ptr<NWebExtensionTabChangeInfo> changeInfo = std::make_unique<NWebExtensionTabChangeInfo>();
-  std::unique_ptr<NWebExtensionTab> tab = std::make_unique<NWebExtensionTab>();
+  std::unique_ptr<NWebExtensionTabV2> tab = std::make_unique<NWebExtensionTabV2>();
   nweb_impl_->nweb_delegate_ = mock_delegate_;
   EXPECT_CALL(*mock_delegate_, WebExtensionTabUpdated(tab_id, ::testing::_, ::testing::_)).Times(1);
   nweb_impl_->WebExtensionTabUpdated(tab_id, std::move(changeInfo), std::move(tab));

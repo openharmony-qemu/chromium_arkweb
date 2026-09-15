@@ -27,20 +27,20 @@
  
 namespace OHOS::NWeb {
 
-using WindowCreatedCallback = base::RepeatingCallback<void(const std::optional<WebExtensionWindow>&,
+using WindowCreatedCallback = base::RepeatingCallback<void(const std::optional<WebExtensionWindowV2>&,
                                                            const std::optional<std::string>&)>;
-using WindowUpdatedCallback = base::RepeatingCallback<void(const std::optional<WebExtensionWindow>&,
+using WindowUpdatedCallback = base::RepeatingCallback<void(const std::optional<WebExtensionWindowV2>&,
                                                            const std::optional<std::string>&)>;
 using WindowRemovedCallback = base::RepeatingCallback<void(const std::optional<std::string>&)>;
 
-class NweExtensionWindowCefDelegate {
+class NWebExtensionWindowCefDelegate {
   public:
-    static NweExtensionWindowCefDelegate* GetInstance();
+    static NWebExtensionWindowCefDelegate* GetInstance();
 
-    void WindowCreated(const WebExtensionWindow& window);
-    void WindowRemoved(const WebExtensionWindow& window);
-    void WindowBoundsChanged(const WebExtensionWindow& window);
-    void WindowFocusChanged(const WebExtensionWindow& window);
+    void WindowCreated(const WebExtensionWindowV2& window);
+    void WindowRemoved(const WebExtensionWindowV2& window);
+    void WindowBoundsChanged(const WebExtensionWindowV2& window);
+    void WindowFocusChanged(const WebExtensionWindowV2& window);
  
     bool OnCreateWindowV2(const WebExtensionWindowCreateData& create_date,
                           const WebExtensionWindowCreateDataV2& create_date_V2,
@@ -56,28 +56,28 @@ class NweExtensionWindowCefDelegate {
       int currentWindowId,
       const WebExtensionWindowQueryOptions& queryOptions);
  
-    std::optional<WebExtensionWindow> OnGetWindowV2(
+    std::optional<WebExtensionWindowV2> OnGetWindowV2(
       int windowId,
       const WebExtensionWindowQueryOptionsV2& queryOptions);
-    std::vector<WebExtensionWindow> OnGetAllWindowsV2(
+    std::vector<WebExtensionWindowV2> OnGetAllWindowsV2(
       const WebExtensionWindowQueryOptionsV2& queryOptions);
-    std::optional<WebExtensionWindow> OnGetCurrentWindowV2(
+    std::optional<WebExtensionWindowV2> OnGetCurrentWindowV2(
       int currentWindowId,
       const WebExtensionWindowQueryOptionsV2& queryOptions);
-    std::optional<WebExtensionWindow> OnGetLastFocusedWindowV2(
+    std::optional<WebExtensionWindowV2> OnGetLastFocusedWindowV2(
       const WebExtensionWindowQueryOptionsV2& queryOptions);
     bool HasOnGetCurrentWindowV2CallBack();
 
     void WindowCreateCallback(int request_id,
-                              const std::optional<WebExtensionWindow>& window,
+                              const std::optional<WebExtensionWindowV2>& window,
                               const std::optional<std::string>& error);
     void WindowUpdateCallback(int request_id,
-                              const std::optional<WebExtensionWindow>& window,
+                              const std::optional<WebExtensionWindowV2>& window,
                               const std::optional<std::string>& error);
     void WindowRemoveCallback(int request_id, const std::optional<std::string>& error);
  
   private:
-    NweExtensionWindowCefDelegate();
+    NWebExtensionWindowCefDelegate();
 };
 } // namespace OHOS::NWeb
 #endif  // NWEB_EXTENSION_WINDOW_CEF_DELEGATE_H
