@@ -102,6 +102,11 @@ class CC_MOJO_EMBEDDER_EXPORT SoftwareCompositorRendererOhos {
   gfx::Size size_{0, 0};
   bool in_software_draw_ = false;
   bool software_draw_result_ = false;
+
+  // Cached DrawRect for replay when client is not ready during BindToClient or
+  // when a new Renderer takes over. Cleared in DetachFromClient.
+  std::optional<gfx::Rect> pending_draw_rect_;
+
   base::WeakPtrFactory<SoftwareCompositorRendererOhos> weak_ptr_factory_{this};
 };
 }  // namespace cc::mojo_embedder

@@ -142,10 +142,19 @@ void SoftwareCompositorRendererOhos::BindToClient(
   frame_sink_manager_->RegisterFrameSinkId(kRootFrameSinkId, false);
   frame_sink_manager_->RegisterBeginFrameSource(source, kRootFrameSinkId);
   display_->SetVisible(true);
+
+  // Replay cached DrawRect if available (e.g. from a previous renderer
+  // lifecycle). This ensures the new renderer's Display has the correct surface
+  // size and tile priority constraints from the start.
+  if (pending_draw_rect_.has_value()) {
+    client_->SetExternalTilePriorityConstraints(*pending_draw_rect_,
+                                                gfx::Transform());
+  }
 }
 
 void SoftwareCompositorRendererOhos::DetachFromClient() {
   registry_->UnregisterSoftwareRenderer(this);
+  pending_draw_rect_.reset();
 
   if (frame_sink_manager_ && registered_begin_frame_source_) {
     frame_sink_manager_->UnregisterBeginFrameSource(
@@ -196,6 +205,7 @@ bool SoftwareCompositorRendererOhos::DemandDrawSw(SkCanvas* canvas,
 }
 
 void SoftwareCompositorRendererOhos::DrawRect(const gfx::Rect& rect) {
+  pending_draw_rect_ = rect;
   if (client_ == nullptr) {
     LOG(ERROR) << "SW render DrawRect.";
     return;
