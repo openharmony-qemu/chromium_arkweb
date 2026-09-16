@@ -241,7 +241,7 @@ bool PlatformSensorOHOS::CheckSensorConfiguration(
 void PlatformSensorOHOS::NotifyPlatformSensorError(){
   PostTaskToMainSequence(
     FROM_HERE,
-    base::BindOnce(&PlatformSensorOHOS::NotifySensorError, this));
+    base::BindOnce(&PlatformSensorOHOS::NotifySensorError, weak_factory_.GetWeakPtr()));
 }
 
 

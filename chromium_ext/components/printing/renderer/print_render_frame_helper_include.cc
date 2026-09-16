@@ -168,7 +168,11 @@ void PrintRenderFrameHelper::ArkWebPrintNode(const blink::WebNode& node)
     return;
   }
 
+  base::WeakPtr<PrintRenderFrameHelper> weak_this = weak_ptr_factory_.GetWeakPtr();
   frame->DispatchBeforePrintEvent(nullptr);
+  if (!weak_this) {
+    return;
+  }
   GetPrintManagerHost()->PrintPdfRequested();
 }
 
