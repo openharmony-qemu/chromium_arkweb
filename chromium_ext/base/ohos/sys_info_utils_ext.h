@@ -119,6 +119,10 @@ BASE_EXPORT const std::string GetOSDistVersion();
 #endif
 
 BASE_EXPORT bool IsDelegatedCompositingEnabledOhos();
+// Returns true if AI HDR is enabled via system property "web.aihdr.enable".
+// Result is cached on first call and will not change during the process lifetime.
+// Requires delegated compositing to be enabled.
+BASE_EXPORT bool IsAiHdrEnabledOhos();
 
 // Check if current device is a low-end device. The result is cached after
 // first call and will not change during the process lifetime.
