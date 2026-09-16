@@ -149,7 +149,6 @@ void FontUniqueNameLookupOhos::CustomFontsPrefetched(
     HashMap<String, base::File> font_files) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   prefetched_font_map_ = std::move(font_files);
-  queryable_fonts_.emplace(prefetched_font_map_.Keys());
   LOG(DEBUG) << "prefetched_font_map_ size " << prefetched_font_map_.size();
 }
 
