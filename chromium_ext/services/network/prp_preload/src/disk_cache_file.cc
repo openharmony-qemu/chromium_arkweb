@@ -191,8 +191,11 @@ int DiskCacheReadHelper::ReadCallback(int rv) {
   }
 
   op_type_ = READ_DATA;
+  if (!entry_) {
+    return net::ERR_FAILED;
+  }
   buf_ = base::MakeRefCounted<net::IOBufferWithSize>(entry_->GetDataSize(1));
-  if (!entry_ || !buf_) {
+  if (!buf_) {
     return net::ERR_FAILED;
   }
   return entry_->ReadData(1, 0, buf_.get(), buf_->size(),
