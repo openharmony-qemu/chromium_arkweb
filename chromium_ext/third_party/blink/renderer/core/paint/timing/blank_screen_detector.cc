@@ -15,20 +15,18 @@
 
 #include "blank_screen_detector.h"
 
+#include "arkweb/ohos_nweb/src/sysevent/event_reporter.h"
 #include "third_party/blink/renderer/core/frame/root_frame_viewport.h"
 #include "third_party/blink/renderer/core/frame/viewport_data.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
-#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 namespace blink {
 
 const int32_t SECOND_TO_MILLISECOND = 1000;
 const int32_t DIVIDED_BY_TWO = 2;
 const int32_t DIVIDED_BY_FIVE = 5;
-
-constexpr char BLANK_SCREEN_EVENT[] = "ARKWEB_BLANK_SCREEN_EVENT";
 
 void BlankScreenDetector::OnInputOrScroll() {
   StopTask();
@@ -167,8 +165,7 @@ void BlankScreenDetector::RunDetectionTask() {
         LOG(INFO) << "BlankScreenDetector::RunDetectionTask blank screen "
                      "detected result_count "
                   << result_count;
-        OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(BLANK_SCREEN_EVENT,
-            OHOS::NWeb::HiSysEventAdapter::EventType::FAULT, std::make_tuple(static_cast<int32_t>(result_reason), result_count));
+        ReportBlankScreen(static_cast<int32_t>(result_reason), result_count);
         if (detection_enable_) {
           local_frame_->OnDetectedBlankScreen(
             url_, static_cast<int32_t>(result_reason), result_count);

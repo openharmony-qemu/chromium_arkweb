@@ -292,6 +292,18 @@ void ArkwebChildProcessLauncherHelperUtils::GetTerminationInfoArkweb(
                     "success, invalid status = "
                  << exitStatus;
     } else {
+      if (WIFEXITED(exitStatus) &&
+          WEXITSTATUS(exitStatus) == kRenderStartTimeoutExitCode) {
+        LOG(ERROR) << "Child process exited with startup-timeout exit code, "
+                       "pid="
+                    << process.Handle();
+#if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING) && !defined(COMPONENT_BUILD)
+        auto process_type = child_process_launcher_helper_->GetProcessType();
+        ReportChildProcessInitFail(
+            process_type == switches::kGpuProcess,
+            RenderError::RENDER_START_TIMEOUT);
+#endif
+      }
       info.status =
           ArkwebChildProcessLauncherHelperUtils::GetProcessStatusByExitCode(
               exitStatus, known_dead);
