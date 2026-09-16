@@ -772,13 +772,16 @@ int32_t CommandActionDOMHelper::ExecuteInputInsert(Document* document,
       return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH);
     }
     String old_value = input->Value();
+    String content_str = String::FromUTF8(content);
     int safe_index = std::min(index, static_cast<int32_t>(old_value.length()));
     String new_value = old_value.Substring(0, safe_index)
-                     + String::FromUTF8(content)
+                     + content_str
                      + old_value.Substring(safe_index);
     input->SetValue(new_value, TextFieldEventBehavior::kDispatchNoEvent);
     // Move cursor after inserted content (before event dispatch, matching JS behavior)
-    int cursor_pos = safe_index + static_cast<int32_t>(content.length());
+    // Use content_str.length() (UTF-16 code units) to match Blink String offsets,
+    // not content.length() which returns UTF-8 byte count.
+    int cursor_pos = safe_index + static_cast<int32_t>(content_str.length());
     input->SetSelectionRange(cursor_pos, cursor_pos, kSelectionHasNoDirection);
     DispatchInputAndChangeEvents(input, content);
     return static_cast<int32_t>(WebCommandErrorCode::SUCCESS);
@@ -791,12 +794,13 @@ int32_t CommandActionDOMHelper::ExecuteInputInsert(Document* document,
       return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH);
     }
     String old_value = textarea->Value();
+    String content_str = String::FromUTF8(content);
     int safe_index = std::min(index, static_cast<int32_t>(old_value.length()));
     String new_value = old_value.Substring(0, safe_index)
-                     + String::FromUTF8(content)
+                     + content_str
                      + old_value.Substring(safe_index);
     textarea->SetValue(new_value, TextFieldEventBehavior::kDispatchNoEvent);
-    int cursor_pos = safe_index + static_cast<int32_t>(content.length());
+    int cursor_pos = safe_index + static_cast<int32_t>(content_str.length());
     textarea->SetSelectionRange(cursor_pos, cursor_pos, kSelectionHasNoDirection);
     DispatchInputAndChangeEvents(textarea, content);
     return static_cast<int32_t>(WebCommandErrorCode::SUCCESS);
