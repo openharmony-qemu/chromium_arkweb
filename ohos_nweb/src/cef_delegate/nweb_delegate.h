@@ -240,6 +240,9 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void SetEnableLowerFrameRate(bool enabled) override;
   void SetEnableHalfFrameRate(bool enabled) override;
   std::shared_ptr<NWebPreference> GetPreference() const override;
+  NWebPreferenceDelegate* GetPreferenceDelegate() {
+    return preference_delegate_.get();
+  }
 #if BUILDFLAG(ARKWEB_AI)
   std::shared_ptr<NWebAgentManager> GetAgentManager() const override;
 #endif

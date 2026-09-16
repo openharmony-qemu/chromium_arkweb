@@ -856,6 +856,12 @@ int NWebPreferenceDelegate::ForceDarkModeEnabled() {
 }
 
 int NWebPreferenceDelegate::DarkSchemeEnabled() {
+#if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
+  if (dark_scheme_force_dark_) {
+    return true;
+  }
+#endif
+
   return dark_prefer_color_scheme_enabled_;
 }
 // #endif
