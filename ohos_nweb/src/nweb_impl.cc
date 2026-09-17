@@ -2092,13 +2092,14 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
   if (is_delegated_enabled_ && init_args) {
     uint64_t node_id = init_args->GetSurfaceNodeId();
     uint64_t handle = init_args->GetSurfaceRSHandle();
+    uint64_t rsUIContextToken = init_args->GetSurfaceRSUIContextToken();
     WVLOG_I("DelegateDebug InitWebEngine node_id = %{public}lu", node_id);
     if (handle == 0) {
       WVLOG_E("DelegateDebug InitWebEngine get rs handle invalid");
     }
     auto native_window = reinterpret_cast<NativeWindow*>(window_.get());
     OHOS::NWeb::OhosAdapterHelper::GetInstance().GetWindowAdapterInstance()
-        .SetWindowNodeIdAndRSHandle(native_window, node_id, handle);
+        .SetWindowInfoForDelegateCompositing(native_window, node_id, handle, rsUIContextToken);
   }
 
   int32_t ret = OHOS::NWeb::OhosAdapterHelperExt::GetWindowAdapterNdkInstance()
