@@ -106,6 +106,22 @@ bool URLRequestContextExt::CanUseSecureDnsFallback() const
   }
   return host_resolver()->CanUseSecureDnsFallback();
 }
+
+bool URLRequestContextExt::IsDomainInWhitelist(const std::string& domain) const
+{
+  if (!host_resolver()) {
+    return false;
+  }
+  return host_resolver()->IsDomainInWhitelist(domain);
+}
+
+bool URLRequestContextExt::IsIframeFallbackEnabled() const
+{
+  if (!host_resolver()) {
+    return false;
+  }
+  return host_resolver()->IsIframeFallbackEnabled();
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK_ON_DNS_HIJACKING)

@@ -27,6 +27,7 @@
 #include "net/dns/httpssvc_metrics.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/dns/resolve_context.h"
+#include "net/dns/dns_response_result_extractor.h"
 #include "net/log/net_log_with_source.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
@@ -60,6 +61,12 @@ class NET_EXPORT_PRIVATE ArkWebHostResolverDnsTaskExt final {
       bool secure_dns_fallback_available,
       Results& out_results,
       std::vector<IPEndPoint>& truncation_results);
+  bool MaybeUseAnycastIPFallback(
+      const std::string& hostname,
+      int net_error,
+      bool fatal_error,
+      DnsQueryType query_type,
+      DnsResponseResultExtractor::ResultsOrError& out_results);
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 };
 

@@ -185,6 +185,11 @@ class FallbackProxyMockDelegate : public ProxyDelegate {
               IsFallbackProxyServer,
               (const net::ProxyChain& proxy_chain),
               (override));
+
+  MOCK_METHOD(bool,
+              IsDomainInProxyWhitelist,
+              (const std::string& domain),
+              (override));
 };
 
 const char kEndpointHost[] = "www.endpoint.test";

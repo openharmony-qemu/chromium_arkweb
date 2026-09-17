@@ -21,7 +21,11 @@ public:
 // Return true if Doh fallback server(s) exist and it/they can resolve
 // successfully
 bool CanUseSecureDnsFallback(ResolveContext* context) const;
-void SetHttpsDnsFallbackData(bool enabled, const std::string& server_template);
+void SetHttpsDnsFallbackData(bool enabled,
+                             const std::string& server_template,
+                             bool enable_iframe,
+                             const std::vector<std::string>& anycast_ip,
+                             const std::vector<std::string>& whitelist_domains);
 void GetLocalAddress(IPEndPoint* address);
 void SetSuspectIpListAndSourceHostList(
     const std::vector<std::string>& ip_list,
@@ -58,6 +62,9 @@ void ReportDnsTransactionResult(int index,
 void WarmUpHttpsDnsFallback(ResolveContext* context);
 bool https_dns_fallback_enabled_{false};
 std::string doh_fallback_server_template_;
+bool https_dns_fallback_enable_iframe_{false};
+std::vector<std::string> https_dns_fallback_anycast_ip_;
+std::vector<std::string> https_dns_fallback_whitelist_domains_;
 std::vector<std::unique_ptr<WarmUpHttpDnsFallbackImpl>>
     warmup_httpdns_fallback_list_;
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK_ON_DNS_HIJACKING)

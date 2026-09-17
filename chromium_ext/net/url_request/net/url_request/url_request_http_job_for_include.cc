@@ -173,6 +173,19 @@ bool IsFallbackProxyIgnoreErrorCode(int result) {
 
   return false;
 }
+
+std::string RequestTypeToResourceTypeString(
+    net::IsolationInfo::RequestType request_type) {
+  switch (request_type) {
+    case net::IsolationInfo::RequestType::kMainFrame:
+      return "main_frame";
+    case net::IsolationInfo::RequestType::kSubFrame:
+      return "sub_frame";
+    case net::IsolationInfo::RequestType::kOther:
+    default:
+      return "others";
+  }
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
@@ -248,13 +261,13 @@ bool URLRequestHttpJob::MaybeRetryWithFallbackProxy(int& result) {
           transaction_->GetResponseInfo()->proxy_chain, result);
     }
 
-    if (is_main_frame) {
 #if BUILDFLAG(IS_ARKWEB_EXT)
-      ReportUseFallbackProxyResult(request_->url(), original_net_error_,
-                                    result);
+    std::string resource_type = RequestTypeToResourceTypeString(
+        request_->isolation_info().request_type());
+    ReportUseFallbackProxyResult(request_->url(), original_net_error_,
+                                 result, resource_type);
 #endif
-      request_->set_used_fallback_proxy(true);
-    }
+    request_->set_used_fallback_proxy(true);
   }
 
   // 如果是仅主动代理模式，代理失败后使用直连重试
@@ -463,6 +476,12 @@ bool URLRequestHttpJob::CanRetryWithFallbackProxy(
   // 对于子frame需要查看其主frame是否通过代理成功加载
   if (request_->isolation_info().request_type() !=
       IsolationInfo::RequestType::kMainFrame) {
+    if (proxy_delegate->IsDomainInProxyWhitelist(request_->url().GetHost())) {
+      LOG(INFO) << "[URLRequestHttpJob] subframe domain "
+                   "is in proxy whitelist, ignore mainframe restriction";
+      return true;
+    }
+
     if (request_->isolation_info().top_frame_origin()) {
       if (proxy_delegate->IsFallbackProxySuccessMainFrameHost(
               request_->isolation_info().top_frame_origin()->host())) {
@@ -613,9 +632,12 @@ void URLRequestHttpJob::ReportSecureFallbackDnsRetryResult(int net_error) {
   content.push_back(kMncCode);
   content.push_back(mcc_mnc[1]);
   std::ostringstream ostr;
+  std::string resource_type = RequestTypeToResourceTypeString(
+      request_->isolation_info().request_type());
   ostr << "original_result=" << original_net_error_
        << ", final_result=" << net_error << ", network_type="
-       << std::string(NetworkChangeNotifier::ConnectionTypeToString(type));
+       << std::string(NetworkChangeNotifier::ConnectionTypeToString(type))
+       << ", resource_type=" << resource_type;
 
   // 经分打点数据上报
   base::ohos::OperationStatistics::Statistics(
@@ -632,6 +654,7 @@ void URLRequestHttpJob::ReportSecureFallbackDnsRetryResult(int net_error) {
   base::ohos::ReportEngineEvent(base::ohos::kModuleContentBrowser,
                                 std::string(request_->url().host()),
                                 base::ohos::kSecureDnsRetryResult, ostr.str());
+  LOG(INFO) << "event_message[SecureFallbackDnsRetryResult]: " << ostr.str();
 }
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 

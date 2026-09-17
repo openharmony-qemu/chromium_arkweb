@@ -212,7 +212,9 @@ void ArkWebNetworkServiceExt::BindDnsToNetwork(int network) {
       http_dns_enabled = cfg_https_dns_fallback_enabled_;
       http_dns_servers_template = cfg_http_dns_server_template_;
     }
-    SetHttpsDnsHostResolver(http_dns_enabled, http_dns_servers_template);
+    SetHttpsDnsHostResolver(http_dns_enabled, http_dns_servers_template,
+                            cfg_enable_iframe_, cfg_anycast_ip_,
+                            cfg_whitelist_domains_);
 #endif
   }
   for (auto network_context : network_contexts_) {
@@ -233,6 +235,9 @@ void ArkWebNetworkServiceExt::SetHttpsDnsFallbackData(
   std::string http_dns_server_template;
   std::vector<std::string> host_list;
   std::vector<std::string> ip_list;
+  bool enable_iframe = false;
+  std::vector<std::string> anycast_ip;
+  std::vector<std::string> whitelist_domains;
   if (config) {
 #if BUILDFLAG(ARKWEB_LOGGER_REPORT)
     LOG_FEEDBACK(INFO, kNetwork)
@@ -242,7 +247,10 @@ void ArkWebNetworkServiceExt::SetHttpsDnsFallbackData(
         << " connectJobWithDnsOnlyTimeout:"
         << config->connect_job_with_dns_only_timeout
         << " sourceHostListSize:" << config->source_host_list.size()
-        << " suspectIPListSize:" << config->suspect_ip_list.size();
+        << " suspectIPListSize:" << config->suspect_ip_list.size()
+        << " enableIframe:" << config->enable_iframe
+        << " anycastIpSize:" << config->anycast_ip.size()
+        << " whitelistDomains:" << config->whitelist_domains.size();
 #endif
     https_dns_fallback_enabled = config->enabled;
     http_dns_server_template = config->https_dns_server_template;
@@ -250,11 +258,18 @@ void ArkWebNetworkServiceExt::SetHttpsDnsFallbackData(
         config->connect_job_with_dns_only_timeout;
     host_list = std::move(config->source_host_list);
     ip_list = std::move(config->suspect_ip_list);
+    enable_iframe = config->enable_iframe;
+    anycast_ip = std::move(config->anycast_ip);
+    whitelist_domains = std::move(config->whitelist_domains);
   }
 
-  SetHttpsDnsHostResolver(https_dns_fallback_enabled, http_dns_server_template);
+  SetHttpsDnsHostResolver(https_dns_fallback_enabled, http_dns_server_template,
+                          enable_iframe, anycast_ip, whitelist_domains);
   cfg_https_dns_fallback_enabled_ = https_dns_fallback_enabled;
   cfg_http_dns_server_template_ = std::move(http_dns_server_template);
+  cfg_enable_iframe_ = enable_iframe;
+  cfg_anycast_ip_ = std::move(anycast_ip);
+  cfg_whitelist_domains_ = std::move(whitelist_domains);
 
   for (auto network_context : network_contexts_) {
     net::URLRequestContext* url_request_context =
@@ -271,9 +286,15 @@ void ArkWebNetworkServiceExt::SetHttpsDnsFallbackData(
 
 void ArkWebNetworkServiceExt::SetHttpsDnsHostResolver(
     bool enabled,
-    const std::string& server_template) {
+    const std::string& server_template,
+    bool enable_iframe,
+    const std::vector<std::string>& anycast_ip,
+    const std::vector<std::string>& whitelist_domains) {
   if (enabled == real_https_dns_fallback_enabled_ &&
-      server_template == real_http_dns_server_template_) {
+      server_template == real_http_dns_server_template_ &&
+      enable_iframe == cfg_enable_iframe_ &&
+      anycast_ip == cfg_anycast_ip_ &&
+      whitelist_domains == cfg_whitelist_domains_) {
     return;
   }
   LOG_FEEDBACK(INFO, kNetwork)
@@ -283,7 +304,10 @@ void ArkWebNetworkServiceExt::SetHttpsDnsHostResolver(
       << url::LogUtils::ConvertUrlWithMask(server_template)
       << " realHttpDnsServerTemplate:"
       << url::LogUtils::ConvertUrlWithMask(real_http_dns_server_template_)
-      << " networkForDns:" << network_for_dns_;
+      << " networkForDns:" << network_for_dns_
+      << " enableIframe:" << enable_iframe
+      << " anycastIpSize:" << anycast_ip.size()
+      << " whitelistDomains:" << whitelist_domains.size();
   real_https_dns_fallback_enabled_ = enabled;
   real_http_dns_server_template_ = server_template;
 
@@ -298,7 +322,8 @@ void ArkWebNetworkServiceExt::SetHttpsDnsHostResolver(
   }
 
   host_resolver_manager_->SetHttpsDnsFallbackData(
-      allow_enable_http_dns_fallback, server_template);
+      allow_enable_http_dns_fallback, server_template,
+      enable_iframe, anycast_ip, whitelist_domains);
 
   // Enable or disable the insecure part of DnsClient. "DnsClient" is the class
   // that implements the stub resolver.

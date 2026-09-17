@@ -58,6 +58,8 @@ public:
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
   void SetConnectJobWithSecureDnsOnlyTimeout(int second);
   bool CanUseSecureDnsFallback() const;
+  bool IsDomainInWhitelist(const std::string& domain) const;
+  bool IsIframeFallbackEnabled() const;
 #endif
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK_ON_DNS_HIJACKING)
   bool NeedRetryDnsOnDnsHijack(const GURL& url,

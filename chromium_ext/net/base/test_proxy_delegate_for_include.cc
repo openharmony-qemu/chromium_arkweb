@@ -82,4 +82,8 @@ bool TestProxyDelegate::IsFallbackProxyServer(
 bool TestProxyDelegate::IsAccelerateProxyConfig() {
   return false;
 }
+
+bool TestProxyDelegate::IsDomainInProxyWhitelist(const std::string& domain) {
+  return false;
+}
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)

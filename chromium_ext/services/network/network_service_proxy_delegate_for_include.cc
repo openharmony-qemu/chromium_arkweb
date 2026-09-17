@@ -217,6 +217,8 @@ void NetworkServiceProxyDelegate::OnFallbackProxyInfoConfigUpdated(
   proxy_connect_timeout_ = fallback_proxy_info_config->proxy_connect_timeout;
   malicious_url_check_wait_time_ =
       fallback_proxy_info_config->malicious_url_check_wait_time;
+  proxy_whitelist_domains_ =
+      fallback_proxy_info_config->proxy_whitelist_domains;
 
   LOG(DEBUG) << "NetworkServiceProxyDelegate::OnFallbackProxyInfoConfigUpdated"
              << ", error_codes.size "
@@ -228,7 +230,27 @@ void NetworkServiceProxyDelegate::OnFallbackProxyInfoConfigUpdated(
              << ", malicious_url_check_wait_time "
              << malicious_url_check_wait_time_ << ", proxy_tunnel_timeout "
              << proxy_tunnel_timeout_ << ", proxy_connect_timeout "
-             << proxy_connect_timeout_ << ", this " << this;
+             << proxy_connect_timeout_ << ", proxy_whitelist_domains.size "
+             << proxy_whitelist_domains_.size() << ", this " << this;
+}
+
+bool NetworkServiceProxyDelegate::IsDomainInProxyWhitelist(
+    const std::string& domain) {
+  if (proxy_whitelist_domains_.empty()) {
+    return false;
+  }
+
+  for (const auto& whitelist_domain : proxy_whitelist_domains_) {
+    if (domain.length() >= whitelist_domain.length() &&
+        domain.compare(domain.length() - whitelist_domain.length(),
+                       whitelist_domain.length(), whitelist_domain) == 0 &&
+        (domain.length() == whitelist_domain.length() ||
+         domain[domain.length() - whitelist_domain.length() - 1] == '.')) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void NetworkServiceProxyDelegate::UpdateFallbackProxyAuthHeaders(

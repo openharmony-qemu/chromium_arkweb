@@ -370,14 +370,17 @@ TEST_F(ArkWebNetworkServiceExtTest, SetHttpsDnsHostResolver) {
 
   bool enabled = false;
   std::string server_template = "test template";
-  EXPECT_NO_FATAL_FAILURE(
-      service_ext->SetHttpsDnsHostResolver(enabled, server_template));
+  bool enable_iframe = false;
+  std::vector<std::string> anycast_ip;
+  std::vector<std::string> whitelist_domains;
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetHttpsDnsHostResolver(
+      enabled, server_template, enable_iframe, anycast_ip, whitelist_domains));
   EXPECT_EQ(service_ext->real_https_dns_fallback_enabled_, enabled);
   EXPECT_EQ(service_ext->real_http_dns_server_template_, server_template);
 
   // repeate set
-  EXPECT_NO_FATAL_FAILURE(
-      service_ext->SetHttpsDnsHostResolver(enabled, server_template));
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetHttpsDnsHostResolver(
+      enabled, server_template, enable_iframe, anycast_ip, whitelist_domains));
   EXPECT_EQ(service_ext->real_https_dns_fallback_enabled_, enabled);
   EXPECT_EQ(service_ext->real_http_dns_server_template_, server_template);
 
@@ -385,8 +388,8 @@ TEST_F(ArkWebNetworkServiceExtTest, SetHttpsDnsHostResolver) {
   service_ext->host_resolver_manager_ = CreateResolver();
   auto resolver = static_cast<MockHostResolverManager*>(
       service_ext->host_resolver_manager_.get());
-  EXPECT_NO_FATAL_FAILURE(
-      service_ext->SetHttpsDnsHostResolver(enabled, server_template));
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetHttpsDnsHostResolver(
+      enabled, server_template, enable_iframe, anycast_ip, whitelist_domains));
   EXPECT_EQ(service_ext->real_https_dns_fallback_enabled_, enabled);
   EXPECT_EQ(service_ext->real_http_dns_server_template_, server_template);
   EXPECT_FALSE(resolver->enabled());
@@ -405,8 +408,8 @@ TEST_F(ArkWebNetworkServiceExtTest, SetHttpsDnsHostResolver) {
     }
   )";
   enabled = true;
-  EXPECT_NO_FATAL_FAILURE(
-      service_ext->SetHttpsDnsHostResolver(enabled, server_template));
+  EXPECT_NO_FATAL_FAILURE(service_ext->SetHttpsDnsHostResolver(
+      enabled, server_template, enable_iframe, anycast_ip, whitelist_domains));
   EXPECT_EQ(service_ext->real_https_dns_fallback_enabled_, enabled);
   EXPECT_EQ(service_ext->real_http_dns_server_template_, server_template);
   EXPECT_TRUE(resolver->enabled());

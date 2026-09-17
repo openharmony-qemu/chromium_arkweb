@@ -52,4 +52,7 @@
     return false;
   }
   bool IsAccelerateProxyConfig() override { return false; }
+  bool IsDomainInProxyWhitelist(const std::string& domain) override {
+    return false;
+  }
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)

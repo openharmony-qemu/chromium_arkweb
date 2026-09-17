@@ -14,6 +14,20 @@
  */
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+bool ResolveContext::IsDomainInWhitelist(const std::string& domain) const {
+  for (const auto& whitelist_domain : https_dns_fallback_whitelist_domains_) {
+    if (domain.length() >= whitelist_domain.length() &&
+        domain.compare(domain.length() - whitelist_domain.length(),
+                       whitelist_domain.length(), whitelist_domain) == 0 &&
+        (domain.length() == whitelist_domain.length() ||
+         domain[domain.length() - whitelist_domain.length() - 1] == '.')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void ResolveContext::NotifyDohStatsInit() {
   if (!is_https_dns_fallback_enabled_) {
     return;
