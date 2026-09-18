@@ -22,6 +22,8 @@ interface SysPropRenderObserver {
   Attach(pending_remote<SysPropRenderObserverClient> client);
   Detach(pending_remote<SysPropRenderObserverClient> client);
 
+  [Sync]
+  QueryInt(string key, int32 default_value) => (int32 result);
 };
 
 interface SysPropRenderObserverClient {

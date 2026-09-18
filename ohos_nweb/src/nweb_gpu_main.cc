@@ -27,7 +27,9 @@
 #include <native_window/external_window.h>
 
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#include "base/command_line.h"
 #include "include/cef_app.h"
+#include "third_party/blink/renderer/core/render_mojom/render_mojom_client.h"
 #include "nweb_export.h"
 #include "nweb_hilog.h"
 
@@ -38,6 +40,7 @@ constexpr uint32_t kDestroyWindowCode = 10003;
 constexpr uint32_t kPassWindowCode = 10004;
 constexpr uint32_t kQueryBoolCode = 10005;
 constexpr uint32_t kDestroyPassedWindowCode = 10006;
+constexpr uint32_t kQueryIntCode = 10007;
 constexpr char kGpuIpcDescriptor[] = "chromium.native.gpu";
 constexpr auto kStartTimeout = std::chrono::seconds(3);
 
@@ -175,6 +178,42 @@ bool QueryBoolFromBrowserProcess(const std::string &key, bool default_value) {
   }
   DestroyParcels(data, reply);
   return result != 0;
+}
+
+int32_t QueryIntFromBrowserProcess(const std::string &key, int32_t default_value) {
+  auto* cmd = base::CommandLine::ForCurrentProcess();
+  if (cmd && cmd->GetSwitchValueASCII("type") == "renderer") {
+    int32_t mojo_result = default_value;
+    if (blink::SysPropRenderObserverClientRep::QueryInt(key, default_value, &mojo_result)) {
+      return mojo_result;
+    }
+    return default_value;
+  }
+  if (g_browser_proxy == nullptr) {
+    return OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetSystemPropertiesInstance()
+        .GetIntParameter(key, default_value);
+  }
+
+  OHIPCParcel *data = OH_IPCParcel_Create();
+  OHIPCParcel *reply = OH_IPCParcel_Create();
+  if (data == nullptr || reply == nullptr ||
+      OH_IPCParcel_WriteString(data, key.c_str()) != 0 ||
+      OH_IPCParcel_WriteInt32(data, default_value) != 0 ||
+      OH_IPCRemoteProxy_SendRequest(g_browser_proxy, kQueryIntCode, data,
+                                    reply, nullptr) != 0) {
+    WVLOG_E("query int failed, key=%{public}s", key.c_str());
+    DestroyParcels(data, reply);
+    return default_value;
+  }
+
+  int32_t result = default_value;
+  if (OH_IPCParcel_ReadInt32(reply, &result) != 0) {
+    WVLOG_E("read int failed, key=%{public}s", key.c_str());
+    result = default_value;
+  }
+  DestroyParcels(data, reply);
+  return result;
 }
 
 namespace {

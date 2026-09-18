@@ -24,6 +24,7 @@
 #include "base/system/sys_info.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
+extern int32_t QueryIntFromBrowserProcess(const std::string &key, int32_t default_value);
 namespace base {
 namespace ohos {
 
@@ -320,9 +321,7 @@ const std::string GetOSDistVersion() {
 
 BASE_EXPORT bool IsOhosLowEndDevice() {
   static bool is_low_end_device = []() -> bool {
-    int ohos_device_end_type = OHOS::NWeb::OhosAdapterHelper::GetInstance()
-                                 .GetSystemPropertiesInstance()
-                                 .GetIntParameter("web.device_end.type", 0);
+    int ohos_device_end_type = QueryIntFromBrowserProcess("web.device_end.type", 0);
     // CCM low-end mode switch controlled by cloud configuration.
     // - 0: Default (auto-detected based on physical memory size)
     // - 1: Low-end device

@@ -37,6 +37,8 @@ const std::string FACTORY_LEVEL_DEFAULT = "1";
 constexpr int DEFAULT_INITIAL_CONGESTION_WINDOW_SIZE = -1;
 constexpr size_t INT_MAX_LEN = 10;
 
+const std::string WEB_DEVICE_END_TYPE = "web.device_end.type";
+const std::string WEB_DEBUG_MEMTEST = "web.debug.memtest";
 const std::string PROP_RENDER_DUMP = "web.render.dump";
 const std::string PROP_DEBUG_TRACE = "web.debug.trace";
 const std::string WEB_SCROLL_NUM = "web.scroll.num";
@@ -222,6 +224,8 @@ void SystemPropertiesAdapterImpl::InitPreferences()
 
 void SystemPropertiesAdapterImpl::InitParam()
 {
+    SetIntParameter(WEB_DEVICE_END_TYPE.c_str(), 0); // 0: auto
+    SetIntParameter(WEB_DEBUG_MEMTEST.c_str(), 0); // 0:enable all
     SetIntParameter(WEB_LTPO_STRATEGY.c_str(), static_cast<int>(LTPOStrategy::DISABLED));
 
     constexpr int configCount = 3;
