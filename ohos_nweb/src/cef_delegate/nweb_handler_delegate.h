@@ -234,8 +234,9 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void RegisterOnLoadStartedCbForContentChange(std::function<void(void)>&& callback);
   void RegisterOnLoadStartedCbForImageChange(std::function<void(void)>&& callback);
 #endif
-  int GetFlowbufCount(void* mem);
-  char* FlowbufStrAtIndex(void* mem,
+  int GetFlowbufCount(const int* headerSnapshot);
+  char* FlowbufStrAtIndex(const int* headerSnapshot,
+                          const void* dataBase,
                           int flowbufIndex,
                           int* argIndex,
                           int* strLen);

@@ -5220,12 +5220,13 @@ int NWebHandlerDelegate::NotifyJavaScriptResult(CefRefPtr<CefListValue> args,
 // | string1 | string2 |     ...     | string10 |
 // +--------------------------------------------+
 // iterate through flowbuf header, and count No. of string stored
-int NWebHandlerDelegate::GetFlowbufCount(void* mem) {
-  int* header = static_cast<int*>(
-      mem);  // Cast the memory block to int* for easier access
+// headerSnapshot must be a stack-local copy of the flowbuf header to prevent
+// TOCTOU races on MAP_SHARED memory.
+int NWebHandlerDelegate::GetFlowbufCount(const int* headerSnapshot) {
   int count = 0;
   for (int i = 0; i < MAX_ENTRIES; i++) {
-    if (*(header + (i * 2) + 1) != 0) {
+    int length = headerSnapshot[i * INDEX_SIZE + 1];
+    if (length > 0) {
       count++;
     } else {
       break;
@@ -5235,40 +5236,74 @@ int NWebHandlerDelegate::GetFlowbufCount(void* mem) {
 }
 
 // flowbufIndex is index in flowbuf, argindex is string's original index in V8
-// arglist
-char* NWebHandlerDelegate::FlowbufStrAtIndex(void* mem,
+// arglist.
+// headerSnapshot must be a stack-local copy of the flowbuf header to prevent
+// TOCTOU races on MAP_SHARED memory. dataBase is the original mapped memory
+// pointer (used only for the data segment, not for header reads).
+char* NWebHandlerDelegate::FlowbufStrAtIndex(const int* headerSnapshot,
+                                             const void* dataBase,
                                              int flowbufIndex,
                                              int* argIndex,
                                              int* strLen) {
-  int* header = static_cast<int*>(
-      mem);  // Cast the memory block to int* for easier access
-  int offset = 0;
+  int64_t offset = 0;
 
-  if (flowbufIndex >= MAX_ENTRIES) {
+  if (flowbufIndex < 0 || flowbufIndex >= MAX_ENTRIES) {
     *argIndex = -1;
     return nullptr;
   }
 
-  int* entry = header + (flowbufIndex * INDEX_SIZE);
-  if (*(entry + 1) == 0) {  // Check if length is 0, indicating unused entry
+  int entryLength = headerSnapshot[flowbufIndex * INDEX_SIZE + 1];
+  if (entryLength <= 0) {  // length must be positive (0 = unused, negative = invalid)
     *argIndex = -1;
     return nullptr;
   }
 
-  int i = 0;
-  for (i = 0; i < flowbufIndex; i++) {
-    offset += *(header + (i * INDEX_SIZE) + 1);
+  // Validate all preceding entries' lengths to compute offset safely.
+  for (int i = 0; i < flowbufIndex; i++) {
+    int prevLength = headerSnapshot[i * INDEX_SIZE + 1];
+    if (prevLength <= 0) {
+      // Encountered an unused/invalid entry before the requested index.
+      *argIndex = -1;
+      return nullptr;
+    }
+    offset += prevLength;
+    if (offset > static_cast<int64_t>(MAX_FLOWBUF_DATA_SIZE)) {
+      LOG(ERROR) << "flowbuf offset overflow at index " << i
+                 << ", offset=" << offset;
+      *argIndex = -1;
+      return nullptr;
+    }
   }
 
-  *strLen = *(header + (i * INDEX_SIZE) + 1) - 1;
-  if ((offset + *strLen + 1) > MAX_FLOWBUF_DATA_SIZE) {
-    LOG(ERROR) << "offset bigger than MAX_FLOWBUF_DATA_SIZE";
+  // strLen = length - 1 (length includes the NUL terminator).
+  // entryLength > 0 guaranteed above, so strLen >= 0.
+  *strLen = entryLength - 1;
+
+  // Use int64_t accumulation to detect overflow and validate bounds.
+  if (offset < 0) {
+    LOG(ERROR) << "flowbuf offset negative, offset=" << offset;
     *argIndex = -1;
     return nullptr;
   }
-  *argIndex = *entry;
 
-  char* dataSegment = static_cast<char*>(mem) + HEADER_SIZE;
+  int64_t endPos = offset + static_cast<int64_t>(*strLen) + 1;
+  if (endPos > static_cast<int64_t>(MAX_FLOWBUF_DATA_SIZE)) {
+    LOG(ERROR) << "flowbuf offset/length out of bounds, offset=" << offset
+               << " strLen=" << *strLen;
+    *argIndex = -1;
+    return nullptr;
+  }
+
+  *argIndex = headerSnapshot[flowbufIndex * INDEX_SIZE];
+
+  // Validate argIndex is in valid range [0, MAX_ENTRIES).
+  if (*argIndex < 0 || *argIndex >= MAX_ENTRIES) {
+    LOG(ERROR) << "flowbuf argIndex out of bounds: " << *argIndex;
+    *argIndex = -1;
+    return nullptr;
+  }
+
+  char* dataSegment = static_cast<char*>(const_cast<void*>(dataBase)) + HEADER_SIZE;
   char* currentString = dataSegment + offset;
   return currentString;
 }
@@ -5309,9 +5344,16 @@ int NWebHandlerDelegate::ProcessNativeProxyResultNewFlowbuf(
     return 1;
   }
 
+  // Snapshot the flowbuf header to a stack-local array to prevent TOCTOU
+  // double-fetch attacks. The header is MAP_SHARED, so a compromised renderer
+  // could concurrently modify it between reads. All subsequent header field
+  // accesses use this snapshot only.
+  int headerSnapshot[MAX_ENTRIES * INDEX_SIZE];
+  memcpy_s(headerSnapshot, sizeof(headerSnapshot), ashmem, sizeof(headerSnapshot));
+
   size_t argsSize = args->GetSize();
   auto callback = methodMap[method];
-  int flowbufSize = GetFlowbufCount(ashmem);
+  int flowbufSize = GetFlowbufCount(headerSnapshot);
   int dataListSize = argsSize + flowbufSize;
   std::vector<std::vector<uint8_t>> dataList(argsSize +
                                              static_cast<size_t>(flowbufSize));
@@ -5322,26 +5364,32 @@ int NWebHandlerDelegate::ProcessNativeProxyResultNewFlowbuf(
   int flowbufIndex = 0;
   int strLen = 0;
   char* flowbufStr =
-      FlowbufStrAtIndex(ashmem, flowbufIndex, &argIndex, &strLen);
+      FlowbufStrAtIndex(headerSnapshot, ashmem, flowbufIndex, &argIndex, &strLen);
   flowbufIndex++;
   while (curIndex < dataListSize && argIndex == curIndex) {
+    if (flowbufStr == nullptr) {
+      break;
+    }
     std::string flowbuf_stdstr(flowbufStr, strLen);
     dataList[curIndex] =
         std::vector<uint8_t>(flowbuf_stdstr.begin(), flowbuf_stdstr.end());
     dataSize[curIndex] = strLen;
     curIndex++;
-    flowbufStr = FlowbufStrAtIndex(ashmem, flowbufIndex, &argIndex, &strLen);
+    flowbufStr = FlowbufStrAtIndex(headerSnapshot, ashmem, flowbufIndex, &argIndex, &strLen);
     flowbufIndex++;
   }
 
   for (size_t i = 0; i < argsSize; i++) {
     while (curIndex < dataListSize && argIndex == curIndex) {
+      if (flowbufStr == nullptr) {
+        break;
+      }
       std::string flowbuf_stdstr(flowbufStr, strLen);
       dataList[curIndex] =
           std::vector<uint8_t>(flowbuf_stdstr.begin(), flowbuf_stdstr.end());
       dataSize[curIndex] = strLen;
       curIndex++;
-      flowbufStr = FlowbufStrAtIndex(ashmem, flowbufIndex, &argIndex, &strLen);
+      flowbufStr = FlowbufStrAtIndex(headerSnapshot, ashmem, flowbufIndex, &argIndex, &strLen);
       flowbufIndex++;
     }
 
@@ -5380,12 +5428,15 @@ int NWebHandlerDelegate::ProcessNativeProxyResultNewFlowbuf(
   }
 
   while (curIndex < dataListSize && argIndex == curIndex) {
+    if (flowbufStr == nullptr) {
+      break;
+    }
     std::string flowbuf_stdstr(flowbufStr, strLen);
     dataList[curIndex] =
         std::vector<uint8_t>(flowbuf_stdstr.begin(), flowbuf_stdstr.end());
     dataSize[curIndex] = strLen;
     curIndex++;
-    flowbufStr = FlowbufStrAtIndex(ashmem, flowbufIndex, &argIndex, &strLen);
+    flowbufStr = FlowbufStrAtIndex(headerSnapshot, ashmem, flowbufIndex, &argIndex, &strLen);
     flowbufIndex++;
   }
 
@@ -5429,21 +5480,28 @@ int NWebHandlerDelegate::ProcessNativeProxyResultFlowbuf(
       return 1;
     }
 
+    // Snapshot the flowbuf header to prevent TOCTOU double-fetch attacks.
+    int headerSnapshot[MAX_ENTRIES * INDEX_SIZE];
+    memcpy_s(headerSnapshot, sizeof(headerSnapshot), ashmem, sizeof(headerSnapshot));
+
     int argIndex = -1;
     int flowbufIndex = 0;
     int strLen = 0;
     do {
       char* flowbufStr =
-          FlowbufStrAtIndex(ashmem, flowbufIndex, &argIndex, &strLen);
-      if (argIndex == -1) {
+          FlowbufStrAtIndex(headerSnapshot, ashmem, flowbufIndex,
+                            &argIndex, &strLen);
+      if (argIndex == -1 || flowbufStr == nullptr) {
         break;
       }
       flowbufIndex++;
-      std::string str(flowbufStr);
+      // Use validated strLen instead of unbounded strlen to prevent
+      // OOB read when the mapped region has no NUL terminator.
+      std::string str(flowbufStr, strLen);
       CefRefPtr<CefValue> value = CefValue::Create();
       value->SetString(str);
       args->SetValue(argIndex, value);
-    } while (argIndex <= MAX_ENTRIES);
+    } while (flowbufIndex < MAX_ENTRIES);
     close(fd);
     ProcessNativeProxyResultThread(args, method, object_name, result);
     return 0;
