@@ -83,6 +83,7 @@ class ApiParse:
             with open(wrapper_file, 'w') as f:
                 f.write(WrapStart + "\n")
                 f.write("\n".join(data["includes"]) + "\n\n")
+                f.write("\n".join(api_wrapper_externs) + "\n\n")
                 f.write("\n".join(api_wrappers))
         with open(f"{output_path}/adapter_ndk_config.gni", 'w') as f:
             f.write(Gni % ("\n".join(ld_flags), "\n".join(stub_sources), "\n".join(wrapper_sources)))

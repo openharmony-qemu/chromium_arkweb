@@ -1531,6 +1531,7 @@ std::u16string BrowserAccessibilityOHOS::GetComboboxCollapsedText() const {
   if (IsCollapsed() && !IsExpanded()) {
     return GetLocalizedString(IDS_AX_COMBOBOX_COLLAPSED);
   }
+  return u"";
 }
 
 std::u16string BrowserAccessibilityOHOS::GetComboboxExpandedText() const {
