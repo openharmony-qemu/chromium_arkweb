@@ -378,7 +378,7 @@ bool CertManagerAdapterImpl::GetTrustAnchorsForHostName(
 
     int32_t ret = OH_NetStack_GetCertificatesForHostName(hostname.c_str(), &certificates);
     if (ret != 0) {
-        WVLOG_E("GetTrustAnchorsForHostName for hostname:%{public}s failed",
+        WVLOG_E("GetTrustAnchorsForHostName for hostname:%{private}s failed",
             hostname.c_str());
         OH_Netstack_DestroyCertificatesContent(&certificates);
         return false;
@@ -404,7 +404,7 @@ bool CertManagerAdapterImpl::GetPinSetForHostName(
 
     std::string pinsString;
     if (certificatePinning.publicKeyHash == nullptr) {
-        WVLOG_D("GetPinSetForHostName for hostname:%{public}s is empty", hostname.c_str());
+        WVLOG_D("GetPinSetForHostName for hostname:%{private}s is empty", hostname.c_str());
         return true;
     } else {
         pinsString = certificatePinning.publicKeyHash;
