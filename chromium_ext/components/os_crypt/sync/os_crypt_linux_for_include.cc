@@ -21,6 +21,7 @@
 #include "base/containers/span.h"
 #include "components/os_crypt/sync/os_crypt.h"
 #include "crypto/openssl_util.h"
+#include "crypto/process_bound_string.h"
 #include "third_party/boringssl/src/include/openssl/aes.h"
 #include "third_party/boringssl/src/include/openssl/evp.h"
 #endif
@@ -419,7 +420,7 @@ SymmetricKey::SymmetricKey(const SymmetricKey& other) = default;
 SymmetricKey& SymmetricKey::operator=(const SymmetricKey& other) = default;
 
 SymmetricKey::~SymmetricKey() {
-  std::fill(key_.begin(), key_.end(), '\0');  // Zero out the confidential key.
+  crypto::internal::SecureZeroBuffer(base::as_writable_byte_span(key_)); // Zero out the confidential key.
 }
 
 // static

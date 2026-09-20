@@ -69,6 +69,9 @@ ProxyServer ConstructProxyServer(ProxyServer::Scheme scheme,
     return ProxyServer();
   }
   DCHECK(port_as_int > 0);
+  if (port_as_int <= 0 || port_as_int > 65535) {
+    return ProxyServer();
+  }
   return ProxyServer(
       scheme, HostPortPair(proxy_host, static_cast<uint16_t>(port_as_int)));
 }
@@ -504,6 +507,11 @@ void NetProxyEventCallback::AddObserver(ProxyConfigServiceOHOS* observer) {
   services_.push_back(observer);
 }
 
+void NetProxyEventCallback::RemoveObserver(ProxyConfigServiceOHOS* observer) {
+  base::AutoLock auto_lock(services_lock_);
+  services_.remove(observer);
+}
+
 void NetProxyEventCallback::Changed(
     const std::string& host,
     const uint16_t& port,
@@ -526,7 +534,9 @@ ProxyConfigServiceOHOS::ProxyConfigServiceOHOS(
   callback->AddObserver(this);
 }
 
-ProxyConfigServiceOHOS::~ProxyConfigServiceOHOS() {}
+ProxyConfigServiceOHOS::~ProxyConfigServiceOHOS() {
+  NetProxyEventCallback::GetInstance()->RemoveObserver(this);
+}
 
 void ProxyConfigServiceOHOS::set_exclude_pac_url(bool enabled) {
   delegate_->set_exclude_pac_url(enabled);

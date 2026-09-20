@@ -34,6 +34,11 @@ NET_EXPORT scoped_refptr<SSLPrivateKey> FetchClientCertPrivateKey(
     const X509Certificate* certificate,
     X509* bssl_cert);
 
+// Returns the ex_data index used to store URI cert strings on X509 objects.
+// The index is registered with a free callback to automatically release the
+// stored string when the X509 object is freed.
+NET_EXPORT int GetUriCertExDataIndex();
+
 }  // namespace net
 
 #endif  // NET_SSL_SSL_PLATFORM_KEY_OHOS_H_

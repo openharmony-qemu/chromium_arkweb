@@ -79,6 +79,7 @@ base::NoDestructor<std::mutex> NetHelpers::enable_private_network_check_mutex;
 
 #if BUILDFLAG(ARKWEB_CUSTOM_DNS)
 base::NoDestructor<std::map<std::string, struct CustomDnsEntry>> NetHelpers::custom_dns{};
+base::NoDestructor<std::mutex> NetHelpers::custom_dns_mutex;
 #endif
 
 #if BUILDFLAG(ARKWEB_PRP_PRELOAD)
@@ -334,6 +335,11 @@ void NetHelpers::SetHostIP(const std::string host_name,
                            const std::string address,
                            int32_t ttl) {
   if (host_name != "" && address != "") {
+    if (ttl < 0) {
+      LOG(WARNING) << "SetHostIP invalid ttl: " << ttl;
+      return;
+    }
+    std::lock_guard<std::mutex> lock(*custom_dns_mutex);
     auto it = (*NetHelpers::custom_dns).find(host_name);
     if (it != (*NetHelpers::custom_dns).end()) {
       it->second.address.push_back(address);
@@ -349,12 +355,14 @@ void NetHelpers::SetHostIP(const std::string host_name,
 }
 
 std::map<std::string, struct CustomDnsEntry> NetHelpers::GetHostIP() {
+  std::lock_guard<std::mutex> lock(*custom_dns_mutex);
   return *NetHelpers::custom_dns;
 }
 
 std::vector<std::string> NetHelpers::GetHostIP(const std::string host_name) {
   std::vector<std::string> dns = {};
   if (host_name != "") {
+    std::lock_guard<std::mutex> lock(*custom_dns_mutex);
     auto it = (*NetHelpers::custom_dns).find(host_name);
     if (it != (*NetHelpers::custom_dns).end()) {
       return it->second.address;
@@ -365,11 +373,13 @@ std::vector<std::string> NetHelpers::GetHostIP(const std::string host_name) {
 
 void NetHelpers::ClearHostIP(const std::string host_name) {
   if (host_name != "") {
+    std::lock_guard<std::mutex> lock(*custom_dns_mutex);
     (*NetHelpers::custom_dns).erase(host_name);
   }
 }
 
 void NetHelpers::ClearHostIP() {
+  std::lock_guard<std::mutex> lock(*custom_dns_mutex);
   (*NetHelpers::custom_dns).clear();
 }
 #endif
@@ -408,16 +418,22 @@ int32_t NetHelpers::GetSocketIdleTimeout() {
   int32_t timeout = kDefaultSocketIdleTimeout;
   if (socket_idle_timeout != kDefaultSocketIdleTimeout) {
     timeout = socket_idle_timeout;
-  } else {
-    const base::CommandLine* command_line =
-        base::CommandLine::ForCurrentProcess();
-    if (command_line &&
-        command_line->HasSwitch(::switches::kSocketIdleTimeout)) {
-      int time;
-      if (base::StringToInt(
-              command_line->GetSwitchValueASCII(::switches::kSocketIdleTimeout),
-              &time)) {
+    return timeout;
+  }
+
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  if (command_line &&
+      command_line->HasSwitch(::switches::kSocketIdleTimeout)) {
+    int time;
+    if (base::StringToInt(
+            command_line->GetSwitchValueASCII(::switches::kSocketIdleTimeout),
+            &time)) {
+      if (time > 0) {
         timeout = static_cast<int32_t>(time);
+      } else {
+        LOG(WARNING) << "Invalid socket idle timeout: " << time
+                      << ", using default";
       }
     }
   }

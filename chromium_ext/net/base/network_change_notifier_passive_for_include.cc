@@ -508,12 +508,12 @@ void NetworkChangeNotifierPassive::UpdateNetworkCapabilityOnUIThread() {
     return;
   }
 
-  NetConn_NetHandle net_handle;
+  NetConn_NetHandle net_handle = {};
   int32_t ret = OH_NetConn_GetDefaultNet(&net_handle);
   if (ret != 0) {
     LOG_FEEDBACK(WARNING, kNetwork)
         << "UpdateNetworkCapability ret:" << ret
-        << " netHandle:" << net_handle.netId << " message:getDefaultNetFailed";
+        << " message:getDefaultNetFailed";
     ResetNetworkCapability();
     return;
   }

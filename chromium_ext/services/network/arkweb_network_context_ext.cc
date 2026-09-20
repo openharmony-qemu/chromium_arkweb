@@ -253,7 +253,10 @@ void ArkWebNetworkContextExt::SetHostIP(const std::string& host_name,
     for (auto& it : address) {
       net::IPAddress ip;
       bool result = ip.AssignFromIPLiteral(it);
-      DCHECK(result);
+      if (!result) {
+        LOG(ERROR) << "SetHostIP invalid IP address: " << it;
+        continue;
+      }
       expected.push_back(net::IPEndPoint(ip, 0));
     }
     host_cache->Set(

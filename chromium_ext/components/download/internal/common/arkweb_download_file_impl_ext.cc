@@ -80,7 +80,16 @@ void ArkWebDownloadFileImplExt::ReadDownloadDataAndRunCallback(
   if (!read_download_callback_) {
     return;
   }
- 
+
+  if (read_download_size <= 0) {
+    LOG(WARNING) << "ReadDownloadDataAndRunCallback invalid size: "
+                 << read_download_size;
+    main_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(std::move(read_download_callback_),
+                                  std::vector<uint8_t>()));
+    return;
+  }
+
   std::vector<uint8_t> data(read_download_size);
   if (!ReadDownloadDataFromFile(0, (char*)(data.data()), read_download_size)) {
     LOG(INFO) << "ReadDownloadDataAndRunCallback called, size: "
@@ -169,6 +178,11 @@ void ArkWebDownloadFileImplExt::RegisterReadDownloadCallback(
     return;
   }
 
+  if (size <= 0) {
+    LOG(WARNING) << "RegisterReadDownloadCallback invalid size: " << size;
+    return;
+  }
+
   LOG(DEBUG) << "DownloadFileImpl::RegisterReadDownloadCallback called";
   read_download_size_ = static_cast<uint32_t>(size);
   read_download_callback_ = std::move(callback);
@@ -177,7 +191,8 @@ void ArkWebDownloadFileImplExt::RegisterReadDownloadCallback(
 void ArkWebDownloadFileImplExt::MaybeRunReadDownloadCallback() {
   if (read_download_callback_) {
     LOG(DEBUG) << "DownloadFileImpl::MaybeRunReadDownloadCallback called";
-    ReadDownloadDataAndRunCallback(read_download_size_);
+    ReadDownloadDataAndRunCallback(
+        static_cast<int32_t>(read_download_size_));
   }
 }
 #endif

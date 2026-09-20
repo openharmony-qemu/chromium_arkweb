@@ -22,7 +22,9 @@
 #include "net/third_party/quiche/src/quiche/quic/core/quic_one_block_arena.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_time.h"
 #include "net/third_party/quiche/src/quiche/quic/platform/api/quic_export.h"
- 
+
+#include "base/memory/raw_ptr.h"
+
 namespace quic {
  
 namespace test {
@@ -62,7 +64,7 @@ class QUICHE_EXPORT QuicStreamFrameDetector {
  
   void SetAlarm();
  
-  Delegate* delegate_;  // Not owned.
+  raw_ptr<Delegate> delegate_;  // Not owned.
  
   // Time that last STREAM_FRAME is received for this connection.
   QuicTime time_of_last_stream_frame_;

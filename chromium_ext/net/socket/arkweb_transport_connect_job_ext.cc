@@ -195,7 +195,7 @@ void ArkWebTransportConnectJobExt::StartMultiConnectFallbackJobs() {
 }
 
 void ArkWebTransportConnectJobExt::MultiIpSubJobReport(TransportConnectSubJob* job) {
-  if (multi_ip_enabled_ && !websocket_endpoint_lock_manager() &&
+  if (job && multi_ip_enabled_ && !websocket_endpoint_lock_manager() &&
       job->Socket() && job->type() > SUB_JOB_IPV6) {
     IPEndPoint address;
     job->Socket()->GetPeerAddress(&address);

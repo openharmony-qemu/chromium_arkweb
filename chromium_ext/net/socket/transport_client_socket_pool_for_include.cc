@@ -80,7 +80,7 @@ class TransportClientSocketPoolUtils {
 
   static void BackupJobSetConnectTimeoutExt(
       const ClientSocketPool::GroupId& group_id,
-      ConnectJob* backup_job,
+      raw_ptr<ConnectJob> backup_job,
       raw_ptr<TransportClientSocketPool::Group> obj) {
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)

@@ -134,6 +134,7 @@ class NetProxyEventCallback : public OHOS::NWeb::NetProxyEventCallbackAdapter {
                const std::vector<std::string>& exclusionList) override;
 
   void AddObserver(ProxyConfigServiceOHOS*);
+  void RemoveObserver(ProxyConfigServiceOHOS*);
 
  private:
   NetProxyEventCallback() = default;

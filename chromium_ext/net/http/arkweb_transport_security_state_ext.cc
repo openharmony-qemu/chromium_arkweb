@@ -72,6 +72,9 @@ ArkWebTransportSecurityStateExt::CheckPublicKeyPinsOhos(
     const HashValueVector& public_key_hashes) {
   auto RootCertDataAdapter =
       OHOS::NWeb::OhosAdapterHelper::GetInstance().GetRootCertDataAdapter();
+  if (!RootCertDataAdapter) {
+    return PKPStatus::OK;
+  }
   std::vector<std::string> pins;
   if (!RootCertDataAdapter->GetPinSetForHostName(host_port_pair.host(), pins) ||
       pins.empty()) {

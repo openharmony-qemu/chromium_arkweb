@@ -87,6 +87,7 @@ class NETHELPERS_EXPORT NetHelpers {
   static void ClearHostIP(const std::string host_name);
   static void ClearHostIP();
   static base::NoDestructor<std::map<std::string, struct CustomDnsEntry>> custom_dns;
+  static base::NoDestructor<std::mutex> custom_dns_mutex;
 #endif
 
   static bool allow_content_access;

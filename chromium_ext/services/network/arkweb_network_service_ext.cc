@@ -361,6 +361,9 @@ net::DnsConfigOverrides ArkWebNetworkServiceExt::ConfigureStubHostResolverExt(
 #if BUILDFLAG(ARKWEB_CUSTOM_DNS)
 void ArkWebNetworkServiceExt::NetworkContextSetHostIP(
     NetworkContext* network_context) {
+  if (!network_context) {
+    return;
+  }
   std::string hostName = "";
   std::vector<std::string> address = {};
   int32_t ttl = 0;
@@ -415,9 +418,11 @@ void ArkWebNetworkServiceExt::SetArkWebGlobalConfig(
     net::URLRequestContext* url_request_context =
         network_context->url_request_context();
     if (url_request_context) {
-      url_request_context->AsURLRequestContextExt()
-          ->SetShouldReportNewNavigationInfo(
-              config->should_report_new_navigation_info);
+      auto* context_ext = url_request_context->AsURLRequestContextExt();
+      if (context_ext) {
+        context_ext->SetShouldReportNewNavigationInfo(
+            config->should_report_new_navigation_info);
+      }
     }
   }
 }

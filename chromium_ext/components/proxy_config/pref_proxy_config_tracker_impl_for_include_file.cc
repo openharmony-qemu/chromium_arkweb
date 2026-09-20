@@ -20,6 +20,7 @@
 #include "net/base/scheme_host_port_matcher.h"
 #include "ohos_nweb/src/capi/browser_service/nweb_extension_proxy_types.h"
 #include "ohos_nweb/src/cef_delegate/nweb_extension_proxy_cef_delegate.h"
+#include "base/memory/raw_ptr.h"
 
 namespace {
 
@@ -104,7 +105,7 @@ void ProxyConfigToProxyInfo(
 
 void NotifyProxyInfo(Profile* profile, const net::ProxyConfigWithAnnotation& pref_config) {
   if (profile && !profile->IsOffTheRecord()) {
-    ExtensionPrefValueMap* pref_value_map =
+    raw_ptr<ExtensionPrefValueMap> pref_value_map =
         ExtensionPrefValueMapFactory::GetForBrowserContext(profile);
     if (pref_value_map) {
       std::string extension_id = pref_value_map->GetExtensionControllingPref(proxy_config::prefs::kProxy);
