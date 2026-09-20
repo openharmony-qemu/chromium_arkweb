@@ -59,6 +59,11 @@ void ArkwebChildProcessLauncherHelperUtils::LaunchChildProcess(
     constexpr int SHARED_FD_INDEX = 0;
     constexpr int IPC_FD_INDEX = 1;
     constexpr int CRASH_SIGNAL_FD_INDEX = 2;
+    if (!options || options->fds_to_remap.size() <= CRASH_SIGNAL_FD_INDEX) {
+      LOG(ERROR) << "Invalid launch options: missing required FD mappings";
+      process.process = base::Process();
+      return;
+    }
     int32_t shared_fd = options->fds_to_remap[SHARED_FD_INDEX].first;
     int32_t ipc_fd = options->fds_to_remap[IPC_FD_INDEX].first;
     int32_t crash_signal_fd =
@@ -279,6 +284,12 @@ void ArkwebChildProcessLauncherHelperUtils::GetTerminationInfoArkweb(
     bool known_dead,
     ChildProcessTerminationInfo& info) {
   if (known_dead) {
+    if (!child_process_launcher_helper_ ||
+        !child_process_launcher_helper_->app_mgr_client_adapter_) {
+      LOG(ERROR) << "GetTermination get app manager client adapter failed";
+      info.status = base::TERMINATION_STATUS_ABNORMAL_TERMINATION;
+      return;
+    }
     int exitStatus;
     int ret =
         child_process_launcher_helper_->app_mgr_client_adapter_
