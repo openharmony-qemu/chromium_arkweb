@@ -28,8 +28,10 @@
 #include "oh_web_performance_timing.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/synchronization/lock.h"
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 #include "ohos_nweb_ex/overrides/cef/libcef/browser/alloy/alloy_ark_web_global_config.h"
 #endif
@@ -152,6 +154,11 @@ constexpr char URL[] = "URL";
 constexpr char CHILD_PROCESS_INIT_FAIL[] = "CHILD_PROCESS_INIT_FAIL";
 constexpr char PROCESS_TYPE[] = "PROCESS_TYPE";
 constexpr char RENDER_JS_FREEZE[] = "RENDER_JS_FREEZE";
+
+// For blank screen detection
+constexpr char BLANK_SCREEN_EVENT[] = "ARKWEB_BLANK_SCREEN_EVENT";
+constexpr char BLANK_SCREEN_REASON[] = "REASON";
+constexpr char BLANK_SCREEN_COUNT[] = "COUNT";
 
 // For web play error info,such as pip/drm
 constexpr char WEB_MEDIA_PLAY_ERROR[] = "WEB_MEDIA_PLAY_ERROR";
@@ -289,7 +296,35 @@ std::string BuildPageLoadTimeStatsMessage(const OhWebPerformanceTiming& timing,
 }
 #endif  // ARKWEB_NWEB_EX
 
+HiSysEventForwarder& GetForwarder() {
+  static base::NoDestructor<HiSysEventForwarder> forwarder;
+  return *forwarder;
+}
+
+base::Lock& GetForwarderLock() {
+  static base::NoDestructor<base::Lock> lock;
+  return *lock;
+}
+
+bool TryForwardEvent(const std::string& event_name, base::Value::Dict info) {
+  HiSysEventForwarder forwarder_copy;
+  {
+    base::AutoLock lock(GetForwarderLock());
+    forwarder_copy = GetForwarder();
+  }
+  if (forwarder_copy) {
+    forwarder_copy.Run(event_name, std::move(info));
+    return true;
+  }
+  return false;
+}
+
 }  // namespace
+
+void SetHiSysEventForwarder(HiSysEventForwarder forwarder) {
+  base::AutoLock lock(GetForwarderLock());
+  GetForwarder() = std::move(forwarder);
+}
 
 void ReportChildProcessInitFail(bool is_gpu, int err) {
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
@@ -308,6 +343,19 @@ void ReportChildProcessInitFail(bool is_gpu, int err) {
     LOG(INFO) << "event_message[ChildProcessInitFail]: " << ostr.str();
   }
 #endif  // ARKWEB_NWEB_EX
+}
+
+void ReportBlankScreen(int32_t reason, int32_t count) {
+  if (TryForwardEvent(BLANK_SCREEN_EVENT,
+                      base::Value::Dict()
+                          .Set("reason", reason)
+                          .Set("count", count))) {
+    return;
+  }
+  OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
+      BLANK_SCREEN_EVENT, HiSysEventAdapter::EventType::FAULT,
+      {BLANK_SCREEN_REASON, std::to_string(reason),
+       BLANK_SCREEN_COUNT, std::to_string(count)});
 }
 
 void ReportRenderJsFreeze(int32_t pid, const std::string& packageName, const std::string& processName,
@@ -556,6 +604,10 @@ void ReportDuplicateFileUpload(const std::string errorDesc) {
   if (!errorDesc.empty()) {
     error_desc = errorDesc;
   }
+  if (TryForwardEvent(DUPLICATE_FILE_UPLOAD,
+                      base::Value::Dict().Set("error_desc", error_desc))) {
+    return;
+  }
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       DUPLICATE_FILE_UPLOAD, HiSysEventAdapter::EventType::STATISTIC,
       {ERROR_DESC, error_desc});
@@ -620,12 +672,22 @@ void ReportDrmEncryptedPlayback(const std::string& mediaType,
 }
 
 void ReportVideoEncodeFormat(const std::string& encodeFormat) {
+  if (TryForwardEvent(VIDEO_ENCODE_FORMAT,
+                      base::Value::Dict().Set("encode_format", encodeFormat))) {
+    return;
+  }
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       VIDEO_ENCODE_FORMAT, HiSysEventAdapter::EventType::BEHAVIOR,
       {ENCODE_FORMAT, encodeFormat});
 }
 
 void ReportFfmpegCodecOperation(const std::string& codecType, const std::string& format) {
+  if (TryForwardEvent(FFMPEG_CODEC_OPERATION,
+                      base::Value::Dict()
+                          .Set("codec_type", codecType)
+                          .Set("format", format))) {
+    return;
+  }
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       FFMPEG_CODEC_OPERATION, HiSysEventAdapter::EventType::BEHAVIOR,
       {CODEC_TYPE, codecType,
@@ -639,6 +701,10 @@ void ReportAudioHardwareDecode(const std::string& codecFormat) {
 }
 
 void ReportPictureDecode(const std::string& pictureType) {
+  if (TryForwardEvent(PICTURE_DECODE,
+                      base::Value::Dict().Set("picture_type", pictureType))) {
+    return;
+  }
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       PICTURE_DECODE, HiSysEventAdapter::EventType::BEHAVIOR,
       {PICTURE_TYPE, pictureType});
@@ -662,6 +728,13 @@ void ReportWebMediaPlayErrorInfo(const std::string& errorType,
   }
   if (!errorDesc.empty()) {
     error_desc = errorDesc;
+  }
+  if (TryForwardEvent(WEB_MEDIA_PLAY_ERROR,
+                      base::Value::Dict()
+                          .Set("error_type", error_type)
+                          .Set("error_code", error_code)
+                          .Set("error_desc", error_desc))) {
+    return;
   }
   OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       WEB_MEDIA_PLAY_ERROR, HiSysEventAdapter::EventType::FAULT,

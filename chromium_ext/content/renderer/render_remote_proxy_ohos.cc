@@ -5,6 +5,7 @@
 #include "render_remote_proxy_ohos.h"
 
 #include <thread>
+#include <unistd.h>
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
@@ -221,13 +222,23 @@ bool RenderRemoteProxy::WaitForBrowserFd(bool is_gpu) {
       return true;
     }
   }
-#if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
-  ReportChildProcessInitFail(is_gpu, RenderError::RENDER_START_TIMEOUT);
-#endif
   LOG(ERROR)
       << "Request to AMS to obtain the main process IPC fd failed, timeout("
       << (kTimeOutDur * kMaxWaitCount) << "ms)";
-  return false;
+  // Plan B: Instead of reporting directly from the renderer (where the Mojo
+  // IPC channel to the browser is not yet established), exit with a specific
+  // exit code.  The browser side detects this exit code and actively reports
+  // CHILD_PROCESS_INIT_FAIL via ReportChildProcessInitFail.
+  // The _exit() call is intentionally unconditional (not gated by
+  // ARKWEB_PERFORMANCE_SCHEDULING) because the renderer cannot recover from
+  // a startup timeout regardless of build configuration.  The browser-side
+  // special timeout *reporting* is gated by
+  // BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING) && !defined(COMPONENT_BUILD),
+  // so in non-production builds the process still exits with the timeout exit
+  // code but the browser classifies it as a generic abnormal termination without the
+  // dedicated RENDER_START_TIMEOUT event.  This is acceptable: development
+  // builds do not need the specialized telemetry path.
+  _exit(kRenderStartTimeoutExitCode);
 }
 
 bool RenderRemoteProxy::IsFdsChannelReady() {

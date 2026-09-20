@@ -19,9 +19,11 @@
 
 #include "dfx_reporter_browser_impl.h"
 #include "arkweb/ohos_nweb/src/sysevent/event_reporter.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
@@ -49,6 +51,118 @@ std::string GetStringOrDefault(const base::Value::Dict& dict,
 {
   const std::string* value = dict.FindString(key);
   return value ? *value : default_value;
+}
+
+using HiSysEventHandler =
+    base::RepeatingCallback<void(const base::Value::Dict& info)>;
+
+// Maximum JSON payload size accepted from the renderer (DoS protection).
+constexpr size_t kMaxHiSysEventJsonSize = 64 * 1024;
+
+constexpr int32_t kMaxMediaErrorCode = 100000;
+
+void HandleBlankScreen(const base::Value::Dict& info) {
+  auto reason = info.FindInt("reason");
+  auto count = info.FindInt("count");
+  if (!reason || !count) {
+    LOG(WARNING) << "ARKWEB_BLANK_SCREEN_EVENT missing fields";
+    return;
+  }
+  // Validate ranges: reason must be a known DetectedBlankScreenReason enum
+  // value (0 or 1), count must be non-negative.
+  if (*reason < 0 || *reason > 1 || *count < 0) {
+    LOG(WARNING) << "ARKWEB_BLANK_SCREEN_EVENT invalid range: reason="
+                 << *reason << " count=" << *count;
+    return;
+  }
+  ReportBlankScreen(*reason, *count);
+}
+
+void HandleWebMediaPlayError(const base::Value::Dict& info) {
+  const std::string* error_type = info.FindString("error_type");
+  auto error_code = info.FindInt("error_code");
+  const std::string* error_desc = info.FindString("error_desc");
+  if (!error_type || !error_code || !error_desc) {
+    LOG(WARNING) << "WEB_MEDIA_PLAY_ERROR missing fields";
+    return;
+  }
+  // Validate range: error_code is a media error code, typically in the
+  // range [0, 100000].  Reject obviously bogus values from a compromised
+  // renderer.
+  if (*error_code < 0 || *error_code > kMaxMediaErrorCode) {
+    LOG(WARNING) << "WEB_MEDIA_PLAY_ERROR invalid error_code=" << *error_code;
+    return;
+  }
+  ReportWebMediaPlayErrorInfo(*error_type, *error_code, *error_desc);
+}
+
+void HandleVideoEncodeFormat(const base::Value::Dict& info) {
+  const std::string* format = info.FindString("encode_format");
+  if (!format) {
+    LOG(WARNING) << "VIDEO_ENCODE_FORMAT missing encode_format";
+    return;
+  }
+  ReportVideoEncodeFormat(*format);
+}
+
+void HandlePictureDecode(const base::Value::Dict& info) {
+  const std::string* type = info.FindString("picture_type");
+  if (!type) {
+    LOG(WARNING) << "PICTURE_DECODE missing picture_type";
+    return;
+  }
+  ReportPictureDecode(*type);
+}
+
+void HandleFfmpegCodecOperation(const base::Value::Dict& info) {
+  const std::string* codec_type = info.FindString("codec_type");
+  const std::string* format = info.FindString("format");
+  if (!codec_type || !format) {
+    LOG(WARNING) << "FFMPEG_CODEC_OPERATION missing fields";
+    return;
+  }
+  ReportFfmpegCodecOperation(*codec_type, *format);
+}
+
+void HandleDuplicateFileUpload(const base::Value::Dict& info) {
+  const std::string* desc = info.FindString("error_desc");
+  if (!desc) {
+    LOG(WARNING) << "DUPLICATE_FILE_UPLOAD missing error_desc";
+    return;
+  }
+  ReportDuplicateFileUpload(*desc);
+}
+
+struct EventHandlerEntry {
+  HiSysEventHandler handler;
+  // If true, the raw JSON string is passed to the handler path instead of
+  // the parsed dict. Used by legacy memory events that re-parse internally.
+  bool raw_json = false;
+};
+
+const base::flat_map<std::string, EventHandlerEntry>&
+GetHiSysEventHandlerRegistry() {
+  static const base::NoDestructor<
+      base::flat_map<std::string, EventHandlerEntry>>
+      registry({
+          {DfxReporterImpl::PAGE_MEM_LEAK,
+           {HiSysEventHandler(), true}},
+          {DfxReporterImpl::BASIC_RENDER_MEM,
+           {HiSysEventHandler(), true}},
+          {"ARKWEB_BLANK_SCREEN_EVENT",
+           {base::BindRepeating(&HandleBlankScreen)}},
+          {"WEB_MEDIA_PLAY_ERROR",
+           {base::BindRepeating(&HandleWebMediaPlayError)}},
+          {"VIDEO_ENCODE_FORMAT",
+           {base::BindRepeating(&HandleVideoEncodeFormat)}},
+          {"PICTURE_DECODE",
+           {base::BindRepeating(&HandlePictureDecode)}},
+          {"FFMPEG_CODEC_OPERATION",
+           {base::BindRepeating(&HandleFfmpegCodecOperation)}},
+          {"DUPLICATE_FILE_UPLOAD",
+           {base::BindRepeating(&HandleDuplicateFileUpload)}},
+      });
+  return *registry;
 }
 
 }  // namespace
@@ -238,15 +352,46 @@ void DfxReporterImpl::CollectBasicRenderMem(const std::string& sysEventInfoJson)
   CollectGpuMemory(pid_value, memMap);
 }
 
-void DfxReporterImpl::ReportHiSysEvent(const std::string& eventName, const std::string& sysEventInfoJson)
+void DfxReporterImpl::ReportHiSysEvent(const std::string& eventName,
+                                       const std::string& sysEventInfoJson)
 {
-  if (eventName == DfxReporterImpl::PAGE_MEM_LEAK) {
-    ReportRendererInfo(sysEventInfoJson, true);
+  const auto& registry = GetHiSysEventHandlerRegistry();
+  auto it = registry.find(eventName);
+  if (it == registry.end()) {
+    LOG(WARNING) << "Unknown hiSysEvent from renderer: " << eventName;
+    return;
   }
-  if (eventName == DfxReporterImpl::BASIC_RENDER_MEM) {
-    CollectBasicRenderMem(sysEventInfoJson);
-    CollectBasicBrowserMem();
+
+  if (sysEventInfoJson.size() > kMaxHiSysEventJsonSize) {
+    LOG(WARNING) << "hiSysEvent JSON too large for event " << eventName
+                 << " size=" << sysEventInfoJson.size();
+    return;
   }
+
+  // Legacy memory events pass the raw JSON string to their own parsers.
+  if (it->second.raw_json) {
+    DCHECK(it->second.handler.is_null());
+    if (eventName == DfxReporterImpl::PAGE_MEM_LEAK) {
+      ReportRendererInfo(sysEventInfoJson, true);
+    } else if (eventName == DfxReporterImpl::BASIC_RENDER_MEM) {
+      CollectBasicRenderMem(sysEventInfoJson);
+      CollectBasicBrowserMem();
+    }
+    return;
+  }
+
+  // Generic path: parse JSON and dispatch to the handler.
+  auto info = base::JSONReader::ReadAndReturnValueWithError(
+      sysEventInfoJson, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  if (!info.has_value() || !info->is_dict()) {
+    LOG(WARNING) << "Invalid JSON for event " << eventName
+                 << (info.has_value()
+                         ? " (not a dict)"
+                         : ": " + info.error().message);
+    return;
+  }
+
+  it->second.handler.Run(info->GetDict());
 }
 
 // the param `eventInfo` may be used in the future

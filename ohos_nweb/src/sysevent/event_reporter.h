@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
+#include "base/values.h"
 #include "url/gurl.h"
 #include "oh_web_performance_timing.h"
 
@@ -31,7 +33,18 @@ enum RenderError {
     RENDER_START_TIMEOUT = 0x11223301,
 };
 
+// Exit code used by renderer/gpu process when WaitForBrowserFd times out.
+// The browser side detects this exit code to actively report
+// CHILD_PROCESS_INIT_FAIL instead of the renderer reporting directly
+// (the Mojo IPC channel is not yet established during early startup).
+// 254 is chosen to minimise collision with common exit codes: Chromium child
+// processes normally exit with 0 (success) or low-valued signal-based codes.
+// Values 200-250 are occasionally used by libraries; 254 is in the rarely-used
+// high range and avoids 255 (which some systems map to -1 / signal death).
+constexpr int kRenderStartTimeoutExitCode = 254;
+
 void ReportChildProcessInitFail(bool is_gpu, int err);
+void ReportBlankScreen(int32_t reason, int32_t count);
 void ReportRenderJsFreeze(int32_t pid, const std::string& packageName, const std::string& processName,
                           const std::string& freezeMsg, int32_t uid);
 
@@ -168,5 +181,11 @@ void ReportCacheDataSeparateMigrate(bool isSeparation,
                                 bool isMigration,
                                 bool isSeparationSuccess,
                                 bool isMigrationSuccess);
+
+using HiSysEventForwarder =
+    base::RepeatingCallback<void(const std::string& event_name,
+                                 base::Value::Dict info)>;
+
+void SetHiSysEventForwarder(HiSysEventForwarder forwarder);
 
 #endif

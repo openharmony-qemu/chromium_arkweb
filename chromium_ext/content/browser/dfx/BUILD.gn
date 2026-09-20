@@ -30,6 +30,19 @@ source_set("memory_monitor_render") {
     "//v8",
   ]
 }
+source_set("dfx_event_sender") {
+  # Sources live in content/renderer/ but are registered here for cohesion
+  # with the rest of the DFX build targets.
+  sources = [
+    "//arkweb/chromium_ext/content/renderer/dfx_event_sender.cc",
+    "//arkweb/chromium_ext/content/renderer/dfx_event_sender.h",
+  ]
+  public_deps = [
+    "//base",
+    "mojom",
+    "//mojo/public/cpp/bindings",
+  ]
+}
 source_set("appfreeze_monitor") {
   sources = [
     "appfreeze_monitor_render_impl.cc",
