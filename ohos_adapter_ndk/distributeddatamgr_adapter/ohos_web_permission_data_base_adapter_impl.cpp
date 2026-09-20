@@ -276,7 +276,7 @@ void OhosWebPermissionDataBaseAdapterImpl::ClearPermissionByOrigin(const std::st
     OH_VObject *valueObject = OH_Rdb_CreateValueObject();
     if (dirAbsPred == nullptr || valueObject == nullptr) {
         WVLOG_E("pointer create failed!");
-        return false;
+        return;
     }
     valueObject->putText(valueObject, origin.c_str());
     dirAbsPred->equalTo(dirAbsPred, PERMISSION_ORIGIN_COL.c_str(), valueObject);
