@@ -77,6 +77,7 @@ void SoftwareCompositorProxyOhos::DrawRect(const gfx::Rect& rect) {
   LOG(DEBUG) << "DrawRect in blink";
   if (!software_render_) {
     LOG(ERROR) << "software render init error";
+    pending_draw_rect_ = rect;
     return;
   }
   software_render_->DrawRect(rect);
@@ -100,6 +101,10 @@ void SoftwareCompositorProxyOhos::SetSharedMemory(
 void SoftwareCompositorProxyOhos::SetSoftwareRenderer(
     cc::mojo_embedder::SoftwareCompositorRendererOhos* software_render) {
   software_render_ = software_render;
+  if (software_render_ && pending_draw_rect_.has_value()) {
+    software_render_->DrawRect(*pending_draw_rect_);
+    pending_draw_rect_.reset();
+  }
 }
 }  // namespace blink
                      

@@ -72,6 +72,9 @@ class SoftwareCompositorProxyRegistryOhos
     DCHECK(compositor_thread_default_task_runner_->BelongsToCurrentThread());
     DCHECK_EQ(software_renderer, renderer_);
     renderer_ = nullptr;
+    if (proxy_) {
+      proxy_->SetSoftwareRenderer(nullptr);
+    }
   }
 
   void DestroyProxy() {
