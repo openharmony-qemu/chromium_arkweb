@@ -64,8 +64,33 @@ bool HasAllowedRealPathPrefix(const std::string& path)
     return false;
 }
 
+} // namespace
+
+// static
+std::string DatashareAdapterImpl::ResolveSymlinksForExistingPrefix(
+    const std::string& path)
+{
+    // uri 换算出的路径可能整体或部分不存在，只能规范化"最长已存在前缀"：
+    // 先试整条路径，失败则逐级回退，未存在的尾部原样保留。
+    size_t cut = path.size();
+    while (cut != std::string::npos && cut != 0) {
+        std::string prefix = path.substr(0, cut);
+        char* resolved = realpath(prefix.c_str(), nullptr);
+        if (resolved != nullptr) {
+            std::string result(resolved);
+            free(resolved);
+            result.append(path, cut, std::string::npos);
+            return result;
+        }
+        cut = path.find_last_of('/', cut - 1);
+    }
+    return path;
+}
+
+// static
 // uri -> path 换算并校验结果。返回 false 表示 uri 非法或换算结果不可信。
-bool ConvertUriToValidPath(const std::string& uriStr, std::string& path)
+bool DatashareAdapterImpl::ConvertUriToValidPath(const std::string& uriStr,
+                                                 std::string& path)
 {
     // "%00" 会被换算接口解码为 NUL 并截断 C 字符串，导致路径被静默缩短。
     if (uriStr.empty() || uriStr.find("%00") != std::string::npos) {
@@ -83,9 +108,11 @@ bool ConvertUriToValidPath(const std::string& uriStr, std::string& path)
         ContainsParentComponent(path)) {
         return false;
     }
-    return true;
+    // 词法前缀与 ".." 校验约束不了物理路径：路径中间或末尾可能是指向沙箱外的
+    // 软链。展开已存在前缀的软链后必须重新复核白名单，逃出沙箱即拒绝。
+    path = ResolveSymlinksForExistingPrefix(path);
+    return !path.empty() && HasAllowedRealPathPrefix(path);
 }
-} // namespace
 
 // static
 DatashareAdapterImpl& DatashareAdapterImpl::GetInstance()
