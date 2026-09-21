@@ -124,10 +124,16 @@ bool NWebDownloadHandlerDelegate::OnBeforeDownload(
   std::string guid = download_item->AsArkDownloadItem()->GetGuid().ToString();
   if (suggested_file_name_for_guid_map.find(guid) ==
       suggested_file_name_for_guid_map.end()) {
-    std::string suggested = GenerateSuggestedFilename(download_item);
-    suggested_file_name_for_guid_map[guid] = suggested;
-    LOG(INFO) << "OnBeforeDownload cache suggested_file_name, guid:"
-              << guid << ", suggested:" << DesensitizeStr(suggested);
+    bool is_allow_and_name =
+        download_item->AsArkDownloadItem()->IsFromCDPAllowAndName();
+    if (is_allow_and_name) {
+      suggested_file_name_for_guid_map[guid] = guid;
+    } else {
+      std::string suggested = GenerateSuggestedFilename(download_item);
+      suggested_file_name_for_guid_map[guid] = suggested;
+      LOG(INFO) << "OnBeforeDownload cache suggested_file_name, guid:"
+                << guid << ", suggested:" << DesensitizeStr(suggested);
+    }
   }
 
   if (web_download_delegate_listener_ != nullptr) {
