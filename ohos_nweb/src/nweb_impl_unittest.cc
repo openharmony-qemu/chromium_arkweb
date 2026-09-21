@@ -19,6 +19,7 @@
 
 #include <cerrno>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
@@ -5537,6 +5538,81 @@ TEST_F(NWebImplTest, GetBrowserZoomLevel002) {
   EXPECT_EQ(result, temp);
 }
 #endif // BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
+
+#if BUILDFLAG(ARKWEB_ZOOM)
+TEST_F(NWebImplTest, SetZoomFactor001) {
+  double zoom_factor = 1.0;
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(zoom_factor)).Times(0);
+  nweb_impl_->SetZoomFactor(zoom_factor);
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+}
+
+TEST_F(NWebImplTest, SetZoomFactor002) {
+  double zoom_factor = 1.0;
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor())
+      .WillOnce(::testing::Return(zoom_factor));
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(zoom_factor)).Times(1);
+  nweb_impl_->SetZoomFactor(zoom_factor);
+  EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
+}
+
+TEST_F(NWebImplTest, SetZoomFactor003) {
+  double zoom_factor = 1.0;
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor())
+      .Times(2)
+      .WillRepeatedly(::testing::Return(zoom_factor));
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(zoom_factor)).Times(1);
+  nweb_impl_->SetZoomFactor(zoom_factor);
+  nweb_impl_->SetZoomFactor(zoom_factor);
+}
+
+TEST_F(NWebImplTest, SetZoomFactor004) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor())
+      .WillOnce(::testing::Return(1.0));
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(0.25)).Times(1);
+  nweb_impl_->SetZoomFactor(0.1);
+}
+
+TEST_F(NWebImplTest, SetZoomFactor005) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor())
+      .WillOnce(::testing::Return(1.0));
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(5.0)).Times(1);
+  nweb_impl_->SetZoomFactor(10.0);
+}
+
+TEST_F(NWebImplTest, SetZoomFactor006) {
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor()).Times(0);
+  EXPECT_CALL(*mock_delegate_, SetZoomFactor(::testing::_)).Times(0);
+  nweb_impl_->SetZoomFactor(
+      std::numeric_limits<double>::quiet_NaN());
+  nweb_impl_->SetZoomFactor(
+      std::numeric_limits<double>::infinity());
+}
+
+TEST_F(NWebImplTest, GetZoomFactor001) {
+  double temp = 1.0;
+  nweb_impl_->nweb_delegate_ = nullptr;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor()).Times(0);
+  auto result = nweb_impl_->GetZoomFactor();
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_EQ(result, temp);
+}
+
+TEST_F(NWebImplTest, GetZoomFactor002) {
+  double temp = 2.0;
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, GetZoomFactor()).WillOnce(::testing::Return(temp));
+  auto result = nweb_impl_->GetZoomFactor();
+  EXPECT_NE(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_EQ(result, temp);
+}
+#endif // BUILDFLAG(ARKWEB_ZOOM)
 
 #if BUILDFLAG(ARKWEB_CRASHPAD)
 TEST_F(NWebImplTest, SetDefaultCrashpadLogPath001) {

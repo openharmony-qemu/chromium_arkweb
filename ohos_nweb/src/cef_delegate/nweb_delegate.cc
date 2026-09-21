@@ -96,8 +96,11 @@
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_url_trust_list_interface.h"
 #endif
 
-#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
+#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL) || BUILDFLAG(ARKWEB_ZOOM)
 #include <cmath>
+#endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+#include "third_party/blink/public/common/page/page_zoom.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_SECURITY_STATE) || BUILDFLAG(ARKWEB_SECURITY_STATE)
@@ -5021,6 +5024,23 @@ double NWebDelegate::GetBrowserZoomLevel() {
 
   return std::pow(kZoomLevelToFactorRatio,
                   GetBrowser()->GetHost()->GetZoomLevel());
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_ZOOM)
+void NWebDelegate::SetZoomFactor(double zoom_factor) {
+  if (!handler_delegate_) {
+    LOG(ERROR) << "SetZoomFactor can not get handler delegate";
+    return;
+  }
+  handler_delegate_->SetZoomFactor(zoom_factor);
+}
+
+double NWebDelegate::GetZoomFactor() {
+  if (GetBrowser() == nullptr || GetBrowser()->GetHost() == nullptr) {
+    return 1.0;
+  }
+  return GetBrowser()->GetHost()->GetZoomFactor();
 }
 #endif
 

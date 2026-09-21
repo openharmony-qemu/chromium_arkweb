@@ -20,6 +20,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -970,6 +971,10 @@ class NWebImpl : public NWeb {
   void SetBrowserZoomLevel(double zoom_factor) const;
   double GetBrowserZoomLevel() const;
 #endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+  void SetZoomFactor(double zoom_factor) override;
+  double GetZoomFactor() override;
+#endif
 
 #if BUILDFLAG(ARKWEB_CRASHPAD)
   static void SetDefaultCrashpadLogPath(const std::string& crashpadLogPath);
@@ -1513,6 +1518,10 @@ void SetVisibility(bool isVisible) override;
   std::shared_ptr<NWebAIInputMethodController> ai_inputmethod_controller_ = nullptr;
 
   std::shared_ptr<NWebDelegateInterface> nweb_delegate_ = nullptr;
+#if BUILDFLAG(ARKWEB_ZOOM)
+  bool zoom_factor_initialized_ = false;
+  std::optional<double> pending_zoom_factor_;
+#endif
   std::list<std::string> web_engine_args_;
   float device_pixel_ratio_ = 0.f;
   bool is_enhance_surface_ = false;

@@ -17,7 +17,9 @@
 #include "nweb_impl.h"
 
 #include <unistd.h>
+#include <algorithm>
 #include <cerrno>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <string>
@@ -150,7 +152,7 @@
 #include "ohos_nweb_ex/overrides/cef/libcef/browser/alloy/alloy_browser_reader_mode_config.h"
 #endif
 
-#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
+#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL) || BUILDFLAG(ARKWEB_ZOOM)
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #endif
@@ -686,8 +688,11 @@ static void HandleExtensionUninstallResult(
 uint32_t g_nweb_max_count = 0;
 #endif
 
-#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
+#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL) || BUILDFLAG(ARKWEB_ZOOM)
 static double default_zoom_factor = 1.0;
+#endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+static constexpr double kBrowserZoomFactorEpsilon = 1e-6;
 #endif
 
 #if BUILDFLAG(ARKWEB_MEDIA_POLICY)
@@ -2152,6 +2157,14 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
     delete[] argv;
     return false;
   }
+
+#if BUILDFLAG(ARKWEB_ZOOM)
+  if (pending_zoom_factor_) {
+    const double zoom_factor = *pending_zoom_factor_;
+    pending_zoom_factor_.reset();
+    SetZoomFactor(zoom_factor);
+  }
+#endif
 
 #if BUILDFLAG(ARKWEB_COOKIE)
   should_lazy_init_web_engine_.store(false, std::memory_order_release);
@@ -6478,7 +6491,38 @@ double NWebImpl::GetBrowserZoomLevel() const {
   }
   return nweb_delegate_->GetBrowserZoomLevel();
 }
+#endif
 
+#if BUILDFLAG(ARKWEB_ZOOM)
+void NWebImpl::SetZoomFactor(double zoom_factor) {
+  if (!std::isfinite(zoom_factor)) {
+    return;
+  }
+  zoom_factor = std::clamp(zoom_factor, blink::kMinimumBrowserZoomFactor,
+                           blink::kMaximumBrowserZoomFactor);
+  if (nweb_delegate_ == nullptr) {
+    pending_zoom_factor_ = zoom_factor;
+    return;
+  }
+  double current_zoom_factor = nweb_delegate_->GetZoomFactor();
+  if (zoom_factor_initialized_ &&
+      std::fabs(zoom_factor - current_zoom_factor) <=
+          kBrowserZoomFactorEpsilon) {
+    return;
+  }
+  nweb_delegate_->SetZoomFactor(zoom_factor);
+  zoom_factor_initialized_ = true;
+}
+
+double NWebImpl::GetZoomFactor() {
+  if (nweb_delegate_ == nullptr) {
+    return default_zoom_factor;
+  }
+  return nweb_delegate_->GetZoomFactor();
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_GET_ZOOM_LEVEL)
 // static
 void NWebImpl::SetDefaultBrowserZoomLevel(double zoom_factor) {
   if (g_nweb_count == 0) {

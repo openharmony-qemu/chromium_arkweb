@@ -190,6 +190,10 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(void, SetBrowserZoomLevel, (double zoom_factor), (override));
   MOCK_METHOD(double, GetBrowserZoomLevel, (), (override));
 #endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+  MOCK_METHOD(void, SetZoomFactor, (double zoom_factor), (override));
+  MOCK_METHOD(double, GetZoomFactor, (), (override));
+#endif
 #if BUILDFLAG(ARKWEB_SCREEN_OFFSET)
   MOCK_METHOD(void, SetScreenOffset, (double x, double y), (override));
 #endif  // BUILDFLAG(ARKWEB_SCREEN_OFFSET)
