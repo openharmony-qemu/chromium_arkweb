@@ -21,6 +21,7 @@
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/pickle.h"
+#include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
@@ -462,7 +463,7 @@ class ClipboardOHOSInternal {
       *fragment_end = static_cast<uint32_t>(markup->length());
       return;
     } else if (text) {
-      data = "<span>" + *text + "</span>";
+      data = "<span>" + base::EscapeForHTML(*text) + "</span>";
       *markup = base::UTF8ToUTF16(data);
       *fragment_start = 0;
       *fragment_end = static_cast<uint32_t>(markup->length());
