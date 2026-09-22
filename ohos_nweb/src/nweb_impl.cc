@@ -4196,7 +4196,7 @@ void NWebImpl::ForwardMemoryPressureToRenderers(
   static int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
                            .GetSystemPropertiesInstance()
                            .GetIntParameter("web.debug.memtest", 0);
-  if (base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2)) {
+  if (memtest == 0 || memtest == 2) {
     // Forward memory pressure to all renderer processes.
     for (auto iter = content::RenderProcessHost::AllHostsIterator();
          !iter.IsAtEnd(); iter.Advance()) {
@@ -4228,8 +4228,7 @@ void NWebImpl::NotifyMemoryLevel(int32_t level) {
   static const int memtest = OHOS::NWeb::OhosAdapterHelper::GetInstance()
                                  .GetSystemPropertiesInstance()
                                  .GetIntParameter("web.debug.memtest", 0);
-  bool should_notify_ui_hidden_level =
-      base::ohos::IsOhosLowEndDevice() && (memtest == 0 || memtest == 2);
+  bool should_notify_ui_hidden_level = (memtest == 0 || memtest == 2);
   if (should_notify_ui_hidden_level) {
     if (level > kMemoryLevelMax) {
       LOG(WARNING) << "The memory level > kMemoryLevelMax(3), not supported";
