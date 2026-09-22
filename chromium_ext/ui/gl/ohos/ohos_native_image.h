@@ -22,6 +22,9 @@ class GL_EXPORT OhosNativeImage
       public base::RefCountedThreadSafe<OhosNativeImage> {
  public:
   static scoped_refptr<OhosNativeImage> Create(int texture_id);
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  static scoped_refptr<OhosNativeImage> CreateWithVpe();
+#endif
 
   OhosNativeImage(const OhosNativeImage&) = delete;
   OhosNativeImage& operator=(const OhosNativeImage&) = delete;
@@ -33,6 +36,11 @@ class GL_EXPORT OhosNativeImage
   void DetachFromGLContext();
   void ReleaseNativeImage();
   void* AquireOhosNativeWindow();
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  // Returns true if VPE surface was successfully created in AquireOhosNativeWindow.
+  // The return value is meaningful only after AquireOhosNativeWindow has been called.
+  bool IsAiHdrActive() const { return is_ai_hdr_active_; }
+#endif
   void OnFrameAvailableListener() override;
 
   static scoped_refptr<OhosNativeImage> Create();
@@ -62,6 +70,11 @@ class GL_EXPORT OhosNativeImage
 
   base::RepeatingClosure frame_available_cb_;
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  bool enable_vpe_ = false;
+  bool is_ai_hdr_active_ = false;
+  uint64_t rawSurfaceId_ = 0;  // Original surface ID for VPE release
+#endif
   base::WeakPtrFactory<OhosNativeImage> weak_ptr_factory_{this};
 };
 

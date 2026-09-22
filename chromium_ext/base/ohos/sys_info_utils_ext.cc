@@ -364,6 +364,17 @@ BASE_EXPORT bool IsDelegatedCompositingEnabledOhos() {
 
   return is_nweb_ex_delegated_enabled;
 }
+
+BASE_EXPORT bool IsAiHdrEnabledOhos() {
+  if (!IsDelegatedCompositingEnabledOhos()) {
+    return false;
+  }
+  static const bool is_aihdr_enabled =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance()
+          .GetSystemPropertiesInstance()
+          .GetBoolParameter("web.aihdr.enable", false);
+  return is_aihdr_enabled;
+}
 }  // namespace ohos
 
 }  // namespace base

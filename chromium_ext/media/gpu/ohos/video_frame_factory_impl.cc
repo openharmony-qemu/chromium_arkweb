@@ -251,6 +251,12 @@ void VideoFrameFactoryImpl::CreateVideoFrame_OnImageReady(
   frame->metadata().copy_required = video_frame_copy_required;
   frame->metadata().allow_overlay = base::ohos::IsDelegatedCompositingEnabledOhos();
   frame->metadata().in_surface_view = is_texture_owner_backed;
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (codec_image_holder->codec_image_raw()->texture_owner()) {
+    frame->metadata().is_ai_hdr_active =
+        codec_image_holder->codec_image_raw()->texture_owner()->IsAiHdrActive();
+  }
+#endif
   frame->SetReleaseMailboxCB(std::move(record.release_cb));
   std::move(output_cb).Run(std::move(frame));
 }

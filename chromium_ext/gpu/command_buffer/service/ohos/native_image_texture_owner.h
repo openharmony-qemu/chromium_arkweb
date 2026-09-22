@@ -66,6 +66,9 @@ class GPU_GLES2_EXPORT NativeImageTextureOwner
   virtual gl::GLContext* GetContext() const = 0;
   virtual gl::GLSurface* GetSurface() const = 0;
   virtual void* AquireOhosNativeWindow() const = 0;
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  virtual bool IsAiHdrActive() const { return false; }
+#endif
 
   virtual void UpdateNativeImage() = 0;
 
