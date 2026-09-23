@@ -135,11 +135,19 @@ void CompositorUtils::DiscardCompositingResources() {
 
 void CompositorUtils::UpdateFocusAndScreenStatus(
     bool is_focused, bool is_single_screen) {
+  SetCachedFocusAndScreenStatus(is_focused, is_single_screen);
   if (IsValidManagerUtils()) {
     compositor_->context_factory_->GetHostFrameSinkManager()->managerUtils->
         UpdateFocusAndScreenStatus(
             is_focused, is_single_screen, compositor_->frame_sink_id());
   }
+}
+
+void CompositorUtils::SetCachedFocusAndScreenStatus(
+    bool is_focused, bool is_single_screen) {
+  LOG(INFO) << "SetCachedFocusAndScreenStatus is_focused: " << is_focused << ", is_single_screen: " << is_single_screen;
+  is_focused_ = is_focused;
+  is_single_screen_ = is_single_screen;
 }
 
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)

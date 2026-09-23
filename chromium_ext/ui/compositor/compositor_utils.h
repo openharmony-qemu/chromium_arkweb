@@ -76,6 +76,10 @@ class COMPOSITOR_EXPORT CompositorUtils {
 void DiscardCompositingResources();
 bool IsValidManagerUtils();
 void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+void SetCachedFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+
+bool is_focused_ = false;
+bool is_single_screen_ = false;
 
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
   void UpdateVSyncFrequency();
