@@ -614,45 +614,47 @@ bool PasteDataRecordAdapterImpl::GetImgData(std::shared_ptr<ClipBoardImageDataAd
         WVLOG_E("GetPixelFormat failed. error code is : %{public}d", getPixelFormat_res);
     }
     /* ndk16 OH_PixelmapNative_GetByteCount */
-    size_t dataSize = static_cast<size_t>(width * height * 4);
+    /* ReadPixels returns packed RGBA/BGRA rows, so publish packedRowBytes *
+       height while reading with a capacity that also covers a padded source
+       allocation. */
+    const size_t packedRowBytes = static_cast<size_t>(width) * 4;
+    const size_t srcRowBytes = static_cast<size_t>(rowStride);
+    const size_t readRowBytes =
+        packedRowBytes > srcRowBytes ? packedRowBytes : srcRowBytes;
+    if (width == 0 || height == 0 ||
+        readRowBytes > static_cast<size_t>(INT32_MAX) / height) {
+        WVLOG_E("invalid clipboard image layout");
+        ReleaseMemory(udsPixelMap, options, pixelmapNative, imageInfo);
+        return false;
+    }
+    const size_t dataSize = packedRowBytes * height;
+    const size_t readCapacity = readRowBytes * height;
     WVLOG_I(
         "GetImgData image info: width=%{public}u, height=%{public}u, "
         "dataSize=%{public}zu",
         width, height, dataSize);
-    uint8_t* dataBuffer = static_cast<uint8_t *>(calloc(dataSize, sizeof(uint8_t)));
-    if (dataBuffer == nullptr) {
-        WVLOG_E("calloc dataBuffer failed");
+    uint32_t* data = static_cast<uint32_t *>(calloc(1, readCapacity));
+    if (data == nullptr) {
+        WVLOG_E("calloc data failed");
         ReleaseMemory(udsPixelMap, options, pixelmapNative, imageInfo);
         return false;
     }
 
-    uint32_t* data = static_cast<uint32_t *>(calloc(dataSize / sizeof(uint32_t), sizeof(uint32_t)));
-    if (data == nullptr) {
-        WVLOG_E("calloc data failed");
+    size_t readSize = readCapacity;
+    int readPixels_res =
+        OH_PixelmapNative_ReadPixels(pixelmapNative, reinterpret_cast<uint8_t*>(data), &readSize);
+    if (readPixels_res != IMAGE_SUCCESS) {
+        WVLOG_E("ReadPixels failed. error code is : %{public}d", readPixels_res);
+        free(data);
         ReleaseMemory(udsPixelMap, options, pixelmapNative, imageInfo);
-        free(dataBuffer);
         return false;
     }
-    int readPixels_res = OH_PixelmapNative_ReadPixels(pixelmapNative, dataBuffer, &dataSize);
-    if (readPixels_res == IMAGE_SUCCESS) {
-        if (memcpy_s(data, dataSize, dataBuffer, dataSize) != EOK) {
-            WVLOG_E("memcpy_s failed");
-            ReleaseMemory(udsPixelMap, options, pixelmapNative, imageInfo);
-            free(dataBuffer);
-            free(data);
-            return false;
-        }
-    } else {
-        WVLOG_E("ReadPixels failed. error code is : %{public}d", readPixels_res);
-    }
-    free(dataBuffer);
-    dataBuffer = nullptr;
 
     imageData->SetData(data);
     imageData->SetDataSize(dataSize);
     imageData->SetWidth(width);
     imageData->SetHeight(height);
-    imageData->SetRowBytes(static_cast<size_t>(rowStride));
+    imageData->SetRowBytes(packedRowBytes);
     imageData->SetAlphaType(PixelToClipboardAlphaType(static_cast<PIXELMAP_ALPHA_TYPE>(alphaType)));
     imageData->SetColorType(PixelToClipBoardColorType(static_cast<PIXEL_FORMAT>(pixelFormat)));
 

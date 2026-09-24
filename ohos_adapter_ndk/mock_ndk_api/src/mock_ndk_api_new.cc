@@ -30,9 +30,61 @@ bool MockOHOSFunction::pasteboard_GetDataParams_Destroy = false;
 bool MockOHOSFunction::udmfData_GetRecords = false;
 bool MockOHOSFunction::udmfData_IsLocal = false;
 
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapImageInfo_GetWidth);
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapImageInfo_GetHeight);
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapImageInfo_GetRowStride);
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapImageInfo_GetAlphaType);
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapImageInfo_GetPixelFormat);
+IMPLEMENT_MOCK_KEY(MockOHOSFunction, OH_PixelmapNative_ReadPixels);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapImageInfo_GetWidth,
+                        (OH_Pixelmap_ImageInfo * info, uint32_t* width),
+                        info,
+                        width)
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapImageInfo_GetHeight,
+                        (OH_Pixelmap_ImageInfo * info, uint32_t* height),
+                        info,
+                        height)
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapImageInfo_GetRowStride,
+                        (OH_Pixelmap_ImageInfo * info, uint32_t* rowStride),
+                        info,
+                        rowStride)
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapImageInfo_GetAlphaType,
+                        (OH_Pixelmap_ImageInfo * info, int32_t* alphaType),
+                        info,
+                        alphaType)
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapImageInfo_GetPixelFormat,
+                        (OH_Pixelmap_ImageInfo * info, int32_t* pixelFormat),
+                        info,
+                        pixelFormat)
+
+IMPLEMENT_WRAP_FUNCTION(Image_ErrorCode,
+                        MockOHOSFunction,
+                        OH_PixelmapNative_ReadPixels,
+                        (OH_PixelmapNative * pixelmap,
+                         uint8_t* destination,
+                         size_t* bufferSize),
+                        pixelmap,
+                        destination,
+                        bufferSize)
 
 Pasteboard_GetDataParams* __wrap_OH_Pasteboard_GetDataParams_Create() {
   if (MockOHOSFunction::pasteboard_GetDataParams_Create) {
