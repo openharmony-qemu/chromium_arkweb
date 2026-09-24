@@ -92,9 +92,6 @@ void FontConfig_OHOS::PrepareFontConfig(const SkFontScanner& fontScanner) {
   if (base::ohos::IsMobileDevice() || base::ohos::IsWearableDevice()) {
     return;
   }
-  if (!genericFamilySet.empty() || !fallbackSet.empty()) {
-    return;
-  }
   main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
   LOG(DEBUG) << "The program follows the latest font engine path.";
   font_data_service::mojom::FontConfigInfoPtr match_result;
