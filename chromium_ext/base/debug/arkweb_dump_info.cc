@@ -158,26 +158,20 @@ void ArkWebDumpInfo::DumpArkWebJSHeap(int32_t fd,
   if (!needSnapshot || !g_dump_snapshot_callback) {
     LOG(ERROR) << "fd is needed only if it wants to take heap snapshot and "
                   "has g_dump_snapshot_callback";
-    close(fd);
     return;
   }
   int socket_fd = content::RenderProcessHostOhos::DumpArkWebJSHeap(
       renderPid, needSnapshot, needGC, needRaw);
   LOG(INFO) << "DumpArkWebJSHeap socket_fd for crashpad:" << socket_fd;
   if (socket_fd < 0) {
-    close(fd);
     return;
   }
   // start crashpad process
   g_dump_snapshot_callback(renderPid, fd, socket_fd);
   // crashpad is fork + excv
-  close(fd);
   close(socket_fd);
 #else
   LOG(ERROR) << "DumpArkWebJSHeap not enabled";
-  if (fd >= 0) {
-    close(fd);
-  }
 #endif
 }
 
