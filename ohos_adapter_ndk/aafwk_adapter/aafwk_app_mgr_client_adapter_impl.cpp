@@ -45,6 +45,7 @@ const uint32_t IPC_G2B_CODE_DESTROY_WINDOW = 10003;
 const uint32_t IPC_G2B_CODE_PASS_WINDOW = 10004;
 const uint32_t IPC_G2B_CODE_QUERY_BOOL = 10005;
 const uint32_t IPC_G2B_CODE_DESTROY_PASSED_WINDOW = 10006;
+const uint32_t IPC_G2B_CODE_QUERY_INT = 10007;
 OHIPCRemoteProxy* g_remote_proxy = nullptr;
 std::shared_ptr<AafwkBrowserHostAdapter> g_browser_host_adapter = nullptr;
 std::mutex mtx;
@@ -87,9 +88,31 @@ int QueryBoolFromBrowserProcess(const OHIPCParcel* data, OHIPCParcel* reply)
     return 0;
 }
 
+int QueryIntFromBrowserProcess(const OHIPCParcel* data, OHIPCParcel* reply)
+{
+    std::string key = std::string(OH_IPCParcel_ReadString(data));
+    int32_t defaultNum = 0;
+    if (OH_IPCParcel_ReadInt32(data, &defaultNum) != 0) {
+        WVLOG_E("failed to get default Num");
+        return -1;
+    }
+    int32_t value = OHOS::NWeb::SystemPropertiesAdapterImpl::GetInstance().GetIntParameter(key, defaultNum);
+    if (OH_IPCParcel_WriteInt32(reply, value) != 0) {
+        WVLOG_E("failed to write int32");
+        return -1;
+    }
+    return 0;
+}
+
 int OnRemoteRequestForGpuProcess(uint32_t code, const OHIPCParcel* data, OHIPCParcel* reply, void* user_data)
 {
     WVLOG_D("receive a native IPC remote request from GPU process, code=%{public}d", code);
+    if (code == IPC_G2B_CODE_QUERY_BOOL) {
+        return QueryBoolFromBrowserProcess(data, reply);
+    } else if (code == IPC_G2B_CODE_QUERY_INT) {
+        return QueryIntFromBrowserProcess(data, reply);
+    }
+
     if (g_browser_host_adapter == nullptr) {
         WVLOG_E("browser host adapter is null");
         return -1;
@@ -140,8 +163,6 @@ int OnRemoteRequestForGpuProcess(uint32_t code, const OHIPCParcel* data, OHIPCPa
             g_passed_window_map.emplace(surfaceId, window);
         }
         return 0;
-    } else if (code == IPC_G2B_CODE_QUERY_BOOL) {
-        return QueryBoolFromBrowserProcess(data, reply);
     } else if (code == IPC_G2B_CODE_DESTROY_PASSED_WINDOW) {
         // UNREF the native window passed from GPU process before.
         int64_t surfaceId {0};
