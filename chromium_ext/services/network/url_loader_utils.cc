@@ -266,7 +266,7 @@ void URLLoaderUtils::ConfigureRequestForRollback(
   url_request_rollback_->SetPriorityIncremental(priority_incremental);
 
   url_request_rollback_->SetRequestHeadersCallback(base::BindRepeating(
-      &URLLoader::SetRawRequestHeadersAndNotify, base::Unretained(url_loader_)));
+      &URLLoader::SetRawRequestHeadersAndNotify, url_loader_->weak_ptr_factory_.GetWeakPtr()));
   if (url_loader_->shared_dictionary_checker_) {
     url_request_rollback_->SetIsSharedDictionaryReadAllowedCallback(base::BindRepeating(
         &URLLoader::IsSharedDictionaryReadAllowed, base::Unretained(url_loader_)));
@@ -274,11 +274,11 @@ void URLLoaderUtils::ConfigureRequestForRollback(
 
   if (url_loader_->devtools_request_id()) {
     url_request_rollback_->SetResponseHeadersCallback(base::BindRepeating(
-        &URLLoader::SetRawResponseHeaders, base::Unretained(url_loader_)));
+        &URLLoader::SetRawResponseHeaders, url_loader_->weak_ptr_factory_.GetWeakPtr()));
   }
 
   url_request_rollback_->SetEarlyResponseHeadersCallback(base::BindRepeating(
-      &URLLoader::NotifyEarlyResponse, base::Unretained(url_loader_)));
+      &URLLoader::NotifyEarlyResponse, url_loader_->weak_ptr_factory_.GetWeakPtr()));
 
   if (shared_dictionary_getter) {
     url_request_rollback_->SetSharedDictionaryGetter(
@@ -444,15 +444,15 @@ void URLLoaderUtils::SetPrppLoaderCallbacks(std::shared_ptr<ohos_prp_preload::PR
   url_loader_->url_request_ = prpp_loader_->GetURLRequest();
   prpp_loader_->SetRequestDelegate(url_loader_);
   prpp_loader_->SetRequestHeadersCallback(base::BindRepeating(
-      &URLLoader::SetRawRequestHeadersAndNotify, base::Unretained(url_loader_)));
+      &URLLoader::SetRawRequestHeadersAndNotify, url_loader_->weak_ptr_factory_.GetWeakPtr()));
   if (url_loader_->devtools_request_id()) {
     prpp_loader_->SetResponseHeadersCallback(base::BindRepeating(
-        &URLLoader::SetRawResponseHeaders, base::Unretained(url_loader_)));
+        &URLLoader::SetRawResponseHeaders, url_loader_->weak_ptr_factory_.GetWeakPtr()));
   }
   prpp_loader_->SetEarlyResponseHeadersCallback(base::BindRepeating(
-      &URLLoader::NotifyEarlyResponse, base::Unretained(url_loader_)));
+      &URLLoader::NotifyEarlyResponse, url_loader_->weak_ptr_factory_.GetWeakPtr()));
   prpp_loader_->SetResetUrlRequestCallback(base::BindOnce(
-      &URLLoaderUtils::ResetUrlRequest, base::Unretained(this)));
+      &URLLoaderUtils::ResetUrlRequest, weak_ptr_factory_.GetWeakPtr()));
 }
 
 void URLLoaderUtils::ConfigureAndCreateURLRequest(

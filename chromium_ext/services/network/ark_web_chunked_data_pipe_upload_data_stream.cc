@@ -24,10 +24,10 @@ void ChunkedDataPipeUploadDataStream::ArkWebInitInternal() {
 #if BUILDFLAG(ARKWEB_SCHEME_HANDLER)
   chunked_data_pipe_getter_.set_disconnect_handler(
       base::BindOnce(&ChunkedDataPipeUploadDataStream::OnDataPipeGetterClosed,
-                     base::Unretained(this)));
+                     weak_ptr_factory_.GetWeakPtr()));
   chunked_data_pipe_getter_->GetSize(
       base::BindOnce(&ChunkedDataPipeUploadDataStream::OnSizeReceived,
-                     base::Unretained(this)));
+                     weak_ptr_factory_.GetWeakPtr()));
 #endif  // BUILDFLAG(ARKWEB_SCHEME_HANDLER)
 }
 

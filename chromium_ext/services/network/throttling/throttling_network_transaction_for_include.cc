@@ -27,7 +27,7 @@ int ThrottlingNetworkTransaction::RestartWithSecureDnsOnly(
 
   callback_ = std::move(callback);
   int result = network_transaction_->RestartWithSecureDnsOnly(base::BindOnce(
-      &ThrottlingNetworkTransaction::IOCallback, base::Unretained(this), true));
+      &ThrottlingNetworkTransaction::IOCallback, weak_ptr_factory_.GetWeakPtr(), true));
   return Throttle(true, result);
 }
 #endif
@@ -44,7 +44,7 @@ int ThrottlingNetworkTransaction::RestartWithFallbackProxy(
 
   callback_ = std::move(callback);
   int result = network_transaction_->RestartWithFallbackProxy(base::BindOnce(
-      &ThrottlingNetworkTransaction::IOCallback, base::Unretained(this), true));
+      &ThrottlingNetworkTransaction::IOCallback, weak_ptr_factory_.GetWeakPtr(), true));
   return Throttle(true, result);
 }
 
@@ -59,7 +59,7 @@ int ThrottlingNetworkTransaction::RestartWithDirect(
 
   callback_ = std::move(callback);
   int result = network_transaction_->RestartWithDirect(base::BindOnce(
-      &ThrottlingNetworkTransaction::IOCallback, base::Unretained(this), true));
+      &ThrottlingNetworkTransaction::IOCallback, weak_ptr_factory_.GetWeakPtr(), true));
   return Throttle(true, result);
 }
 #endif
