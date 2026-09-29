@@ -13,22 +13,23 @@
  * limitations under the License.
  */
 
-#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
-
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
+#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/test/scoped_command_line.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/text.h"
+#include "third_party/blink/renderer/core/frame/cached_permission_status.h"
+#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/testing/mock_clipboard_host.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
-
-#include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
-#include "base/command_line.h"
-
-#include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
-#include "third_party/blink/renderer/core/frame/cached_permission_status.h"
 
 namespace blink {
 
@@ -43,7 +44,7 @@ using MojoPermissionStatus = mojom::blink::PermissionStatus;
 
 namespace {
 class MockPermissionService : public PermissionService {
-public:
+ public:
   explicit MockPermissionService() = default;
   ~MockPermissionService() override = default;
 
@@ -97,13 +98,13 @@ public:
                            const String& event_type,
                            bool is_added) override {}
 
-private:
+ private:
   mojo::ReceiverSet<PermissionService> receivers_;
 };
 }  // namespace
 
 class DocumentExecCommandUnitTest : public RenderingTest {
-public:
+ public:
   DocumentExecCommandUnitTest() {
     mock_permission_service_ = std::make_unique<MockPermissionService>();
   }
@@ -129,16 +130,16 @@ public:
   void SetNWebExCommandLineSwitch(bool enabled) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
     if (enabled) {
-      base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      scoped_command_line_.GetProcessCommandLine()->AppendSwitch(
           switches::kEnableNwebEx);
     } else {
-      base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      scoped_command_line_.GetProcessCommandLine()->RemoveSwitch(
           switches::kEnableNwebEx);
     }
 #endif  // BUILDFLAG(ARKWEB_NWEB_EX)
   }
 
-protected:
+ protected:
   HTMLTextAreaElement& TestElement() {
     Element* element = GetDocument().getElementById(AtomicString("test"));
     DCHECK(element);
@@ -146,11 +147,13 @@ protected:
   }
 
   mojom::blink::ClipboardHost* ClipboardHost() {
-    return clipboard_provider_ ? clipboard_provider_->clipboard_host() : nullptr;
+    return clipboard_provider_ ? clipboard_provider_->clipboard_host()
+                               : nullptr;
   }
 
   std::unique_ptr<MockPermissionService> mock_permission_service_;
   std::unique_ptr<PageTestBase::MockClipboardHostProvider> clipboard_provider_;
+  base::test::ScopedCommandLine scoped_command_line_;
 };
 
 TEST_F(DocumentExecCommandUnitTest, CutAndPasteTest) {
@@ -219,6 +222,25 @@ TEST_F(DocumentExecCommandUnitTest, CopyInFocusedTest) {
   mock_permission_service_->permission_ = MojoPermissionStatus::GRANTED;
   ASSERT_TRUE(doc.execCommand("copy", false, "", ASSERT_NO_EXCEPTION));
 #endif  // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+}
+
+TEST_F(DocumentExecCommandUnitTest, CopyWithNWebExDisabledTest) {
+#if BUILDFLAG(ARKWEB_CLIPBOARD)
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  SetNWebExCommandLineSwitch(false);
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
+
+  Document& doc = GetDocument();
+  SetBodyContent("<textarea id=test>clipboard text</textarea>");
+  HTMLTextAreaElement& textarea = TestElement();
+  textarea.Focus();
+  GetFocusController().SetActive(true);
+  GetFocusController().SetFocused(true);
+  GetFrame().GetSettings()->SetJavaScriptCanAccessClipboard(true);
+
+  ASSERT_TRUE(doc.execCommand("selectall", false, "", ASSERT_NO_EXCEPTION));
+  EXPECT_TRUE(doc.execCommand("copy", false, "", ASSERT_NO_EXCEPTION));
+#endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
 }
 
 }  // namespace blink

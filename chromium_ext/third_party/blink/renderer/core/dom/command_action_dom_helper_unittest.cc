@@ -17,28 +17,79 @@
 
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
+#include <array>
+#include <string>
+#include <string_view>
+
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/dom/command_action_dom_helper.h"
 #include "arkweb/ohos_nweb/include/nweb_errors.h"
+#include "base/unguessable_token.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
-#include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "ui/gfx/geometry/size.h"
 
 using OHOS::NWeb::WebCommandErrorCode;
 
 namespace blink {
 
-class CommandActionDOMHelperTest : public PageTestBase {
+// FindElementById needs a WebLocalFrame. PageTestBase only creates an internal
+// LocalFrame, for which WebLocalFrameImpl::FromFrame() may return nullptr.
+class CommandActionDOMHelperSimTest : public SimTest {
  protected:
-  void SetUp() override { PageTestBase::SetUp(gfx::Size(800, 600)); }
+  void SetUp() override {
+    SimTest::SetUp();
+    ResizeView(gfx::Size(800, 600));
+  }
+
+  WebLocalFrame* WebFrame() { return &MainFrame(); }
+
+  void SetBodyContent(const std::string& body_content) {
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+        String::FromUTF8(body_content));
+    UpdateAllLifecyclePhasesForTest();
+  }
+
+  void UpdateAllLifecyclePhasesForTest() {
+    GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  }
 };
+
+class CommandActionDOMHelperTest : public CommandActionDOMHelperSimTest {
+ protected:
+  void SetUp() override {
+    CommandActionDOMHelperSimTest::SetUp();
+    WebFrame()->SetEmbeddingToken(base::UnguessableToken::Create());
+  }
+
+  std::string ElementId(Element& element,
+                        std::string_view frame_token_prefix = {}) {
+    const FrameToken& token = WebFrame()->GetFrameToken();
+    EXPECT_TRUE(token.Is<LocalFrameToken>());
+    EXPECT_TRUE(WebFrame()->GetEmbeddingToken().has_value());
+    if (!token.Is<LocalFrameToken>() ||
+        !WebFrame()->GetEmbeddingToken().has_value()) {
+      return std::string();
+    }
+    return std::string(frame_token_prefix) +
+           token.GetAs<LocalFrameToken>().ToString() + "|" +
+           WebFrame()->GetEmbeddingToken()->ToString() + "|" +
+           std::to_string(element.GetDomNodeId());
+  }
+};
+
+class CommandActionDOMHelperWithoutEmbeddingTokenTest
+    : public CommandActionDOMHelperSimTest {};
 
 // ===== FindElementByXPath Tests =====
 
@@ -77,6 +128,147 @@ TEST_F(CommandActionDOMHelperTest, FindElementByXPath_InvalidXPath) {
   Element* result = CommandActionDOMHelper::FindElementByXPath(
       &GetDocument(), "///[invalid[[[");
   EXPECT_EQ(result, nullptr);
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementByXPath_NonElementNode) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><div>hello</div></body>");
+
+  Element* result = CommandActionDOMHelper::FindElementByXPath(&GetDocument(),
+                                                               "//div/text()");
+  EXPECT_EQ(nullptr, result);
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementById_InvalidIdentifiers) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  const std::array<std::string_view, 7> invalid_ids = {
+      "",
+      "frame|scope",
+      "frame|scope|",
+      "|scope|1",
+      "frame||1",
+      "frame|scope|0",
+      "frame|scope|not-a-number"};
+
+  for (std::string_view id : invalid_ids) {
+    int32_t error_code = static_cast<int32_t>(WebCommandErrorCode::FAILED);
+    EXPECT_EQ(nullptr,
+              CommandActionDOMHelper::FindElementById(
+                  WebFrame(), &GetDocument(), std::string(id), &error_code));
+    EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID),
+              error_code);
+  }
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementById_TokenMismatch) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  Element* const input = GetDocument().getElementById(AtomicString("name"));
+  ASSERT_NE(nullptr, input);
+  const std::string valid_id = ElementId(*input);
+  ASSERT_FALSE(valid_id.empty());
+  const size_t first_separator = valid_id.find('|');
+  ASSERT_NE(std::string::npos, first_separator);
+
+  int32_t error_code = static_cast<int32_t>(WebCommandErrorCode::FAILED);
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(),
+                         "different-frame" + valid_id.substr(first_separator),
+                         &error_code));
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND),
+            error_code);
+
+  const size_t last_separator = valid_id.rfind('|');
+  ASSERT_NE(std::string::npos, last_separator);
+  const std::string wrong_document_id =
+      valid_id.substr(0, first_separator + 1) + "different-document" +
+      valid_id.substr(last_separator);
+  EXPECT_EQ(nullptr,
+            CommandActionDOMHelper::FindElementById(
+                WebFrame(), &GetDocument(), wrong_document_id, &error_code));
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND),
+            error_code);
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementById_ElementFoundWithPrefixes) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  Element* const input = GetDocument().getElementById(AtomicString("name"));
+  ASSERT_NE(nullptr, input);
+
+  for (std::string_view prefix :
+       {std::string_view(), std::string_view("local:"),
+        std::string_view("remote:")}) {
+    int32_t error_code = static_cast<int32_t>(WebCommandErrorCode::FAILED);
+    EXPECT_EQ(input, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(), ElementId(*input, prefix),
+                         &error_code));
+    EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SUCCESS), error_code);
+  }
+
+  EXPECT_EQ(input, CommandActionDOMHelper::FindElementById(
+                       WebFrame(), &GetDocument(), ElementId(*input), nullptr));
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementById_NodeNotFound) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+  Element* const input = GetDocument().getElementById(AtomicString("name"));
+  ASSERT_NE(nullptr, input);
+  std::string id = ElementId(*input);
+  id.replace(id.rfind('|') + 1, std::string::npos, "2147483647");
+
+  int32_t error_code = static_cast<int32_t>(WebCommandErrorCode::FAILED);
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(), id, &error_code));
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND),
+            error_code);
+}
+
+TEST_F(CommandActionDOMHelperTest, FindElementById_NullErrorCodeOnFailures) {
+  SetBodyContent("<input id='name' type='text'>");
+  Element* const input = GetDocument().getElementById(AtomicString("name"));
+  ASSERT_NE(nullptr, input);
+  const std::string valid_id = ElementId(*input);
+  ASSERT_FALSE(valid_id.empty());
+
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         nullptr, &GetDocument(), valid_id, nullptr));
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(), "invalid", nullptr));
+
+  const size_t first_separator = valid_id.find('|');
+  ASSERT_NE(std::string::npos, first_separator);
+  EXPECT_EQ(nullptr,
+            CommandActionDOMHelper::FindElementById(
+                WebFrame(), &GetDocument(),
+                "different-frame" + valid_id.substr(first_separator), nullptr));
+
+  std::string missing_node_id = valid_id;
+  missing_node_id.replace(missing_node_id.rfind('|') + 1, std::string::npos,
+                          "2147483647");
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(), missing_node_id, nullptr));
+}
+
+TEST_F(CommandActionDOMHelperWithoutEmbeddingTokenTest,
+       FindElementById_WithoutEmbeddingToken) {
+  SetBodyContent("<input id='name' type='text'>");
+  Element* const input = GetDocument().getElementById(AtomicString("name"));
+  ASSERT_NE(nullptr, input);
+  ASSERT_FALSE(WebFrame()->GetEmbeddingToken().has_value());
+  const FrameToken& token = WebFrame()->GetFrameToken();
+  ASSERT_TRUE(token.Is<LocalFrameToken>());
+  const std::string id = token.GetAs<LocalFrameToken>().ToString() +
+                         "|document-scope|" +
+                         std::to_string(input->GetDomNodeId());
+
+  int32_t error_code = static_cast<int32_t>(WebCommandErrorCode::FAILED);
+  EXPECT_EQ(nullptr, CommandActionDOMHelper::FindElementById(
+                         WebFrame(), &GetDocument(), id, &error_code));
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND),
+            error_code);
 }
 
 // ===== ExecuteInput Tests =====
@@ -141,9 +333,20 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInput_InvalidValueForNumberType) {
                         WebCommandErrorCode::INPUT_VALUE_FORMAT_INVALID));
 }
 
+TEST_F(CommandActionDOMHelperTest, ExecuteInput_EmptySanitizedValue) {
+  GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body><input id='name' type='text'></body>");
+
+  EXPECT_EQ(
+      static_cast<int32_t>(WebCommandErrorCode::INPUT_VALUE_FORMAT_INVALID),
+      CommandActionDOMHelper::ExecuteInput(
+          &GetDocument(), "//input[@id='name']", "", "input-text"));
+}
+
 // ===== ExecuteAIPageInput Tests =====
 
-TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_DefaultTypeSuccess) {
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteAIPageInputByXPath_DefaultTypeSuccess) {
   GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
       "<body><input id='name' type='text'></body>");
   UpdateAllLifecyclePhasesForTest();
@@ -152,8 +355,8 @@ TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_DefaultTypeSuccess)
       &GetDocument(), "//input[@id='name']", "hello-default", "default");
   EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
 
-  auto* input = To<HTMLInputElement>(
-      GetDocument().getElementById(AtomicString("name")));
+  auto* input =
+      To<HTMLInputElement>(GetDocument().getElementById(AtomicString("name")));
   ASSERT_NE(input, nullptr);
   EXPECT_EQ(input->Value(), "hello-default");
 }
@@ -167,6 +370,57 @@ TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_UnsupportedType) {
       &GetDocument(), "//input[@id='name']", "hello", "datetime");
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::INPUT_TYPE_INVALID));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_ElementNotFound) {
+  SetBodyContent("<div>no input</div>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND),
+            CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+                &GetDocument(), "//input", "hello", "default"));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_NotInputElement) {
+  SetBodyContent("<div id='target'>not input</div>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH),
+            CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+                &GetDocument(), "//div[@id='target']", "hello", "default"));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteAIPageInputByXPath_ActualInputTypeUnsupported) {
+  SetBodyContent("<input id='target' type='checkbox'>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::INPUT_TYPE_INVALID),
+            CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+                &GetDocument(), "//input[@id='target']", "true", "default"));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_TypeMismatch) {
+  SetBodyContent("<input id='target' type='email'>");
+  EXPECT_EQ(
+      static_cast<int32_t>(WebCommandErrorCode::INPUT_EVENT_TYPE_MISMATCH),
+      CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+          &GetDocument(), "//input[@id='target']", "user@example.com", "text"));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputByXPath_InvalidValue) {
+  SetBodyContent("<input id='target' type='number'>");
+  EXPECT_EQ(
+      static_cast<int32_t>(WebCommandErrorCode::INPUT_VALUE_FORMAT_INVALID),
+      CommandActionDOMHelper::ExecuteAIPageInputByXPath(
+          &GetDocument(), "//input[@id='target']", "not-a-number", "number"));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputById_Success) {
+  SetBodyContent("<input id='target' type='email'>");
+  auto* const input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, input);
+
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SUCCESS),
+            CommandActionDOMHelper::ExecuteAIPageInputById(
+                WebFrame(), &GetDocument(), ElementId(*input),
+                "user@example.com", "email"));
+  EXPECT_EQ("user@example.com", input->Value());
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteAIPageInputById_PageNotReady) {
@@ -353,6 +607,12 @@ TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_ByIndexes) {
   int32_t result = CommandActionDOMHelper::ExecuteSelect(
       &GetDocument(), "//select[@id='color']", {0, 2}, {});
   EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  auto* const select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("color")));
+  ASSERT_NE(nullptr, select);
+  EXPECT_TRUE(select->item(0)->Selected());
+  EXPECT_FALSE(select->item(1)->Selected());
+  EXPECT_TRUE(select->item(2)->Selected());
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_ByValues) {
@@ -367,11 +627,81 @@ TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_ByValues) {
   int32_t result = CommandActionDOMHelper::ExecuteSelect(
       &GetDocument(), "//select[@id='color']", {}, {"red", "green"});
   EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  auto* const select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("color")));
+  ASSERT_NE(nullptr, select);
+  EXPECT_TRUE(select->item(0)->Selected());
+  EXPECT_FALSE(select->item(1)->Selected());
+  EXPECT_TRUE(select->item(2)->Selected());
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteSelect_MultipleSelect_IndexOutOfRange) {
+  SetBodyContent(
+      "<select id='color' multiple>"
+      "<option value='red'>Red</option>"
+      "<option value='blue'>Blue</option>"
+      "</select>");
+  EXPECT_EQ(
+      static_cast<int32_t>(WebCommandErrorCode::SELECT_INDEX_OUT_OF_RANGE),
+      CommandActionDOMHelper::ExecuteSelect(
+          &GetDocument(), "//select[@id='color']", {0, 2}, {}));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_DisabledIndex) {
+  SetBodyContent(
+      "<select id='color' multiple>"
+      "<option value='red'>Red</option>"
+      "<option value='blue' disabled>Blue</option>"
+      "</select>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SELECT_OPTION_DISABLED),
+            CommandActionDOMHelper::ExecuteSelect(
+                &GetDocument(), "//select[@id='color']", {0, 1}, {}));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_ValueNotFound) {
+  SetBodyContent(
+      "<select id='color' multiple>"
+      "<option value='red'>Red</option>"
+      "</select>");
+  EXPECT_EQ(
+      static_cast<int32_t>(WebCommandErrorCode::SELECT_VALUE_NOT_FOUND),
+      CommandActionDOMHelper::ExecuteSelect(
+          &GetDocument(), "//select[@id='color']", {}, {"red", "missing"}));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelect_MultipleSelect_DisabledValue) {
+  SetBodyContent(
+      "<select id='color' multiple>"
+      "<option value='red'>Red</option>"
+      "<option value='blue' disabled>Blue</option>"
+      "</select>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SELECT_OPTION_DISABLED),
+            CommandActionDOMHelper::ExecuteSelect(
+                &GetDocument(), "//select[@id='color']", {}, {"red", "blue"}));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteSelect_MultipleSelect_DuplicateValueUsesFirstOption) {
+  SetBodyContent(
+      "<select id='color' multiple>"
+      "<option value='red'>First red</option>"
+      "<option value='red'>Second red</option>"
+      "</select>");
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SUCCESS),
+            CommandActionDOMHelper::ExecuteSelect(
+                &GetDocument(), "//select[@id='color']", {}, {"red"}));
+  auto* const select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("color")));
+  ASSERT_NE(nullptr, select);
+  EXPECT_TRUE(select->item(0)->Selected());
+  EXPECT_FALSE(select->item(1)->Selected());
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_PageNotReady) {
   GetDocument().documentElement()->SetInnerHTMLWithoutTrustedTypes(
-      "<body><select id='color'><option value='red'>Red</option></select></body>");
+      "<body><select id='color'><option "
+      "value='red'>Red</option></select></body>");
   UpdateAllLifecyclePhasesForTest();
 
   int32_t result = CommandActionDOMHelper::ExecuteSelectById(
@@ -1079,6 +1409,51 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputSetCursor_NonEditableElement) {
       &GetDocument(), 0);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_SuccessAndEmptyOptions) {
+  SetBodyContent(
+      "<select id='color'>"
+      "<option value='red'>Red</option>"
+      "<option value='blue'>Blue</option>"
+      "</select>");
+  auto* const select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("color")));
+  ASSERT_NE(nullptr, select);
+  const std::string id = ElementId(*select);
+
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SUCCESS),
+            CommandActionDOMHelper::ExecuteSelectById(
+                WebFrame(), &GetDocument(), id, {}, {"blue"}));
+  EXPECT_EQ(1, select->selectedIndex());
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SELECT_EMPTY_OPTIONS),
+            CommandActionDOMHelper::ExecuteSelectById(
+                WebFrame(), &GetDocument(), id, {}, {}));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_IndexSuccess) {
+  SetBodyContent(
+      "<select id='color'>"
+      "<option value='red'>Red</option>"
+      "<option value='blue'>Blue</option>"
+      "</select>");
+  auto* const select = To<HTMLSelectElement>(
+      GetDocument().getElementById(AtomicString("color")));
+  ASSERT_NE(nullptr, select);
+
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::SUCCESS),
+            CommandActionDOMHelper::ExecuteSelectById(
+                WebFrame(), &GetDocument(), ElementId(*select), {1}, {}));
+  EXPECT_EQ(1, select->selectedIndex());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_ElementTypeMismatch) {
+  SetBodyContent("<input id='target' type='text'>");
+  Element* const input = GetDocument().getElementById(AtomicString("target"));
+  ASSERT_NE(nullptr, input);
+  EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH),
+            CommandActionDOMHelper::ExecuteSelectById(
+                WebFrame(), &GetDocument(), ElementId(*input), {0}, {}));
 }
 
 }  // namespace blink
