@@ -13,6 +13,10 @@
  * limitations under the License.
  */
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #define private public
@@ -179,8 +183,12 @@ class MockLocalFrameClient : public blink::LocalFrameClient {
       SourceLocation* source_location,
       mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle> initiator_navigation_state_keep_alive_handle,
       bool is_container_initiated,
+#if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
       bool has_rel_opener,
-      bool is_triggered_by_js) {};
+      bool is_triggered_by_js) override {}
+#else
+      bool has_rel_opener) override {}
+#endif
 
 #if BUILDFLAG(ARKWEB_ADBLOCK)
   MOCK_METHOD(void, DispatchDidSubresourceFiltered, (), (override));

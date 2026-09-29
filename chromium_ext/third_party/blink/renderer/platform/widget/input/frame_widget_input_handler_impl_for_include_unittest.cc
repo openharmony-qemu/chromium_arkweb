@@ -13,6 +13,10 @@
  * limitations under the License.
  */
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
@@ -110,7 +114,9 @@ class MockFrameWidgetInputHandler : public mojom::blink::FrameWidgetInputHandler
   }
   
   MOCK_METHOD(void, SelectRangeV2, (const gfx::Point&, bool), (override));
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
   MOCK_METHOD(void, ShowFreeCopyMenu, (), (override));
+#endif  // BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 #if BUILDFLAG(ARKWEB_AI)
   MOCK_METHOD(void, OnDataDetectorSelectText, (), (override));
 #endif  // BUILDFLAG(ARKWEB_AI)

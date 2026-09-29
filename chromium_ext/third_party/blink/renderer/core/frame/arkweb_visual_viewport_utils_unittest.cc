@@ -14,6 +14,11 @@
  */
 
 #include "arkweb/build/features/features.h"
+#include "base/test/scoped_feature_list.h"
+#include "cc/base/features.h"
+#include "cc/layers/layer.h"
+#include "third_party/blink/renderer/core/scroll/scrollbar.h"
+#include "third_party/blink/renderer/core/testing/scoped_mock_overlay_scrollbars.h"
 #include "third_party/googletest/src/googletest/include/gtest/gtest.h"
 #if BUILDFLAG(ARKWEB_TEST)
 #define private public
@@ -28,6 +33,13 @@ TEST_P(VisualViewportTest,
        TriggerUpdateAfterLayoutForNonOverlayScrollbar_NullViewport) {
   auto utils = MakeGarbageCollected<ArkWebVisualViewportUtils>(nullptr);
   utils->TriggerUpdateAfterLayoutForNonOverlayScrollbar();
+
+  const ArkWebVisualViewportUtils::ScrollbarAvoidData avoid_data =
+      utils->GetScrollbarAvoidData();
+  EXPECT_EQ(avoid_data.verticalTopAvoidArea, 0);
+  EXPECT_EQ(avoid_data.verticalBootomAvoidArea, 0);
+  EXPECT_EQ(avoid_data.horizontalBottomaAvoidRight, 0);
+  EXPECT_EQ(avoid_data.horizontalBottomaAvoidLeft, 0);
 }
 
 TEST_P(VisualViewportTest,
@@ -207,6 +219,7 @@ TEST_P(VisualViewportTest,
 
 TEST_P(VisualViewportTest,
        TriggerUpdateAfterLayoutForNonOverlayScrollbar_HorizontalScrollbarOnly) {
+  USE_NON_OVERLAY_SCROLLBARS_OR_QUIT();
   InitializeWithDesktopSettings();
   WebView()->MainFrameViewWidget()->Resize(gfx::Size(400, 300));
   WebView()->ResizeWithBrowserControls(
@@ -214,7 +227,16 @@ TEST_P(VisualViewportTest,
       WebView()->GetBrowserControls().Params());
   UpdateAllLifecyclePhases();
 
-  NavigateTo("aboutabout:blank");
+  frame_test_helpers::LoadHTMLString(WebView()->MainFrameImpl(),
+                                     R"HTML(
+        <!DOCTYPE html>
+        <style>
+          html { overflow-x: scroll; overflow-y: hidden; }
+          body { margin: 0; }
+        </style>
+        <div style="width: 800px; height: 1px"></div>
+      )HTML",
+                                     url_test_helpers::ToKURL("about:blank"));
   ForceFullCompositingUpdate();
 
   LocalFrameView* view = WebView()->MainFrameImpl()->GetFrameView();
@@ -223,8 +245,11 @@ TEST_P(VisualViewportTest,
   PaintLayerScrollableArea* layout_viewport = view->LayoutViewport();
   ASSERT_NE(layout_viewport, nullptr);
 
-  bool has_horizontal_scrollbar = layout_viewport->HasHorizontalScrollbar();
-  ASSERT_TRUE(has_horizontal_scrollbar);
+  Scrollbar* horizontal_scrollbar = layout_viewport->HorizontalScrollbar();
+  ASSERT_NE(horizontal_scrollbar, nullptr);
+  ASSERT_FALSE(horizontal_scrollbar->IsOverlayScrollbar());
+  ASSERT_FALSE(layout_viewport->HasVerticalScrollbar());
+  ASSERT_FALSE(view->NeedsLayout());
 
   VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
   auto utils =
@@ -310,6 +335,13 @@ TEST_P(VisualViewportTest, GetScrollbarLayerOrigin_Vertical) {
   ASSERT_GE(origin.x(), 0);
   ASSERT_LT(origin.x(), 400);
   ASSERT_GE(origin.y(), 0);
+
+  Settings* settings = GetFrame()->GetSettings();
+  ASSERT_NE(settings, nullptr);
+  settings->SetIsSystemRtlEnable(true);
+  settings->SetScrollbarLayoutPolicy(static_cast<int>(LayoutPolicy::kSystem));
+  origin = utils->GetScrollbarLayerOrigin(false, scrollbar_thickness);
+  EXPECT_EQ(origin.x(), 0);
 }
 
 TEST_P(VisualViewportTest, GetScrollbarLayerBounds_Horizontal) {
@@ -375,8 +407,86 @@ TEST_P(VisualViewportTest, UpdateScrollbarColorForLayer_LightScheme) {
 
   utils->UpdateScrollbarColorForLayer(*layer);
 
-  SkColor4f color = layer->color();
-  ASSERT_TRUE(color.fA >= 0 && color.fA <= 1);
+  const SkColor4f color = layer->color();
+  EXPECT_FLOAT_EQ(color.fR, 0.0f);
+  EXPECT_FLOAT_EQ(color.fG, 0.0f);
+  EXPECT_FLOAT_EQ(color.fB, 0.0f);
+  EXPECT_FLOAT_EQ(color.fA, 102.0f / 255.0f);
+}
+
+TEST_P(VisualViewportTest, UpdateScrollbarColorForLayer_DarkScheme) {
+  InitializeWithDesktopSettings();
+  NavigateTo("about:blank");
+  ForceFullCompositingUpdate();
+
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  visual_viewport.SetOverlayScrollbarColorScheme(
+      mojom::blink::ColorScheme::kDark);
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  auto layer = cc::SolidColorScrollbarLayer::Create(
+      cc::ScrollbarOrientation::kHorizontal, 10, 0, false);
+
+  utils->UpdateScrollbarColorForLayer(*layer);
+
+  const SkColor4f color = layer->color();
+  EXPECT_FLOAT_EQ(color.fR, 1.0f);
+  EXPECT_FLOAT_EQ(color.fG, 1.0f);
+  EXPECT_FLOAT_EQ(color.fB, 1.0f);
+  EXPECT_FLOAT_EQ(color.fA, 102.0f / 255.0f);
+}
+
+TEST_P(VisualViewportTest, SetupOverlayVisualScrollbarLayer) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(::features::kOverlayVisualScrollbar);
+  InitializeWithDesktopSettings();
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  auto scrollbar_layer = cc::SolidColorScrollbarLayer::Create(
+      cc::ScrollbarOrientation::kVertical, 10, 0, false);
+  scoped_refptr<cc::Layer> scroll_layer = cc::Layer::Create();
+  const cc::ElementId element_id(17);
+  scroll_layer->SetElementId(element_id);
+
+  utils->SetupOverlayVisualScrollbarLayer(*scrollbar_layer, scroll_layer.get());
+
+  EXPECT_EQ(scrollbar_layer->scroll_element_id(), element_id);
+  EXPECT_TRUE(scrollbar_layer->draws_content());
+}
+
+TEST_P(VisualViewportTest, SetupOverlayVisualScrollbarLayerRejectsNullLayer) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(::features::kOverlayVisualScrollbar);
+  InitializeWithDesktopSettings();
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  auto scrollbar_layer = cc::SolidColorScrollbarLayer::Create(
+      cc::ScrollbarOrientation::kVertical, 10, 0, false);
+
+  utils->SetupOverlayVisualScrollbarLayer(*scrollbar_layer, nullptr);
+
+  EXPECT_EQ(scrollbar_layer->scroll_element_id(), cc::ElementId());
+}
+
+TEST_P(VisualViewportTest, SetupOverlayVisualScrollbarLayerFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ::features::kOverlayVisualScrollbar);
+  InitializeWithDesktopSettings();
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  auto scrollbar_layer = cc::SolidColorScrollbarLayer::Create(
+      cc::ScrollbarOrientation::kVertical, 10, 0, false);
+  scoped_refptr<cc::Layer> scroll_layer = cc::Layer::Create();
+  scroll_layer->SetElementId(cc::ElementId(23));
+
+  utils->SetupOverlayVisualScrollbarLayer(*scrollbar_layer, scroll_layer.get());
+
+  EXPECT_EQ(scrollbar_layer->scroll_element_id(), cc::ElementId());
+  EXPECT_FALSE(scrollbar_layer->draws_content());
 }
 #endif
 }  // namespace

@@ -24,6 +24,10 @@
 #include <optional>
 #include <utility>
 
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "third_party/blink/renderer/core/style/computed_style_base.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/computed_style_initial_values.h"
@@ -36,6 +40,7 @@
 
 namespace blink {
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 TEST_F(ContextMenuControllerTest, ShouldShowFreeCopyMenuTest_1stIf) {
   RegisterMockedImageURLLoad("http://test.png");
   ContextMenuAllowedScope context_menu_allowed_scope;
@@ -389,6 +394,7 @@ TEST_F(ContextMenuControllerTest, ShouldShowFreeCopyMenuTest_6thIf) {
   EXPECT_FALSE(result);
   EXPECT_TRUE(ShowContextMenu(location_with_image, kMenuSourceLongPress));
 }
+#endif
 
 TEST_F(ContextMenuControllerTest, GetChildImageUrlFromElementTest_1stIf) {
   const WebElement null_element;
@@ -2212,12 +2218,13 @@ TEST_F(ContextMenuControllerTest, HandleArkWebContextMenuTest_2ndIf) {
   ASSERT_TRUE(ext != nullptr);
 
   ext->HandleArkWebContextMenu(data_, frame_, hit_test_result_,
-                               selected_frame_, kMenuSourceShowFreeCopyMenu);
+                               selected_frame_, kMenuSourceLongPress);
   frame_->SetView(view);
 
   EXPECT_TRUE(data_.image_rect.IsEmpty());
 }
 
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 TEST_F(ContextMenuControllerTest, HandleArkWebContextMenuTest_3rdIf) {
   ContextMenuAllowedScope context_menu_allowed_scope;
 
@@ -2293,6 +2300,7 @@ TEST_F(ContextMenuControllerTest, HandleArkWebContextMenuTest_4thIf) {
 
   EXPECT_TRUE(!data_.is_selectable);
 }
+#endif
 
 TEST_F(ContextMenuControllerTest, HandleArkWebContextMenuTest_5thIf) {
   ContextMenuAllowedScope context_menu_allowed_scope;
@@ -2320,7 +2328,7 @@ TEST_F(ContextMenuControllerTest, HandleArkWebContextMenuTest_5thIf) {
   ext->HandleArkWebContextMenu(data_, nullptr, hit_test_result_,
                                selected_frame_, kMenuSourceTypeLast);
 
-  EXPECT_TRUE(!data_.is_selectable);
+  EXPECT_TRUE(data_.image_rect.IsEmpty());
 }
 
 TEST_F(ContextMenuControllerTest, GetImgUrlTest_001) {
