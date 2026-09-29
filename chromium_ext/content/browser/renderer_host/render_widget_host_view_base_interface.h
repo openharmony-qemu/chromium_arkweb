@@ -64,6 +64,14 @@ class CONTENT_EXPORT RenderWidgetHostViewBaseInterface {
 
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   virtual void SendCurrentLanguage(const std::string& ans) {}
+  // Save/restore language cache for BFCache and clear on navigation. The
+  // concrete implementation lives in ArkWebRenderWidgetHostViewOSRExt.
+  // |is_same_document| and |reload| mirror the conditions in
+  // LanguageState::DidNavigate: same-document navigations and reloads do not
+  // clear the cache (the page content has not changed).
+  virtual void SaveLanguageDetailsForBFCache() {}
+  virtual void RestoreLanguageDetailsForBFCache() {}
+  virtual void ClearLanguageCache(bool is_same_document, bool reload) {}
 #endif
 
 #if BUILDFLAG(ARKWEB_FLING)

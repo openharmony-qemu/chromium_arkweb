@@ -27,9 +27,10 @@
 
 namespace content {
 
-#if BUILDFLAG(ARKWEB_SAME_LAYER)
+#if BUILDFLAG(ARKWEB_SAME_LAYER) || BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 struct GlobalRenderFrameHostId;
 #endif
+
 class RenderFrameHostDelegateExt {
  public:
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
@@ -54,12 +55,14 @@ class RenderFrameHostDelegateExt {
       const NativeEmbedInfo& native_embed_info,
       NativeEmbedInfo::TagState state) {}
 
+  virtual void OnNativeEmbedObjectParamChange(
+      const NativeEmbedParamDataInfo& native_param_info) {}
+#endif
+#if BUILDFLAG(ARKWEB_SAME_LAYER) || BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   virtual void OnRenderFrameHostEnterBackForwardCache(
       const GlobalRenderFrameHostId& id) {}
   virtual void OnRenderFrameHostLeaveBackForwardCache(
       const GlobalRenderFrameHostId& id) {}
-  virtual void OnNativeEmbedObjectParamChange(
-      const NativeEmbedParamDataInfo& native_param_info) {}
 #endif
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
   // Notified to UI, contextmenu popup window should be dimissed
