@@ -88,6 +88,7 @@ struct NWebDevtoolsMessageHandlerBase {
                                        int width,
                                        int height) = nullptr;
   bool (T::*set_dock_mode)(int mode) = nullptr;
+  bool (T::*show_certificate_viewer)(const char* cert_chain) = nullptr;
 
   NWebDevtoolsMessageHandlerBase() = default;
   NWebDevtoolsMessageHandlerBase(const NWebDevtoolsMessageHandlerBase& other) =
@@ -118,6 +119,8 @@ struct NWebDevtoolsMessageHandler
     this->set_inspected_page_bounds =
         &NWebDevtoolsMessageHandler::SetInspectedPageBounds;
     this->set_dock_mode = &NWebDevtoolsMessageHandler::SetDockMode;
+    this->show_certificate_viewer = 
+        &NWebDevtoolsMessageHandler::ShowCertificateViewer;
   }
   virtual ~NWebDevtoolsMessageHandler() = default;
 
@@ -148,6 +151,7 @@ struct NWebDevtoolsMessageHandler
                                       int width,
                                       int height) { return false; }
   virtual bool SetDockMode(int mode) { return false; }
+  virtual bool ShowCertificateViewer(const char* cert_chain) { return false; }
 
  private:
   static_assert(offsetof(Base, struct_size) == 0,
@@ -184,6 +188,14 @@ struct NWebDevtoolsMessageHandler
   static_assert((offsetof(Base, set_dock_mode) -
                  offsetof(Base, set_inspected_page_bounds)) ==
                     sizeof(Base::set_inspected_page_bounds),
+                "Must NOT break the order of Base members.");
+  static_assert((offsetof(Base, show_certificate_viewer) -
+                 offsetof(Base, set_dock_mode)) ==
+                    sizeof(Base::set_dock_mode),
+                "Must NOT break the order of Base members.");
+  static_assert((sizeof(Base) -
+                 offsetof(Base, show_certificate_viewer)) ==
+                    sizeof(Base::show_certificate_viewer),
                 "Must NOT break the order of Base members.");
 };
 
