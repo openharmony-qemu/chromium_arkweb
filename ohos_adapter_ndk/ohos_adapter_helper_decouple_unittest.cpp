@@ -167,6 +167,12 @@ public:
     virtual ArkWebRefPtr<ArkSurfaceControlAdapter> GetSurfaceControlAdapter() {return nullptr;}
     virtual ArkWebRefPtr<ArkSurfaceTransactionAdapter> GetSurfaceTransactionAdapter() {return nullptr;}
     virtual ArkWebRefPtr<ArkHiViewDfxAdapter> GetHiViewDfxAdapterInstance() {return nullptr;}
+#if __has_include("ohos_adapter/bridge/ark_vpe_video_adapter_wrapper.h")
+    // TODO(arkweb): Remove this compatibility guard before upstreaming.
+    virtual ArkWebRefPtr<ArkVpeVideoAdapter> GetVpeVideoAdapter() {
+      return nullptr;
+    }
+#endif
     virtual ArkWebRefPtr<ArkVpeVideoAdapter> CreateVpeVideoAdapter() {return nullptr;}
 };
 
@@ -300,4 +306,33 @@ TEST_F(ArkOhosAdapterHelperWrapperTest, CreateVpeVideoAdapter) {
     EXPECT_NE(wrapper->CreateVpeVideoAdapter(), nullptr);
     EXPECT_EQ(testWrapper->CreateVpeVideoAdapter(), nullptr);
 }
+
+TEST_F(ArkOhosAdapterHelperWrapperTest, NullBridgeReturnsNullAdapters) {
+  ArkOhosAdapterHelperWrapper nullWrapper(nullptr);
+
+  EXPECT_EQ(nullWrapper.CreateAafwkAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateDisplayMgrAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateMMIAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateSocPerfClientAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.GetResourceAdapter("/data/test"), nullptr);
+  EXPECT_EQ(nullWrapper.GetInitWebAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateIMFAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.GetCertManagerAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.GetEventHandlerAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateFlowbufferAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateMigrationMgrAdapter(), nullptr);
+  EXPECT_EQ(nullWrapper.CreateScreenlockManagerAdapter(), nullptr);
+  nullWrapper.SetArkWebCoreHapPathOverride("/data/test");
+}
+
+TEST_F(ArkOhosAdapterHelperWrapperTest, UnsupportedAdaptersReturnNull) {
+  EXPECT_EQ(testWrapper->CreatePowerMgrClientAdapter(), nullptr);
+  EXPECT_EQ(testWrapper->CreateAudioRendererAdapter(), nullptr);
+}
+
+TEST_F(ArkOhosAdapterHelperWrapperTest,
+       PlayerAdapterReturnsNullForNullBridgeResult) {
+  EXPECT_EQ(testWrapper->CreatePlayerAdapter(), nullptr);
+}
+
 }   // namespace OHOS::Nweb

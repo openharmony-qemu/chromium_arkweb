@@ -16,6 +16,18 @@ config("mock_ndk_api_config") {
   ldflags = [ 
     "-Wl,--wrap=OH_Input_CreateDeviceInfo",
     "-Wl,--wrap=OH_Input_GetDeviceIds",
+    "-Wl,--wrap=OH_Input_GetDevice",
+    "-Wl,--wrap=OH_Input_DestroyDeviceInfo",
+    "-Wl,--wrap=OH_Input_GetKeyboardType",
+    "-Wl,--wrap=OH_Input_GetCapabilities",
+    "-Wl,--wrap=OH_Input_RegisterDeviceListener",
+    "-Wl,--wrap=OH_Input_UnregisterDeviceListener",
+    "-Wl,--wrap=OH_Input_GetDeviceId",
+    "-Wl,--wrap=OH_Input_GetDeviceVersion",
+    "-Wl,--wrap=OH_Input_GetDeviceProduct",
+    "-Wl,--wrap=OH_Input_GetDeviceVendor",
+    "-Wl,--wrap=OH_Input_GetDeviceName",
+    "-Wl,--wrap=OH_Input_GetDeviceAddress",
     "-Wl,--wrap=OH_NetConn_GetDefaultHttpProxy",
     "-Wl,--wrap=OH_CommonEvent_GetEventFromRcvData",
     "-Wl,--wrap=OH_Telephony_GetDefaultCellularDataSlotId",
@@ -27,6 +39,7 @@ config("mock_ndk_api_config") {
     "-Wl,--wrap=OH_NetConn_GetAllNets",
     "-Wl,--wrap=OH_NetConn_GetNetCapabilities",
     "-Wl,--wrap=OH_NetConn_RegisterAppHttpProxyCallback",
+    "-Wl,--wrap=OH_NetConn_UnregisterAppHttpProxyCallback",
   ]
 
   ldflags += [
