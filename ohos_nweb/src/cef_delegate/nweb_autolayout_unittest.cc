@@ -20,6 +20,9 @@
 #include <sstream>
 #include "base/files/file_path.h"
 #include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "cef/include/cef_base.h"
 #include "cef/include/cef_browser.h"
 #include "cef/ohos_cef_ext/include/arkweb_browser_ext.h"
@@ -394,14 +397,17 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool GetSavePassword() override { return false; }
   void SetSavePassword(bool) override {}
   int GetSecurityLevel() override { return 0; }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsing(bool) override {}
   bool IsSafeBrowsingEnabled() override { return false; }
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableIntelligentTrackingPrevention(bool) override {}
   bool IsIntelligentTrackingPreventionEnabled() override { return false; }
   bool IsAdsBlockEnabled() override { return false; }
   bool IsAdsBlockEnabledForCurPage() override { return false; }
   void EnableAdsBlock(bool) override {}
   int SetUrlTrustListWithErrMsg(const CefString&, bool, bool, CefString&) override { return 0; }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsingDetection(bool, bool) override {}
   void EnableSafeBrowsingExternalInterstitial(bool) override {}
   bool IsSafeBrowsingExternalInterstitialEnabled() const override { return false; }
@@ -409,6 +415,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SafeBrowsingResponseProceed(int64_t response_key) const override {}
   void SafeBrowsingResponseBackToSafety(int64_t response_key) const override {}
   void SafeBrowsingResponseDelete(int64_t response_key) override {}
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   int InsertBackForwardEntry(int, const CefString&) override { return 0; }
   int UpdateNavigationEntryUrl(int, const CefString&) override { return 0; }
@@ -489,7 +496,9 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool Release() const override { return false; }
   bool HasOneRef() const override { return false; }
   bool HasAtLeastOneRef() const override { return false; }
+#if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   int32_t GetLastCommittedEntryPageTransition() override { return 0; }
+#endif  // BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
   void SetAsyncStackId(uint64_t stackId) override {}
 #endif

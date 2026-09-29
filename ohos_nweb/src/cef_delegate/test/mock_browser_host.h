@@ -24,6 +24,9 @@
 #include <vector>
 
 #include "arkweb/build/features/features.h"
+#if BUILDFLAG(IS_ARKWEB_EXT)
+#include "arkweb/ohos_nweb_ex/build/features/features.h"
+#endif
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/values.h"
@@ -627,8 +630,10 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(bool, GetSavePassword, (), (override));
   MOCK_METHOD(void, SetSavePassword, (bool), (override));
   MOCK_METHOD(int, GetSecurityLevel, (), (override));
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   MOCK_METHOD(void, EnableSafeBrowsing, (bool), (override));
   MOCK_METHOD(bool, IsSafeBrowsingEnabled, (), (override));
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
   MOCK_METHOD(void, EnableIntelligentTrackingPrevention, (bool), (override));
   MOCK_METHOD(bool, IsIntelligentTrackingPreventionEnabled, (), (override));
   MOCK_METHOD(bool, IsAdsBlockEnabled, (), (override));
@@ -638,6 +643,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               SetUrlTrustListWithErrMsg,
               (const CefString&, bool, bool, CefString&),
               (override));
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   MOCK_METHOD(void, EnableSafeBrowsingDetection, (bool, bool), (override));
   MOCK_METHOD(void,
               OnSafeBrowsingDetectionResult,
@@ -661,6 +667,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               SafeBrowsingResponseDelete,
               (int64_t),
               (override));
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 #if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   MOCK_METHOD(int, InsertBackForwardEntry, (int, const CefString&), (override));
   MOCK_METHOD(int,
@@ -825,7 +832,9 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(void, EnableAppLinking, (bool), (override));
   MOCK_METHOD(bool, IsAppLinkingEnabled, (), (const, override));
 #endif
+#if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   MOCK_METHOD(int32_t, GetLastCommittedEntryPageTransition, (), (override));
+#endif  // BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
 #if BUILDFLAG(ARKWEB_SCREEN_OFFSET)
   MOCK_METHOD(void, NotifyScreenInfoChangedV2, (), (override));
 #endif  // BUILDFLAG(ARKWEB_SCREEN_OFFSET)

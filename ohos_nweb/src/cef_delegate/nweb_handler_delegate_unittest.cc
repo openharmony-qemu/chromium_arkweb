@@ -221,6 +221,7 @@ class MockCefBrowser : public ArkWebBrowserExt {
   bool GetSavePassword() override { return false; }
   void SetSavePassword(bool enable) override {}
   int GetSecurityLevel() override { return 0; }
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsing(bool enable) override {}
   void OnSafeBrowsingDetectionResult(
         const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) override {}
@@ -229,6 +230,7 @@ class MockCefBrowser : public ArkWebBrowserExt {
   void SafeBrowsingResponseBackToSafety(int64_t response_key) const override {}
   void SafeBrowsingResponseDelete(int64_t response_key) override {}
   bool IsSafeBrowsingEnabled() override { return false; }
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableIntelligentTrackingPrevention(bool enable) override {}
   bool IsIntelligentTrackingPreventionEnabled() override { return false; }
   bool IsAdsBlockEnabled() override { return false; }
@@ -247,12 +249,16 @@ class MockCefBrowser : public ArkWebBrowserExt {
   void DispatchBeforeUnload() override {}
   void ShowFreeCopyMenu() override {}
   bool ShouldShowFreeCopyMenu() override {}
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override {}
   void EnableSafeBrowsingExternalInterstitial(bool) override {}
   bool IsSafeBrowsingExternalInterstitialEnabled() const override { return false; }
+#endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
+#if BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   int InsertBackForwardEntry(int index, const CefString& url) override {}
   int UpdateNavigationEntryUrl(int index, const CefString& url) override {}
   void ClearForwardList() override {}
+#endif  // BUILDFLAG(ARKWEB_EXT_NAVIGATION)
   void ExtensionSetTabId(int tab_id) override {}
   int ExtensionGetTabId() override {}
   uint32_t GetAcceleratedWidget(bool isPopup) override {}

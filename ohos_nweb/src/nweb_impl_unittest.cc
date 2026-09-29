@@ -590,12 +590,14 @@ TEST_F(NWebImplTest, OnStylusTouchMove005) {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_NWEB_EX)
 TEST_F(NWebImplTest, GetLastHitTestResultForBrowser001) {
   EXPECT_NE(nweb_impl_->GetLastHitTestResultForBrowser(), nullptr);
 
   nweb_impl_->nweb_delegate_ = mock_delegate_;
   EXPECT_EQ(nweb_impl_->GetLastHitTestResultForBrowser(), nullptr);
 }
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
 
 TEST_F(NWebImplTest, OnReportStatisticLog001) {
   nweb_impl_->OnReportStatisticLog("123");
