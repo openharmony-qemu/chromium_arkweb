@@ -121,17 +121,20 @@ void MediaStreamManagerExt::DisableSessionReuse() {
 
 void MediaStreamManagerExt::SendScreenCaptureState(const std::string& session_id,
                                                    int32_t state) {
-  std::lock_guard<std::mutex> lock(nweb_id_mutex_);
-  auto nweb_id_it = nweb_id_maps_.find(session_id);
-  if (nweb_id_it == nweb_id_maps_.end()) {
-    SessionIdState session_id_state;
-    session_id_state.session_id = session_id;
-    session_id_state.state = static_cast<ScreenCaptureState>(state);
-    session_id_state_.push_back(session_id_state);
-    return;
+  int32_t nweb_id = 0;
+  {
+    std::lock_guard<std::mutex> lock(nweb_id_mutex_);
+    auto nweb_id_it = nweb_id_maps_.find(session_id);
+    if (nweb_id_it == nweb_id_maps_.end()) {
+      SessionIdState session_id_state;
+      session_id_state.session_id = session_id;
+      session_id_state.state = static_cast<ScreenCaptureState>(state);
+      session_id_state_.push_back(session_id_state);
+      return;
+    }
+    nweb_id = nweb_id_it->second;
   }
-  MediaStreamManagerExt::SendScreenCaptureStateToNative(nweb_id_it->second,
-                                                        session_id, state);
+  MediaStreamManagerExt::SendScreenCaptureStateToNative(nweb_id, session_id, state);
 }
 
 // static
@@ -172,22 +175,28 @@ void MediaStreamManagerExt::RemoveNWebIdBySession(const base::UnguessableToken& 
 }
 
 void MediaStreamManagerExt::AddNWebIdBySession(int32_t nweb_id, const base::UnguessableToken& session_id) {
-  std::lock_guard<std::mutex> lock(nweb_id_mutex_);
   std::string session_id_str = session_id.ToString();
-  auto nweb_id_it = nweb_id_maps_.find(session_id_str);
-  if (nweb_id_it == nweb_id_maps_.end()) {
-    for (auto state_it = session_id_state_.begin();
-        state_it != session_id_state_.end();) {
-      if (state_it->session_id == session_id_str) {
-        MediaStreamManagerExt::SendScreenCaptureStateToNative(
-            nweb_id, state_it->session_id, state_it->state);
-        state_it = session_id_state_.erase(state_it);
-      } else {
-        state_it++;
+  std::vector<SessionIdState> pending_states;
+  {
+    std::lock_guard<std::mutex> lock(nweb_id_mutex_);
+    auto nweb_id_it = nweb_id_maps_.find(session_id_str);
+    if (nweb_id_it == nweb_id_maps_.end()) {
+      for (auto state_it = session_id_state_.begin();
+          state_it != session_id_state_.end();) {
+        if (state_it->session_id == session_id_str) {
+          pending_states.push_back(*state_it);
+          state_it = session_id_state_.erase(state_it);
+        } else {
+          state_it++;
+        }
       }
     }
+    nweb_id_maps_[session_id_str] = nweb_id;
   }
-  nweb_id_maps_[session_id_str] = nweb_id;
+  for (const auto& pending : pending_states) {
+    MediaStreamManagerExt::SendScreenCaptureStateToNative(
+        nweb_id, pending.session_id, pending.state);
+  }
 }
 #endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
 
