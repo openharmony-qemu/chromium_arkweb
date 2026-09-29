@@ -23,6 +23,7 @@
 #include "content/browser/permissions/permission_controller_impl.h"
 #include "content/browser/permissions/permission_service_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/permission_controller_delegate.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/test/browser_task_environment.h"
@@ -39,7 +40,7 @@
 #include "url/origin.h"
 
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
-#include "base/command_line.h"
+#include "base/test/scoped_command_line.h"
 
 using blink::PermissionType;
 
@@ -55,18 +56,10 @@ using PermissionStatusCallback =
 
 constexpr char kTestUrl[] = "https://www.example.com";
 
-blink::mojom::PermissionDescriptorPtr
-CreateClipboardPermissionDescriptor(blink::PermissionType permission_type) {
-    auto descriptor = blink::mojom::PermissionDescriptor::New();
-    descriptor->name = blink::mojom::PermissionName::CLIPBOARD_WRITE;
-    bool has_user_gesture = (permission_type == blink::PermissionType::CLIPBOARD_SANITIZED_WRITE);
-    bool will_be_sanitized = (permission_type == blink::PermissionType::CLIPBOARD_SANITIZED_WRITE);
-    auto clipboard_extension = blink::mojom::ClipboardPermissionDescriptor::New(
-        has_user_gesture, will_be_sanitized);
-    descriptor->extension =
-        blink::mojom::PermissionDescriptorExtension::NewClipboard(
-            std::move(clipboard_extension));
-    return descriptor;
+blink::mojom::PermissionDescriptorPtr CreatePermissionDescriptor(
+    blink::PermissionType permission_type) {
+  return PermissionDescriptorUtil::CreatePermissionDescriptorForPermissionType(
+      permission_type);
 }
 
 class MockManagerWithRequests : public MockPermissionManager {
@@ -170,10 +163,10 @@ public:
     void SetNWebExCommandLineSwitch(bool enabled) {
 #if BUILDFLAG(ARKWEB_NWEB_EX)
         if (enabled) {
-            base::CommandLine::ForCurrentProcess()->AppendSwitch(
+            scoped_command_line_.GetProcessCommandLine()->AppendSwitch(
                 switches::kEnableNwebEx);
         } else {
-            base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+            scoped_command_line_.GetProcessCommandLine()->RemoveSwitch(
                 switches::kEnableNwebEx);
         }
 #endif
@@ -182,7 +175,7 @@ public:
     void PermissionServiceHasPermissionAsync(
         blink::mojom::PermissionDescriptorPtr permission,
         PermissionStatusCallback callback) {
-#if BUILDFLAG(ARKWEB_CLIPBOARD)
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_CLIPBOARD)
         permission_service()->HasPermissionAsync(
             std::move(permission), std::move(callback));
 #endif
@@ -202,6 +195,7 @@ private:
     raw_ptr<RenderFrameHostImpl> render_frame_host_impl_;
     raw_ptr<PermissionServiceContext> permission_service_context_;
     std::unique_ptr<PermissionServiceImpl> permission_service_;
+    base::test::ScopedCommandLine scoped_command_line_;
 };
 
 TEST_F(PermissionServiceImplTest, HasPermissionAsync_001) {
@@ -223,7 +217,7 @@ TEST_F(PermissionServiceImplTest, HasPermissionAsync_001) {
 
     base::MockCallback<PermissionStatusCallback> callback;
     PermissionServiceHasPermissionAsync(
-        CreateClipboardPermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE),
+        CreatePermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE),
         callback.Get());
 #endif // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
 }
@@ -236,7 +230,7 @@ TEST_F(PermissionServiceImplTest, HasPermissionAsync_002) {
 
     base::MockCallback<PermissionStatusCallback> callback;
     PermissionServiceHasPermissionAsync(
-        CreateClipboardPermissionDescriptor(PermissionType::CLIPBOARD_SANITIZED_WRITE),
+        CreatePermissionDescriptor(PermissionType::CLIPBOARD_SANITIZED_WRITE),
         callback.Get());
 #endif // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
 }
@@ -244,9 +238,14 @@ TEST_F(PermissionServiceImplTest, HasPermissionAsync_002) {
 TEST_F(PermissionServiceImplTest, HasPermissionAsync_003) {
 #if BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
     SetNWebExCommandLineSwitch(true);
+    EXPECT_CALL(*mock_manager(), IsClipboardSitePermissionEnabled()).Times(0);
+    EXPECT_CALL(*mock_manager(),
+                GetPermissionStatusAsync(testing::_, testing::_, testing::_))
+        .Times(0);
     base::MockCallback<PermissionStatusCallback> callback;
+    EXPECT_CALL(callback, Run(testing::_));
     PermissionServiceHasPermissionAsync(
-        CreateClipboardPermissionDescriptor(PermissionType::GEOLOCATION),
+        CreatePermissionDescriptor(PermissionType::GEOLOCATION),
         callback.Get());
 #endif // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
 }
@@ -256,34 +255,37 @@ TEST_F(PermissionServiceImplTest, HasPermissionAsync_004) {
     SetNWebExCommandLineSwitch(false);
     base::MockCallback<PermissionStatusCallback> callback;
     PermissionServiceHasPermissionAsync(
-        CreateClipboardPermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE),
+        CreatePermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE),
         callback.Get());
-#endif // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+#endif  // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
 }
 
-// TEST_F(PermissionServiceImplTest, RequestPermissionSync) {
-// #if BUILDFLAG(ARKWEB_CLIPBOARD)
-//     auto forward_callbacks = testing::WithArg<2>(
-//         [](base::OnceCallback<void(const std::vector<blink::mojom::PermissionStatus>&)> callback) {
-//             std::move(callback).Run({ blink::mojom::PermissionStatus::DENIED });
-//             return 0;
-//         });
-//     bool user_gesture = true;
+TEST_F(PermissionServiceImplTest, RequestPermissionSync_001) {
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_CLIPBOARD)
+  EXPECT_CALL(*mock_manager(), RequestPermissionsFromCurrentDocument(
+                                   render_frame_host(), testing::_, testing::_))
+      .WillOnce(testing::WithArg<2>(
+          [](base::OnceCallback<void(const std::vector<PermissionResult>&)>
+                 callback) {
+            std::move(callback).Run(
+                {PermissionResult(PermissionStatus::DENIED)});
+          }));
+  base::MockCallback<PermissionStatusCallback> callback;
+  EXPECT_CALL(callback, Run(PermissionStatus::DENIED));
 
-//     EXPECT_CALL(*mock_manager(),
-//                 RequestPermissionsFromCurrentDocument(
-//                     render_frame_host(),
-//                     PermissionRequestDescription(
-//                         std::vector<blink::mojom::PermissionDescriptorPtr>(),
-//                         user_gesture, origin().GetURL()),
-//                     testing::_))
-//      .WillOnce(testing::Invoke(forward_callbacks));
+  PermissionServiceRequestPermissionSync(
+      CreatePermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE), true,
+      callback.Get());
+#elif !BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_CLIPBOARD)
+  EXPECT_CALL(*mock_manager(), RequestPermissionsFromCurrentDocument(
+                                   testing::_, testing::_, testing::_))
+      .Times(0);
+  base::MockCallback<PermissionStatusCallback> callback;
+  EXPECT_CALL(callback, Run).Times(0);
 
-//     base::MockCallback<PermissionStatusCallback> callback;
-//     PermissionServiceRequestPermissionSync(
-//         CreateClipboardPermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE),
-//         user_gesture,
-//         callback.Get());
-// #endif // BUILDFLAG(ARKWEB_CLIPBOARD)
-// }
-}  //namespace content
+  PermissionServiceRequestPermissionSync(
+      CreatePermissionDescriptor(PermissionType::CLIPBOARD_READ_WRITE), true,
+      callback.Get());
+#endif  // BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_CLIPBOARD)
+}
+}  // namespace content

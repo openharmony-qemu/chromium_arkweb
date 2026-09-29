@@ -31,6 +31,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/public/test/browser_task_environment.h"
 #if BUILDFLAG(IS_ARKWEB)
 #include "arkweb/chromium_ext/content/browser/renderer_host/render_widget_host_view_base_interface.h"
 #endif
@@ -63,14 +64,16 @@ class AccessibilityEventDispatcherTest  : public testing::Test {
 
   ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, b1);
   mock_delegate_ = std::make_unique<ui::TestAXPlatformTreeManagerDelegate>();
-  std::unique_ptr<ui::BrowserAccessibilityManagerOHOS> manager =
-      std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+  owned_manager_ = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
           update, mock_node_id_delegate_, mock_delegate_.get());
+  manager_ = owned_manager_.get();
   }
 
-    BrowserAccessibilityManagerOHOS* manager_ = nullptr;
+  content::BrowserTaskEnvironment task_environment_;
   ui::TestAXNodeIdDelegate mock_node_id_delegate_;
   std::unique_ptr<TestAXPlatformTreeManagerDelegate> mock_delegate_;
+  std::unique_ptr<BrowserAccessibilityManagerOHOS> owned_manager_;
+  BrowserAccessibilityManagerOHOS* manager_ = nullptr;
 };
 
 TEST_F(AccessibilityEventDispatcherTest, EnqueueEvent001) {
@@ -132,9 +135,55 @@ TEST_F(AccessibilityEventDispatcherTest, EnqueueEvent005) {
   auto now = millis.time_since_epoch().count();
   dispatcher.eventLastFiredTimes_[uuid] = now - 100;
 
-  size_t events_before = dispatcher.pendingEvents_.size();
   ASSERT_NO_FATAL_FAILURE(dispatcher.EnqueueEvent(0, 4, ""));
-  EXPECT_EQ(dispatcher.pendingEvents_.size(), events_before);
+  ASSERT_EQ(dispatcher.pendingEvents_.size(), 1u);
+  EXPECT_TRUE(dispatcher.pendingEvents_[uuid].IsValid());
+}
+
+TEST_F(AccessibilityEventDispatcherTest,
+       EnqueueEventReplacesPendingTaskAndRunTaskClearsIt) {
+  const int32_t event_type =
+      static_cast<int32_t>(OHOS::NWeb::AccessibilityEventType::CHANGE);
+  std::unordered_map<int32_t, int32_t> delays = {{event_type, 200}};
+  std::unordered_set<int32_t> view_independent_events = {event_type};
+  AccessibilityEventDispatcher dispatcher(delays, view_independent_events,
+                                          manager_);
+  const int64_t uuid = dispatcher.Uuid(123, event_type);
+  auto millis = std::chrono::time_point_cast<std::chrono::milliseconds>(
+      std::chrono::system_clock::now());
+  dispatcher.eventLastFiredTimes_[uuid] =
+      millis.time_since_epoch().count() - 100;
+
+  dispatcher.EnqueueEvent(123, event_type, "first");
+  ASSERT_EQ(1u, dispatcher.pendingEvents_.size());
+  ASSERT_TRUE(dispatcher.pendingEvents_[uuid].IsValid());
+
+  dispatcher.EnqueueEvent(123, event_type, "replacement");
+  ASSERT_EQ(1u, dispatcher.pendingEvents_.size());
+  ASSERT_TRUE(dispatcher.pendingEvents_[uuid].IsValid());
+
+  dispatcher.RunTask(123, event_type, uuid, "replacement");
+  EXPECT_TRUE(dispatcher.pendingEvents_.empty());
+}
+
+TEST_F(AccessibilityEventDispatcherTest,
+       EnqueueHoverWithinThrottleWindowDoesNotPostTask) {
+  const int32_t event_type = static_cast<int32_t>(
+      OHOS::NWeb::AccessibilityEventType::HOVER_ENTER_EVENT);
+  std::unordered_map<int32_t, int32_t> delays = {{event_type, 200}};
+  std::unordered_set<int32_t> view_independent_events;
+  AccessibilityEventDispatcher dispatcher(delays, view_independent_events,
+                                          manager_);
+  const int64_t uuid = dispatcher.Uuid(123, event_type);
+  auto millis = std::chrono::time_point_cast<std::chrono::milliseconds>(
+      std::chrono::system_clock::now());
+  const int64_t previous_time = millis.time_since_epoch().count() - 100;
+  dispatcher.eventLastFiredTimes_[uuid] = previous_time;
+
+  dispatcher.EnqueueEvent(123, event_type, "hover");
+
+  EXPECT_TRUE(dispatcher.pendingEvents_.empty());
+  EXPECT_GT(dispatcher.eventLastFiredTimes_[uuid], previous_time);
 }
 
 TEST_F(AccessibilityEventDispatcherTest, RunTask001) {
@@ -171,6 +220,8 @@ TEST_F(AccessibilityEventDispatcherTest, Uuid002) {
   std::unordered_map<int32_t, int32_t> delays = {{0, 0}, {1, 1}};
   std::unordered_set<int32_t> events = {1, 2};
   AccessibilityEventDispatcher dispatcher(delays, events, manager_);
+  dispatcher.viewIndependentEvents_.insert(2);
+  EXPECT_EQ(dispatcher.Uuid(123, 2), 2);
 }
 
 TEST_F(AccessibilityEventDispatcherTest, Uuid003) {
@@ -1098,4 +1149,88 @@ TEST_F(BrowserAccessibilityManagerOhosTest, FireGeneratedEvent_LiveRegionChanged
 
   ASSERT_NO_FATAL_FAILURE(manager->FireGeneratedEvent(
       AXEventGenerator::Event::LIVE_REGION_CHANGED, node->node()));
+}
+
+TEST_F(BrowserAccessibilityManagerOhosTest,
+       InitializeAccessibilityEventDispatcher_ConfiguresThrottleSets) {
+  ui::AXNodeData root;
+  root.id = 16400;
+  root.role = ax::mojom::Role::kRootWebArea;
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root);
+  auto manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  ASSERT_TRUE(manager->eventDispatcher_);
+  EXPECT_EQ(manager->eventDispatcher_->eventThrottleDelays_.size(), 5u);
+  EXPECT_EQ(manager->eventDispatcher_->viewIndependentEvents_.size(), 2u);
+}
+
+TEST_F(BrowserAccessibilityManagerOhosTest,
+       HandleContentChanged_TracksCallsAcrossRootFallbackThreshold) {
+  ui::AXNodeData root;
+  root.id = 16500;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {16501};
+
+  ui::AXNodeData button;
+  button.id = 16501;
+  button.role = ax::mojom::Role::kButton;
+
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, button);
+  auto manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+  manager->eventDispatcher_ = nullptr;
+
+  for (int i = 0; i < kMaxContentChangedEventsToFire; ++i) {
+    manager->HandleContentChanged(16501);
+  }
+
+  EXPECT_EQ(manager->content_changed_events_, kMaxContentChangedEventsToFire);
+}
+
+TEST_F(BrowserAccessibilityManagerOhosTest,
+       JumpToElementType_InvalidStartReturnsFalse) {
+  ui::AXNodeData root;
+  root.id = 16600;
+  root.role = ax::mojom::Role::kRootWebArea;
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root);
+  auto manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  EXPECT_FALSE(manager->JumpToElementType(99999, "button", true, false));
+}
+
+TEST_F(BrowserAccessibilityManagerOhosTest,
+       FireLocationChanged_UpdatesContentChangeCount) {
+  ui::AXNodeData root;
+  root.id = 16700;
+  root.role = ax::mojom::Role::kRootWebArea;
+  root.child_ids = {16701};
+
+  ui::AXNodeData button;
+  button.id = 16701;
+  button.role = ax::mojom::Role::kButton;
+
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root, button);
+  auto manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+  manager->eventDispatcher_ = nullptr;
+  ui::BrowserAccessibility* node = manager->GetFromID(16701);
+  ASSERT_NE(node, nullptr);
+
+  manager->FireLocationChanged(node);
+
+  EXPECT_EQ(manager->content_changed_events_, 1);
+}
+
+TEST_F(BrowserAccessibilityManagerOhosTest,
+       ScrollToMakeNodeVisible_InvalidIdIsNoOp) {
+  ui::AXNodeData root;
+  root.id = 16800;
+  root.role = ax::mojom::Role::kRootWebArea;
+  ui::AXTreeUpdate update = ui::MakeAXTreeUpdateForTesting(root);
+  auto manager = std::make_unique<ui::BrowserAccessibilityManagerOHOS>(
+      update, node_id_delegate_, test_browser_accessibility_delegate_.get());
+
+  EXPECT_NO_FATAL_FAILURE(manager->ScrollToMakeNodeVisible(99999));
 }
