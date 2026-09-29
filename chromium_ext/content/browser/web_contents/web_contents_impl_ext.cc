@@ -72,6 +72,11 @@
 #include "net/http/http_util.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+#include "content/browser/renderer_host/navigation_request.h"
+#include "content/public/common/content_client.h"
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
+
 namespace content {
 
 WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
@@ -1668,6 +1673,46 @@ void WebContentsImplExt::SetPageVisibility(bool visible) {
     return should_block_frame_loading;
   }
 #endif  // ARKWEB_NOT_LOAD_IFRAME
+
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+void WebContentsImpl::UpdateWebPreferencesAfterNavigation(
+    NavigationHandle* navigation_handle) {
+  if (!web_preferences_)
+    return;
+
+  bool value_changed_due_to_override =
+      GetContentClient()->browser()->OverrideWebPreferencesAfterNavigation(
+          this, *GetPrimaryMainFrame()->GetSiteInstance(),
+          web_preferences_.get());
+
+  if (value_changed_due_to_override ||
+      NavigationRequest::From(navigation_handle)->IsPageActivation() ||
+      cdp_script_execution_disabled_) {
+    // 作用：CDP JS禁用时导航完成后重发WebPreferences；合理性：必须用
+    // OnWebPreferencesChanged()而非SetWebPreferences()，后者使用缓存值会覆盖CDP禁用；
+    // 必要性：删除后导航完成时缓存的web_preferences_会恢复javascript_enabled=true
+    if (cdp_script_execution_disabled_) {
+      OnWebPreferencesChanged();
+    } else {
+      SetWebPreferences(*web_preferences_.get());
+    }
+  }
+}
+
+void WebContentsImpl::SetCdpScriptExecutionDisabled(bool disabled) {
+  // 作用：ArkWeb JS禁用功能的核心入口；合理性：状态变更后立即调用
+  // OnWebPreferencesChanged()推送WebPreferences到所有renderer；必要性：删除后CDP JS禁用无效
+  if (cdp_script_execution_disabled_ == disabled) {
+    return;
+  }
+  cdp_script_execution_disabled_ = disabled;
+  OnWebPreferencesChanged();
+}
+
+bool WebContentsImpl::IsCdpScriptExecutionDisabled() const {
+  return cdp_script_execution_disabled_;
+}
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 void WebContentsImplExt::OnSafeBrowsingCheckDetail(int code,
