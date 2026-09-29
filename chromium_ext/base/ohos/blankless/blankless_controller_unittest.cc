@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
-#include <cstdint>
 #include <vector>
 #define private public
 #include "base/ohos/blankless/blankless_controller.h"
@@ -40,10 +41,22 @@ protected:
   void SetUp() override
   {
     controller.Clear(0);
+    controller.m_white_list_.m_is_sys_loaded_ = false;
+    controller.m_white_list_.m_exact_match_set_.clear();
+    controller.m_white_list_.m_fuzzy_match_set_.clear();
+#if BUILDFLAG(ARKWEB_BLANK_PROP_CONFIG)
+    controller.m_white_list_.m_is_app_loaded_ = false;
+    controller.m_white_list_.m_full_match_set_.clear();
+    controller.m_white_list_.m_query_match_map_.clear();
+#endif
   }
-  void TearDown() override {}
+  void TearDown() override {
+    OhosAdapterHelper::SetInstance(nullptr);
+    mock_adapter_helper_.reset();
+  }
 
   BlanklessController& controller = BlanklessController::GetInstance();
+  std::unique_ptr<MockOhosAdapterHelper> mock_adapter_helper_;
 
   uint64_t blankless_key1 = 1024;
   uint64_t blankless_key2 = 1025;
@@ -291,21 +304,26 @@ TEST_F(BlanklessControllerTest, Clear_PerNwebEntriesOnly) {
 #if BUILDFLAG(ARKWEB_BLANK_PROP_CONFIG)
 TEST_F(BlanklessControllerTest, LoadAppWhiteList001) {
   OhosAdapterHelper& original_instance = OhosAdapterHelper::GetInstance();
-  MockOhosAdapterHelper* instance = new MockOhosAdapterHelper();
-  OhosAdapterHelper::SetInstance(instance);
+  HiTraceAdapter& original_hitrace =
+      original_instance.GetHiTraceAdapterInstance();
+  mock_adapter_helper_ = std::make_unique<MockOhosAdapterHelper>();
+  OhosAdapterHelper::SetInstance(mock_adapter_helper_.get());
   MockSystemPropertiesAdapter adapter;
 
-  EXPECT_CALL(*instance, GetSystemPropertiesInstance()).WillOnce(testing::ReturnRef(adapter));
+  EXPECT_CALL(*mock_adapter_helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(adapter));
+  EXPECT_CALL(*mock_adapter_helper_, GetHiTraceAdapterInstance())
+      .Times(testing::AnyNumber())
+      .WillRepeatedly(testing::ReturnRef(original_hitrace));
   EXPECT_CALL(adapter, GetBundleName()).WillOnce(testing::Return("abc"));
   controller.m_white_list_.LoadAppWhiteList();
   EXPECT_TRUE(controller.m_white_list_.m_is_app_loaded_);
-  OhosAdapterHelper::SetInstance(nullptr);
-  delete instance;
 }
 
 TEST_F(BlanklessControllerTest, LoadAppWhiteList002) {
-  controller.m_white_list_.m_is_sys_loaded_ = true;
+  controller.m_white_list_.m_is_app_loaded_ = true;
   ASSERT_NO_FATAL_FAILURE(controller.m_white_list_.LoadAppWhiteList());
+  EXPECT_TRUE(controller.m_white_list_.m_is_app_loaded_);
 }
 
 TEST_F(BlanklessControllerTest, ParseAppWhiteList001) {
@@ -324,6 +342,44 @@ TEST_F(BlanklessControllerTest, ParseAppWhiteList002) {
   std::string log_output = testing::internal::GetCapturedStderr();
   EXPECT_NE(log_output.find("blankless BlankOptWhiteList parse app file as invalid json format failed."),
             std::string::npos);
+}
+
+TEST_F(BlanklessControllerTest, ParseAppWhiteList_Disabled) {
+  const std::string json = R"json({
+    "enable": false,
+    "full-match": ["https://disabled.example"]
+  })json";
+  std::vector<char> buffer(json.begin(), json.end());
+
+  controller.m_white_list_.ParseAppWhiteList(buffer);
+
+  EXPECT_TRUE(controller.m_white_list_.m_full_match_set_.empty());
+  EXPECT_TRUE(controller.m_white_list_.m_query_match_map_.empty());
+}
+
+TEST_F(BlanklessControllerTest, ParseAppWhiteList_ValidAndMalformedEntries) {
+  const std::string json = R"json({
+    "full-match": ["https://full.example/path"],
+    "query-match": [
+      "not-a-dictionary",
+      {"url": "https://missing-keys.example"},
+      {"query_keys": ["id"]},
+      {"url": "https://query.example/path", "query_keys": ["id", "lang"]}
+    ]
+  })json";
+  std::vector<char> buffer(json.begin(), json.end());
+
+  controller.m_white_list_.ParseAppWhiteList(buffer);
+
+  EXPECT_TRUE(controller.m_white_list_.FullMatch("https://full.example/path"));
+  EXPECT_TRUE(
+      controller.m_white_list_.QueryMatch("https://query.example/path?id=7"));
+  const auto it = controller.m_white_list_.m_query_match_map_.find(
+      "https://query.example/path");
+  ASSERT_NE(controller.m_white_list_.m_query_match_map_.end(), it);
+  EXPECT_EQ(2u, it->second.size());
+  EXPECT_TRUE(it->second.contains("id"));
+  EXPECT_TRUE(it->second.contains("lang"));
 }
 
 TEST_F(BlanklessControllerTest, GetBaseUrl001) {
@@ -358,27 +414,45 @@ TEST_F(BlanklessControllerTest, GetQueryUrl003) {
   EXPECT_EQ(result, "abc?");
 }
 
+TEST_F(BlanklessControllerTest, GetQueryUrl_EmptyKeySet) {
+  std::string url = "abc?id=7";
+  controller.m_white_list_.m_query_match_map_["abc"] = {};
+  EXPECT_EQ("abc", controller.m_white_list_.GetQueryUrl(url));
+}
+
+TEST_F(BlanklessControllerTest, GetQueryUrl_MatchingKey) {
+  std::string url = "abc?id=7&ignored=9";
+  controller.m_white_list_.m_query_match_map_["abc"].insert("id");
+  EXPECT_EQ("abc?id=7&", controller.m_white_list_.GetQueryUrl(url));
+}
+
 TEST_F(BlanklessControllerTest, CheckAppWhiteList001) {
   std::string url = "12";
   uint64_t blankless_key = 1;
+  controller.m_white_list_.m_is_app_loaded_ = true;
   bool result = controller.m_white_list_.CheckAppWhiteList(url, blankless_key);
   EXPECT_FALSE(result);
+  EXPECT_EQ(1u, blankless_key);
 }
 
 TEST_F(BlanklessControllerTest, CheckAppWhiteList002) {
   std::string url = "12";
   uint64_t blankless_key = 1;
+  controller.m_white_list_.m_is_app_loaded_ = true;
   controller.m_white_list_.m_query_match_map_["12"].insert("abc");
   bool result = controller.m_white_list_.CheckAppWhiteList(url, blankless_key);
   EXPECT_TRUE(result);
+  EXPECT_EQ(std::hash<std::string>{}("12?"), blankless_key);
 }
 
 TEST_F(BlanklessControllerTest, CheckAppWhiteList003) {
   std::string url = "12";
   uint64_t blankless_key = 1;
+  controller.m_white_list_.m_is_app_loaded_ = true;
   controller.m_white_list_.m_full_match_set_.insert(url);
   bool result = controller.m_white_list_.CheckAppWhiteList(url, blankless_key);
   EXPECT_TRUE(result);
+  EXPECT_EQ(std::hash<std::string>{}(url), blankless_key);
 }
 #endif // BUILDFLAG(ARKWEB_BLANK_PROP_CONFIG)
 
@@ -521,8 +595,8 @@ TEST_F(BlanklessControllerTest, Status_Dumped_ResetStatus)
   EXPECT_EQ(status, BlanklessController::StatusCode::NOT_ALLOWED);
   BlanklessController::StatusInfo info2 = {
     .status_code = BlanklessController::StatusCode::NOT_ALLOWED,
-    .allowed = false,
     .blankless_key = blankless_key1,
+    .allowed = false,
   };
   EXPECT_TRUE(controller.CheckStatusForTest(nweb_id1, info2));
 }
@@ -750,8 +824,8 @@ TEST_F(BlanklessControllerTest, Status_RecordKey_NotAllowed_MatchKey)
   EXPECT_EQ(status, BlanklessController::StatusCode::NOT_ALLOWED);
   BlanklessController::StatusInfo info1 = {
     .status_code = BlanklessController::StatusCode::NOT_ALLOWED,
-    .allowed = false,
     .blankless_key = blankless_key1,
+    .allowed = false,
   };
   EXPECT_TRUE(controller.CheckStatusForTest(nweb_id1, info1));
 
