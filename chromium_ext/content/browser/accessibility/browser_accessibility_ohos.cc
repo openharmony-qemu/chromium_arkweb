@@ -1746,4 +1746,70 @@ std::u16string BrowserAccessibilityOHOS::GetRoleDescription() const {
   return std::u16string();
 }
 
+void BrowserAccessibilityOHOS::OnDataChanged() {
+  if (IsTextField()) {
+    std::u16string value = GetValueForControl();
+    if (value != new_value_) {
+      old_value_ = new_value_;
+      new_value_ = value;
+    }
+  }
+}
+
+// static
+bool BrowserAccessibilityOHOS::IsLowSurrogate(char16_t c) {
+  return c >= 0xDC00 && c <= 0xDFFF;
+}
+
+// static
+bool BrowserAccessibilityOHOS::IsHighSurrogate(char16_t c) {
+  return c >= 0xD800 && c <= 0xDBFF;
+}
+
+std::pair<std::string, std::string>
+BrowserAccessibilityOHOS::GetTextChangedInTextFieldV2() const {
+  size_t old_len = old_value_.length();
+  size_t new_len = new_value_.length();
+
+  // 1. Find common prefix
+  size_t start = 0;
+  while (start < old_len && start < new_len &&
+         old_value_[start] == new_value_[start]) {
+    start++;
+  }
+
+  // Fix surrogate pair boundary: if start splits a surrogate pair, step back
+  // so the prefix ends on a complete character.
+  if (start > 0 && start < old_len && start < new_len &&
+      IsLowSurrogate(old_value_[start]) &&
+      IsHighSurrogate(old_value_[start - 1])) {
+    start--;
+  }
+
+  // 2. Find common suffix
+  size_t old_sel_end = old_len;
+  size_t new_sel_end = new_len;
+  while (old_sel_end > start && new_sel_end > start &&
+         old_value_[old_sel_end - 1] == new_value_[new_sel_end - 1]) {
+    old_sel_end--;
+    new_sel_end--;
+  }
+
+  // Fix surrogate pair boundary for suffix: check old and new independently
+  if (old_sel_end < old_len && old_sel_end > 0 &&
+      IsLowSurrogate(old_value_[old_sel_end]) &&
+      IsHighSurrogate(old_value_[old_sel_end - 1])) {
+    old_sel_end++;
+  }
+  if (new_sel_end < new_len && new_sel_end > 0 &&
+      IsLowSurrogate(new_value_[new_sel_end]) &&
+      IsHighSurrogate(new_value_[new_sel_end - 1])) {
+    new_sel_end++;
+  }
+
+  std::u16string remove_text = old_value_.substr(start, old_sel_end - start);
+  std::u16string add_text = new_value_.substr(start, new_sel_end - start);
+  return std::make_pair(base::UTF16ToUTF8(add_text),
+                        base::UTF16ToUTF8(remove_text));
+}
 }  // namespace content
