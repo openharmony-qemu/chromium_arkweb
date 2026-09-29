@@ -41,7 +41,7 @@ std::vector<base::FilePath> GetTempraryFiles(base::FilePath directory) {
   if (base::DirectoryExists(directory)) {
     base::FileEnumerator file_enum(
         directory, /*recursive=*/false, base::FileEnumerator::FILES,
-        base::FormatTemporaryFileName(FILE_PATH_LITERAL("*"), false).value());
+        base::FormatTemporaryFileName(FILE_PATH_LITERAL("*"), true).value());
     for (base::FilePath path = file_enum.Next(); !path.empty();
          path = file_enum.Next()) {
       files.push_back(path);
