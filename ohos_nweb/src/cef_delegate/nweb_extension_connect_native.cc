@@ -42,10 +42,10 @@ NWebConnectNativeManager::~NWebConnectNativeManager() {
     cleanup_timer_->Stop();
     cleanup_timer_.reset();
   }
-  // Release the C API callback handle
-  if (runtime_callback_) {
-    ArkWebExtensionRuntimeController_ReleaseRuntimeCallback();
-    runtime_callback_ = nullptr;
+  // Release the runtime callback
+  if (initialized_) {
+    nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance().ReleaseCallback();
+    initialized_ = false;
   }
   // All pending callbacks are destroyed when the map is cleared.
   // We do not invoke them during teardown to avoid calling back into
@@ -221,16 +221,12 @@ void OnBrowserMessageResponseBridge(uint64_t request_id,
 }
 
 void NWebConnectNativeManager::EnsureRuntimeCallbackInitialized() {
-  if (runtime_callback_) {
+  if (initialized_) {
     return;
   }
-  ArkWebExtensionRuntimeController_CreateRuntimeCallback(&runtime_callback_);
-  if (!runtime_callback_) {
-    LOG(ERROR) << "SendBrowserMessage: failed to create runtime callback";
-    return;
-  }
-  ArkWebExtensionRuntimeController_SetOnSendBrowserMessageResponse(
-      runtime_callback_, OnBrowserMessageResponseBridge);
+  nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance()
+      .SetOnSendBrowserMessageResponse(OnBrowserMessageResponseBridge);
+  initialized_ = true;
 }
 
 void NWebConnectNativeManager::SendBrowserMessage(
@@ -238,35 +234,20 @@ void NWebConnectNativeManager::SendBrowserMessage(
     const std::string& message_json,
     base::OnceCallback<void(std::string response)> callback) {
   uint64_t request_id;
-  std::unique_ptr<base::OnceCallback<void(std::string)>> error_callback;
   {
     base::AutoLock lock(lock_);
     EnsureRuntimeCallbackInitialized();
-    if (!runtime_callback_) {
-      LOG(ERROR) << "SendBrowserMessage: runtime callback not available";
-      error_callback = std::make_unique<base::OnceCallback<void(std::string)>>(
-          std::move(callback));
-    } else {
-      request_id = next_request_id_++;
-      pending_map_[request_id] = PendingEntry{
-          std::make_unique<base::OnceCallback<void(std::string)>>(std::move(callback)),
-          base::TimeTicks::Now()
-      };
-    }
-  }
-
-  if (error_callback) {
-    std::move(*error_callback).Run(R"({"code":500,"msg":"runtime callback creation failed"})");
-    return;
+    request_id = next_request_id_++;
+    pending_map_[request_id] = PendingEntry{
+        std::make_unique<base::OnceCallback<void(std::string)>>(std::move(callback)),
+        base::TimeTicks::Now()
+    };
   }
 
   SchedulePendingCleanup();
 
-  ArkWebExtensionRuntimeController_OnSendBrowserMessage(
-      /*nwebId=*/0,
-      extension_id.c_str(),
-      message_json.c_str(),
-      request_id);
+  nweb_ex::NWebExtensionRuntimeDelegateImpl::GetInstance().OnSendBrowserMessage(
+      0, extension_id.c_str(), message_json.c_str(), request_id);
 }
 
 void NWebConnectNativeManager::OnBrowserMessageResponse(

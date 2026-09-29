@@ -22,21 +22,21 @@ struct PortId;
 // A port that manages one-time messages from extensions to the host browser
 // application.
 class BrowserMessagePort : public MessagePort {
-public:
+ public:
   using BrowserMessageResponseCallback = base::OnceCallback<void(std::string response)>;
   using BrowserMessageHandler =
-    base::RepeatingCallback<void(const ExtensionId &extension_id, const std::string &message_json,
+    base::RepeatingCallback<void(const ExtensionId& extension_id, const std::string& message_json,
                    BrowserMessageResponseCallback response_callback)>;
 
-  BrowserMessagePort(base::WeakPtr<ChannelDelegate> channel_delegate, const PortId &port_id, ExtensionId extension_id,
-             BrowserMessageHandler browser_message_handler);
+  BrowserMessagePort(base::WeakPtr<ChannelDelegate> channel_delegate, const PortId &port_id,
+                     ExtensionId extension_id, BrowserMessageHandler browser_message_handler);
   ~BrowserMessagePort() override;
 
   // MessagePort implementation.
   bool IsValidPort() override;
   void DispatchOnMessage(const Message &message) override;
 
-private:
+ private:
   void OnResponse(std::string response);
   void OnTimeout();
   void Complete(std::string response);
