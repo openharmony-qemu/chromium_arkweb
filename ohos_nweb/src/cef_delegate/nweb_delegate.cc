@@ -5548,13 +5548,19 @@ NWebDelegate::PopulateAccessibilityNodeInfo(BrowserAccessibilityOHOS* node) {
     LOG(ERROR) << "PopulateAccessibilityNodeInfo nodeInfo or node is null";
     return nullptr;
   }
+  nodeInfo->SetDescriptionInfo("");
   auto axnode = node->node();
   if (axnode) {
     const base::StringPairs& htmlAttributes = axnode->GetHtmlAttributes();
     for (const auto& pair : htmlAttributes) {
       if (base::EqualsCaseInsensitiveASCII(pair.first, "id")) {
         nodeInfo->SetHtmlElementId(pair.second);
-        break;
+        continue;
+      }
+      if (base::EqualsCaseInsensitiveASCII(pair.first,
+                                           "data-accessibilityDescription")) {
+        nodeInfo->SetDescriptionInfo(pair.second);
+        continue;
       }
     }
   }
@@ -5604,7 +5610,6 @@ void NWebDelegate::AddAccessibilityNodeInfoAttributes(
   nodeInfo->SetIsEnabled(node->IsEnabled());
   nodeInfo->SetIsFocusable(node->IsFocusable());
   nodeInfo->SetContent(base::UTF16ToUTF8(node->GetTextContentUTF16()));
-  nodeInfo->SetDescriptionInfo("");
 
   nodeInfo->SetHint(node->GetHint());
   nodeInfo->SetIsHinting(node->IsHint());
