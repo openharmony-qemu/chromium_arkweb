@@ -114,6 +114,7 @@ declare_args() {
   arkweb_msgport = true
   arkweb_multi_ip_connect = !is_component_build
   arkweb_multi_window = true
+  arkweb_mojo_connector_teardown_guard = true
   arkweb_navigation = true
   arkweb_network_conninfo = true
   arkweb_network_load = true
