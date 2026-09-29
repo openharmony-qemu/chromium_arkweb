@@ -21,6 +21,7 @@
 #include "base/functional/callback.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -28,12 +29,14 @@
 #include "content/test/test_web_contents.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_summarizer.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_writer.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_rewriter.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_proofreader.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 
 namespace content {
 
@@ -348,10 +351,22 @@ AILanguageModelPromptPtr CreateTextPrompt(AILanguageModelPromptRole role,
   return AILanguageModelPrompt::New(role, std::move(contents), false);
 }
 
+AILanguageModelPromptPtr CreateImagePrompt(AILanguageModelPromptRole role) {
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(1, 1);
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewBitmap(bitmap));
+  return AILanguageModelPrompt::New(role, std::move(contents), false);
+}
+
 }  // namespace
 
 class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
  protected:
+  EchoAIManagerOHOSTest()
+      : RenderViewHostTestHarness(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
   void SetUp() override {
     RenderViewHostTestHarness::SetUp();
     auto web_contents = TestWebContents::Create(browser_context(), nullptr);
@@ -371,6 +386,21 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
   std::unique_ptr<MockWebContentsDelegate> delegate_;
   raw_ptr<EchoAIManagerOHOS> manager_ = nullptr;
 
+  void CompletePendingCreation() {
+    task_environment()->FastForwardBy(base::Milliseconds(300));
+    task_environment()->RunUntilIdle();
+  }
+
+  size_t AIReceiverCount() const { return manager_->receivers_.size(); }
+
+  size_t TranslationReceiverCount() const {
+    return manager_->translation_.size();
+  }
+
+  size_t DownloadObserverCount() const {
+    return manager_->download_progress_observers_.size();
+  }
+
   void AddReceiver(mojo::PendingReceiver<blink::mojom::AIManager> receiver) {
     manager_->AddReceiver(std::move(receiver));
   }
@@ -389,7 +419,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient> client,
       blink::mojom::AILanguageModelCreateOptionsPtr options) {
     manager_->CreateLanguageModel(std::move(client), std::move(options));
-    task_environment()->RunUntilIdle();
+    CompletePendingCreation();
   }
 
   void CanCreateSummarizer(
@@ -402,6 +432,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateSummarizerClient> client,
       blink::mojom::AISummarizerCreateOptionsPtr options) {
     manager_->CreateSummarizer(std::move(client), std::move(options));
+    CompletePendingCreation();
   }
 
   void GetLanguageModelParams(
@@ -419,6 +450,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateWriterClient> client,
       blink::mojom::AIWriterCreateOptionsPtr options) {
     manager_->CreateWriter(std::move(client), std::move(options));
+    CompletePendingCreation();
   }
 
   void CanCreateRewriter(
@@ -431,6 +463,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateRewriterClient> client,
       blink::mojom::AIRewriterCreateOptionsPtr options) {
     manager_->CreateRewriter(std::move(client), std::move(options));
+    CompletePendingCreation();
   }
 
   void CanCreateProofreader(
@@ -443,6 +476,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateProofreaderClient> client,
       blink::mojom::AIProofreaderCreateOptionsPtr options) {
     manager_->CreateProofreader(std::move(client), std::move(options));
+    CompletePendingCreation();
   }
 
   void AddModelDownloadProgressObserver(
@@ -455,6 +489,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
       blink::mojom::TranslatorCreateOptionsPtr options,
       bool streaming) {
     manager_->CreateTranslator(std::move(client), std::move(options), streaming);
+    task_environment()->RunUntilIdle();
   }
 
   void TranslationAvailable(
@@ -467,6 +502,7 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
   void CreateLanguageDetector(
       base::OnceCallback<void(mojo::PendingRemote<blink::mojom::AILanguageDetector>)> callback) {
     manager_->CreateLanguageDetector(std::move(callback));
+    task_environment()->RunUntilIdle();
   }
 
   bool IsModelDownloadedForCurrentReciever() {
@@ -475,17 +511,22 @@ class EchoAIManagerOHOSTest : public RenderViewHostTestHarness {
 
   void DoMockDownloadingAndReturn(base::OnceClosure callback) {
     manager_->DoMockDownloadingAndReturn(std::move(callback));
+    task_environment()->RunUntilIdle();
   }
 };
 
 TEST_F(EchoAIManagerOHOSTest, AddReceiver) {
+  EXPECT_EQ(0u, AIReceiverCount());
   mojo::PendingRemote<blink::mojom::AIManager> remote;
   AddReceiver(remote.InitWithNewPipeAndPassReceiver());
+  EXPECT_EQ(1u, AIReceiverCount());
 }
 
 TEST_F(EchoAIManagerOHOSTest, AddTranslationReceiver) {
+  EXPECT_EQ(0u, TranslationReceiverCount());
   mojo::PendingRemote<blink::mojom::TranslationManager> remote;
   AddReceiver(remote.InitWithNewPipeAndPassReceiver());
+  EXPECT_EQ(1u, TranslationReceiverCount());
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithNullOptions) {
@@ -571,7 +612,10 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelSuccess) {
   MockAIManagerCreateLanguageModelClient client;
   CreateLanguageModel(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+  ASSERT_TRUE(client.info_);
+  EXPECT_EQ(0u, client.info_->input_usage);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithInitialPrompts) {
@@ -587,10 +631,10 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithInitialPrompts) {
   MockAIManagerCreateLanguageModelClient client;
   CreateLanguageModel(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
-  if (client.on_result_called_) {
-    EXPECT_TRUE(client.info_);
-  }
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+  ASSERT_TRUE(client.info_);
+  EXPECT_EQ(5u, client.info_->input_usage);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithInitialPromptsExceedingContextSize) {
@@ -609,7 +653,11 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithInitialPromptsExceedingCont
   EXPECT_TRUE(client.on_error_called_);
   EXPECT_EQ(client.error_,
             blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
-  EXPECT_TRUE(client.quota_error_info_);
+  ASSERT_TRUE(client.quota_error_info_);
+  EXPECT_EQ(EchoAIManagerOHOS::kMaxContextSizeInTokens + 100,
+            client.quota_error_info_->requested);
+  EXPECT_EQ(EchoAIManagerOHOS::kMaxContextSizeInTokens,
+            client.quota_error_info_->quota);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateSummarizerWithSupportedLanguages) {
@@ -638,6 +686,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateSummarizerWithSupportedLanguages) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateSummarizerWithNullOptions) {
@@ -655,6 +704,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateSummarizerWithNullOptions) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateSummarizerSuccess) {
@@ -668,7 +718,8 @@ TEST_F(EchoAIManagerOHOSTest, CreateSummarizerSuccess) {
   MockAIManagerCreateSummarizerClient client;
   CreateSummarizer(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateWriterWithSupportedLanguages) {
@@ -692,6 +743,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateWriterWithSupportedLanguages) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateWriterSuccess) {
@@ -704,7 +756,8 @@ TEST_F(EchoAIManagerOHOSTest, CreateWriterSuccess) {
   MockAIManagerCreateWriterClient client;
   CreateWriter(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateRewriterWithSupportedLanguages) {
@@ -728,6 +781,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateRewriterWithSupportedLanguages) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateRewriterSuccess) {
@@ -740,7 +794,8 @@ TEST_F(EchoAIManagerOHOSTest, CreateRewriterSuccess) {
   MockAIManagerCreateRewriterClient client;
   CreateRewriter(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateProofreaderWithSupportedLanguages) {
@@ -763,6 +818,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateProofreaderWithSupportedLanguages) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateProofreaderSuccess) {
@@ -775,7 +831,8 @@ TEST_F(EchoAIManagerOHOSTest, CreateProofreaderSuccess) {
   MockAIManagerCreateProofreaderClient client;
   CreateProofreader(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
 }
 
 TEST_F(EchoAIManagerOHOSTest, GetLanguageModelParams) {
@@ -799,7 +856,9 @@ TEST_F(EchoAIManagerOHOSTest, GetLanguageModelParams) {
 
 TEST_F(EchoAIManagerOHOSTest, AddModelDownloadProgressObserver) {
   MockModelDownloadProgressObserver observer;
+  EXPECT_EQ(0u, DownloadObserverCount());
   AddModelDownloadProgressObserver(observer.BindRemote());
+  EXPECT_EQ(1u, DownloadObserverCount());
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateTranslatorSuccess) {
@@ -812,6 +871,8 @@ TEST_F(EchoAIManagerOHOSTest, CreateTranslatorSuccess) {
   CreateTranslator(client.BindRemote(), std::move(options), false);
 
   EXPECT_TRUE(client.on_result_called_);
+  ASSERT_TRUE(client.result_);
+  EXPECT_TRUE(client.result_->is_translator());
 }
 
 TEST_F(EchoAIManagerOHOSTest, TranslationAvailable) {
@@ -848,6 +909,7 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageDetector) {
           &callback_called, &detector_remote));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_TRUE(detector_remote.is_valid());
 }
 
 TEST_F(EchoAIManagerOHOSTest, IsModelDownloadedForCurrentReciever) {
@@ -863,7 +925,9 @@ TEST_F(EchoAIManagerOHOSTest, DoMockDownloadingAndReturn) {
   DoMockDownloadingAndReturn(loop.QuitClosure());
   loop.Run();
 
-  EXPECT_GT(observer.download_progress_update_count_, 0);
+  EXPECT_EQ(4, observer.download_progress_update_count_);
+  EXPECT_EQ(0x10000u, observer.last_bytes_downloaded_);
+  EXPECT_EQ(0x10000u, observer.last_total_bytes_to_download_);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithExpectedInputsNull) {
@@ -886,6 +950,7 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithExpectedInputsNull) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithExpectedOutputsNull) {
@@ -914,6 +979,92 @@ TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithExpectedOutputsNull) {
           &callback_called, &result));
 
   EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithNonTextExpectedOutput) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  std::vector<AILanguageModelExpectedPtr> expected_outputs;
+  expected_outputs.push_back(AILanguageModelExpected::New(
+      AILanguageModelPromptType::kImage, std::nullopt));
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::vector<AILanguageModelPromptPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(), std::move(expected_outputs));
+
+  CanCreateLanguageModel(
+      std::move(options),
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::
+                        kUnavailableModelAdaptationNotAvailable);
+}
+
+TEST_F(EchoAIManagerOHOSTest,
+       CanCreateLanguageModelWithNonTextExpectedInputDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      blink::features::kAIPromptAPIMultimodalInput);
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  std::vector<AILanguageModelExpectedPtr> expected_inputs;
+  expected_inputs.push_back(AILanguageModelExpected::New(
+      AILanguageModelPromptType::kImage, std::nullopt));
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::vector<AILanguageModelPromptPtr>(),
+      std::move(expected_inputs), std::vector<AILanguageModelExpectedPtr>());
+
+  CanCreateLanguageModel(
+      std::move(options),
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::
+                        kUnavailableModelAdaptationNotAvailable);
+}
+
+TEST_F(EchoAIManagerOHOSTest,
+       CanCreateLanguageModelWithNonTextExpectedInputEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      blink::features::kAIPromptAPIMultimodalInput);
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  std::vector<AILanguageModelExpectedPtr> expected_inputs;
+  expected_inputs.push_back(AILanguageModelExpected::New(
+      AILanguageModelPromptType::kImage, std::nullopt));
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::vector<AILanguageModelPromptPtr>(),
+      std::move(expected_inputs), std::vector<AILanguageModelExpectedPtr>());
+
+  CanCreateLanguageModel(
+      std::move(options),
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNullSamplingParams) {
@@ -925,9 +1076,10 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNullSamplingParams) {
   MockAIManagerCreateLanguageModelClient client;
   CreateLanguageModel(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
-  if (client.on_result_called_ && client.info_) {
-  }
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+  ASSERT_TRUE(client.info_);
+  EXPECT_TRUE(client.info_->sampling_params);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNonTextExpectedInput) {
@@ -983,7 +1135,35 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithSamplingParams) {
   MockAIManagerCreateLanguageModelClient client;
   CreateLanguageModel(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+  ASSERT_TRUE(client.info_);
+  EXPECT_EQ(1u, client.info_->sampling_params->top_k);
+  EXPECT_FLOAT_EQ(0.5f, client.info_->sampling_params->temperature);
+}
+
+TEST_F(EchoAIManagerOHOSTest,
+       CreateLanguageModelWithImagePromptsExceedingContextSize) {
+  std::vector<AILanguageModelPromptPtr> initial_prompts;
+  for (size_t i = 0; i < 11; ++i) {
+    initial_prompts.push_back(
+        CreateImagePrompt(AILanguageModelPromptRole::kUser));
+  }
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::move(initial_prompts),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>());
+
+  MockAIManagerCreateLanguageModelClient client;
+  CreateLanguageModel(client.BindRemote(), std::move(options));
+
+  EXPECT_FALSE(client.on_result_called_);
+  EXPECT_TRUE(client.on_error_called_);
+  EXPECT_EQ(client.error_,
+            blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
+  ASSERT_TRUE(client.quota_error_info_);
+  EXPECT_EQ(1100u, client.quota_error_info_->requested);
+  EXPECT_EQ(1000u, client.quota_error_info_->quota);
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithMultipleExpectedInputs) {
@@ -1005,7 +1185,13 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithMultipleExpectedInputs) {
   MockAIManagerCreateLanguageModelClient client;
   CreateLanguageModel(client.BindRemote(), std::move(options));
 
-  EXPECT_TRUE(client.on_result_called_ || client.on_error_called_);
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+  ASSERT_TRUE(client.info_);
+  ASSERT_TRUE(client.info_->input_types.has_value());
+  EXPECT_EQ(1u, client.info_->input_types->size());
+  EXPECT_EQ(AILanguageModelPromptType::kText,
+            client.info_->input_types->front());
 }
 
 }  // namespace content

@@ -16,9 +16,11 @@
 #include "echo_ai_writer_ohos.h"
 
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "base/functional/callback.h"
+#include "base/json/json_reader.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "content/browser/site_instance_impl.h"
@@ -77,7 +79,8 @@ class MockWebContentsDelegate : public WebContentsDelegate {
     }
   }
 
-  void OnDestroyAISession(AISessionType type, const std::string& uuid) override {
+  void OnDestroyAISession(AISessionType type,
+                          const std::string& uuid) override {
     on_destroy_ai_session_called_ = true;
     destroy_type_ = type;
   }
@@ -94,7 +97,8 @@ class MockWebContentsDelegate : public WebContentsDelegate {
   std::string execute_input_;
 };
 
-class MockModelStreamingResponder : public blink::mojom::ModelStreamingResponder {
+class MockModelStreamingResponder
+    : public blink::mojom::ModelStreamingResponder {
  public:
   MockModelStreamingResponder() = default;
   ~MockModelStreamingResponder() override = default;
@@ -118,6 +122,8 @@ class MockModelStreamingResponder : public blink::mojom::ModelStreamingResponder
     error_status_ = status;
   }
 
+  void OnQuotaOverflow() override {}
+
   bool on_completion_called_ = false;
   bool on_error_called_ = false;
   std::string streaming_content_;
@@ -127,28 +133,40 @@ class MockModelStreamingResponder : public blink::mojom::ModelStreamingResponder
   mojo::Receiver<blink::mojom::ModelStreamingResponder> receiver_{this};
 };
 
-blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithTone(AIWriterTone tone) {
+void ExpectCreateStringField(const MockWebContentsDelegate& delegate,
+                             std::string_view field,
+                             std::string_view expected) {
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate.input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  ASSERT_TRUE(value->is_dict());
+  const std::string* actual = value->GetDict().FindString(field);
+  ASSERT_NE(actual, nullptr);
+  EXPECT_EQ(*actual, expected);
+}
+
+blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithTone(
+    AIWriterTone tone) {
   return AIWriterCreateOptions::New(
       kSharedContext, tone, AIWriterFormat::kPlainText, AIWriterLength::kMedium,
-      std::vector<AILanguageCodePtr>(),
-      std::vector<AILanguageCodePtr>(),
+      std::vector<AILanguageCodePtr>(), std::vector<AILanguageCodePtr>(),
       AILanguageCode::New("en"));
 }
 
-blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithFormat(AIWriterFormat format) {
+blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithFormat(
+    AIWriterFormat format) {
   return AIWriterCreateOptions::New(
       kSharedContext, AIWriterTone::kNeutral, format, AIWriterLength::kMedium,
-      std::vector<AILanguageCodePtr>(),
-      std::vector<AILanguageCodePtr>(),
+      std::vector<AILanguageCodePtr>(), std::vector<AILanguageCodePtr>(),
       AILanguageCode::New("en"));
 }
 
-blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithLength(AIWriterLength length) {
+blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithLength(
+    AIWriterLength length) {
   return AIWriterCreateOptions::New(
-      kSharedContext, AIWriterTone::kNeutral, AIWriterFormat::kPlainText, length,
-      std::vector<AILanguageCodePtr>(),
-      std::vector<AILanguageCodePtr>(),
-      AILanguageCode::New("en"));
+      kSharedContext, AIWriterTone::kNeutral, AIWriterFormat::kPlainText,
+      length, std::vector<AILanguageCodePtr>(),
+      std::vector<AILanguageCodePtr>(), AILanguageCode::New("en"));
 }
 
 blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithLanguages() {
@@ -170,8 +188,7 @@ blink::mojom::AIWriterCreateOptionsPtr CreateOptionsWithoutSharedContext() {
   return AIWriterCreateOptions::New(
       std::nullopt, AIWriterTone::kNeutral, AIWriterFormat::kPlainText,
       AIWriterLength::kMedium, std::vector<AILanguageCodePtr>(),
-      std::vector<AILanguageCodePtr>(),
-      AILanguageCode::New("en"));
+      std::vector<AILanguageCodePtr>(), AILanguageCode::New("en"));
 }
 
 class EchoAIWriterOHOSTest : public RenderViewHostTestHarness {
@@ -197,17 +214,19 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithFormalTone) {
   bool callback_result = false;
   auto options = CreateOptionsWithTone(AIWriterTone::kFormal);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+  ExpectCreateStringField(*delegate_, "tone", "formal");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithNeutralTone) {
@@ -215,13 +234,14 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithNeutralTone) {
   bool callback_result = false;
   auto options = CreateOptionsWithTone(AIWriterTone::kNeutral);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
@@ -233,17 +253,19 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithCasualTone) {
   bool callback_result = false;
   auto options = CreateOptionsWithTone(AIWriterTone::kCasual);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+  ExpectCreateStringField(*delegate_, "tone", "casual");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithPlainTextFormat) {
@@ -251,13 +273,14 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithPlainTextFormat) {
   bool callback_result = false;
   auto options = CreateOptionsWithFormat(AIWriterFormat::kPlainText);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
@@ -269,17 +292,19 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithMarkdownFormat) {
   bool callback_result = false;
   auto options = CreateOptionsWithFormat(AIWriterFormat::kMarkdown);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+  ExpectCreateStringField(*delegate_, "format", "markdown");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithShortLength) {
@@ -287,17 +312,19 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithShortLength) {
   bool callback_result = false;
   auto options = CreateOptionsWithLength(AIWriterLength::kShort);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+  ExpectCreateStringField(*delegate_, "length", "short");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithMediumLength) {
@@ -305,13 +332,14 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithMediumLength) {
   bool callback_result = false;
   auto options = CreateOptionsWithLength(AIWriterLength::kMedium);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
@@ -323,17 +351,19 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithLongLength) {
   bool callback_result = false;
   auto options = CreateOptionsWithLength(AIWriterLength::kLong);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+  ExpectCreateStringField(*delegate_, "length", "long");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithLanguages) {
@@ -341,17 +371,42 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithLanguages) {
   bool callback_result = false;
   auto options = CreateOptionsWithLanguages();
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+
+  ExpectCreateStringField(*delegate_, "sharedContext", kSharedContext);
+  ExpectCreateStringField(*delegate_, "tone", "neutral");
+  ExpectCreateStringField(*delegate_, "format", "plain-text");
+  ExpectCreateStringField(*delegate_, "length", "medium");
+  ExpectCreateStringField(*delegate_, "outputLanguage", "es");
+
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  ASSERT_TRUE(value->is_dict());
+  const base::Value::Dict& dict = value->GetDict();
+  const base::Value::List* input_languages =
+      dict.FindList("expectedInputLanguages");
+  ASSERT_NE(input_languages, nullptr);
+  ASSERT_EQ(input_languages->size(), 2u);
+  EXPECT_EQ((*input_languages)[0].GetString(), "en");
+  EXPECT_EQ((*input_languages)[1].GetString(), "zh");
+  const base::Value::List* context_languages =
+      dict.FindList("expectedContextLanguages");
+  ASSERT_NE(context_languages, nullptr);
+  ASSERT_EQ(context_languages->size(), 2u);
+  EXPECT_EQ((*context_languages)[0].GetString(), "fr");
+  EXPECT_EQ((*context_languages)[1].GetString(), "de");
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithSharedContext) {
@@ -359,13 +414,14 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithSharedContext) {
   bool callback_result = false;
   auto options = CreateOptionsWithTone(AIWriterTone::kNeutral);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
@@ -377,17 +433,25 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithoutSharedContext) {
   bool callback_result = false;
   auto options = CreateOptionsWithoutSharedContext();
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(delegate_->on_create_ai_session_called_);
   EXPECT_TRUE(callback_called);
   EXPECT_TRUE(callback_result);
+
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  const base::Value* shared_context = value->GetDict().Find("sharedContext");
+  ASSERT_NE(shared_context, nullptr);
+  EXPECT_TRUE(shared_context->is_none());
 }
 
 TEST_F(EchoAIWriterOHOSTest, ConstructorWithoutDelegate) {
@@ -396,16 +460,70 @@ TEST_F(EchoAIWriterOHOSTest, ConstructorWithoutDelegate) {
   bool callback_result = false;
   auto options = CreateOptionsWithTone(AIWriterTone::kNeutral);
 
-  EchoAIWriterOHOS writer(
-      web_contents(),
-      base::BindOnce([](bool* called, bool* result, bool success) {
-        *called = true;
-        *result = success;
-      }, &callback_called, &callback_result),
-      std::move(options));
+  EchoAIWriterOHOS writer(web_contents(),
+                          base::BindOnce(
+                              [](bool* called, bool* result, bool success) {
+                                *called = true;
+                                *result = success;
+                              },
+                              &callback_called, &callback_result),
+                          std::move(options));
 
   EXPECT_TRUE(callback_called);
   EXPECT_FALSE(callback_result);
+}
+
+TEST_F(EchoAIWriterOHOSTest, WriteSerializesOptionalContext) {
+  EchoAIWriterOHOS writer(web_contents(), base::BindOnce([](bool) {}),
+                          CreateOptionsWithTone(AIWriterTone::kNeutral));
+  MockModelStreamingResponder responder;
+
+  static_cast<blink::mojom::AIWriter&>(writer).Write(kInput, kContext,
+                                                     responder.BindRemote());
+
+  ASSERT_TRUE(delegate_->on_execute_ai_action_called_);
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->execute_input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  ASSERT_TRUE(value->is_dict());
+  const std::string* input = value->GetDict().FindString("input");
+  ASSERT_NE(input, nullptr);
+  EXPECT_EQ(*input, kInput);
+  const base::Value::Dict* options = value->GetDict().FindDict("options");
+  ASSERT_NE(options, nullptr);
+  EXPECT_EQ(*options->FindString("context"), kContext);
+}
+
+TEST_F(EchoAIWriterOHOSTest, WriteWithoutContextAndMeasureUsage) {
+  EchoAIWriterOHOS writer(web_contents(), base::BindOnce([](bool) {}),
+                          CreateOptionsWithTone(AIWriterTone::kNeutral));
+  MockModelStreamingResponder responder;
+
+  static_cast<blink::mojom::AIWriter&>(writer).Write(kInput, std::nullopt,
+                                                     responder.BindRemote());
+
+  ASSERT_TRUE(delegate_->on_execute_ai_action_called_);
+  std::optional<base::Value> value =
+      base::JSONReader::Read(delegate_->execute_input_, base::JSON_PARSE_RFC);
+  ASSERT_TRUE(value.has_value());
+  ASSERT_TRUE(value->is_dict());
+  const std::string* input = value->GetDict().FindString("input");
+  ASSERT_NE(input, nullptr);
+  EXPECT_EQ(*input, kInput);
+  EXPECT_EQ(value->GetDict().Find("options"), nullptr);
+
+  std::optional<uint32_t> measured_usage;
+  static_cast<blink::mojom::AIWriter&>(writer).MeasureUsage(
+      kInput, kContext,
+      base::BindOnce(
+          [](std::optional<uint32_t>* result,
+             std::optional<uint32_t> number_of_tokens) {
+            *result = number_of_tokens;
+          },
+          &measured_usage));
+  ASSERT_TRUE(measured_usage.has_value());
+  EXPECT_EQ(*measured_usage, std::string_view(kInput).size() +
+                                 std::string_view(kContext).size());
 }
 
 }  // namespace
