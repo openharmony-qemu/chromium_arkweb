@@ -36,6 +36,11 @@ private:
     DatashareAdapterImpl(const DatashareAdapterImpl& other) = delete;
 
     DatashareAdapterImpl& operator=(const DatashareAdapterImpl&) = delete;
+
+    static bool ConvertUriToValidPath(const std::string& uriStr, std::string& path);
+    static std::string ResolveSymlinksForExistingPrefix(const std::string& path);
+
+    friend class DatashareAdapterImplTest;
 };
 
 }  // namespace OHOS::NWeb
