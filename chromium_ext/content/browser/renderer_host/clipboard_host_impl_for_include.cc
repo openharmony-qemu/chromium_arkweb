@@ -28,6 +28,10 @@ void ClipboardHostImpl::OnClipboardDataGuard(
     std::move(callback).Run();
     return;
   }
+  if (status && !IsRendererPasteAllowed(ui::ClipboardBuffer::kCopyPaste,
+                                        render_frame_host())) {
+    return std::move(callback).Run();
+  }
   ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
   if (clipboard) {
     clipboard->OnClipboardDataGuard(status);
@@ -41,6 +45,10 @@ void ClipboardHostImpl::UpdateClipboardData(
           DisallowActivationReasonId::kClipboard)) {
     std::move(callback).Run();
     return;
+  }
+  if (!IsRendererPasteAllowed(ui::ClipboardBuffer::kCopyPaste,
+                              render_frame_host())) {
+    return std::move(callback).Run();
   }
   ui::Clipboard::GetForCurrentThread()->UpdateClipboardData(
       std::move(callback));
