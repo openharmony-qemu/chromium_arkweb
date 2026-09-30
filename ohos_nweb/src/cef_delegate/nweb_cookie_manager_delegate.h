@@ -108,6 +108,9 @@ class NWebCookieManagerDelegate : public NWebCookieManagerDelegateInterface {
   CefRefPtr<CefCookieManagerExt> uninitialized_incognito_cookie_manager_ =
       nullptr;
 #endif
+
+  mutable base::Lock cookie_manager_lock_;
+  mutable base::Lock incognito_cookie_manager_lock_;
 };
 }  // namespace OHOS::NWeb
 #endif
