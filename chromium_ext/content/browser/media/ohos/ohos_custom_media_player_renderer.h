@@ -134,6 +134,10 @@ class CONTENT_EXPORT OHOSCustomMediaPlayerRenderer
 
   void TryCreateMediaPlayer();
   void CreateMediaPlayer();
+  // Continuation of CreateMediaPlayer: invoked asynchronously once the GPU
+  // process returns the surface id. Finishes building the custom media player
+  // and runs `init_cb_`.
+  void OnSurfaceIdRetrieved(const std::string& surface_id_string);
   MediaInfo BuildMediaInfo(const std::string& surface_id_string);
   bool IsClientExtensionValid();
 
