@@ -135,7 +135,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) ArkWebNetworkServiceExt
  private:
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
   void SetHttpsDnsHostResolver(bool enabled,
-                               const std::string& server_template);
+                               const std::string& server_template,
+                               bool enable_iframe,
+                               const std::vector<std::string>& anycast_ip,
+                               const std::vector<std::string>& whitelist_domains);
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
@@ -148,6 +151,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) ArkWebNetworkServiceExt
   std::string cfg_http_dns_server_template_;
   bool real_https_dns_fallback_enabled_ = false;
   std::string real_http_dns_server_template_;
+  bool cfg_enable_iframe_ = false;
+  std::vector<std::string> cfg_anycast_ip_;
+  std::vector<std::string> cfg_whitelist_domains_;
 #endif
 };
 

@@ -195,11 +195,22 @@ void HostResolverManager::WarmUpHttpsDnsFallback(ResolveContext* context) {
 
 void HostResolverManager::SetHttpsDnsFallbackData(
     bool enabled,
-    const std::string& server_template) {
+    const std::string& server_template,
+    bool enable_iframe,
+    const std::vector<std::string>& anycast_ip,
+    const std::vector<std::string>& whitelist_domains) {
   https_dns_fallback_enabled_ = enabled;
   doh_fallback_server_template_ = server_template;
+  https_dns_fallback_enable_iframe_ = enable_iframe;
+  https_dns_fallback_anycast_ip_ = anycast_ip;
+  https_dns_fallback_whitelist_domains_ = whitelist_domains;
+
   for (auto& context : registered_contexts_) {
     context.SetHttpsDnsFallbackEnabled(enabled);
+    context.SetHttpsDnsFallbackServerTemplate(server_template);
+    context.SetHttpsDnsFallbackEnableIframe(enable_iframe);
+    context.SetHttpsDnsFallbackAnycastIP(anycast_ip);
+    context.SetHttpsDnsFallbackWhitelistDomains(whitelist_domains);
     warmup_httpdns_fallback_list_.clear();
     if (enabled) {
       WarmUpHttpsDnsFallback(&context);

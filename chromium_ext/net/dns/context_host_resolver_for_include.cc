@@ -25,6 +25,20 @@ bool ContextHostResolver::CanUseSecureDnsFallback() const {
   return manager_->CanUseSecureDnsFallback(resolve_context_.get());
 }
 
+bool ContextHostResolver::IsDomainInWhitelist(const std::string& domain) const {
+  if (!resolve_context_) {
+    return false;
+  }
+  return resolve_context_->IsDomainInWhitelist(domain);
+}
+
+bool ContextHostResolver::IsIframeFallbackEnabled() const {
+  if (!resolve_context_) {
+    return false;
+  }
+  return resolve_context_->IsHttpsDnsFallbackEnableIframe();
+}
+
 void ContextHostResolver::GetLocalAddress(IPEndPoint* address) {
   if (!manager_) {
     return;

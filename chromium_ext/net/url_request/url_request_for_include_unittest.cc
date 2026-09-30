@@ -130,6 +130,10 @@ class MockProxyDelegate : public ProxyDelegate {
               IsFallbackProxyServer,
               (const net::ProxyChain& proxy_chain),
               (override));
+  MOCK_METHOD(bool,
+              IsDomainInProxyWhitelist,
+              (const std::string& domain),
+              (override));
 #endif
 };
 #if BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)

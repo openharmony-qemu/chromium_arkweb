@@ -5,6 +5,7 @@
 #include "net/dns/host_resolver_dns_task.h"
 #include "arkweb/chromium_ext/net/dns/arkweb_host_resolver_dns_task_ext.h"
 
+#include <sstream>
 #include <string_view>
 
 #include "arkweb/chromium_ext/url/ohos/log_utils.h"
@@ -13,6 +14,7 @@
 #include "base/not_fatal_until.h"
 #include "base/time/tick_clock.h"
 #include "net/base/features.h"
+#include "net/base/ip_address.h"
 #include "net/dns/address_sorter.h"
 #include "net/dns/dns_client.h"
 #include "net/dns/dns_names_util.h"
@@ -24,10 +26,13 @@
 #include "net/dns/host_resolver_internal_result.h"
 #include "net/dns/public/util.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
 #include "arkweb/chromium_ext/net/dns/secure_dns_fallback_utils.h"
+#include "arkweb/chromium_ext/base/ohos/nweb_engine_event_logger.h"
+#include "arkweb/chromium_ext/base/ohos/nweb_engine_event_logger_code.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #if BUILDFLAG(IS_ARKWEB_EXT)
@@ -172,6 +177,67 @@ void ArkWebHostResolverDnsTaskExt::MaybeModifyInsecureDnsTaskResolveResults(
       }
     }
   }
+}
+
+bool ArkWebHostResolverDnsTaskExt::MaybeUseAnycastIPFallback(
+    const std::string& hostname,
+    int net_error,
+    bool fatal_error,
+    DnsQueryType query_type,
+    DnsResponseResultExtractor::ResultsOrError& out_results) {
+  if (net_error == OK || fatal_error) {
+    return false;
+  }
+
+  if (!hostResolverDnsTask->resolve_context_->IsHttpsDnsFallbackEnabled()) {
+    return false;
+  }
+
+  const std::string& server_template =
+      hostResolverDnsTask->resolve_context_->GetHttpsDnsFallbackServerTemplate();
+  if (server_template.empty()) {
+    return false;
+  }
+
+  std::string server_url = GetURLFromTemplateWithoutParameters(server_template);
+  GURL gurl(server_url);
+  if (!gurl.is_valid() || gurl.host() != hostname) {
+    return false;
+  }
+
+  std::vector<IPEndPoint> endpoints;
+  const std::vector<std::string>& anycast_ips =
+      hostResolverDnsTask->resolve_context_->GetHttpsDnsFallbackAnycastIP();
+  for (const auto& ip_str : anycast_ips) {
+    IPAddress ip_address;
+    if (!ip_address.AssignFromIPLiteral(ip_str)) {
+      continue;
+    }
+    endpoints.emplace_back(ip_address, 443);
+  }
+
+  if (endpoints.empty()) {
+    return false;
+  }
+
+  base::TimeDelta ttl = base::Seconds(300);
+  base::TimeTicks tick_now = hostResolverDnsTask->tick_clock_->NowTicks();
+  base::Time time_now = base::Time::Now();
+
+  out_results.emplace();
+  out_results.value().insert(std::make_unique<HostResolverInternalDataResult>(
+      hostname, query_type, tick_now + ttl, time_now + ttl,
+      HostResolverInternalResult::Source::kDns,
+      std::move(endpoints), std::vector<std::string>{},
+      std::vector<HostPortPair>{}));
+
+  std::ostringstream ostr;
+  ostr << "DOH-Fallback: Using anycast IP.";
+  base::ohos::ReportEngineEvent(base::ohos::kModuleNet, hostname,
+                                base::ohos::kAnycastIPUsage, ostr.str());
+  LOG(INFO) << "event_message: " << ostr.str();
+
+  return true;
 }
 
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)

@@ -30,7 +30,8 @@ TEST_F(HostResolverManagerDnsTest, SetHttpsDnsFallbackData) {
 
   resolver_->RegisterResolveContext(&context1);
   resolver_->RegisterResolveContext(&context2);
-  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com");
+  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com", false,
+                                     {}, {});
   EXPECT_FALSE(resolver_->warmup_httpdns_fallback_list_.empty());
   resolver_->DeregisterResolveContext(&context1);
   resolver_->DeregisterResolveContext(&context2);
@@ -259,7 +260,8 @@ TEST_F(HostResolverManagerDnsTest,
   // does not crash. MaybeModifyResolveLocallyResults is called internally
   // when local resolution results are available.
   CreateResolver();
-  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com");
+  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com", false,
+                                     {}, {});
 
   EXPECT_NO_FATAL_FAILURE(resolver_->CreateRequest(
       HostPortPair("modify-test.example", 443), NetworkAnonymizationKey(),
@@ -307,11 +309,12 @@ TEST_F(HostResolverManagerDnsTest,
   resolver_->RegisterResolveContext(&context);
 
   // First enable, which creates warmup entries
-  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com");
+  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com", false,
+                                     {}, {});
   EXPECT_FALSE(resolver_->warmup_httpdns_fallback_list_.empty());
 
   // Now disable - list should be cleared after re-enabling with false
-  resolver_->SetHttpsDnsFallbackData(false, "");
+  resolver_->SetHttpsDnsFallbackData(false, "", false, {}, {});
   EXPECT_FALSE(resolver_->https_dns_fallback_enabled_);
   EXPECT_TRUE(resolver_->doh_fallback_server_template_.empty());
   EXPECT_TRUE(resolver_->warmup_httpdns_fallback_list_.empty());
@@ -323,7 +326,8 @@ TEST_F(HostResolverManagerDnsTest,
 TEST_F(HostResolverManagerDnsTest,
        SetHttpsDnsFallbackData_NoRegisteredContexts) {
   // Don't register any contexts
-  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com");
+  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com", false,
+                                     {}, {});
   EXPECT_TRUE(resolver_->https_dns_fallback_enabled_);
 }
 
@@ -410,12 +414,13 @@ TEST_F(HostResolverManagerDnsTest,
   // observers. When SetHttpsDnsFallbackData is called again with enabled=false,
   // the old instances are destroyed, and their destructors call
   // UnregisterDohStatusObserver.
-  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com");
+  resolver_->SetHttpsDnsFallbackData(true, "https://dns.example.com", false,
+                                     {}, {});
   EXPECT_FALSE(resolver_->warmup_httpdns_fallback_list_.empty());
 
   // Disabling triggers destruction of WarmUpHttpDnsFallbackImpl objects
   // Should not crash
-  resolver_->SetHttpsDnsFallbackData(false, "");
+  resolver_->SetHttpsDnsFallbackData(false, "", false, {}, {});
   EXPECT_TRUE(resolver_->warmup_httpdns_fallback_list_.empty());
 
   resolver_->DeregisterResolveContext(&context);
