@@ -21,10 +21,12 @@
 #include "base/barrier_closure.h"
 #include "cef/libcef/browser/browser_info_manager.h"
 #include "cef/libcef/browser/frame_host_impl.h"
-#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_host_delegate.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/permission_controller_delegate.h"
 #include "content/public/browser/permission_descriptor_util.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 
 namespace content {
 
@@ -43,7 +45,7 @@ std::map<GURL, RenderFrameHost*> CollectMainFrameByOrigin(
     auto* rfh = main_frame->GetRenderFrameHost();
     if (!rfh || rfh->GetBrowserContext() != context)
       continue;
-    auto origin = url::Origin::Create(rfh->GetLastCommittedURL()).GetURL();
+    auto origin = rfh->GetLastCommittedURL();
     if (!origin.is_valid() || result.count(origin))
       continue;
     result[origin] = rfh;
@@ -53,18 +55,25 @@ std::map<GURL, RenderFrameHost*> CollectMainFrameByOrigin(
 
 // Finds the main-frame RenderFrameHost of the focused tab.
 RenderFrameHost* FindFocusedMainFrameForContext(BrowserContext* context) {
+  base::TimeTicks last_active_time_ticks;
+  RenderFrameHost* last_active_rfh = nullptr;
   for (const auto& info :
        CefBrowserInfoManager::GetInstance()->GetBrowserInfoList()) {
     auto main_frame = info->GetMainFrame();
     if (!main_frame)
       continue;
     auto* rfh = main_frame->GetRenderFrameHost();
-    if (!rfh || rfh->GetBrowserContext() != context)
+    if (!rfh || rfh->GetBrowserContext() != context || rfh->GetLastCommittedURL().SchemeIs(kChromeDevToolsScheme))
       continue;
-    if (static_cast<RenderFrameHostImpl*>(rfh)->IsFocused())
+    if (!static_cast<RenderFrameHostImpl*>(rfh)->GetRenderWidgetHost()->IsHidden())
       return rfh;
+    WebContents* web_contents = WebContents::FromRenderFrameHost(rfh);
+    if (web_contents && web_contents->GetLastActiveTimeTicks() > last_active_time_ticks) {
+      last_active_time_ticks = web_contents->GetLastActiveTimeTicks();
+      last_active_rfh = rfh;
+    }
   }
-  return nullptr;
+  return last_active_rfh;
 }
 
 }  // namespace
