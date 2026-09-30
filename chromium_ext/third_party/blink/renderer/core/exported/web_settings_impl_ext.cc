@@ -286,6 +286,16 @@ bool WebSettingsImplExt::IsTouchHandleExist()
   return settings_->IsTouchHandleExist();
 }
 
+void WebSettingsImplExt::SetClickExtEnabled(bool enable)
+{
+  settings_->SetClickExtEnabled(enable);
+}
+
+bool WebSettingsImplExt::IsClickExtEnabled()
+{
+  return settings_->IsClickExtEnabled();
+}
+
 void WebSettingsImplExt::SetViewportScaleState(bool viewportScale)
 {
   settings_->SetViewportScaleState(viewportScale);

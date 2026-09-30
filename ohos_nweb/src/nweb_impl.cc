@@ -9113,6 +9113,12 @@ void NWebImpl::SetTouchHandleExistState(bool touchHandleExist) {
     nweb_delegate_->SetTouchHandleExistState(touchHandleExist);
   }
 }
+
+void NWebImpl::SetClickExtEnabled(bool enable) {
+  if (nweb_delegate_) {
+    nweb_delegate_->SetClickExtEnabled(enable);
+  }
+}
   
 void NWebImpl::SetViewportScaleState() {
   if (nweb_delegate_) {

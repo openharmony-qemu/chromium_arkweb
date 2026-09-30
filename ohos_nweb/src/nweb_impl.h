@@ -412,6 +412,7 @@ class NWebImpl : public NWeb {
 #endif
 #if BUILDFLAG(ARKWEB_MENU)
   void SetTouchHandleExistState(bool touchHandleExist) override;
+  void SetClickExtEnabled(bool enable) override;
   void SetViewportScaleState() override;
 #endif  // BUILDFLAG(ARKWEB_MENU)
 #if BUILDFLAG(ARKWEB_CLIPBOARD)

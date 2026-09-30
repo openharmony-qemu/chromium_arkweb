@@ -109,6 +109,7 @@ void ApplyOhosWebPreferences(const web_pref::WebPreferences& prefs,
 
 #if BUILDFLAG(ARKWEB_MENU)
   settings->SetTouchHandleExistState(prefs.touch_handle_exist);
+  settings->SetClickExtEnabled(prefs.click_ext_enabled);
   settings->SetViewportScaleState(prefs.viewport_scale);
   settings->SetSmartEdgeState(prefs.smart_edge_state);
 #endif  // BUILDFLAG(ARKWEB_MENU)

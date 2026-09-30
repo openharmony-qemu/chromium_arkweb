@@ -5188,6 +5188,12 @@ void NWebDelegate::SetTouchHandleExistState(bool touchHandleExist) {
   }
 }
 
+void NWebDelegate::SetClickExtEnabled(bool enable) {
+  if (preference_delegate_) {
+    preference_delegate_->SetClickExtEnabled(enable);
+  }
+}
+
 void NWebDelegate::SetViewportScaleState(bool viewportScale) {
   if (preference_delegate_) {
     preference_delegate_->SetViewportScaleState(viewportScale);

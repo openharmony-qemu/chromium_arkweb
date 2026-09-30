@@ -102,6 +102,7 @@
 
 #if BUILDFLAG(ARKWEB_MENU)
   bool touch_handle_exist_ = false;
+  bool click_ext_enabled_ = false;
   bool viewport_scale_ = false;
   bool smart_edge_state_ = false;
 #endif  // BUILDFLAG(ARKWEB_MENU)
