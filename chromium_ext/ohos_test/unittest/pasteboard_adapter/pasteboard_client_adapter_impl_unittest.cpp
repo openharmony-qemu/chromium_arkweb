@@ -24,6 +24,7 @@
 #include <database/pasteboard/oh_pasteboard_err_code.h>
 #include "ohos_sdk/openharmony/native/sysroot/usr/include/AbilityKit/ability_runtime/ability_runtime_common.h"
 #include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_ndk_api_new.h"
+#include "third_party/bounds_checking_function/include/securec.h"
 #define private public
 #include "arkweb/ohos_adapter_ndk/pasteboard_adapter/include/pasteboard_client_adapter_impl.h"
 #undef private
@@ -166,14 +167,207 @@ public:
         height = h;
     }
 
-    ClipBoardImageColorType colorType;
-    ClipBoardImageAlphaType alphaType;
-    uint32_t* data;
-    size_t dataSize;
-    size_t rowBytes;
-    int32_t width;
-    int32_t height;
+    ClipBoardImageColorType colorType =
+        ClipBoardImageColorType::COLOR_TYPE_UNKNOWN;
+    ClipBoardImageAlphaType alphaType =
+        ClipBoardImageAlphaType::ALPHA_TYPE_UNKNOWN;
+    uint32_t* data = nullptr;
+    size_t dataSize = 0;
+    size_t rowBytes = 0;
+    int32_t width = 0;
+    int32_t height = 0;
 };
+
+// The producer must publish packed RGBA/BGRA rows whatever the source row
+// stride is, and must not publish a synthetic image when the pixel read
+// fails.
+class PasteboardImageReadTest : public testing::Test {
+   public:
+    void SetUp() override {
+        record_ = std::make_shared<PasteDataRecordAdapterImpl>(
+            OH_UdmfRecord_Create(), std::shared_ptr<OH_UdmfData>());
+        ASSERT_NE(record_->GetRecord(), nullptr);
+        auto input = std::make_shared<MockClipBoardImageDataAdapter>();
+        input->SetWidth(3);
+        input->SetHeight(3);
+        input->SetRowBytes(12);
+        input->SetData(pixels_);
+        input->SetDataSize(sizeof(pixels_));
+        input->SetColorType(ClipBoardImageColorType::COLOR_TYPE_BGRA_8888);
+        input->SetAlphaType(ClipBoardImageAlphaType::ALPHA_TYPE_OPAQUE);
+        ASSERT_TRUE(record_->SetImgData(input));
+        output_ = std::make_shared<MockClipBoardImageDataAdapter>();
+
+        SET_MOCK_KEY_TRUE(MockOHOSFunction, OH_PixelmapImageInfo_GetWidth);
+        SET_MOCK_KEY_TRUE(MockOHOSFunction, OH_PixelmapImageInfo_GetHeight);
+        SET_MOCK_KEY_TRUE(MockOHOSFunction, OH_PixelmapImageInfo_GetRowStride);
+        SET_MOCK_KEY_TRUE(MockOHOSFunction, OH_PixelmapImageInfo_GetAlphaType);
+        SET_MOCK_KEY_TRUE(MockOHOSFunction,
+                          OH_PixelmapImageInfo_GetPixelFormat);
+        SET_MOCK_KEY_TRUE(MockOHOSFunction, OH_PixelmapNative_ReadPixels);
+        auto& mock = MockOHOSFunction::GetInstance();
+        ON_CALL(mock, OH_PixelmapImageInfo_GetWidth(_, _))
+            .WillByDefault(DoAll(SetArgPointee<1>(3u), Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetHeight(_, _))
+            .WillByDefault(DoAll(SetArgPointee<1>(3u), Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetRowStride(_, _))
+            .WillByDefault(DoAll(SetArgPointee<1>(12u), Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetAlphaType(_, _))
+            .WillByDefault(DoAll(SetArgPointee<1>(PIXELMAP_ALPHA_TYPE_OPAQUE),
+                                 Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetPixelFormat(_, _))
+            .WillByDefault(DoAll(SetArgPointee<1>(PIXEL_FORMAT_BGRA_8888),
+                                 Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapNative_ReadPixels(_, _, _))
+            .WillByDefault(
+                [this](OH_PixelmapNative*, uint8_t* destination, size_t* size) {
+                  EXPECT_GE(*size, sizeof(pixels_));
+                  if (*size < sizeof(pixels_)) {
+                    return IMAGE_BAD_PARAMETER;
+                  }
+                  // ReadPixels packs rows, including for padded sources.
+                  EXPECT_EQ(memcpy_s(destination, *size, pixels_, sizeof(pixels_)), EOK);
+                  return IMAGE_SUCCESS;
+                });
+    }
+
+    void TearDown() override {
+        SET_MOCK_KEY_FALSE(MockOHOSFunction, OH_PixelmapImageInfo_GetWidth);
+        SET_MOCK_KEY_FALSE(MockOHOSFunction, OH_PixelmapImageInfo_GetHeight);
+        SET_MOCK_KEY_FALSE(MockOHOSFunction, OH_PixelmapImageInfo_GetRowStride);
+        SET_MOCK_KEY_FALSE(MockOHOSFunction, OH_PixelmapImageInfo_GetAlphaType);
+        SET_MOCK_KEY_FALSE(MockOHOSFunction,
+                           OH_PixelmapImageInfo_GetPixelFormat);
+        SET_MOCK_KEY_FALSE(MockOHOSFunction, OH_PixelmapNative_ReadPixels);
+        testing::Mock::VerifyAndClear(&MockOHOSFunction::GetInstance());
+        if (output_) {
+          free(output_->GetData());
+          output_->SetData(nullptr);
+        }
+    }
+
+    void ExpectReadFailure() {
+        EXPECT_FALSE(record_->GetImgData(output_));
+        EXPECT_EQ(output_->GetData(), nullptr);
+        EXPECT_EQ(output_->GetDataSize(), 0u);
+        EXPECT_EQ(output_->GetRowBytes(), 0u);
+    }
+
+    void ExpectPackedImage() {
+        ASSERT_TRUE(record_->GetImgData(output_));
+        ASSERT_NE(output_->GetData(), nullptr);
+        EXPECT_EQ(output_->GetWidth(), 3);
+        EXPECT_EQ(output_->GetHeight(), 3);
+        EXPECT_EQ(output_->GetRowBytes(), 12u);
+        ASSERT_EQ(output_->GetDataSize(), sizeof(pixels_));
+        EXPECT_EQ(memcmp(output_->GetData(), pixels_, sizeof(pixels_)), 0);
+    }
+
+   protected:
+    uint32_t pixels_[9] = {
+        0xff010203, 0xff040506, 0xff070809, 0xff101112, 0xff131415,
+        0xff161718, 0xff202122, 0xff232425, 0xff262728,
+    };
+    std::shared_ptr<PasteDataRecordAdapterImpl> record_;
+    std::shared_ptr<MockClipBoardImageDataAdapter> output_;
+};
+
+TEST_F(PasteboardImageReadTest, PackedPixels) {
+    ExpectPackedImage();
+    EXPECT_EQ(output_->GetColorType(),
+              ClipBoardImageColorType::COLOR_TYPE_BGRA_8888);
+    EXPECT_EQ(output_->GetAlphaType(),
+              ClipBoardImageAlphaType::ALPHA_TYPE_OPAQUE);
+}
+
+TEST_F(PasteboardImageReadTest, PaddedSourceStillPublishesPackedPixels) {
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetRowStride(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(16u), Return(IMAGE_SUCCESS)));
+    EXPECT_CALL(mock, OH_PixelmapNative_ReadPixels(_, _, _))
+        .WillOnce(
+            [this](OH_PixelmapNative*, uint8_t* destination, size_t* size) {
+              EXPECT_EQ(*size, 48u);
+              if (*size < 48u) {
+                return IMAGE_BAD_PARAMETER;
+              }
+              EXPECT_EQ(memcpy_s(destination, *size, pixels_, sizeof(pixels_)), EOK);
+              return IMAGE_SUCCESS;
+            });
+    ExpectPackedImage();
+}
+
+TEST_F(PasteboardImageReadTest, SmallerStrideStillPublishesPackedPixels) {
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetRowStride(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(8u), Return(IMAGE_SUCCESS)));
+    ExpectPackedImage();
+}
+
+TEST_F(PasteboardImageReadTest, ReadPixelsFailureDoesNotPublishData) {
+    EXPECT_CALL(MockOHOSFunction::GetInstance(),
+                OH_PixelmapNative_ReadPixels(_, _, _))
+        .WillOnce(Return(IMAGE_BAD_PARAMETER));
+    ExpectReadFailure();
+}
+
+TEST_F(PasteboardImageReadTest, InvalidLayoutRejectedBeforeReading) {
+    const struct {
+        uint32_t width;
+        uint32_t height;
+        uint32_t stride;
+    } layouts[] = {
+        {0, 3, 12},             {3, 0, 12},          {0x40000001, 4, 4},
+        {65536, 16384, 262144}, {3, UINT32_MAX, 12}, {3, 3, UINT32_MAX},
+    };
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapNative_ReadPixels(_, _, _)).Times(0);
+    for (const auto& layout : layouts) {
+        SCOPED_TRACE(testing::Message() << layout.width << "x" << layout.height
+                                        << ", stride=" << layout.stride);
+        ON_CALL(mock, OH_PixelmapImageInfo_GetWidth(_, _))
+            .WillByDefault(
+                DoAll(SetArgPointee<1>(layout.width), Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetHeight(_, _))
+            .WillByDefault(
+                DoAll(SetArgPointee<1>(layout.height), Return(IMAGE_SUCCESS)));
+        ON_CALL(mock, OH_PixelmapImageInfo_GetRowStride(_, _))
+            .WillByDefault(
+                DoAll(SetArgPointee<1>(layout.stride), Return(IMAGE_SUCCESS)));
+        ExpectReadFailure();
+    }
+}
+
+TEST_F(PasteboardImageReadTest, RgbaFormatAndUnknownAlphaRemainSupported) {
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetPixelFormat(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(PIXEL_FORMAT_RGBA_8888),
+                        Return(IMAGE_SUCCESS)));
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetAlphaType(_, _))
+        .WillOnce(DoAll(SetArgPointee<1>(PIXELMAP_ALPHA_TYPE_UNKNOWN),
+                        Return(IMAGE_SUCCESS)));
+    ExpectPackedImage();
+    EXPECT_EQ(output_->GetColorType(),
+              ClipBoardImageColorType::COLOR_TYPE_RGBA_8888);
+    EXPECT_EQ(output_->GetAlphaType(),
+              ClipBoardImageAlphaType::ALPHA_TYPE_PREMULTIPLIED);
+}
+
+TEST_F(PasteboardImageReadTest, GetWidthFailure) {
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetWidth(_, _))
+        .WillOnce(Return(IMAGE_BAD_PARAMETER));
+    EXPECT_CALL(mock, OH_PixelmapNative_ReadPixels(_, _, _)).Times(0);
+    ExpectReadFailure();
+}
+
+TEST_F(PasteboardImageReadTest, GetHeightFailure) {
+    auto& mock = MockOHOSFunction::GetInstance();
+    EXPECT_CALL(mock, OH_PixelmapImageInfo_GetHeight(_, _))
+        .WillOnce(Return(IMAGE_BAD_PARAMETER));
+    EXPECT_CALL(mock, OH_PixelmapNative_ReadPixels(_, _, _)).Times(0);
+    ExpectReadFailure();
+}
 
 class MockPasteboardObserver : public PasteboardObserverAdapter {
 public:

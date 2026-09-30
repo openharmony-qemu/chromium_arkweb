@@ -24,6 +24,7 @@
 #include <database/pasteboard/oh_pasteboard_err_code.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <multimedia/image_framework/image/pixelmap_native.h>
 #include <multimedia/player_framework/native_avcodec_base.h>
 #include <multimodalinput/oh_input_manager.h>
 #include <network/netmanager/net_connection.h>
@@ -74,6 +75,33 @@ class MockOHOSFunction {
               (OH_UdmfData * pThis, unsigned int* count));
   MOCK_METHOD(bool, OH_UdmfData_IsLocal, (OH_UdmfData * data));
 
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapImageInfo_GetWidth,
+              (OH_Pixelmap_ImageInfo * info, uint32_t* width));
+  DECLARE_MOCK_KEY(OH_PixelmapImageInfo_GetWidth);
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapImageInfo_GetHeight,
+              (OH_Pixelmap_ImageInfo * info, uint32_t* height));
+  DECLARE_MOCK_KEY(OH_PixelmapImageInfo_GetHeight);
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapImageInfo_GetRowStride,
+              (OH_Pixelmap_ImageInfo * info, uint32_t* rowStride));
+  DECLARE_MOCK_KEY(OH_PixelmapImageInfo_GetRowStride);
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapImageInfo_GetAlphaType,
+              (OH_Pixelmap_ImageInfo * info, int32_t* alphaType));
+  DECLARE_MOCK_KEY(OH_PixelmapImageInfo_GetAlphaType);
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapImageInfo_GetPixelFormat,
+              (OH_Pixelmap_ImageInfo * info, int32_t* pixelFormat));
+  DECLARE_MOCK_KEY(OH_PixelmapImageInfo_GetPixelFormat);
+  MOCK_METHOD(Image_ErrorCode,
+              OH_PixelmapNative_ReadPixels,
+              (OH_PixelmapNative * pixelmap,
+               uint8_t* destination,
+               size_t* bufferSize));
+  DECLARE_MOCK_KEY(OH_PixelmapNative_ReadPixels);
+
   static bool pasteboard_GetDataParams_Create;
   static bool abilityRuntime_ApplicationContextGetCacheDir;
   static bool pasteboard_GetDataParams_SetProgressIndicator;
@@ -115,6 +143,27 @@ void __real_OH_Pasteboard_GetDataParams_Destroy(
 OH_UdmfRecord** __real_OH_UdmfData_GetRecords(OH_UdmfData* pThis,
                                               unsigned int* count);
 bool __real_OH_UdmfData_IsLocal(OH_UdmfData* data);
+
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapImageInfo_GetWidth,
+                  (OH_Pixelmap_ImageInfo * info, uint32_t* width));
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapImageInfo_GetHeight,
+                  (OH_Pixelmap_ImageInfo * info, uint32_t* height));
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapImageInfo_GetRowStride,
+                  (OH_Pixelmap_ImageInfo * info, uint32_t* rowStride));
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapImageInfo_GetAlphaType,
+                  (OH_Pixelmap_ImageInfo * info, int32_t* alphaType));
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapImageInfo_GetPixelFormat,
+                  (OH_Pixelmap_ImageInfo * info, int32_t* pixelFormat));
+DECLARE_REAL_FUNC(Image_ErrorCode,
+                  OH_PixelmapNative_ReadPixels,
+                  (OH_PixelmapNative * pixelmap,
+                   uint8_t* destination,
+                   size_t* bufferSize));
 
 #ifdef __cplusplus
 }

@@ -192,6 +192,12 @@ config("mock_ndk_api_config") {
     "-Wl,--wrap=OH_Pasteboard_GetDataParams_Destroy",
     "-Wl,--wrap=OH_UdmfData_GetRecords",
     "-Wl,--wrap=OH_UdmfData_IsLocal",
+    "-Wl,--wrap=OH_PixelmapImageInfo_GetWidth",
+    "-Wl,--wrap=OH_PixelmapImageInfo_GetHeight",
+    "-Wl,--wrap=OH_PixelmapImageInfo_GetRowStride",
+    "-Wl,--wrap=OH_PixelmapImageInfo_GetAlphaType",
+    "-Wl,--wrap=OH_PixelmapImageInfo_GetPixelFormat",
+    "-Wl,--wrap=OH_PixelmapNative_ReadPixels",
   ]  
 }
 config("mock_base_ohos_config") {
@@ -239,5 +245,4 @@ source_set("mock_ndk") {
   ]
   public_configs = [ ":mock_ndk_api_config" ]
 }
-
 
