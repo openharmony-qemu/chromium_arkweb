@@ -29,6 +29,10 @@
 #include "base/task/thread_pool.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_OOP_GPU_PROCESS)
+#include "mojo/public/cpp/bindings/callback_helpers.h"
+#endif
+
 namespace viz {
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
@@ -114,6 +118,20 @@ std::string GpuHostImpl::GetSurfaceId(int32_t native_embed_id) {
   std::string surface_id = "";
   gpu_service_remote_->GetSurfaceId(native_embed_id, &surface_id);
   return surface_id;
+}
+
+void GpuHostImpl::GetSurfaceId(int32_t native_embed_id,
+                               GetSurfaceIdCallback callback) {
+  LOG(DEBUG) << "get surface id async = " << native_embed_id;
+  // Async path: no ScopedAllowSyncCall needed, the calling thread (UI) is not
+  // blocked and the Mojo reply is delivered back on the binding thread (UI).
+  // Wrap with a default invocation so the callback always runs even if the
+  // GPU process drops the connection (e.g. crash), surfacing an empty string
+  // that the caller treats as a hard error.
+  gpu_service_remote_->GetSurfaceId(
+      native_embed_id,
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback),
+                                                  std::string()));
 }
 
 void GpuHostImpl::SetTransformHint(uint32_t rotation, uint32_t window_id) {
