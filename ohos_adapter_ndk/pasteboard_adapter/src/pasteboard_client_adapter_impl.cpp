@@ -18,6 +18,7 @@
 #include <mutex>
 #include <string>
 #include <set>
+#include <cinttypes>
 #include <database/udmf/udmf_err_code.h>
 #include <database/udmf/udmf_meta.h>
 #include <database/pasteboard/oh_pasteboard_err_code.h>
@@ -329,6 +330,13 @@ bool PasteDataRecordAdapterImpl::SetImgData(std::shared_ptr<ClipBoardImageDataAd
     uint8_t* data = reinterpret_cast<uint8_t*>(imageData->GetData());
     uint64_t stride = static_cast<uint64_t>(imageData->GetWidth()) << 2;
     size_t bufferSize = static_cast<size_t>(stride * static_cast<uint64_t>(imageData->GetHeight()));
+    size_t dataSize = imageData->GetDataSize();
+    if (dataSize == 0 || dataSize == SIZE_MAX || bufferSize > dataSize) {
+        WVLOG_E("buffer size mismatch, computed: %{public}" PRIu64 ", actual: %{public}zu",
+                static_cast<uint64_t>(bufferSize), dataSize);
+        DestoryOptions(0, options, "buffer size mismatch");
+        return false;
+    }
     int createPixelmap_res = OH_PixelmapNative_CreatePixelmap(data, bufferSize, options, &pixelmapNative);
     if (createPixelmap_res != IMAGE_SUCCESS) {
         DestoryOptions(createPixelmap_res, options, "CreatePixelmap failed");
