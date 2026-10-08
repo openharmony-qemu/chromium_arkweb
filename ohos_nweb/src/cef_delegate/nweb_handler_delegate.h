@@ -693,6 +693,15 @@ class NWebHandlerDelegate : public ArkWebClientExt,
                             const CefString& message_text,
                             bool is_reload,
                             CefRefPtr<CefJSDialogCallback> callback) override;
+
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  // ArkWeb: called by CEF when a JS dialog is handled by engine (e.g. CDP).
+  // Carries accept + prompt_text that the upstream OnDialogClosed lacks.
+  // Returns int result from the handler chain.
+  int OnHandleJavaScriptDialog(CefRefPtr<CefBrowser> browser,
+                               bool accept,
+                               const CefString& prompt_text) override;
+#endif  // ARKWEB_NWEB_EX
   /* CefJSDialogHandler method end */
 
   /* CefDialogHandler method begin */
