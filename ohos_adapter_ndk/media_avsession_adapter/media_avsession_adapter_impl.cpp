@@ -1094,6 +1094,20 @@ bool MediaAVSessionAdapterImpl::GetAVCastController() {
 
 bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDescription) {
     WVLOG_I("MediaAVSessionAdapterImpl::Prepare enter.");
+    if (avMediaDescriptionBuilder_) {
+        AVQueueItem_Result destroyRet = OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        if (destroyRet != AVQUEUEITEM_SUCCESS) {
+            WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_Destroy failed. ret: %{public}d", destroyRet);
+        }
+        avMediaDescriptionBuilder_ = nullptr;
+    }
+    if (avMediaDescription_) {
+        AVQueueItem_Result destroyRet = OH_AVSession_AVMediaDescription_Destroy(avMediaDescription_);
+        if (destroyRet != AVQUEUEITEM_SUCCESS) {
+            WVLOG_E("OH_AVSession_AVMediaDescription_Destroy failed. ret: %{public}d", destroyRet);
+        }
+        avMediaDescription_ = nullptr;
+    }
     AVQueueItem_Result ret = OH_AVSession_AVMediaDescriptionBuilder_Create(&avMediaDescriptionBuilder_);
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_Create failed. ret: %{public}d", ret);
@@ -1103,6 +1117,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
     ret = OH_AVSession_AVMediaDescriptionBuilder_SetDuration(avMediaDescriptionBuilder_, mediaCastDescription.duration);
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetDuration failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1110,6 +1126,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.mediaUri.c_str());
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetMediaUri failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1117,6 +1135,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.startPosition);
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetStartPosition failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1124,6 +1144,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.mediaType);
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetMediaType failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1131,6 +1153,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.title.c_str());
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetTitle failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1138,6 +1162,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.assetId.c_str());
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetAssetId failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1145,6 +1171,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         mediaCastDescription.albumUrl.c_str());
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_SetAlbumCoverUri failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 
@@ -1152,6 +1180,8 @@ bool MediaAVSessionAdapterImpl::Prepare(const MediaCastDescription& mediaCastDes
         &avMediaDescription_);
     if (ret != AVQUEUEITEM_SUCCESS) {
         WVLOG_E("OH_AVSession_AVMediaDescriptionBuilder_GenerateAVMediaDescription failed. ret: %{public}d", ret);
+        OH_AVSession_AVMediaDescriptionBuilder_Destroy(avMediaDescriptionBuilder_);
+        avMediaDescriptionBuilder_ = nullptr;
         return false;
     }
 

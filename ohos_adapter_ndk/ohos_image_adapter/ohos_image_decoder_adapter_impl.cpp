@@ -441,11 +441,11 @@ void* OhosImageDecoderAdapterImpl::GetDecodeData()
 
     void* ptr = nullptr;
     Image_ErrorCode errorCode = OH_PixelmapNative_AccessPixels(pixelMap_, &ptr);
-    has_lock_pixelmap_ = true;
     if (errorCode != Image_ErrorCode::IMAGE_SUCCESS) {
         WVLOG_E("[HeifSupport] OhosImageDecoderAdapterImpl::GetDecodeData. get PixelMap data fail.");
         return nullptr;
     }
+    has_lock_pixelmap_ = true;
 
     return ptr;
 }
