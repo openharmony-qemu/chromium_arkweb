@@ -13,6 +13,7 @@
 #include "cef/libcef/browser/browser_host_base.h"
 #include "cef/libcef/browser/browser_info_manager.h"
 #include "content/public/browser/devtools_agent_host.h"
+#include "content/public/browser/web_contents.h"
 #endif
 
 namespace ohos {
@@ -72,6 +73,8 @@ class CefCallbackImpl : public CefCallback {
 // Finds the NWebHandlerDelegate for the focused tab via
 // NWebHandlerDelegate::GetFocusState().
 NWebHandlerDelegate* FindNWebHandlerDelegate() {
+  base::TimeTicks last_active_time_ticks;
+  NWebHandlerDelegate* last_active_delegate = nullptr;
   for (const auto& info :
        CefBrowserInfoManager::GetInstance()->GetBrowserInfoList()) {
     if (!info->IsValid() || info->IsClosing())
@@ -86,14 +89,17 @@ NWebHandlerDelegate* FindNWebHandlerDelegate() {
         static_cast<NWebHandlerDelegate*>(client.get());
     if (!handler_delegate)
       continue;
-#if BUILDFLAG(ARKWEB_FOCUS)
-    if (handler_delegate->GetFocusState())
+    if (browser_base->IsVisible())
       return handler_delegate;
-#endif
+    content::WebContents* web_contents = browser_base->GetWebContents();
+    if (web_contents && web_contents->GetLastActiveTimeTicks() > last_active_time_ticks) {
+      last_active_time_ticks = web_contents->GetLastActiveTimeTicks();
+      last_active_delegate = handler_delegate;
+    }
   }
 
   LOG(ERROR) << "FindNWebHandlerDelegate: no focused tab found";
-  return nullptr;
+  return last_active_delegate;
 }
 
 // Queue for serializing concurrent CDP Target.createTarget requests.
