@@ -1057,7 +1057,7 @@ float GetVirtualPixelRatioForScrollbar() {
  * escaped with back-slash. (Otherwise backslash is taken as a literal).
  */
 std::vector<std::string> tokenizeQuotedArguments(const std::string& buffer) {
-    int max_file_szie = 96 * 1024;
+    size_t max_file_szie = 96 * 1024;
     if (buffer.size() > max_file_szie) {
         return {};  // Return an empty vector on error
     }
