@@ -37,7 +37,16 @@ class DevToolsManagerDelegate : public ChromeDevToolsManagerDelegate {
   void CreateNewTargetAsync(const GURL& url,
                             TargetType target_type,
                             bool new_window,
+                            content::BrowserContext* browser_context,
                             CreateNewTargetCallback callback) override;
+
+  // Returns kTypePage for ArkWeb WebContents that would otherwise be
+  // classified as kTypeOther due to cef::IsAlloyContents timing issues.
+  // In the ArkWeb environment all WebContents are CEF-created; when
+  // GetTargetType falls through to kTypeOther it means the CEF browser
+  // registration (WebContentsUserDataAdapter) hasn't completed yet, but
+  // the WebContents is still an ArkWeb page that should report as "page".
+  std::string GetTargetType(content::WebContents* web_contents) override;
 };
 
 } // namespace ohos

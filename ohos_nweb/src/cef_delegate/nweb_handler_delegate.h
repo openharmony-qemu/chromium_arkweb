@@ -98,6 +98,7 @@ class GURL;
 #endif
 
 namespace content {
+class BrowserContext;
 class WebContents;
 }
 
@@ -177,11 +178,14 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   // Runs Phase 2 (OnWindowNewByJS isFirst=false + OnWindowNewExtByJS), then
   // creates the CEF browser using the popup NWeb's CefClient (matching the
   // OnBeforePopup flow). Must be called on the UI thread.
+  // |browser_context| specifies the BrowserContext for the popup. If null, the
+  // global context is used.
   // Returns the WebContents of the created popup browser, or nullptr on failure.
   content::WebContents* CompletePopupCreation(
       const std::string& url,
       bool is_alert,
-      bool is_user_trigger);
+      bool is_user_trigger,
+      content::BrowserContext* browser_context = nullptr);
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   void RegisterArkWebAppClientExtensionListener(ArkWebAppClientExtensionCallback callback);
