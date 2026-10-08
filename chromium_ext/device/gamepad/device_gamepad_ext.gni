@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+arkweb_device_gamepad_ext_sources = get_path_info([
+    "gamepad_device_ohos.cpp",
+    "gamepad_device_ohos.h",
+    "gamepad_platform_data_fetcher_ohos.cpp",
+    "gamepad_platform_data_fetcher_ohos.h",
+    "gamepad_standard_mappings_ohos.cpp",
+  ], "abspath")
