@@ -42,9 +42,6 @@ void DisplayScreenListener::OnChange(DisplayId id) {
         display_manager_adapter_->GetDefaultDisplay();
     auto nweb = nweb_.lock();
     if (nweb != nullptr && display != nullptr) {
-      if (nweb.use_count() == 1) {
-          LOG(WARNING) << "Last delegate encountered in OnChange";
-      }
       nweb->NotifyScreenInfoChanged(display->GetRotation(),
                                     display->GetDisplayOrientation());
     } else {

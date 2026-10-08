@@ -1691,6 +1691,12 @@ void NWebDelegate::SetRotationType(RotationType rotation) {
 
 void NWebDelegate::NotifyScreenInfoChanged(RotationType rotation,
                                            DisplayOrientation orientation) {
+  if (!CEF_CURRENTLY_ON_UIT()) {
+    CEF_POST_TASK(CEF_UIT, base::BindOnce(
+    &NWebDelegate::NotifyScreenInfoChanged, weak_factory_.GetWeakPtr(),
+    rotation, orientation));
+    return;                            
+  }
   if (render_handler_ != nullptr) {
     if (display_manager_adapter_ == nullptr) {
       LOG(ERROR) << "Get display_manager_adapter_ failed";
