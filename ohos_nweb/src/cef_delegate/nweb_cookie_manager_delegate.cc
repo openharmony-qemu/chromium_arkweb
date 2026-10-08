@@ -254,6 +254,8 @@ class CookieDeleteCallback : public CefDeleteCookiesCallback {
 namespace OHOS::NWeb {
 CefRefPtr<CefCookieManager>
 NWebCookieManagerDelegate::GetGlobalCookieManager() {
+  base::AutoLock lock(cookie_manager_lock_);
+
   if (!cookie_manager_) {
 #if BUILDFLAG(ARKWEB_COOKIE)
     if (NWebImpl::ShouldLazyInitWebEngine()) {
@@ -272,6 +274,8 @@ NWebCookieManagerDelegate::GetGlobalCookieManager() {
 
 CefRefPtr<CefCookieManager>
 NWebCookieManagerDelegate::GetGlobalIncognitoCookieManager() {
+  base::AutoLock lock(incognito_cookie_manager_lock_);
+
 #if BUILDFLAG(ARKWEB_INCOGNITO_MODE)
   if (!incognito_cookie_manager_) {
 #if BUILDFLAG(ARKWEB_COOKIE)

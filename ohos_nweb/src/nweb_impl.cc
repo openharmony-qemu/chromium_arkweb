@@ -372,6 +372,7 @@ OnArkWebStaticRequestOpenDevToolsFunc
 #endif // ARKWEB_DEVTOOLS
 
 #if BUILDFLAG(ARKWEB_COOKIE)
+base::Lock OHOS::NWeb::NWebImpl::save_initargs_lock_;
 std::shared_ptr<OHOS::NWeb::NWebEngineInitArgs>
     OHOS::NWeb::NWebImpl::save_initargs_ = nullptr;
 std::atomic<bool> OHOS::NWeb::NWebImpl::should_lazy_init_web_engine_{false};
@@ -1672,7 +1673,7 @@ void NWebImpl::InitializeWebEngine(
   content::GetNetworkService();
 
 #if BUILDFLAG(ARKWEB_COOKIE)
-  should_lazy_init_web_engine_.store(false, std::memory_order_relaxed);
+  should_lazy_init_web_engine_.store(false, std::memory_order_release);
 #endif
 
 #if BUILDFLAG(ARKWEB_EXT_PASSWORD)
@@ -2121,7 +2122,7 @@ bool NWebImpl::InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info) {
   }
 
 #if BUILDFLAG(ARKWEB_COOKIE)
-  should_lazy_init_web_engine_.store(false, std::memory_order_relaxed);
+  should_lazy_init_web_engine_.store(false, std::memory_order_release);
 #endif
 
 #if BUILDFLAG(ARKWEB_MENU)
@@ -9430,18 +9431,22 @@ void NWebImpl::LibraryLoaded(std::shared_ptr<NWebEngineInitArgs> init_args,
   if (NWebApplication::GetDefault()->HasInitializedCef()) {
     return;
   }
-  save_initargs_ = init_args;
-  should_lazy_init_web_engine_.store(lazy, std::memory_order_relaxed);
+  {
+    base::AutoLock lock(save_initargs_lock_);
+    save_initargs_ = init_args;
+  }
+  should_lazy_init_web_engine_.store(lazy, std::memory_order_release);
   if (lazy) {
     NWebEngine::GetInstance()->GetCookieManager();
   }
 }
 
 bool NWebImpl::ShouldLazyInitWebEngine() {
-  return should_lazy_init_web_engine_.load(std::memory_order_relaxed);
+  return should_lazy_init_web_engine_.load(std::memory_order_acquire);
 }
 
 std::shared_ptr<NWebEngineInitArgs> NWebImpl::GetSaveInitargs() {
+  base::AutoLock lock(save_initargs_lock_);
   return save_initargs_;
 }
 #endif
