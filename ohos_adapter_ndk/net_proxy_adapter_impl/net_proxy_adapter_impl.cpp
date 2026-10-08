@@ -296,6 +296,7 @@ void NetProxyAdapterImpl::AppProxyChange(NetConn_HttpProxy *receiveHttpProxy)
         int32_t ret = OH_NetConn_GetDefaultHttpProxy(&tempHttpProxy);
         if (ret != 0) {
             WVLOG_E("NetProxyAdapter::OH_NetConn_GetDefaultHttpProxy failed.");
+            return;
         }
         httpProxy = &tempHttpProxy;
         host.assign(httpProxy->host);
@@ -383,6 +384,7 @@ void NetProxyAdapterImpl::GetProperty(std::string& host, uint16_t& port, std::st
     int32_t ret = OH_NetConn_GetDefaultHttpProxy(&httpProxy);
     if (ret != 0) {
         WVLOG_E("NetProxyAdapter::OH_NetConn_GetDefaultHttpProxy failed, errorCode = %{public}d", ret);
+        return;
     }
 
     host = httpProxy.host;
