@@ -224,6 +224,10 @@ class MockCefBrowser : public ArkWebBrowserExt {
   void EnableSafeBrowsing(bool enable) override {}
   void OnSafeBrowsingDetectionResult(
         const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) override {}
+  void SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const override {}
+  void SafeBrowsingResponseProceed(int64_t response_key) const override {}
+  void SafeBrowsingResponseBackToSafety(int64_t response_key) const override {}
+  void SafeBrowsingResponseDelete(int64_t response_key) override {}
   bool IsSafeBrowsingEnabled() override { return false; }
   void EnableIntelligentTrackingPrevention(bool enable) override {}
   bool IsIntelligentTrackingPreventionEnabled() override { return false; }
@@ -244,6 +248,8 @@ class MockCefBrowser : public ArkWebBrowserExt {
   void ShowFreeCopyMenu() override {}
   bool ShouldShowFreeCopyMenu() override {}
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) override {}
+  void EnableSafeBrowsingExternalInterstitial(bool) override {}
+  bool IsSafeBrowsingExternalInterstitialEnabled() const override { return false; }
   int InsertBackForwardEntry(int index, const CefString& url) override {}
   int UpdateNavigationEntryUrl(int index, const CefString& url) override {}
   void ClearForwardList() override {}

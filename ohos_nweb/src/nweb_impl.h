@@ -630,6 +630,11 @@ class NWebImpl : public NWeb {
   void EnableSafeBrowsingDetection(bool enable, bool strictMode) const;
   void OnSafeBrowsingDetectionResult(
       const SafeBrowsingDetectionResult& safeBrowsingDetectionResult);
+  void EnableSafeBrowsingExternalInterstitial(bool enable) const;
+  void SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const;
+  void SafeBrowsingResponseProceed(int64_t response_key) const;
+  void SafeBrowsingResponseBackToSafety(int64_t response_key) const;
+  void SafeBrowsingResponseDelete(int64_t response_key);
 #else
   bool IsSafeBrowsingEnabled() override {return false;};
   void EnableSafeBrowsing(bool enable) override {} ;

@@ -4989,6 +4989,51 @@ void NWebDelegate::OnSafeBrowsingDetectionResult(
   
   GetBrowser()->OnSafeBrowsingDetectionResult(safeBrowsingDetectionResult);              
 }
+
+void NWebDelegate::EnableSafeBrowsingExternalInterstitial(bool enable) {
+  LOG(INFO) << "NWebDelegate::EnableSafeBrowsingExternalInterstitial. enable is " << enable;
+  if (GetBrowser() == nullptr) {
+    LOG(ERROR) << "NWebDelegate::EnableSafeBrowsingExternalInterstitial failed.";
+    return;
+  }
+  GetBrowser()->EnableSafeBrowsingExternalInterstitial(enable);
+}
+
+void NWebDelegate::SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const {
+  LOG(INFO) << "NWebDelegate::SafeBrowsingResponseShowInterstitial. response_key is " << response_key;
+  if (GetBrowser() == nullptr) {
+    LOG(ERROR) << "NWebDelegate::SafeBrowsingResponseShowInterstitial failed.";
+    return;
+  }
+  GetBrowser()->SafeBrowsingResponseShowInterstitial(response_key, html);
+}
+
+void NWebDelegate::SafeBrowsingResponseProceed(int64_t response_key) const {
+  LOG(INFO) << "NWebDelegate::SafeBrowsingResponseProceed. response_key is " << response_key;
+  if (GetBrowser() == nullptr) {
+    LOG(ERROR) << "NWebDelegate::SafeBrowsingResponseProceed failed.";
+    return;
+  }
+  GetBrowser()->SafeBrowsingResponseProceed(response_key);
+}
+
+void NWebDelegate::SafeBrowsingResponseBackToSafety(int64_t response_key) const {
+  LOG(INFO) << "NWebDelegate::SafeBrowsingResponseBackToSafety. response_key is " << response_key;
+  if (GetBrowser() == nullptr) {
+    LOG(ERROR) << "NWebDelegate::SafeBrowsingResponseBackToSafety failed.";
+    return;
+  }
+  GetBrowser()->SafeBrowsingResponseBackToSafety(response_key);
+}
+
+void NWebDelegate::SafeBrowsingResponseDelete(int64_t response_key) {
+  LOG(INFO) << "NWebDelegate::SafeBrowsingResponseDelete. response_key is " << response_key;
+  if (GetBrowser() == nullptr) {
+    LOG(ERROR) << "NWebDelegate::SafeBrowsingResponseDelete failed.";
+    return;
+  }
+  GetBrowser()->SafeBrowsingResponseDelete(response_key);
+}
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 
 #if BUILDFLAG(IS_OHOS)

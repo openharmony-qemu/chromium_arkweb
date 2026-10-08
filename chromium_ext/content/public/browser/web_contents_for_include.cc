@@ -157,9 +157,11 @@ virtual void ClearContextMenu() = 0;
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 virtual void EnableSafeBrowsingDetection(bool enable, bool strictMode) = 0;
+virtual void EnableSafeBrowsingExternalInterstitial(bool enable) = 0;
 virtual bool IsSafeBrowsingDetectionConfig() = 0;
 virtual bool IsSafeBrowsingDetectionStrict() = 0;
 virtual bool IsSafeBrowsingDetectionDisabled() = 0;
+virtual bool IsSafeBrowsingExternalInterstitialEnabled() = 0;
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 
 #if BUILDFLAG(ARKWEB_ACTIVITY_STATE)

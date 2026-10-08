@@ -655,6 +655,7 @@ class NWebDelegateInterface
   virtual bool IsSafeBrowsingEnabled() = 0;
   virtual void EnableSafeBrowsing(bool enable) = 0;
   virtual void EnableSafeBrowsingDetection(bool enable, bool strictMode) = 0;
+  virtual void EnableSafeBrowsingExternalInterstitial(bool enable) = 0;
 #endif  // BUILDFLAG(ARKWEB_SAFEBROWSING)
 
 #if BUILDFLAG(IS_OHOS)
@@ -982,6 +983,10 @@ class NWebDelegateInterface
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
   virtual void OnSafeBrowsingDetectionResult(
       const SafeBrowsingDetectionResult& safeBrowsingDetectionResult) = 0;
+  virtual void SafeBrowsingResponseShowInterstitial(int64_t response_key, const std::string& html) const = 0;
+  virtual void SafeBrowsingResponseProceed(int64_t response_key) const = 0;
+  virtual void SafeBrowsingResponseBackToSafety(int64_t response_key) const = 0;
+  virtual void SafeBrowsingResponseDelete(int64_t response_key) = 0;
 #endif
 
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
