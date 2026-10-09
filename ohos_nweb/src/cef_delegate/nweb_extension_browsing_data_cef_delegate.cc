@@ -34,6 +34,7 @@ static std::map<int32_t, BrowsingDataRemoveCallback>
     g_browsing_data_remove_downloads_callback_map_;
 static std::map<int32_t, BrowsingDataRemoveCallback>
     g_browsing_data_remove_history_callback_map_;
+static std::map<int32_t, BrowsingDataSettingsCallback> g_browsing_data_get_settings_callback_map_;
 }  // namespace
 
 void NWebExtensionBrowsingDataCefDelegate::RemoveDownloads(
@@ -64,6 +65,23 @@ void NWebExtensionBrowsingDataCefDelegate::RemoveHistory(
 #endif
 }
 
+bool NWebExtensionBrowsingDataCefDelegate::GetSettings(
+    BrowsingDataSettingsCallback callback,
+    const NWebExtensionBrowsingDataQueryOptions& queryOptions) {
+#if !BUILDFLAG(ARKWEB_NWEB_EX)
+  return false;
+#else
+  static int32_t request_id = 0;
+  request_id++;
+  g_browsing_data_get_settings_callback_map_[request_id] = std::move(callback);
+  bool result = nweb_ex::NWebExtensionBrowsingDataDelegateImpl::GetInstance().GetSettings(request_id, queryOptions);
+  if (!result) {
+    g_browsing_data_get_settings_callback_map_.erase(request_id);
+  }
+  return result;
+#endif
+}
+
 void NWebExtensionBrowsingDataCefDelegate::RemoveDownloadsCallback(
     int32_t request_id,
     const std::optional<std::string>& error) {
@@ -81,6 +99,15 @@ void NWebExtensionBrowsingDataCefDelegate::RemoveHistoryCallback(
     std::move(g_browsing_data_remove_history_callback_map_[request_id])
         .Run(error);
     g_browsing_data_remove_history_callback_map_.erase(request_id);
+  }
+}
+
+void NWebExtensionBrowsingDataCefDelegate::GetSettingsCallback(int32_t request_id,
+    const NWebExtensionBrowsingDataSettings& settings,
+    const std::optional<std::string>& error) {
+  if (g_browsing_data_get_settings_callback_map_.count(request_id)) {
+    std::move(g_browsing_data_get_settings_callback_map_[request_id]).Run(settings, error);
+    g_browsing_data_get_settings_callback_map_.erase(request_id);
   }
 }
 

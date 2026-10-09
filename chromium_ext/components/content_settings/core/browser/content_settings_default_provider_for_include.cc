@@ -25,7 +25,9 @@ static bool ShouldSkipSettingForContentTypeExt(
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableNwebExExceptionList)) {
     if (content_type != ContentSettingsType::COOKIES &&
-        content_type != ContentSettingsType::JAVASCRIPT) {
+        content_type != ContentSettingsType::JAVASCRIPT &&
+        content_type != ContentSettingsType::AUTOMATIC_DOWNLOADS &&
+        content_type != ContentSettingsType::ANTI_ABUSE) {
       return true;
     }
     return false;
