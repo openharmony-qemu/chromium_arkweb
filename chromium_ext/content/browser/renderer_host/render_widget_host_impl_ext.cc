@@ -83,7 +83,9 @@ void RenderWidgetHostImplExt::GetWordSelection(const std::string& text,
 
 gfx::Rect RenderWidgetHostImplExt::GetImageRect() {
   gfx::Rect image_rect;
-  blink_frame_widget_->GetImageRect(&image_rect);
+  if (blink_frame_widget_) {
+    blink_frame_widget_->GetImageRect(&image_rect);
+  }
   return image_rect;
 }
 
@@ -92,7 +94,9 @@ void RenderWidgetHostImplExt::OnTextSelected(bool flag) {
 }
 
 void RenderWidgetHostImplExt::OnDestroyImageAnalyzerOverlay() {
-  blink_frame_widget_->OnDestroyImageAnalyzerOverlay();
+  if (blink_frame_widget_) {
+    blink_frame_widget_->OnDestroyImageAnalyzerOverlay();
+  }
 }
 
 void RenderWidgetHostImplExt::OnFoldStatusChanged(uint32_t foldstatus) {
@@ -104,6 +108,10 @@ void RenderWidgetHostImplExt::NotifyOverlayStateChanged() {
 }
 
 void RenderWidgetHostImplExt::OnOverlayStateChanged(const gfx::Rect& image_rect) {
+  if (!delegate_) {
+    OnDestroyImageAnalyzerOverlay();
+    return;
+  }
   RenderViewHostDelegateView* view = delegate_->GetDelegateView();
   if (!view || !GetView()) {
     OnDestroyImageAnalyzerOverlay();

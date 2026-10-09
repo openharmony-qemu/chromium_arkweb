@@ -31,10 +31,21 @@ base::Value::List GetFontList_SlowBlocking() {
       .GetOhosDrawingTextFontAdapter()
       .GetSystemFontFullNamesByType(type,
                                     reinterpret_cast<void**>(&font_array));
+  if (!font_array) {
+    LOG(ERROR) << __FUNCTION__ << " GetSystemFontFullNamesByType failed";
+    return base::Value::List();
+  }
   int32_t size = 0;
   OHOS::NWeb::OhosAdapterHelper::GetInstance()
       .GetOhosDrawingTextTypographyAdapter()
       .GetDrawingArraySize(font_array, size);
+  if (size <= 0) {
+    LOG(ERROR) << __FUNCTION__ << " GetDrawingArraySize failed or empty";
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetOhosDrawingTextFontAdapter()
+        .DestroySystemFontFullNames(font_array);
+    return base::Value::List();
+  }
 
   base::Value::List font_list;
   for (int32_t index = 0; index < size; ++index) {

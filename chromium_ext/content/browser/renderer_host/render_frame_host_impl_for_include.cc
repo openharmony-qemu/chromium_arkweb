@@ -174,7 +174,9 @@ void RenderFrameHostImpl::GenerateCodeCache(
 #if BUILDFLAG(ARKWEB_MENU) || BUILDFLAG(IS_ARKWEB_EXT)
 void RenderFrameHostImpl::GetImageFromCache(const std::string& url,
                                             ImageCacheCallback callback) {
-  GetAssociatedLocalFrame()->GetImageFromCache(url, std::move(callback));
+  if (GetAssociatedLocalFrame()) {
+    GetAssociatedLocalFrame()->GetImageFromCache(url, std::move(callback));
+  }
 }
 #endif
 
@@ -474,9 +476,11 @@ void RenderFrameHostImpl::OnDetectedBlankScreen(
 }
 
 void RenderFrameHostImpl::DetectBlankScreen(const std::string& url) {
-  GetAssociatedLocalFrame()->DetectBlankScreen(
-        url, blank_screen_detection_enable_, blank_screen_detection_timing_, blank_screen_detection_methods_,
-        blank_screen_threshold_);
+  if (GetAssociatedLocalFrame()) {
+    GetAssociatedLocalFrame()->DetectBlankScreen(
+          url, blank_screen_detection_enable_, blank_screen_detection_timing_, blank_screen_detection_methods_,
+          blank_screen_threshold_);
+  }
 }
 
 void RenderFrameHostImpl::SetBlankScreenDetectionConfig(
