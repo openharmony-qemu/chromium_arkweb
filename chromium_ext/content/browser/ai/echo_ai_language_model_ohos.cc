@@ -291,6 +291,24 @@ void EchoAILanguageModelOHOS::Prompt(
         /*quota_error_info=*/nullptr);
     return;
   }
+
+  size_t new_tokens = 0;
+  blink::mojom::ModelStreamingResponseStatus error_status;
+  if (!ValidatePromptInput(prompts, error_status, new_tokens)) {
+    mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
+        std::move(pending_responder));
+    responder->OnError(
+        error_status,
+        error_status == blink::mojom::ModelStreamingResponseStatus::
+                            kErrorInputTooLarge
+            ? blink::mojom::QuotaErrorInfo::New(
+                  static_cast<uint32_t>(new_tokens),
+                  static_cast<uint32_t>(
+                      EchoAIManagerOHOS::kMaxContextSizeInTokens))
+            : nullptr);
+    return;
+  }
+
   for (const auto& prompt : prompts) {
     prompt_history_.push_back(prompt.Clone());
   }
@@ -305,6 +323,7 @@ void EchoAILanguageModelOHOS::Prompt(
   }
 
   prompt_history_.clear();
+  current_tokens_ += new_tokens;
 
   std::string input_json;
   base::JSONWriter::Write(prompts_list, &input_json);
@@ -315,11 +334,28 @@ void EchoAILanguageModelOHOS::Append(
     std::vector<blink::mojom::AILanguageModelPromptPtr> prompts,
     mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
         pending_responder) {
+  mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
+      std::move(pending_responder));
+
+  size_t new_tokens = 0;
+  blink::mojom::ModelStreamingResponseStatus error_status;
+  if (!ValidatePromptInput(prompts, error_status, new_tokens)) {
+    responder->OnError(
+        error_status,
+        error_status == blink::mojom::ModelStreamingResponseStatus::
+                            kErrorInputTooLarge
+            ? blink::mojom::QuotaErrorInfo::New(
+                  static_cast<uint32_t>(new_tokens),
+                  static_cast<uint32_t>(
+                      EchoAIManagerOHOS::kMaxContextSizeInTokens))
+            : nullptr);
+    return;
+  }
+
   for (const auto& prompt : prompts) {
     prompt_history_.push_back(prompt.Clone());
   }
-  mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
-      std::move(pending_responder));
+  current_tokens_ += new_tokens;
   responder->OnCompletion(
       blink::mojom::ModelExecutionContextInfo::New(current_tokens_));
 }
@@ -410,6 +446,38 @@ void EchoAILanguageModelOHOS::MeasureInputUsage(
     }
   }
   std::move(callback).Run(total);
+}
+
+bool EchoAILanguageModelOHOS::ValidatePromptInput(
+    const std::vector<blink::mojom::AILanguageModelPromptPtr>& prompts,
+    blink::mojom::ModelStreamingResponseStatus& error_status,
+    size_t& new_tokens) {
+  new_tokens = 0;
+  for (const auto& prompt : prompts) {
+    for (const auto& content : prompt->content) {
+      auto type =
+          content->is_text()
+              ? blink::mojom::AILanguageModelPromptType::kText
+              : content->is_bitmap()
+                    ? blink::mojom::AILanguageModelPromptType::kImage
+                    : content->is_audio()
+                          ? blink::mojom::AILanguageModelPromptType::kAudio
+                          : blink::mojom::AILanguageModelPromptType::kText;
+      if (!input_types_.contains(type)) {
+        error_status =
+            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure;
+        return false;
+      }
+      new_tokens += content->is_text() ? content->get_text().size() : 100;
+    }
+  }
+  if (current_tokens_ + new_tokens >
+      static_cast<uint64_t>(EchoAIManagerOHOS::kMaxContextSizeInTokens)) {
+    error_status =
+        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge;
+    return false;
+  }
+  return true;
 }
 
 }  // namespace content

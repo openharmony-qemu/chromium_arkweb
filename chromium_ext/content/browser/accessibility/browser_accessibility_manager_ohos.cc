@@ -183,7 +183,10 @@ bool BrowserAccessibilityManagerOHOS::DispatchEvent(int64_t accessibilityId,
       }
       LOG(INFO)
           << "BrowserAccessibilityManagerOHOS::DispatchEvent accessibilityId "
-          << accessibilityId << ", eventType " << eventType << ", argument "
+          << accessibilityId << ", eventType " << eventType
+          << ", argument length " << argument.length();
+      LOG(DEBUG)
+          << "BrowserAccessibilityManagerOHOS::DispatchEvent argument "
           << argument;
       renderFrameHost->SendAccessibilityEvent(
           accessibilityId, static_cast<int32_t>(eventType), argument);
