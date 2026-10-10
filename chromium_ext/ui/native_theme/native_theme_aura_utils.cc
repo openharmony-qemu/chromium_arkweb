@@ -35,8 +35,8 @@ constexpr int kForceScrollbarInactiveWidth = 14;
 constexpr int kForceScrollbarInactiveRadius = 2;
 constexpr int kForceScrollbarInactiveOffset = 0;
 constexpr int kForceScrollbarInactiveHotSize = 10;
-// Scrollbar's width,include hot zone(20) + visible width(8) + marginRight(4)
-constexpr int kOverlayScrollbarHotSize = 20;
+// Scrollbar's width,include hot zone(0) + visible width(8) + marginRight(4)
+constexpr int kOverlayScrollbarHotSize = 0;
 constexpr int kOverlayScrollbarHotSizePc = 0;
 int scrollbar_hot_size_ = kOverlayScrollbarHotSize;
 constexpr int kOverlayScrollbarDoubleOrHalf = 2;
