@@ -80,6 +80,14 @@ bool HTMLPlugInElementUtils::IsCssDisplayChangeEnabled() const {
   return settings->GetCSSDisplayChangeEnabled();
 }
 
+bool HTMLPlugInElementUtils::IsTransformRotateAndSkewEnabled() const {
+  auto settings = plugin_->GetDocument().GetSettings();
+  if (!settings || !settings->GetNativeEmbedModeEnabled() || !plugin_->IsNativeType()) {
+    return false;
+  }
+  return settings->GetTransformRotateAndSkewEnabled();
+}
+
 void HTMLPlugInElementUtils::SetNativeEmbedOverlay(bool native_embed_overlay) {
   if (native_embed_overlay_ == native_embed_overlay) {
     return;

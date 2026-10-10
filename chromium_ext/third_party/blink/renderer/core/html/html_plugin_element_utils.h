@@ -47,6 +47,7 @@ class HTMLPlugInElementUtils final
   bool CheckNativeType(const char* key) const;
   bool CheckIntrinsicSizeEnable() const;
   bool IsCssDisplayChangeEnabled() const;
+  bool IsTransformRotateAndSkewEnabled() const;
   void SetNativeEmbedOverlay(bool native_embed_overlay);
   void SetNativeEmbedOverlayInfinity(bool native_embed_overlay_infinity);
   void ProcessParamChanges(const Vector<ParamChangeInfo>& changes);
