@@ -93,8 +93,8 @@ class NETHELPERS_EXPORT NetHelpers {
   static bool allow_content_access;
   static bool allow_file_access;
   static bool is_network_blocked;
-  static bool accept_cookies;
-  static bool third_party_cookies;
+  static std::atomic<bool> accept_cookies;
+  static std::atomic<bool> third_party_cookies;
   static int cache_mode;
   static int connection_timeout;
 
