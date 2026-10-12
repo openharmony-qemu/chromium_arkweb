@@ -20,7 +20,7 @@
 #include <memory>
 #include <string>
 
-#include "arkweb/chromium_ext/content/browser/dfx/mojom/dfx_reporting.mojom.h"
+#include "arkweb/chromium_ext/content/common/dfx/mojom/dfx_reporting.mojom.h"
 #include "base/process/process_metrics.h"
 #include "base/timer/timer.h"
 #include "mojo/public/cpp/bindings/remote.h"

@@ -217,7 +217,11 @@ size_t CollectStackTrace(span<const void*> trace) {
   //                       trace.size());
   // _Unwind_Backtrace(&TraceStackFrame, &state);
   // return state.frame_count;
+#if BUILDFLAG(CAN_UNWIND_WITH_FRAME_POINTERS)
+  return TraceStackFramePointers(trace, 0, false);
+#else
   return 0;
+#endif
 }
 
 // static
