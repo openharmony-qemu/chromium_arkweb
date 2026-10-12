@@ -14,7 +14,9 @@
  */
 
 #include "arkweb/chromium_ext/media/mojo/mojom/native_bridge.mojom.h"
+#define protected public
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/html/html_plugin_element_utils.h"
+#undef protected
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/frame/local_frame_client_impl_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -802,31 +804,17 @@ TEST_F(NativeLoaderTest, SetStretchContentToFillBounds_False) {
   EXPECT_FALSE(result);
 }
 
-// Repaint (line 299): the `if (layout_object)` true arm. Existing Repaint tests
-// do not update layout, so plugin_element has no LayoutObject and the arm is
-// never taken. Note: SetNeedsDisplay() is non-virtual in cc::Layer and early-
-// returns when the layer is not attached, so we cannot mock it. Just verify the
-// code path executes without crash.
 TEST_F(NativeLoaderTest, Repaint_WithLayoutObject) {
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   loader_->SetCcLayer(&mock_cc_layer_);
   loader_->Repaint();
 }
 
-// SetCcLayer (line 322): the `if (plugin_element_client)` true arm. Existing
-// SetCcLayer tests do not update layout, so GetLayoutObject() is null.
-// SetNeedsPushProperties() is non-virtual and early-returns when unattached,
-// so we cannot mock it.
 TEST_F(NativeLoaderTest, SetCcLayer_WithLayoutObject) {
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
   loader_->SetCcLayer(&mock_cc_layer_);
 }
 
-// OnCreateNativeSurface (lines 221/222): GetTypeAttribute()/GetIdAttribute()
-// IsNull true arms. The fixture element has type='test/native' and id, so the
-// existing calls only hit the non-null arms; removing both attributes covers
-// the null arms. SetNeedsCommit() is non-virtual and early-returns when
-// unattached, so we cannot mock it.
 TEST_F(NativeLoaderTest, OnCreateNativeSurface_NoTypeNoId) {
   auto* embed = To<HTMLEmbedElement>(
       GetDocument().getElementById(AtomicString("test-plugin")));
@@ -836,14 +824,105 @@ TEST_F(NativeLoaderTest, OnCreateNativeSurface_NoTypeNoId) {
   loader_->OnCreateNativeSurface(123, base::DoNothing());
 }
 
-// OnCreateNativeSurface (line 223): GetSrcAttribute().IsNull() false arm. The
-// fixture element has no src, so IsNull is always true; adding a src covers the
-// non-null arm.
 TEST_F(NativeLoaderTest, OnCreateNativeSurface_WithSrc) {
   auto* embed = To<HTMLEmbedElement>(
       GetDocument().getElementById(AtomicString("test-plugin")));
   embed->setAttribute(html_names::kSrcAttr, AtomicString("native/test.src"));
   loader_->SetCcLayer(&mock_cc_layer_);
   loader_->OnCreateNativeSurface(123, base::DoNothing());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOff_WithLayoutObject) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOff_WithoutLayoutObject) {
+  loader_->current_plugin_element()->remove();
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_EQ(result, input_rect);
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOn_SettingEnabled) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOn_WithNativeType) {
+  GetFrame().GetSettings()->RegisterNativeEmbedRule("test", "test");
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->SetServiceType("test/native");
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOn_WithNativeType_RectSize) {
+  GetFrame().GetSettings()->RegisterNativeEmbedRule("test", "test");
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->SetServiceType("test/native");
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(0, 0, 200, 150);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_EQ(result.width(), 200);
+  EXPECT_EQ(result.height(), 150);
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOn_SettingDisabled_WithNativeType) {
+  GetFrame().GetSettings()->RegisterNativeEmbedRule("test", "test");
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->SetServiceType("test/native");
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(false);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_FlagOn_EmbedDisabled_WithNativeType) {
+  GetFrame().GetSettings()->RegisterNativeEmbedRule("test", "test");
+  auto* embed = To<HTMLEmbedElement>(
+      GetDocument().getElementById(AtomicString("test-plugin")));
+  embed->SetServiceType("test/native");
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(10, 10, 100, 100);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_ZeroSizeRect) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(0, 0, 0, 0);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_TRUE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_LargeRect) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(0, 0, 10000, 10000);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
+}
+
+TEST_F(NativeLoaderTest, TransformRect_NegativeOrigin) {
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  gfx::Rect input_rect(-100, -100, 200, 200);
+  gfx::Rect result = TransformRect(input_rect);
+  EXPECT_FALSE(result.IsEmpty());
 }
 }  // namespace blink

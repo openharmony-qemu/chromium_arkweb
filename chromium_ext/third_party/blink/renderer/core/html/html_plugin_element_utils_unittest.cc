@@ -52,6 +52,7 @@ class HTMLPlugInElementUtilsTest : public PageTestBase {
 
     Settings* settings = GetFrame().GetSettings();
     settings->RegisterNativeEmbedRule("valid_key", "service_prefix");
+    settings->RegisterNativeEmbedRule("embed", "service_prefix");
     loader_ = MakeGarbageCollected<HTMLNativeLoader>(plugin_.Get());
     plugin_->native_loader_ = loader_;
   }
@@ -182,6 +183,131 @@ TEST_F(HTMLPlugInElementUtilsTest, IsCssDisplayChange002) {
   SetServiceType("service_prefix.match");
   bool ret = utils_->IsCssDisplayChangeEnabled();
   EXPECT_FALSE(ret);
+}
+
+TEST_F(HTMLPlugInElementUtilsTest, IsTransformRotateAndSkew_FailWhenEmbedDisabled) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest, IsTransformRotateAndSkew_FailWhenSettingDisabled) {
+  SetServiceType("service_prefix.match");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest, IsTransformRotateAndSkew_FailWhenNotNativeType) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("wrong_service");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest, IsTransformRotateAndSkew_ReturnSettingsValue) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest, IsTransformRotateAndSkew_DefaultFalse) {
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_FailWhenBothDisabled) {
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(false);
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_FailWhenEmbedDisabledAndSettingDisabled) {
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(false);
+  SetServiceType("service_prefix.match");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_FailWhenEmbedDisabledButNativeType) {
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_FailWhenSettingDisabledButNativeType) {
+  SetServiceType("service_prefix.match");
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(false);
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_FailWhenSettingEnabledButNotNativeType) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("wrong_service_prefix");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_AfterCheckNativeTypeInvalid) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  utils_->CheckNativeType("invalid_key");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_AfterCheckNativeTypeValid) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  utils_->CheckNativeType("valid_key");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_ToggleSettingOff) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(false);
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_ToggleNativeEmbedOff) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
+  GetFrame().GetSettings()->SetNativeEmbedModeEnabled(false);
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_EmptyServiceType) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_PartialServiceMatch) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_pre");
+  EXPECT_FALSE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_ExactServiceMatch) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
+}
+
+TEST_F(HTMLPlugInElementUtilsTest,
+       IsTransformRotateAndSkew_ServiceMatchWithLongerSuffix) {
+  GetFrame().GetSettings()->SetTransformRotateAndSkewEnabled(true);
+  SetServiceType("service_prefix.match.and.more");
+  EXPECT_TRUE(utils_->IsTransformRotateAndSkewEnabled());
 }
 
 TEST_F(HTMLPlugInElementUtilsTest, ProcessParamChanges) {

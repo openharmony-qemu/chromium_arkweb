@@ -45,6 +45,13 @@ class LayerImplUtils {
   gfx::RectF NativeRect() const;
   gfx::RectF GetNativeRect();
 
+  void set_native_embed_transform_rotate_and_skew_enabled(bool enabled) {
+    native_embed_transform_rotate_and_skew_enabled_ = enabled;
+  }
+  bool native_embed_transform_rotate_and_skew_enabled() const {
+    return native_embed_transform_rotate_and_skew_enabled_;
+  }
+
   void LayerImplPushPropertiesTo(LayerImpl* layer);
 #endif
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
@@ -67,6 +74,7 @@ class LayerImplUtils {
   gfx::RectF native_rect_;
   int native_embed_id_;
   float init_scale_ = -1.0f;
+  bool native_embed_transform_rotate_and_skew_enabled_ = false;
 #endif
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
   bool should_intercept_touch_event_ = false;

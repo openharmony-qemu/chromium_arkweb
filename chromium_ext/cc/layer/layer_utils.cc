@@ -31,6 +31,9 @@ void LayerUtils::PushPropertiesToImpl(LayerImpl* layer_impl) {
   layer_impl->layer_impl_utils()->set_may_contain_video(may_contain_video());
   layer_impl->layer_impl_utils()->set_native_embed_id(native_embed_id());
   layer_impl->layer_impl_utils()->SetNativeRect(native_rect_);
+  layer_impl->layer_impl_utils()
+      ->set_native_embed_transform_rotate_and_skew_enabled(
+            native_embed_transform_rotate_and_skew_enabled_);
   layer_impl->layer_impl_utils()->SetShouldInterceptTouchEvent(
       ShouldInterceptTouchEvent());
 }
@@ -65,6 +68,18 @@ void LayerUtils::SetMayContainVideo(bool value) {
 
 bool LayerUtils::may_contain_video() const {
   return native_video_.Read(*(layer_.get()));
+}
+
+void LayerUtils::SetNativeEmbedTransformRotateAndSkewEnabled(bool enabled) {
+  if (native_embed_transform_rotate_and_skew_enabled_ == enabled) {
+    return;
+  }
+  native_embed_transform_rotate_and_skew_enabled_ = enabled;
+  layer_->SetNeedsPushProperties();
+}
+
+bool LayerUtils::native_embed_transform_rotate_and_skew_enabled() const {
+  return native_embed_transform_rotate_and_skew_enabled_;
 }
 #endif
 
