@@ -166,6 +166,53 @@ void OHOSAudioOutputStream::AudioRendererOutputDeviceChangeCallback(
   }
 }
 
+void OHOSAudioOutputStream::OnInterruptStop() {
+  if (!(base::ohos::IsPcDevice() || base::ohos::IsPcMode())) {
+    OnSuspend();
+    return;
+  }
+
+  if (isDestroyed_.load()) {
+    LOG(INFO) << "OHOSAudioOutputStream::OnInterruptStop during destroyed";
+    return;
+  }
+
+  LOG(INFO) << "OHOSAudioOutputStream::OnInterruptStop. [hash: "
+            << std::hex << base::FastHash(base::byte_span_from_ref(this))
+            << "]";
+
+  if (!parameters_.IsValid()) {
+    LOG(ERROR) << "OHOSAudioOutputStream::OnInterruptStop parameters_ is not valid.";
+    return;
+  }
+
+  if (!running_) {
+    LOG(INFO) << "The playback is stopped. Exit OnInterruptStop.";
+    return;
+  }
+
+  if (ShouldHandleInterruptStopAsRenderError()) {
+    LOG(ERROR) << "OHOSAudioOutputStream::OnInterruptStop report render error.";
+    ReportError();
+    return;
+  }
+
+  OnSuspend();
+}
+
+bool OHOSAudioOutputStream::ShouldHandleInterruptStopAsRenderError() const {
+  if (!(base::ohos::IsPcDevice() || base::ohos::IsPcMode()) || isCommunication_) {
+    return false;
+  }
+
+  if (parameters_.latency_tag() != AudioLatency::Type::kRtc &&
+      parameters_.latency_tag() != AudioLatency::Type::kInteractive) {
+    return false;
+  }
+
+  return OHOSAudioFocusController::HasOnlyOneShotPlayersPublic(parameters_);
+}
+
 // LCOV_EXCL_START
 void OHOSAudioOutputStream::OnSuspend() {
   if (isDestroyed_.load()) {

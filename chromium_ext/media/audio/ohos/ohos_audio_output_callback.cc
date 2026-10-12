@@ -49,7 +49,7 @@ void OHOSAudioOutputCallback::AudioRendererOnInterruptEvent(OH_AudioInterrupt_Hi
                 audio_output_stream_->OnSuspend();
                 break;
             case OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_STOP:
-                audio_output_stream_->OnSuspend();
+                audio_output_stream_->OnInterruptStop();
                 break;
             case OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_RESUME:
                 audio_output_stream_->OnResume();
