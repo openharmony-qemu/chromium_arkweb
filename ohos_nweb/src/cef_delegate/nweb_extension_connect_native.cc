@@ -34,7 +34,7 @@ namespace OHOS::NWeb {
 #if BUILDFLAG(IS_ARKWEB_EXT)
 NWebConnectNativeManager::NWebConnectNativeManager()
     : task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
-          {base::TaskPriority::BEST_EFFORT}))
+          {base::TaskPriority::USER_VISIBLE}))
 {}
 
 NWebConnectNativeManager::~NWebConnectNativeManager() {
