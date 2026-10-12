@@ -18,14 +18,12 @@
 
 #include <string>
 
-// NOTE: The mojom interface header lives under content/browser/dfx/mojom/,
-// which may appear to be a renderer→browser cross-layer dependency.  However,
+// NOTE: The mojom interface header lives under content/common/dfx/mojom/.
 // .mojom files are inherently cross-process: the generated C++ bindings are
-// consumed by both the browser (server) and the renderer (client) sides.
-// The mojom source is co-located with the browser-side implementation for
-// historical reasons; moving it to content/common/ would be cleaner but is
-// deferred to avoid churn across companion repositories.
-#include "arkweb/chromium_ext/content/browser/dfx/mojom/dfx_reporting.mojom.h"
+// consumed by both the browser (server) and the renderer (client) sides, so
+// the mojom source is placed under content/common/ to reflect that it is
+// shared across processes rather than owned by the browser side.
+#include "arkweb/chromium_ext/content/common/dfx/mojom/dfx_reporting.mojom.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/synchronization/lock.h"
