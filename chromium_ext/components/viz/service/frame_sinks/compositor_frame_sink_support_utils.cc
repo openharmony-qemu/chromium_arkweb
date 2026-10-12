@@ -20,6 +20,12 @@
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/surfaces/surface.h"
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+
+#include "arkweb/chromium_ext/components/viz/service/frame_sinks/frame_sink_manager_impl_utils.h"
+#include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
+#endif
+
 namespace viz {
 
 //LCOV_EXCL_START
@@ -117,4 +123,5 @@ void CompositorFrameSinkSupportUtils::UpdateThrottleMode(bool is_enable) {
 #endif
 
 //LCOV_EXCL_STOP
+
 }  // namespace viz

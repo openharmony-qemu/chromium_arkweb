@@ -23,6 +23,10 @@
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "ui/gfx/geometry/rect.h"
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#endif
+
 namespace gfx {
 class Point;
 class PointF;
@@ -59,6 +63,10 @@ class WebFrameWidgetImplExt : public WebFrameWidgetImpl {
   void CleanFocusCache() override;
   void SelectRangeV2(const gfx::Point& position, bool is_base) override;
   void NotifySelectionRangeEmpty(blink::WebRange range, WebLocalFrame* focused_frame);
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  void SetArkWebFrameSinkId(const viz::FrameSinkId& frame_sink_id) override;
 #endif
 
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)

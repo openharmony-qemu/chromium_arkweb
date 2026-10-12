@@ -266,6 +266,7 @@ declare_args() {
   arkweb_cwnd = true
   arkweb_blank_optimize = !is_component_build
   arkweb_blank_screen_detection = true
+  arkweb_blank_screen_monitor = true
   arkweb_first_screen_paint = true
   arkweb_bgtask = false
   arkweb_privacy_compliance = true

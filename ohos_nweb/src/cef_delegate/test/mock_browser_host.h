@@ -764,6 +764,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
       SetBlankScreenDetectionConfig,
       (bool, const std::vector<double>&, const std::vector<int32_t>&, int32_t),
       (override));
+  void NotifyBlankScreenViewResize(uint32_t width, uint32_t height) override {}
 #endif
 #if BUILDFLAG(ARKWEB_BGTASK)
   MOCK_METHOD(void, OnBrowserForeground, (), (override));

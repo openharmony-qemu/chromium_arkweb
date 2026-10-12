@@ -38,6 +38,12 @@
 #include "base/process/process_handle.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "base/time/time.h"
+#include "arkweb/chromium_ext/components/blank_screen/blank_screen_reporter.h"
+#include "arkweb/chromium_ext/components/blank_screen/frame_analysis.h"
+#endif
+
 namespace cc {
 
 
@@ -74,6 +80,23 @@ class AsyncLayerTreeFrameSinkUtils {
 #if BUILDFLAG(ARKWEB_SWAP_BUFFER_TRACE)
   void SubmitCompositorFrameArkWebSwapBuTr(int64_t trace_id, FrameSkippedReason reason);
   void OnBeginFrameArkWebSwBuTr(int64_t trace_id);
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  // Analyze frames in the Renderer process via BlankScreenReporter singleton,
+  // sending FrameStats to the Browser process (auto-stops after content confirmed)
+  void AnalyzeFrameForBlankScreen(const viz::CompositorFrame& frame);
+  base::TimeTicks last_blank_screen_analyze_time_;
+  static constexpr base::TimeDelta kBlankScreenAnalyzeIntervalBlank = base::Milliseconds(500);
+
+  // FrameSinkId received via commit channel (set from compositor thread)
+  void SetFrameSinkId(const viz::FrameSinkId& frame_sink_id);
+  viz::FrameSinkId frame_sink_id_;
+
+  // Renderer-side content streak: after kMinRendererContentStreak consecutive
+  // content frames, call SetContentConfirmed to stop further analysis.
+  static constexpr int kMinRendererContentStreak = 3;
+  int renderer_content_streak_ = 0;
 #endif
 
  private:

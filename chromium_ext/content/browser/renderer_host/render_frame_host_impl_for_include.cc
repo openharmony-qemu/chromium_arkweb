@@ -476,6 +476,10 @@ void RenderFrameHostImpl::OnDetectedBlankScreen(
 }
 
 void RenderFrameHostImpl::DetectBlankScreen(const std::string& url) {
+  if (!blank_screen_detection_enable_) {
+    return;
+  }
+
   if (GetAssociatedLocalFrame()) {
     GetAssociatedLocalFrame()->DetectBlankScreen(
           url, blank_screen_detection_enable_, blank_screen_detection_timing_, blank_screen_detection_methods_,

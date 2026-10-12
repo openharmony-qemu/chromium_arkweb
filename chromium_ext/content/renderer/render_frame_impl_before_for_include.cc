@@ -26,3 +26,10 @@
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
 #include "arkweb/ohos_nweb/include/nweb_errors.h"
 #endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "arkweb/chromium_ext/components/blank_screen/blank_screen_reporter.h"
+#include "arkweb/chromium_ext/components/blank_screen/js_exception_collector.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/shared_remote.h"
+#endif

@@ -21,6 +21,77 @@ void RenderFrameImpl::CloseImageOverlaySelection() {
 }
 #endif  // BUILDFLAG(ARKWEB_AI)
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void RenderFrameImpl::InitBlankScreenMonitor() {
+  // Only initialize blank screen detection for main frame
+  if (!is_main_frame_)
+    return;
+
+  // Get FrameSinkId
+  auto* widget = GetLocalRootWebFrameWidget();
+  if (!widget)
+    return;
+
+  auto frame_sink_id = widget->GetFrameSinkId();
+  cached_blank_screen_frame_sink_id_ = frame_sink_id;
+
+  // Get BlankScreenMonitorHost Mojo proxy
+  mojo::PendingRemote<blank_screen::mojom::BlankScreenMonitorHost> pending_host;
+  GetBrowserInterfaceBroker().GetInterface(
+      pending_host.InitWithNewPipeAndPassReceiver());
+
+  blank_screen::BlankScreenReporter::GetInstance().SetHost(
+      frame_sink_id,
+      mojo::SharedRemote<blank_screen::mojom::BlankScreenMonitorHost>(
+          std::move(pending_host)));
+  blank_screen::BlankScreenReporter::GetInstance().ResetForNewNavigation(
+      frame_sink_id);
+
+  // Pass FrameSinkId to compositor thread via commit channel
+  widget->SetArkWebFrameSinkId(frame_sink_id);
+
+  LOG(DEBUG) << "[BlankScreenMonitor] Renderer: BlankScreenMonitor initialized for main frame, "
+            << "frame_sink_id=" << frame_sink_id.ToString();
+}
+void RenderFrameImpl::DidCreateScriptContextForBlankScreen(
+    v8::Local<v8::Context> context,
+    int world_id) {
+  // Only register V8 hooks in main frame main world
+  if (!is_main_frame_ || world_id != ISOLATED_WORLD_ID_GLOBAL)
+    return;
+  auto* widget = GetLocalRootWebFrameWidget();
+  if (!widget)
+    return;
+  blank_screen::JsExceptionCollector::GetInstance().InstallHooks(
+      GetAgentGroupScheduler().Isolate(), widget->GetFrameSinkId());
+}
+
+void RenderFrameImpl::CleanupBlankScreenMonitor() {
+  if (!is_main_frame_)
+    return;
+
+  if (!cached_blank_screen_frame_sink_id_.is_valid())
+    return;
+
+  blank_screen::BlankScreenReporter::GetInstance().RemoveFrameSink(cached_blank_screen_frame_sink_id_);
+  blank_screen::JsExceptionCollector::GetInstance().RemoveFrameSink(cached_blank_screen_frame_sink_id_);
+  LOG(DEBUG) << "[BlankScreenMonitor] Renderer: cleaned up BlankScreenMonitor for "
+            << "frame_sink_id=" << cached_blank_screen_frame_sink_id_.ToString();
+}
+
+void RenderFrameImpl::ResetBlankScreenMonitorForNavigation() {
+  if (!is_main_frame_)
+    return;
+  auto* widget = GetLocalRootWebFrameWidget();
+  if (!widget)
+    return;
+  blank_screen::BlankScreenReporter::GetInstance().ResetForNewNavigation(
+      widget->GetFrameSinkId());
+  blank_screen::JsExceptionCollector::GetInstance().ResetForNewNavigation(
+      widget->GetFrameSinkId());
+}
+#endif  // BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 blink::WebNativeBridge* RenderFrameImpl::CreateWebNativeBridge(
     blink::WebNativeClient* client) {

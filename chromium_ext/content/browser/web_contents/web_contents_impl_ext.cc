@@ -78,6 +78,11 @@
 #include "net/http/http_util.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#include "arkweb/chromium_ext/components/blank_screen/frame_stats_bridge.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/public/common/content_client.h"
@@ -94,9 +99,23 @@ WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
   native_web_contents_observer_ =
       std::make_unique<NativeWebContentsObserver>(this);
 #endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  blank_screen_monitor_ =
+      std::make_unique<blank_screen::BlankScreenMonitor>(this);
+#endif
 }
 
 WebContentsImplExt::~WebContentsImplExt() {
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  if (blank_screen_monitor_) {
+    if (frame_sink_id_.is_valid()) {
+      blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+      blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+          frame_sink_id_);
+    }
+    blank_screen_monitor_.reset();
+  }
+#endif
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   DelAllVideoSurfaces();
 #endif  // ARKWEB_VIDEO_ASSISTANT
@@ -1299,6 +1318,36 @@ void WebContentsImplExt::RenderViewReady(RenderViewHost* rvh) {
                                std::nullopt);
   }
 #endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  // Register frame analysis callback: dispatch viz thread frame analysis results to detector
+  if (blank_screen_monitor_) {
+    auto* rvh_local = rvh ? rvh->GetWidget() : nullptr;
+    auto frame_sink_id = rvh_local ? rvh_local->GetFrameSinkId() : viz::FrameSinkId();
+    LOG(DEBUG) << "[BlankScreenMonitor] RenderViewReady: rvh=" << rvh
+              << " widget=" << rvh_local
+              << " frame_sink_id=" << frame_sink_id.ToString()
+              << " is_valid=" << frame_sink_id.is_valid();
+    if (frame_sink_id.is_valid()) {
+      // Unregister old frame_sink_id_ before registering new one to avoid leak on renderer swap
+      if (frame_sink_id_.is_valid() && frame_sink_id_ != frame_sink_id) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen::FrameStatsBridge::GetInstance().Register(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnFrameStatsReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      blank_screen::FrameStatsBridge::GetInstance().RegisterJsExceptionCallback(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnJsExceptionReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      frame_sink_id_ = frame_sink_id;
+    }
+  }
+#endif
 }
 void WebContentsImplExt::DidFinishNavigation(NavigationHandle* navigation_handle) {
   WebContentsImpl::DidFinishNavigation(navigation_handle);
@@ -1307,6 +1356,39 @@ void WebContentsImplExt::DidFinishNavigation(NavigationHandle* navigation_handle
     view_->DidStopRefresh();
   }
 #endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  // Try registering FrameStatsBridge after navigation commit (FrameSinkId may not be ready at RenderViewReady)
+  if (blank_screen_monitor_ && navigation_handle->IsInPrimaryMainFrame() &&
+      navigation_handle->HasCommitted() && !navigation_handle->IsErrorPage()) {
+    auto* rvh = GetRenderViewHost();
+    auto* widget = rvh ? rvh->GetWidget() : nullptr;
+    auto frame_sink_id = widget ? widget->GetFrameSinkId() : viz::FrameSinkId();
+    LOG(DEBUG) << "[BlankScreenMonitor] DidFinishNavigation commit: frame_sink_id="
+              << frame_sink_id.ToString()
+              << " is_valid=" << frame_sink_id.is_valid();
+    if (frame_sink_id.is_valid()) {
+      // Unregister old frame_sink_id_ before registering new one to avoid leak on renderer swap
+      if (frame_sink_id_.is_valid() && frame_sink_id_ != frame_sink_id) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen::FrameStatsBridge::GetInstance().Register(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnFrameStatsReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      blank_screen::FrameStatsBridge::GetInstance().RegisterJsExceptionCallback(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnJsExceptionReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      frame_sink_id_ = frame_sink_id;
+    }
+  }
+#endif
+
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   if (!navigation_handle->IsInPrimaryMainFrame() ||
       !navigation_handle->HasCommitted()) {
@@ -1506,6 +1588,16 @@ void WebContentsImplExt::SetBlankScreenDetectionConfig(
   }
   render_frame_host->SetBlankScreenDetectionConfig(
       enable, detectionTiming, detectionMethods, contentfulNodesCountThreshold);
+}
+
+void WebContentsImplExt::NotifyBlankScreenViewResize(uint32_t width,
+                                                      uint32_t height) {
+  LOG(DEBUG) << "[BlankScreen] WebContentsImplExt::NotifyBlankScreenViewResize "
+               << width << "x" << height
+               << " monitor=" << (blank_screen_monitor_ ? "valid" : "null");
+  if (blank_screen_monitor_) {
+    blank_screen_monitor_->NotifyViewResize(width, height);
+  }
 }
 #endif
 

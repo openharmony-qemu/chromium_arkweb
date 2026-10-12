@@ -463,6 +463,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SetBackForwardCacheOptions(int32_t, int32_t) override {}
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
   void SetBlankScreenDetectionConfig(bool, const std::vector<double>&, const std::vector<int32_t>&, int32_t) override {}
+  void NotifyBlankScreenViewResize(uint32_t width, uint32_t height) override {}
 #endif
 #if BUILDFLAG(ARKWEB_BGTASK)
   void OnBrowserForeground() override {}

@@ -563,6 +563,18 @@ void WebFrameWidgetImplExt::CleanFocusCache() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void WebFrameWidgetImplExt::SetArkWebFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id) {
+  if (!View()->does_composite()) {
+    return;
+  }
+  widget_base_->LayerTreeHost()
+      ->AsLayerTreeHostExt()
+      ->SetArkWebFrameSinkId(frame_sink_id);
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
 void WebFrameWidgetImplExt::ShowFreeCopyMenu() {
   WebLocalFrame* local_frame = FocusedWebLocalFrameInWidget();
