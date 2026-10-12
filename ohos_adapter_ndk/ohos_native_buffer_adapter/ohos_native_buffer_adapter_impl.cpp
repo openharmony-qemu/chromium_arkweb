@@ -43,6 +43,7 @@ bool OhosNativeBufferAdapterImpl::IsBufferLocked(OH_NativeBuffer* buffer) const
     if (buffer == nullptr) {
         return false;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = lockedBuffers_.find(buffer);
     bool result = (it != lockedBuffers_.end() && it->second);
     WVLOG_D("Native buffer is locked: %{public}s", result ? "yes" : "no");
@@ -122,9 +123,9 @@ int OhosNativeBufferAdapterImpl::NativeBufferFromNativeWindowBuffer(void* native
     OH_NativeBuffer* buffer = nullptr;
     int32_t ret =
         OH_NativeBuffer_FromNativeWindowBuffer(static_cast<OHNativeWindowBuffer*>(nativeWindowBuffer), &buffer);
-    if (ret != 0 || !buffer) {
+    if (ret != 0 || buffer == nullptr) {
         WVLOG_E("getNativeBuffer fail. ret = %{public}d or buffer is nullptr", ret);
-        return ret;
+        return (ret != 0) ? ret : -1;
     }
     
     *nativeBuffer = buffer;
@@ -206,14 +207,22 @@ int OhosNativeBufferAdapterImpl::Lock(void* buffer, uint64_t usage, int32_t fenc
         return -1;
     }
 
-    if (IsBufferLocked(static_cast<OH_NativeBuffer*>(buffer))) {
-        WVLOG_D("native buffer lock - buffer already locked.");
-        return -1;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = lockedBuffers_.find(static_cast<OH_NativeBuffer*>(buffer));
+        if (it != lockedBuffers_.end() && it->second) {
+            WVLOG_D("native buffer lock - buffer already locked.");
+            return -1;
+        }
+        lockedBuffers_[static_cast<OH_NativeBuffer*>(buffer)] = true;
     }
 
-    lockedBuffers_[static_cast<OH_NativeBuffer*>(buffer)] = true;
-
-    return OH_NativeBuffer_Map(static_cast<OH_NativeBuffer*>(buffer), out_virtual_address);
+    int result = OH_NativeBuffer_Map(static_cast<OH_NativeBuffer*>(buffer), out_virtual_address);
+    if (result != 0) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        lockedBuffers_.erase(static_cast<OH_NativeBuffer*>(buffer));
+    }
+    return result;
 }
 
 int OhosNativeBufferAdapterImpl::RecvHandleFromUnixSocket(int socketFd, void** outBuffer)
@@ -242,13 +251,17 @@ int OhosNativeBufferAdapterImpl::Unlock(void* buffer, int32_t* fence)
         return -1;
     }
 
-    if (!IsBufferLocked(static_cast<OH_NativeBuffer*>(buffer))) {
-        WVLOG_D("native buffer unlock - buffer is already unlocked.");
-        return -1;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = lockedBuffers_.find(static_cast<OH_NativeBuffer*>(buffer));
+        if (it == lockedBuffers_.end() || !it->second) {
+            WVLOG_D("native buffer unlock - buffer is already unlocked.");
+            return -1;
+        }
+        lockedBuffers_.erase(it);
     }
 
     int result = OH_NativeBuffer_Unmap(static_cast<OH_NativeBuffer*>(buffer));
-    lockedBuffers_.erase(static_cast<OH_NativeBuffer*>(buffer));
     return result;
 }
 
