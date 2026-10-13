@@ -52,6 +52,8 @@ class BlankScreenMonitor : public content::WebContentsObserver {
     return weak_factory_.GetWeakPtr();
   }
 
+  void SetCallbackEnabled(bool enabled) { callback_enabled_ = enabled; }
+
  private:
   enum class State {
     kIdle,              // Waiting for navigation
@@ -183,6 +185,8 @@ class BlankScreenMonitor : public content::WebContentsObserver {
   // Marks current navigation as network/HTTP error navigation.
   // Error page subresources and JS exceptions should not count as blank screen evidence.
   bool is_error_navigation_ = false;
+
+  bool callback_enabled_ = false;
 
   GpuEvidenceCollector::CallbackId gpu_callback_id_ = 0;
 

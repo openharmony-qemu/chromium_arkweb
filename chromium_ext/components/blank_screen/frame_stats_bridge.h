@@ -71,6 +71,7 @@ class FrameStatsBridge {
       GUARDED_BY(lock_);
   std::map<viz::FrameSinkId, JsExceptionCallbackEntry> js_callbacks_
       GUARDED_BY(lock_);
+
 };
 
 }  // namespace blank_screen

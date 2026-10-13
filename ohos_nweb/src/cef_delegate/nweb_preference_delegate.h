@@ -347,6 +347,10 @@ class NWebPreferenceDelegate : public NWebPreference {
   void PutWebMediaNetworkProxyEnabled(bool enable) override;
 #endif  // ARKWEB_MEDIA_HLS
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  void PutWebBlankScreenMonitorEnabled(bool enable) override;
+#endif  // ARKWEB_BLANK_SCREEN_MONITOR
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
   bool GetCastEnabled();
 #endif  // ARKWEB_MEDIA_CAST
