@@ -280,6 +280,7 @@ int32_t RenderFrameImpl::ExecuteInputInsertCommand(const std::string& content,
 }
 
 int32_t RenderFrameImpl::ExecuteAutoFillCommand(const std::string& xpath,
+                                                 int32_t node_id,
                                                  const std::string& content,
                                                  int32_t index,
                                                  int32_t mode) {
@@ -288,7 +289,7 @@ int32_t RenderFrameImpl::ExecuteAutoFillCommand(const std::string& xpath,
     LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: web frame widget is null";
     return static_cast<int32_t>(OHOS::NWeb::WebCommandErrorCode::PAGE_NOT_READY);
   }
-  return web_frame_widget->ExecuteAutoFillCommand(xpath, content, index, mode);
+  return web_frame_widget->ExecuteAutoFillCommand(xpath, node_id, content, index, mode);
 }
 
 int32_t RenderFrameImpl::ExecuteClickCommand(const std::string& xpath) {

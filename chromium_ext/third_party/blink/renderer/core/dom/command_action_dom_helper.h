@@ -85,10 +85,11 @@ class CommandActionDOMHelper {
                                     const std::string& content,
                                     int32_t index);
 
-  // Batch autofill: find element by xpath, then overwrite or insert.
+  // Batch autofill: prefer DOM node id, then fall back to xpath.
   // mode: 0=Overwrite (SetValue without Focus), 1=Insert (Focus + insert at index)
   static int32_t ExecuteAutoFill(Document* document,
                                  const std::string& xpath,
+                                 int32_t node_id,
                                  const std::string& content,
                                  int32_t index,
                                  int32_t mode);

@@ -307,10 +307,12 @@ int32_t NWebCommandActionManagerImpl::HandleAutoFillCommand(
     const auto& item = items[i];
 
     // Validate item parameters — skip invalid items but continue processing
-    if (item->GetXPath().empty()) {
+    int32_t node_id = item->GetNodeId();
+    if (node_id <= 0 && item->GetXPath().empty()) {
       LOG(ERROR) << "[WebCommandAction] HandleAutoFillCommand: item[" << i
-                 << "] xpath is empty, skipping";
+                 << "] node id and xpath are invalid, skipping";
       if (!has_error) {
+        // Reuse the legacy XPath error code when neither locator is usable.
         first_error = static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_XPATH);
         has_error = true;
       }
@@ -343,7 +345,7 @@ int32_t NWebCommandActionManagerImpl::HandleAutoFillCommand(
     // Single ExecuteAutoFillCommand call per item
     // remaining is passed down so the per-item timer respects the total deadline
     int32_t result = nweb_delegate_->ExecuteAutoFillCommand(
-        item->GetXPath(), item->GetContent(),
+        item->GetXPath(), node_id, item->GetContent(),
         item->GetIndex(), static_cast<int32_t>(mode),
         static_cast<int32_t>(remaining.InMilliseconds()));
 

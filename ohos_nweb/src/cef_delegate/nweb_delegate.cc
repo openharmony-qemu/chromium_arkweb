@@ -4003,6 +4003,7 @@ int32_t NWebDelegate::ExecuteInputInsertCommand(const std::string& content,
 }
 
 int32_t NWebDelegate::ExecuteAutoFillCommand(const std::string& xpath,
+                                               int32_t node_id,
                                                const std::string& content,
                                                int32_t index,
                                                int32_t mode,
@@ -4012,7 +4013,7 @@ int32_t NWebDelegate::ExecuteAutoFillCommand(const std::string& xpath,
     return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
   }
   return GetBrowser()->GetHost()->ExecuteAutoFillCommand(
-      xpath, content, index, mode, remaining_timeout_ms);
+      xpath, node_id, content, index, mode, remaining_timeout_ms);
 }
 
 int32_t NWebDelegate::ExecuteClickCommand(const std::string& xpath) {

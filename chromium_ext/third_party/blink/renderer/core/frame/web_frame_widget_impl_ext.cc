@@ -263,6 +263,7 @@ int32_t WebFrameWidgetImplExt::ExecuteInputInsertCommand(
 
 int32_t WebFrameWidgetImplExt::ExecuteAutoFillCommand(
     const std::string& xpath,
+    int32_t node_id,
     const std::string& content,
     int32_t index,
     int32_t mode) {
@@ -275,7 +276,7 @@ int32_t WebFrameWidgetImplExt::ExecuteAutoFillCommand(
     LOG(ERROR) << "[WebCommandAction] ExecuteAutoFillCommand: document is null";
     return static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY);
   }
-  return CommandActionDOMHelper::ExecuteAutoFill(document, xpath, content, index, mode);
+  return CommandActionDOMHelper::ExecuteAutoFill(document, xpath, node_id, content, index, mode);
 }
 
 int32_t WebFrameWidgetImplExt::ExecuteClickCommand(const std::string& xpath) {
