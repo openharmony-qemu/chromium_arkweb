@@ -45,6 +45,14 @@ constexpr const char* const kHiTraceDisabledCategories[] = {
     "disabled-by-default-*",
 };
 
+// Periodic incremental-state clear period. Bounds memory of
+// per-sequence interning dictionaries (~2MB/5min growth without it).
+constexpr uint32_t kHiTraceIncrementalStateClearPeriodMs = 60000;
+
+// Minimum legal buffer for TracingServiceImpl validation.
+// The interceptor bypasses shared memory, so this is never written to.
+constexpr uint32_t kHiTraceSessionBufferSizeKb = 4;
+
 perfetto::TraceConfig CreateTraceConfigForHiTrace() {
   perfetto::TraceConfig config;
 
@@ -64,6 +72,11 @@ perfetto::TraceConfig CreateTraceConfigForHiTrace() {
       track_event_config.SerializeAsString());
 
   data_source_config->mutable_interceptor_config()->set_name("hitrace_interceptor");
+
+  // Consumer session requires a non-zero buffer to pass validation.
+  config.add_buffers()->set_size_kb(kHiTraceSessionBufferSizeKb);
+  config.mutable_incremental_state_config()->set_clear_period_ms(
+      kHiTraceIncrementalStateClearPeriodMs);
 
   return config;
 }
@@ -105,12 +118,47 @@ void HiTraceExportController::StartStartupTracing() {
   LOG(INFO) << "[HiTrace-Interceptor] SetupStartupTracing completed";
 }
 
+// Browser-process consumer session handle (NoDestructor, lives until
+// process exit). Null in child processes.
+std::unique_ptr<perfetto::TracingSession>& HiTraceConsumerSession() {
+  static base::NoDestructor<std::unique_ptr<perfetto::TracingSession>> session;
+  return *session;
+}
+
 }  // namespace
 
-// static
 void EnableHiTraceExport() {
   static base::NoDestructor<HiTraceExportController> controller;
   (void)controller;
+}
+
+void StartHiTraceConsumerSession() {
+  // Keep the availability gate consistent with the startup session.
+  if (!HiTraceInterceptor::IsHiTraceAvailable()) {
+    return;
+  }
+  if (HiTraceConsumerSession()) {
+    return;
+  }
+
+  // Same config as the startup session so the service adopts existing
+  // instances instead of creating duplicates.
+  perfetto::TraceConfig config = CreateTraceConfigForHiTrace();
+  auto session = perfetto::Tracing::NewTrace(perfetto::kCustomBackend);
+  session->Setup(config);
+  session->Start();
+  HiTraceConsumerSession() = std::move(session);
+  LOG(INFO) << "[HiTrace-Interceptor] consumer session started"
+            << " (clear_period_ms=" << kHiTraceIncrementalStateClearPeriodMs
+            << ")";
+}
+
+void StopHiTraceConsumerSession() {
+  if (HiTraceConsumerSession()) {
+    HiTraceConsumerSession()->StopBlocking();
+    HiTraceConsumerSession().reset();
+    LOG(INFO) << "[HiTrace-Interceptor] consumer session stopped";
+  }
 }
 
 }  // namespace hitrace

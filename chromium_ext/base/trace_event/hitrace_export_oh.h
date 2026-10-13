@@ -27,6 +27,14 @@ namespace hitrace {
 // This should be called during tracing initialization if HiTrace is available.
 BASE_EXPORT void EnableHiTraceExport();
 
+// Creates a browser-side consumer tracing session so the Perfetto
+// service schedules periodic incremental-state clears (startup sessions are
+// producer-side only and never reach the service). Browser process only.
+BASE_EXPORT void StartHiTraceConsumerSession();
+
+// Stops and resets the consumer session, if one exists.
+BASE_EXPORT void StopHiTraceConsumerSession();
+
 }  // namespace hitrace
 }  // namespace base
 
