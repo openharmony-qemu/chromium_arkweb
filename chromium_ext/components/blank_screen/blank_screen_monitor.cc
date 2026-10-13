@@ -792,8 +792,7 @@ void BlankScreenMonitor::OnJsExceptionReceived(int source,
   if (is_error_navigation_)
     return;
 
-  // Path A (sync, source=0) and Path B (async, source=1), weight 1.0.
-  attribution_ctx_.js_exception_count_path_ab++;
+  attribution_ctx_.js_exception_count_path_a++;
   attribution_ctx_.js_exception_weighted_score += 1.0;
 
   if (attribution_ctx_.js_exception_messages.size() < kMaxCollectedMessages) {
@@ -802,8 +801,7 @@ void BlankScreenMonitor::OnJsExceptionReceived(int source,
     attribution_ctx_.js_exception_messages.push_back(truncated);
   }
 
-  LOG(DEBUG) << "[BlankScreenMonitor] JS exception received (path "
-            << (source == 0 ? "A" : "B") << "): " << message
+  LOG(DEBUG) << "[BlankScreenMonitor] JS exception received (path A): " << message
             << " line=" << line
             << " score=" << attribution_ctx_.js_exception_weighted_score;
 }

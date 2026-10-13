@@ -457,8 +457,8 @@ bool AttributionEngine::MatchJsRuntimeError(const AttributionContext& ctx,
   if (ctx.js_exception_weighted_score < kJsExceptionScoreThreshold)
     return false;
   std::string desc = base::StringPrintf(
-      "JS runtime errors detected (score=%.1f, path_ab=%d, path_c=%d",
-      ctx.js_exception_weighted_score, ctx.js_exception_count_path_ab,
+      "JS runtime errors detected (score=%.1f, path_a=%d, path_c=%d",
+      ctx.js_exception_weighted_score, ctx.js_exception_count_path_a,
       ctx.js_exception_count_path_c);
   if (!ctx.js_exception_messages.empty()) {
     desc += "; errors: " + base::JoinString(ctx.js_exception_messages, " | ");

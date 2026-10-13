@@ -11,44 +11,8 @@
 #include "arkweb/chromium_ext/components/blank_screen/blank_screen_reporter.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
-#include "base/strings/string_number_conversions.h"
 
 namespace blank_screen {
-
-namespace {
-
-// Extract URL and line number from V8 Error.stack string.
-// Stack format: "Error: msg\n    at func (http://example.com:80/file.js:10:20)"
-bool ExtractUrlAndLineFromStack(const std::string& stack_str,
-                                std::string& url, int& line) {
-  size_t at_pos = stack_str.find(" at ");
-  if (at_pos == std::string::npos)
-    return false;
-
-  size_t paren_start = stack_str.find('(', at_pos);
-  size_t paren_end = stack_str.find(')', paren_start);
-  if (paren_start == std::string::npos || paren_end == std::string::npos)
-    return false;
-
-  // Content between parens: "url:line:col"
-  std::string location = stack_str.substr(paren_start + 1,
-                                          paren_end - paren_start - 1);
-  size_t last_colon = location.rfind(':');
-  if (last_colon == std::string::npos)
-    return false;
-
-  size_t second_colon = location.rfind(':', last_colon - 1);
-  if (second_colon == std::string::npos)
-    return false;
-
-  url = location.substr(0, second_colon);
-  std::string line_str = location.substr(second_colon + 1,
-                                         last_colon - second_colon - 1);
-  line = static_cast<int>(strtol(line_str.c_str(), nullptr, 10));
-  return true;
-}
-
-}  // namespace
 
 // static
 JsExceptionCollector& JsExceptionCollector::GetInstance() {
@@ -79,8 +43,15 @@ void JsExceptionCollector::InstallHooks(
     hooks_installed_ = true;
   }
 
+  // Only use AddMessageListener — it is additive (V8 supports multiple
+  // listeners) and does not replace Blink's MessageHandlerInMainThread.
+  // DO NOT use SetPromiseRejectCallback: it is a single-slot replacement
+  // API that would overwrite Blink's PromiseRejectHandlerInMainThread,
+  // breaking unhandled promise rejection reporting (e.g. "Uncaught (in
+  // promise) TypeError: Failed to fetch" console messages).
+  // Async promise rejections are still captured via Path C
+  // (OnDidAddMessageToConsole) after Blink processes them.
   isolate->AddMessageListener(MessageListenerCallback);
-  isolate->SetPromiseRejectCallback(PromiseRejectCallback);
 
   LOG(DEBUG) << "[BlankScreenMonitor] JsExceptionCollector: hooks installed for "
             << frame_sink_id.ToString();
@@ -182,60 +153,6 @@ void JsExceptionCollector::MessageListenerCallback(
             << " line=" << line_number;
 
   collector.SendException(kSourceSync, message_str, url_str, line_number);
-}
-
-// static
-void JsExceptionCollector::PromiseRejectCallback(
-    v8::PromiseRejectMessage message) {
-  // Only handle unhandled promise rejections.
-  if (message.GetEvent() != v8::kPromiseRejectWithNoHandler)
-    return;
-
-  auto& collector = GetInstance();
-  v8::Isolate* isolate = collector.isolate_;
-  if (!isolate)
-    return;
-
-  v8::Isolate::Scope isolate_scope(isolate);
-  v8::HandleScope handle_scope(isolate);
-
-  // Extract error message from reason.
-  std::string message_str;
-  v8::Local<v8::Value> reason = message.GetValue();
-  if (!reason.IsEmpty()) {
-    v8::Local<v8::String> reason_str;
-    if (reason->ToString(isolate->GetCurrentContext()).ToLocal(&reason_str)) {
-      v8::String::Utf8Value utf8(isolate, reason_str);
-      if (*utf8)
-        message_str = *utf8;
-    }
-  }
-
-  if (message_str.length() > 200)
-    message_str = message_str.substr(0, 200);
-
-  // Extract URL and line from reason's stack property.
-  std::string url_str;
-  int line_number = 0;
-  if (!reason.IsEmpty() && reason->IsObject()) {
-    v8::Local<v8::Context> context = isolate->GetCurrentContext();
-    v8::Local<v8::Object> err_obj = reason.As<v8::Object>();
-    v8::Local<v8::Value> stack_val;
-    if (err_obj->Get(context, v8::String::NewFromUtf8(isolate, "stack")
-                         .ToLocalChecked())
-            .ToLocal(&stack_val) &&
-        stack_val->IsString()) {
-      v8::String::Utf8Value utf8(isolate, stack_val);
-      if (*utf8) {
-        ExtractUrlAndLineFromStack(*utf8, url_str, line_number);
-      }
-    }
-  }
-
-  LOG(DEBUG) << "[BlankScreenMonitor] JS async exception (unhandled rejection): "
-            << message_str << " line=" << line_number;
-
-  collector.SendException(kSourceAsync, message_str, url_str, line_number);
 }
 
 }  // namespace blank_screen

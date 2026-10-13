@@ -65,9 +65,9 @@ struct AttributionContext {
   std::vector<std::string> failed_css_urls;
   std::vector<std::string> blocked_resource_messages;
 
-  // JS exception evidence (path A+B: weight 1.0, path C: weight 0.5)
+  // JS exception evidence (path A: weight 1.0, path C: weight 0.5)
   double js_exception_weighted_score = 0.0;
-  int js_exception_count_path_ab = 0;
+  int js_exception_count_path_a = 0;
   int js_exception_count_path_c = 0;
   std::vector<std::string> js_exception_messages;
 
@@ -102,7 +102,7 @@ struct AttributionContext {
     has_cross_origin_failed = false;
     csp_violation_count = 0;
     js_exception_weighted_score = 0.0;
-    js_exception_count_path_ab = 0;
+    js_exception_count_path_a = 0;
     js_exception_count_path_c = 0;
     js_exception_messages.clear();
     gpu_process_crashed = false;
