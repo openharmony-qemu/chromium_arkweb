@@ -58,6 +58,8 @@
   DO_FIELD(previews_state) __VA_ARGS__                         \
   DO_FIELD(upgrade_if_insecure) __VA_ARGS__                    \
   DO_FIELD(is_revalidating) __VA_ARGS__                        \
+  DO_FIELD(revalidation_etag) __VA_ARGS__                      \
+  DO_FIELD(revalidation_last_modified) __VA_ARGS__             \
   DO_FIELD(throttling_profile_id) __VA_ARGS__                  \
   DO_FIELD(fetch_window_id) __VA_ARGS__                        \
   DO_FIELD(devtools_request_id) __VA_ARGS__                    \
@@ -138,6 +140,8 @@
   DO_FIELD(previews_state) __VA_ARGS__                         \
   DO_FIELD(upgrade_if_insecure) __VA_ARGS__                    \
   DO_FIELD(is_revalidating) __VA_ARGS__                        \
+  DO_FIELD(revalidation_etag) __VA_ARGS__                      \
+  DO_FIELD(revalidation_last_modified) __VA_ARGS__             \
   DO_FIELD(throttling_profile_id) __VA_ARGS__                  \
   DO_FIELD(custom_proxy_pre_cache_headers) __VA_ARGS__         \
   DO_FIELD(custom_proxy_post_cache_headers) __VA_ARGS__        \
@@ -243,7 +247,9 @@ enum class FieldsForUma {
   kExpectedPublicKeys = 64,
   kPermissionsPolicy = 65,
   kClientSideContentDecodingEnabled = 66,
-  kMaxValue = kClientSideContentDecodingEnabled,
+  kRevalidationEtag = 67,
+  kRevalidationLastModified = 68,
+  kMaxValue = kRevalidationLastModified,
 };
 #endif
 // clang-format on
