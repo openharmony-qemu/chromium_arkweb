@@ -10,7 +10,6 @@
 #include "base/memory/singleton.h"
 
 namespace device {
-constexpr static int EPOCH_OFFSET_DELAY_TIME = 10;
 class GeolocationManager;
 // LocationProviderOhos
 LocationProviderOhos::LocationProviderOhos() {
@@ -109,9 +108,7 @@ void LocationProviderCallback::OnNewLocationAvailable(
   auto position = mojom::Geoposition::New();
   position->latitude = location->GetLatitude();
   position->longitude = location->GetLongitude();
-  // location->GetTimeStamp() has no value now, so that temporarily passed
-  // value 10.
-  position->timestamp = base::Time::FromSecondsSinceUnixEpoch(EPOCH_OFFSET_DELAY_TIME);
+  position->timestamp = base::Time::FromMillisecondsSinceUnixEpoch(location->GetTimeStamp());
   position->altitude = location->GetAltitude();
   position->accuracy = location->GetAccuracy();
   position->heading = location->GetDirection();
