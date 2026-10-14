@@ -210,8 +210,15 @@ OhosWebAuthnApi::GetClientCapabilitiesResult OhosWebAuthnApiImpl::GetClientCapab
     capabilities.reserve(capability_array_ptr->number);
     for (uint32_t i = 0; i < capability_array_ptr->number; i++) {
       const auto& capability = capability_array_ptr->capability[i];
+      std::string capability_name = Convert<std::string>(capability.capability);
+      if (capability_name.empty()) {
+        // ohos may give us some strange values.
+        LOG(WARNING) << "invalid capability["
+                     << static_cast<int>(capability.capability) << "]";
+        continue;
+      }
       capabilities.push_back({
-          Convert<std::string>(capability.capability),
+          std::move(capability_name),
           capability.isSupported});
     }
   } while (false);

@@ -63,7 +63,9 @@ TEST_F(TypeConversionsTest, FIDO2_ClientCapabilityTest_001)
     EXPECT_EQ(ret, "extension:uvi");
     ret = Convert<std::string>(FIDO2_EXTENSION_LARGEBLOB);
     EXPECT_EQ(ret, "extension:largeBlob");
-    ret = Convert<std::string>(static_cast<FIDO2_ClientCapability>(11));
+    ret = Convert<std::string>(FIDO2_EXTENSION_AUTH_TYPE_LIST);
+    EXPECT_EQ(ret, "extension:authTypeList");
+    ret = Convert<std::string>(static_cast<FIDO2_ClientCapability>(12));
     EXPECT_EQ(ret, "");
 }
 
