@@ -77,6 +77,11 @@
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+#include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_safe_browsing_config_util.h"
+#include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_url_loader_throttle.h"
+#endif // BUILDFLAG(ARKWEB_SAFEBROWSING)
+
 enum AppLoadedInTabSource {
   // A platform app page tried to load one of its own URLs in a tab.
   APP_LOADED_IN_TAB_SOURCE_APP = 0,
@@ -396,6 +401,26 @@ class ChromeContentBrowserClientUtils {
     return false;
   }
 #endif
+
+#if BUILDFLAG(ARKWEB_SAFEBROWSING)
+  static void AddSBURLLoaderThrottle(
+      const network::ResourceRequest& request,
+      content::FrameTreeNodeId frame_tree_node_id,
+      std::vector<std::unique_ptr<blink::URLLoaderThrottle>>& throttles) {
+    content::WebContents* web_contents =
+        content::WebContents::FromFrameTreeNodeId(frame_tree_node_id);
+    if (web_contents == nullptr) {
+      return;
+    }
+    bool is_main_frame = (request.resource_type ==
+                          static_cast<int>(blink::mojom::ResourceType::kMainFrame));
+    if (is_main_frame && request.url.SchemeIsHTTPOrHTTPS() &&
+        !web_contents->IsSafeBrowsingDetectionDisabled() &&
+        ohos_safe_browsing::SafeBrowsingConfigUtil::GetInstance().SbOverlayErrorPage()) {
+      throttles.push_back(std::make_unique<ohos_safe_browsing::OhosSBURLLoaderThrottle>(frame_tree_node_id));
+    }
+  }
+#endif // BUILDFLAG(ARKWEB_SAFEBROWSING)
 };
 
 #if BUILDFLAG(ARKWEB_EXT_EXCEPTION_LIST)

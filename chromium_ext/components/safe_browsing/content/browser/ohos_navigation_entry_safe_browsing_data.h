@@ -33,6 +33,9 @@ class NavigationEntrySafeBrowsingData : public base::SupportsUserData::Data {
  
   static NavigationEntrySafeBrowsingData* GetOrCreate(content::NavigationEntry* entry);
  
+  void SetIsNewIntercept(bool intercept) { is_new_intercept_ = intercept; }
+  bool GetIsNewIntercept() const { return is_new_intercept_; }
+ 
   bool is_js_redirect() const { return is_js_redirect_; }
   void set_is_js_redirect(bool is_js_redirect) { is_js_redirect_ = is_js_redirect; }
  
@@ -79,6 +82,7 @@ class NavigationEntrySafeBrowsingData : public base::SupportsUserData::Data {
  private:
   static const int kUserDataKey;
  
+  bool is_new_intercept_{false};
   bool is_js_redirect_{false};
   OhosSbBlockingPageInfo highest_blocking_page_info_;
   OhosSbBlockingPageInfo previously_shown_blocking_page_info_;

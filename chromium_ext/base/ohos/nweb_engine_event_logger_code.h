@@ -81,6 +81,7 @@ BASE_EXPORT extern const char kDnsHijackingResult[];
 BASE_EXPORT extern const char kSbOverlayErrorPage[];
 BASE_EXPORT extern const char kErrorPageOverlaySb[];
 BASE_EXPORT extern const char kUseSslCipher[];
+BASE_EXPORT extern const char kSbJSRedirectIntercept[];
 BASE_EXPORT extern const char kNetworkChangeError[];
 BASE_EXPORT extern const char kErrorPageReloadInfo[];
 BASE_EXPORT extern const char kNotifyChannelLagResult[];

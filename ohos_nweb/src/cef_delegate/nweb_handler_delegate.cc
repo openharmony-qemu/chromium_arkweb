@@ -162,6 +162,8 @@
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
 #include "ohos_nweb_ex/overrides/ohos_nweb/src/cef_delegate/nweb_safe_browsing_detection_handler.h"
 #include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_sb_snapshot_info.h"
+#include "cef/ohos_cef_ext/libcef/browser/ohos_safe_browsing/ohos_safe_browsing_tab_helper.h"
+#include "ohos_nweb_ex/core/arkweb/nweb_safe_browsing_response_delegate_impl.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #endif
@@ -6796,6 +6798,19 @@ void NWebHandlerDelegate::OnSafeBrowsingCheckDetail(int code,
   LOG(INFO) << "NWebHandlerDelegate::OnSafeBrowsingCheckDetail";
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnSafeBrowsingCheckDetail(nweb_id_, param);
+  return;
+#endif
+}
+
+void NWebHandlerDelegate::OnSafeBrowsingHit(const std::string& url,
+                                            int code,
+                                            int policy,
+                                            int threat,
+                                            int64_t response_key) {
+  LOG(INFO) << "NWebHandlerDelegate::OnSafeBrowsingHit response_key=" << response_key;
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnSafeBrowsingHit(
+      nweb_id_, url, code, policy, threat, response_key);
   return;
 #endif
 }

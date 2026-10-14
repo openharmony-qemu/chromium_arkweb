@@ -55,6 +55,7 @@ const char kDnsHijackingResult[]                = "102_014007"; // 可疑DNS劫�
 const char kSbOverlayErrorPage[]                = "102_014008"; // Error Page Hit Safe Browsing Code
 const char kErrorPageOverlaySb[]                = "102_014009"; // Errorpage Overlay SB Blocking page.
 const char kUseSslCipher[]                      = "102_014010"; // Did use ssl cipher
+const char kSbJSRedirectIntercept[]             = "102_014012"; // JS Redirect Chain Intercept Safe Browsing Code
 const char kNetworkChangeError[]                = "102_015001"; // 网络切换错误
 const char kErrorPageReloadInfo[]               = "102_015002"; // Reload失败
 const char kNotifyChannelLagResult[]            = "102_015003"; // WirelessKitChanne切换
