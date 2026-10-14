@@ -828,8 +828,8 @@ bool NWebRenderHandler::GetScreenInfo(CefRefPtr<CefBrowser> browser,
 
 #if BUILDFLAG(ARKWEB_SCREEN_SIZE)
   if (base::ohos::ApplicationApiVersion() >= APPLICATION_API_20) {
-    screen_info.available_rect.width = screen_info_.width;
-    screen_info.available_rect.height = screen_info_.height;
+    screen_info.available_rect.width = screen_info_.avail_width;
+    screen_info.available_rect.height = screen_info_.avail_height;
   }
 #endif  // #if BUILDFLAG(ARKWEB_SCREEN_SIZE)
 

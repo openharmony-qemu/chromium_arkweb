@@ -45,6 +45,8 @@ struct NWebScreenInfo {
   int height = 0;
   double display_ratio = -1.0;
   bool default_portrait = false;
+  int avail_width = 0;
+  int avail_height = 0;
 };
 // #endif // #if BUILDFLAG(ARKWEB_SCREEN_ROTATION)
 class NWebRenderHandler : public ArkWebRenderHandlerExt {
