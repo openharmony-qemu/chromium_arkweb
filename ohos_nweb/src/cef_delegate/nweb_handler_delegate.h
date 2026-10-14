@@ -84,6 +84,7 @@
 #endif
 
 #include "nweb_image_info_impl.h"
+#include "arkweb/chromium_ext/chrome/browser/renderer_context_menu/link_to_text_menu_manager.h"
 
 #if BUILDFLAG(ARKWEB_WEB_APP)
 #include "base/callback_list.h"
@@ -1306,7 +1307,10 @@ void OnMediaCastEnter() override;
 #if BUILDFLAG(IS_ARKWEB)
   bool is_arkweb_applinking_enabled_ = true;
 #endif
-
+  std::unique_ptr<LinkToTextMenuManager> link_to_text_menu_manager_;
+  void OnLinkGenerationCompleted(bool has_link);
+  void InitLinkToTextMenuManager(CefRefPtr<CefBrowser> browser,
+                                 CefRefPtr<CefContextMenuParams> params);
   std::shared_ptr<NWebPreferenceDelegate> preference_delegate_ = nullptr;
   CefRefPtr<NWebRenderHandler> render_handler_ = nullptr;
 

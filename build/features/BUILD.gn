@@ -201,6 +201,7 @@ if (!enable_arkweb) {
   arkweb_optimize_parser_budget = false
   arkweb_page_up_down = false
   arkweb_password_autofill = false
+  arkweb_copy_link_to_text = false
   arkweb_pdf = false
   arkweb_performance_discard_bg_webpage = false
   arkweb_performance_inc_freq = false
@@ -492,6 +493,7 @@ buildflag_header("features") {
     "ARKWEB_NO_STATE_PREFETCH=$arkweb_no_state_prefetch",
     "ARKWEB_PAGE_UP_DOWN=$arkweb_page_up_down",
     "ARKWEB_PASSWORD_AUTOFILL=$arkweb_password_autofill",
+    "ARKWEB_COPY_LINK_TO_TEXT=$arkweb_copy_link_to_text",
     "ARKWEB_PDF=$arkweb_pdf",
     "ARKWEB_PERFORMANCE_DISCARD_BG_WEBPAGE=$arkweb_performance_discard_bg_webpage",
     "ARKWEB_PERFORMANCE_INC_FREQ=$arkweb_performance_inc_freq",

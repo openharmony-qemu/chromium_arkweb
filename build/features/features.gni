@@ -127,6 +127,7 @@ declare_args() {
   arkweb_no_state_prefetch = true
   arkweb_page_up_down = true
   arkweb_password_autofill = true
+  arkweb_copy_link_to_text = true
   arkweb_pdf = true
   arkweb_performance_discard_bg_webpage = true
   arkweb_performance_inc_freq = !is_component_build

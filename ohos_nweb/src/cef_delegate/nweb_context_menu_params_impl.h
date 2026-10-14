@@ -19,6 +19,8 @@
 #include "cef/include/cef_context_menu_handler.h"
 #include "nweb_context_menu_params.h"
 
+#include "arkweb/chromium_ext/chrome/browser/renderer_context_menu/link_to_text_menu_manager.h"
+
 namespace OHOS::NWeb {
 class NWebContextMenuParamsImpl : public NWebContextMenuParams {
  public:
@@ -46,10 +48,16 @@ class NWebContextMenuParamsImpl : public NWebContextMenuParams {
   ContextMenuDataMediaType GetContextMenuMediaType() override;
 #endif
 
+  bool ShouldOfferLinkToText() override;
+  bool IsOverTextFragment() override;
+  std::string GetTextFragmentGeneratedLink() override;
+
+  void SetLinkToTextMenuManager(LinkToTextMenuManager* manager);
  private:
   CefRefPtr<CefContextMenuParams> params_;
   float virutal_device_ratio_ = 1.0;
   float view_port_height_ = 0;
+  raw_ptr<LinkToTextMenuManager> link_to_text_menu_manager_ = nullptr;
 };
 
 class NWebQuickMenuParamsImpl : public NWebQuickMenuParams {
@@ -103,9 +111,11 @@ class NWebContextMenuCallbackImpl : public NWebContextMenuCallback {
       CefRefPtr<CefRunContextMenuCallback> callback);
   void Continue(int32_t commandId, MenuEventFlags flag) override;
   void Cancel() override;
+  void SetLinkToTextMenuManager(LinkToTextMenuManager* manager);
 
  private:
   CefRefPtr<CefRunContextMenuCallback> callback_;
+  raw_ptr<LinkToTextMenuManager> link_to_text_menu_manager_ = nullptr;
 };
 
 class NWebQuickMenuCallbackImpl : public NWebQuickMenuCallback {

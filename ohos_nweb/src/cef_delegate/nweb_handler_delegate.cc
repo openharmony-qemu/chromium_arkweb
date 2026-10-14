@@ -50,6 +50,7 @@
 #include "nweb_common.h"
 #include "nweb_console_log_impl.h"
 #include "nweb_context_menu_params_impl.h"
+#include "nweb_context_menu_options_impl.h"
 #include "nweb_controller_handler_impl.h"
 #include "nweb_core_value.h"
 #include "nweb_cursor_info_impl.h"
@@ -4652,6 +4653,17 @@ bool NWebHandlerDelegate::RunContextMenu(
           params, render_handler_->GetVirtualPixelRatio(), view_port_height);
   std::shared_ptr<NWebContextMenuCallback> nweb_callback =
       std::make_shared<NWebContextMenuCallbackImpl>(callback);
+#if BUILDFLAG(ARKWEB_COPY_LINK_TO_TEXT)
+  if (!link_to_text_menu_manager_) {
+    link_to_text_menu_manager_ = std::make_unique<LinkToTextMenuManager>();
+  }
+
+  static_cast<NWebContextMenuCallbackImpl*>(nweb_callback.get())
+      ->SetLinkToTextMenuManager(link_to_text_menu_manager_.get());
+  static_cast<NWebContextMenuParamsImpl*>(nweb_param.get())
+      ->SetLinkToTextMenuManager(link_to_text_menu_manager_.get());
+  InitLinkToTextMenuManager(browser, params);
+#endif
   if (GetBrowser() && GetBrowser()->GetHost()) {
     bool has_composition = GetBrowser()->GetHost()->GetHasComposition();
     LOG(INFO) << "NWebHandlerDelegate has_composition " << has_composition;
@@ -4672,6 +4684,43 @@ bool NWebHandlerDelegate::RunContextMenu(
     nweb_callback->Cancel();
   }
   return false;
+}
+
+void NWebHandlerDelegate::InitLinkToTextMenuManager(CefRefPtr<CefBrowser> browser,
+                                                    CefRefPtr<CefContextMenuParams> params) {
+#if BUILDFLAG(ARKWEB_COPY_LINK_TO_TEXT)
+  if (link_to_text_menu_manager_ && browser && browser->GetHost()) {
+    auto cef_ext = params->AsCefCefContextMenuParamsExt();
+    const content::ContextMenuParams* content_params =
+        cef_ext ? cef_ext->GetContentContextMenuParams() : nullptr;
+
+    auto* arkweb_host_ext = static_cast<ArkWebBrowserHostExtImpl*>(
+        browser->GetHost().get());
+    if (arkweb_host_ext && content_params) {
+      auto alloy_host = arkweb_host_ext->AsAlloyBrowserHostImpl();
+      if (alloy_host) {
+        content::WebContents* web_contents = alloy_host->GetWebContents();
+        link_to_text_menu_manager_->InitMenu(*content_params, web_contents);
+        link_to_text_menu_manager_->SetLinkGenerationCompletedCallback(
+            base::BindRepeating(&NWebHandlerDelegate::OnLinkGenerationCompleted,
+                                weak_factory_.GetWeakPtr()));
+      }
+    }
+  }
+#endif
+}
+
+void NWebHandlerDelegate::OnLinkGenerationCompleted(bool has_link) {
+#if BUILDFLAG(ARKWEB_COPY_LINK_TO_TEXT)
+  if (nweb_handler_ != nullptr) {
+    LOG(INFO) << "OnLinkGenerationCompleted: has_link=" << has_link;
+    std::shared_ptr<NWebContextMenuOptions> options = 
+        std::make_shared<NWebContextMenuOptionsImpl>(has_link);
+    nweb_handler_->OnContextMenuUpdate(
+        static_cast<int32_t>(MenuCommandId::CI_COPY_LINK_TO_HIGHLIGHT),
+        options);
+  }
+#endif
 }
 
 bool NWebHandlerDelegate::OnContextMenuCommand(
