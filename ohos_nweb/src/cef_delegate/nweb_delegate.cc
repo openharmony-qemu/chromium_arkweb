@@ -5623,9 +5623,15 @@ void NWebDelegate::AddAccessibilityNodeInfoAttributes(
   if (node->IsTextField()) {
     nodeInfo->SetSelectionStart(node->GetSelectionStart());
     nodeInfo->SetSelectionEnd(node->GetSelectionEnd());
+    std::pair<std::string, std::string> changedText =
+        node->GetTextChangedInTextFieldV2();
+    nodeInfo->SetAddText(changedText.first);
+    nodeInfo->SetRemoveText(changedText.second);
   } else {
     nodeInfo->SetSelectionStart(0);
     nodeInfo->SetSelectionEnd(0);
+    nodeInfo->SetAddText("");
+    nodeInfo->SetRemoveText("");
   }
   nodeInfo->SetItemCounts(node->GetItemCount());
   nodeInfo->SetIsClickable(node->IsClickable() && node->IsEnabled());

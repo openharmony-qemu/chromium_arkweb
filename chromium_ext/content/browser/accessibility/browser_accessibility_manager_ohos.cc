@@ -305,8 +305,10 @@ void BrowserAccessibilityManagerOHOS::FireGeneratedEvent(
       }
       break;
     case AXEventGenerator::Event::NAME_CHANGED:
-      SendAccessibilityEvent(accessibilityId,
-                             OHOS::NWeb::AccessibilityEventType::TEXT_CHANGE);
+      if (!nodeOHOS->IsTextField() || GetFocus() != wrapper) {
+        SendAccessibilityEvent(accessibilityId,
+                               OHOS::NWeb::AccessibilityEventType::TEXT_CHANGE);
+      }
       break;
     case AXEventGenerator::Event::SCROLL_HORIZONTAL_POSITION_CHANGED:
     case AXEventGenerator::Event::SCROLL_VERTICAL_POSITION_CHANGED:
