@@ -58,6 +58,14 @@ class EchoAILanguageModelOHOS : public EchoAIBaseOHOS,
       std::vector<blink::mojom::AILanguageModelPromptPtr> input,
       MeasureInputUsageCallback callback) override;
 
+  // Validates prompt content types against input_types_ and checks accumulated
+  // token count against kMaxContextSizeInTokens. Returns true if valid.
+  // On failure, sets |error_status| and |new_tokens| for error reporting.
+  bool ValidatePromptInput(
+      const std::vector<blink::mojom::AILanguageModelPromptPtr>& prompts,
+      blink::mojom::ModelStreamingResponseStatus& error_status,
+      size_t& new_tokens);
+
   bool is_destroyed_ = false;
   uint64_t current_tokens_ = 0;
   blink::mojom::AILanguageModelSamplingParamsPtr sampling_params_;

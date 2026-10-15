@@ -20,6 +20,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
+#include "base/numerics/checked_math.h"
 #include "base/pickle.h"
 #include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
@@ -792,6 +793,22 @@ class ClipboardOHOSInternal {
       SkImageInfo skImageInfo = MakeSkImageInfoFromPixelMap(imgData);
       void* pixels = reinterpret_cast<void*>(imgData->GetData());
       size_t rowBytes = imgData->GetRowBytes();
+      auto totalSize = base::CheckMul(rowBytes,
+                                      static_cast<size_t>(skImageInfo.height()));
+      if (!pixels || skImageInfo.colorType() == kUnknown_SkColorType ||
+          skImageInfo.width() <= 0 || skImageInfo.height() <= 0 ||
+          rowBytes < skImageInfo.minRowBytes() || !totalSize.IsValid() ||
+          totalSize.ValueOrDie() > imgData->GetDataSize()) {
+        LOG(ERROR) << "invalid image data: pixels=" << pixels
+                   << " colorType=" << skImageInfo.colorType()
+                   << " width=" << skImageInfo.width()
+                   << " height=" << skImageInfo.height()
+                   << " rowBytes=" << rowBytes
+                   << " minRowBytes=" << skImageInfo.minRowBytes()
+                   << " dataSize=" << imgData->GetDataSize();
+        free(pixels);
+        return false;
+      }
       if (!img.installPixels(skImageInfo, pixels, rowBytes,
                              [](void* addr, void* ctx) { free(addr); }, nullptr)) {
         LOG(ERROR) << "installPixels failed";
@@ -1205,7 +1222,11 @@ void ClipboardOHOS::ReadData(const ClipboardFormatType& format,
                              std::string* result) const {
   LOG(INFO) << "start read data, type = " << format.GetName();
   DCHECK(CalledOnValidThread());
-  if (!clipboard_internal_->IsReadAllowed(data_dst, std::nullopt)) {
+  // Reading an RFH token written in the clipboard is always allowed as it is
+  // used internally by the browser to evaluate other policies.
+  if (format.GetName() != "chromium/x-internal-source-rfh-token" &&
+      !clipboard_internal_->IsReadAllowed(
+          data_dst, ClipboardInternalFormat::kCustom, format)) {
     LOG(ERROR) << "not allow to read when read data";
     return;
   }
