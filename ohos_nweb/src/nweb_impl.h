@@ -540,6 +540,7 @@ class NWebImpl : public NWeb {
                          float vx,
                          float vy) override;
   void SlideScroll(float vx, float vy) override;
+  void SetFlingSpeedLimit(float speed_limit) override;
   bool WebSendKeyEvent(int32_t keyCode,
                        int32_t keyAction,
                        const std::vector<int32_t>& pressedCodes) override;

@@ -433,6 +433,7 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(void, ScrollTo, (float, float), (override));
   MOCK_METHOD(void, ScrollBy, (float, float), (override));
   MOCK_METHOD(void, SlideScroll, (float, float), (override));
+  MOCK_METHOD(void, SetFlingSpeedLimit, (float), (override));
   MOCK_METHOD(void, SetFileAccess, (bool), (override));
   MOCK_METHOD(void, SetBlockNetwork, (bool), (override));
   MOCK_METHOD(void, SetCacheMode, (int), (override));

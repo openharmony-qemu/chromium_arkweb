@@ -14,6 +14,8 @@
  */
 
 #include "nweb_delegate.h"
+#include <cmath>
+#include <limits>
 #include <map>
 
 #include "arkweb/build/features/features.h"
@@ -127,6 +129,27 @@ TEST_F(NWebDelegateTest, Resize) {
 TEST_F(NWebDelegateTest, SetIsOfflineWebComponent) {
   ASSERT_NE(nweb_delegate_, nullptr);
   nweb_delegate_->SetIsOfflineWebComponent();
+}
+
+TEST_F(NWebDelegateTest, SetFlingSpeedLimit) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  // 有效值与无效值（≤0）均不崩溃；≤0/NaN 按设备默认值处理在 GetBrowser/GetHost 可达后生效
+  nweb_delegate_->SetFlingSpeedLimit(5000.0f);
+  nweb_delegate_->SetFlingSpeedLimit(0.0f);
+  nweb_delegate_->SetFlingSpeedLimit(-1.0f);
+}
+
+TEST_F(NWebDelegateTest, SetFlingSpeedLimit_NaN_NoCrash) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  // NaN 视为无效值（!(NaN > 0) 恒 true），按设备默认值处理，不崩溃
+  float nan_value = std::numeric_limits<float>::quiet_NaN();
+  nweb_delegate_->SetFlingSpeedLimit(nan_value);
+}
+
+TEST_F(NWebDelegateTest, SetFlingSpeedLimit_LargeValue_NoCrash) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  // 超大正数为有效值，不截断为默认值
+  nweb_delegate_->SetFlingSpeedLimit(std::numeric_limits<float>::max());
 }
 
 TEST_F(NWebDelegateTest, OnTouchPress) {

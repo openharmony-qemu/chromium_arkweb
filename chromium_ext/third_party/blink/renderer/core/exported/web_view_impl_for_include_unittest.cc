@@ -161,4 +161,36 @@ TEST_F(WebViewImplTest, UpdateFlingVelocityLimitNEq) {
   EXPECT_NE(velocity1, velocity2);
 }
 
+// SetFlingSpeedLimit valid values don't crash (AC-1.1)
+TEST_F(WebViewImplTest, SetFlingSpeedLimit) {
+  web_view_impl_->SetFlingSpeedLimit(5000.0f);
+  web_view_impl_->SetFlingSpeedLimit(9000.0f);
+}
+
+// SetFlingSpeedLimit invalid values don't crash (AC-3.1, EB-1/EB-2/EB-3)
+TEST_F(WebViewImplTest, SetFlingSpeedLimit_InvalidValues_NoCrash) {
+  web_view_impl_->SetFlingSpeedLimit(0.0f);
+  web_view_impl_->SetFlingSpeedLimit(-1.0f);
+  web_view_impl_->SetFlingSpeedLimit(std::numeric_limits<float>::quiet_NaN());
+  web_view_impl_->SetFlingSpeedLimit(std::numeric_limits<float>::infinity());
+  web_view_impl_->SetFlingSpeedLimit(-std::numeric_limits<float>::infinity());
+  web_view_impl_->SetFlingSpeedLimit(std::numeric_limits<float>::max());
+}
+
+// TS override + viewport interplay doesn't crash (AC-4.1, BR-4)
+TEST_F(WebViewImplTest, SetFlingSpeedLimit_WithViewport_NoCrash) {
+  web_view_impl_->SetFlingSpeedLimit(5000.0f);
+  web_view_impl_->UpdateFlingVelocityLimit(gfx::Vector2dF(9000, 9000));
+  web_view_impl_->SetFlingSpeedLimit(9000.0f);
+  web_view_impl_->UpdateFlingVelocityLimit(gfx::Vector2dF(17000, 17000));
+}
+
+// Clearing TS override and alternating with viewport doesn't crash (BR-4)
+TEST_F(WebViewImplTest, SetFlingSpeedLimit_ClearAndAlternate_NoCrash) {
+  web_view_impl_->SetFlingSpeedLimit(5000.0f);
+  web_view_impl_->UpdateFlingVelocityLimit(gfx::Vector2dF(9000, 9000));
+  web_view_impl_->SetFlingSpeedLimit(0.0f);
+  web_view_impl_->UpdateFlingVelocityLimit(gfx::Vector2dF(17000, 17000));
+}
+
 }  // namespace blink

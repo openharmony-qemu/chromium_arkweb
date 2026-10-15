@@ -398,18 +398,42 @@ void WebViewImpl::UpdateFlingVelocityLimit(const gfx::Vector2dF& velocity) {
     return;
   }
 
-  if (velocity == limit_fling_velocity_) {
+  // Always record the viewport value so that clearing the TS override
+  // restores the latest viewport max-fling-speed-x/y, even if the page
+  // navigated or viewport meta changed while the TS override was active.
+  viewport_fling_velocity_limit_ = velocity;
+
+  // Priority: TS-side flingSpeedLimit overrides viewport max-fling-speed-x/y.
+  gfx::Vector2dF effective_velocity = has_ts_fling_velocity_limit_
+                                         ? ts_fling_velocity_limit_
+                                         : velocity;
+
+  if (effective_velocity == limit_fling_velocity_) {
     LOG(DEBUG) << "Store value hasn't change, no need to limit Velocity";
     return;
   }
 
-  limit_fling_velocity_ = velocity;
+  limit_fling_velocity_ = effective_velocity;
 
   if (GetPage()->MainFrame()->IsLocalFrame()) {
     DCHECK(local_main_frame_host_remote_);
     if (local_main_frame_host_remote_) {
-      local_main_frame_host_remote_->UpdateFlingVelocityLimit(velocity);
+      local_main_frame_host_remote_->UpdateFlingVelocityLimit(effective_velocity);
     }
+  }
+}
+
+void WebViewImpl::SetFlingSpeedLimit(float speed_limit) {
+  // speed_limit > 0 sets TS override; <=0 or NaN clears it (NaN > 0 is false).
+  // No upper-bound clamp: very large values (e.g. float::max()) effectively
+  // mean "no limit", which is valid per the API's (0, +∞) range.
+  if (speed_limit > 0) {
+    ts_fling_velocity_limit_ = gfx::Vector2dF(speed_limit, speed_limit);
+    has_ts_fling_velocity_limit_ = true;
+    UpdateFlingVelocityLimit(ts_fling_velocity_limit_);
+  } else {
+    has_ts_fling_velocity_limit_ = false;
+    UpdateFlingVelocityLimit(viewport_fling_velocity_limit_);
   }
 }
 #endif

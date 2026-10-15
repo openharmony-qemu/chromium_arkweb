@@ -598,6 +598,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (float delta_x, float delta_y, float vx, float vy),
               (override));
   MOCK_METHOD(void, SlideScroll, (float vx, float vy), (override));
+  MOCK_METHOD(void, SetFlingSpeedLimit, (float speed_limit), (override));
   MOCK_METHOD(bool,
               WebSendKeyEvent,
               (int32_t keyCode,

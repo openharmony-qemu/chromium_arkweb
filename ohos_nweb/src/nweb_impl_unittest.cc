@@ -14211,4 +14211,28 @@ TEST_F(NWebImplTest, IsDelegatedEnabled_Default) {
   // IsDelegatedCompositingEnabledOhos() returns false in unit test environment
   EXPECT_FALSE(nweb_impl_->is_delegated_enabled_);
 }
+
+TEST_F(NWebImplTest, SetFlingSpeedLimit_NoDelegate_NoCrash) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_NO_FATAL_FAILURE(nweb_impl_->SetFlingSpeedLimit(5000.0f));
+}
+
+TEST_F(NWebImplTest, SetFlingSpeedLimit_ValidValue_ForwardedToDelegate) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, SetFlingSpeedLimit(5000.0f)).Times(1);
+  nweb_impl_->SetFlingSpeedLimit(5000.0f);
+  testing::Mock::VerifyAndClearExpectations(mock_delegate_.get());
+}
+
+TEST_F(NWebImplTest, SetFlingSpeedLimit_InvalidValue_ForwardedToDelegate) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  EXPECT_CALL(*mock_delegate_, SetFlingSpeedLimit(0.0f)).Times(1);
+  nweb_impl_->SetFlingSpeedLimit(0.0f);
+  EXPECT_CALL(*mock_delegate_, SetFlingSpeedLimit(-1.0f)).Times(1);
+  nweb_impl_->SetFlingSpeedLimit(-1.0f);
+  testing::Mock::VerifyAndClearExpectations(mock_delegate_.get());
+}
 }  // namespace OHOS::NWeb
