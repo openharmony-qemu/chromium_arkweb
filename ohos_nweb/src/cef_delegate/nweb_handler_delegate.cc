@@ -3318,12 +3318,30 @@ void NWebHandlerDelegate::OnAdsBlocked(
 #endif
 
 // #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
+float NWebHandlerDelegate::GetTopContentOffset() {
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  return top_content_offset_;
+#else
+  return 0;
+#endif
+}
+
+float NWebHandlerDelegate::GetBottomContentOffset() {
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  return bottom_content_offset_;
+#else
+  return 0;
+#endif
+}
+
 void NWebHandlerDelegate::OnTopControlsChanged(float top_controls_offset,
                                                float top_content_offset) {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
-      .OnTopControlsChanged(nweb_id_, top_controls_offset, top_content_offset);
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+      .OnTopControlsChanged(nweb_id_, top_controls_offset, top_content_offset)) {
+    top_content_offset_ = top_content_offset;
+  }
 #endif  // ARKWEB_NWEB_EX
 #endif
 }
@@ -3332,10 +3350,12 @@ void NWebHandlerDelegate::OnBottomControlsChanged(float bottom_controls_offset,
                                                   float bottom_content_offset) {
 #if BUILDFLAG(ARKWEB_EXT_TOPCONTROLS)
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+  if (nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
       .OnBottomControlsChanged(nweb_id_, bottom_controls_offset,
-                               bottom_content_offset);
-#endif  // ARKWEB_NWEB_EX
+                               bottom_content_offset)) {
+    bottom_content_offset_ = bottom_content_offset;
+  }
+#endif
 #endif
 }
 
