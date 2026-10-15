@@ -47,6 +47,9 @@ class CC_EXPORT LayerUtils {
   void SetMayContainVideo(bool value);
 
   bool may_contain_video() const;
+
+  void SetNativeEmbedTransformRotateAndSkewEnabled(bool enabled);
+  bool native_embed_transform_rotate_and_skew_enabled() const;
 #endif
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
@@ -62,6 +65,7 @@ class CC_EXPORT LayerUtils {
   ProtectedSequenceReadable<bool> native_video_;
   ProtectedSequenceReadable<int> native_embed_id_;
   gfx::RectF native_rect_;
+  bool native_embed_transform_rotate_and_skew_enabled_ = false;
 #endif
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
   ProtectedSequenceReadable<bool> should_intercept_touch_event_{false};

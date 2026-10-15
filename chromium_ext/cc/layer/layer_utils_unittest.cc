@@ -53,4 +53,63 @@ TEST(LayerUtilsTest, SetNativeEmbedId002) {
     EXPECT_FALSE(layer.set_needs_push_properties_called());
 }
 
+// ---------------------------------------------------------------------------
+// SetNativeEmbedTransformRotateAndSkewEnabled tests
+// ---------------------------------------------------------------------------
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_DefaultFalse) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    EXPECT_FALSE(utils.native_embed_transform_rotate_and_skew_enabled());
+}
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_SetTrue) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    EXPECT_TRUE(utils.native_embed_transform_rotate_and_skew_enabled());
+}
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_SetFalse) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(false);
+    EXPECT_FALSE(utils.native_embed_transform_rotate_and_skew_enabled());
+}
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_SameValueNoChange) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    layer.reset_set_needs_push_properties_called();
+    // Setting the same value should be a no-op (early return).
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    EXPECT_TRUE(utils.native_embed_transform_rotate_and_skew_enabled());
+    EXPECT_FALSE(layer.set_needs_push_properties_called());
+}
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_SameFalseNoChange) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    // Default is false, setting false again should be no-op.
+    layer.reset_set_needs_push_properties_called();
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(false);
+    EXPECT_FALSE(utils.native_embed_transform_rotate_and_skew_enabled());
+    EXPECT_FALSE(layer.set_needs_push_properties_called());
+}
+
+TEST(LayerUtilsTest, SetTransformRotateAndSkewEnabled_ToggleMultiple) {
+    TestLayer layer;
+    cc::LayerUtils utils(&layer);
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    EXPECT_TRUE(utils.native_embed_transform_rotate_and_skew_enabled());
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(false);
+    EXPECT_FALSE(utils.native_embed_transform_rotate_and_skew_enabled());
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    EXPECT_TRUE(utils.native_embed_transform_rotate_and_skew_enabled());
+    utils.SetNativeEmbedTransformRotateAndSkewEnabled(true);
+    EXPECT_TRUE(utils.native_embed_transform_rotate_and_skew_enabled());
+}
+
 }  // namespace cc

@@ -13,6 +13,10 @@
  * limitations under the License.
  */
 #include "input_handler_proxy_utils.h"
+#include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include "base/containers/circular_deque.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -57,6 +61,8 @@
 #include "third_party/blink/renderer/platform/widget/input/native_embed_event_queue.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/transform.h"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wglobal-constructors"
 namespace blink {
@@ -3091,5 +3097,365 @@ TEST_F(InputHandlerProxyUtilsTest, CheckFingerIdOutOfIndex_TooLarge) {
   bool result = utils_->CheckFingerIdOutOfIndex(20);
   EXPECT_TRUE(result);
 }
+
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+static void SetupConvertTest(
+    testing::NiceMock<MockLayerImpl>* layer_impl,
+    testing::NiceMock<MockLayerImplUtils>* layer_utils,
+    const gfx::Transform& transform,
+    bool flag_enabled) {
+  layer_utils->set_native_embed_transform_rotate_and_skew_enabled(flag_enabled);
+  layer_impl->set_contributes_to_drawn_render_surface(true);
+  layer_impl->draw_properties().screen_space_transform = transform;
+}
+
+TEST_F(InputHandlerProxyUtilsTest, ConvertToNativeCoordinates_FlagOff) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(false);
+
+  gfx::Transform identity;
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = identity;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOff_RotateTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(false);
+
+  gfx::Transform rotate;
+  rotate.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOff_ZeroOffset) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(false);
+
+  gfx::Transform identity;
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = identity;
+
+  gfx::RectF native_rect(0, 0, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 150.0f);
+  EXPECT_FLOAT_EQ(y, 250.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOff_NegativeCoords) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(false);
+
+  gfx::Transform identity;
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = identity;
+
+  gfx::RectF native_rect(200, 300, 100, 100);
+  float x = 50.0f;
+  float y = 100.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, -150.0f);
+  EXPECT_FLOAT_EQ(y, -200.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_IdentityTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform identity;
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = identity;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_ScaleTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform scale;
+  scale.Scale(2.0f, 2.0f);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = scale;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_TranslateTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform translate;
+  translate.Translate(50.0f, 60.0f);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = translate;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_ScaleAndTranslate) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform scale_translate;
+  scale_translate.Scale(2.0f, 3.0f);
+  scale_translate.Translate(10.0f, 20.0f);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = scale_translate;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_RotateTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate;
+  rotate.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 50.0f;
+  float y = 0.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 0.0f, 0.01f);
+  EXPECT_NEAR(y, -50.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_Rotate180Transform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate;
+  rotate.Rotate(180.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 30.0f;
+  float y = 40.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 30.0f);
+  EXPECT_FLOAT_EQ(y, 40.0f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_Rotate45Transform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate;
+  rotate.Rotate(45.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 0.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 100.0 * cos(45.0 * M_PI / 180.0), 0.01f);
+  EXPECT_NEAR(y, -100.0 * sin(45.0 * M_PI / 180.0), 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_SkewXTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform skew;
+  skew.SkewX(30.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = skew;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 50.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  double inv_x = 100.0 - 50.0 * tan(30.0 * M_PI / 180.0);
+  double inv_y = 50.0;
+  double sx = 1.0;
+  double sy = 1.0 / cos(30.0 * M_PI / 180.0);
+  EXPECT_NEAR(x, inv_x * sx, 0.01f);
+  EXPECT_NEAR(y, inv_y * sy, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_SkewYTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform skew;
+  skew.SkewY(45.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = skew;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 50.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  double inv_x = 100.0;
+  double inv_y = 50.0 - 100.0 * tan(45.0 * M_PI / 180.0);
+  double sx = 1.0 / cos(45.0 * M_PI / 180.0);
+  double sy = 1.0;
+  EXPECT_NEAR(x, inv_x * sx, 0.01f);
+  EXPECT_NEAR(y, inv_y * sy, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_RotateAndScale) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate_scale;
+  rotate_scale.Scale(2.0f, 2.0f);
+  rotate_scale.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate_scale;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 0.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 0.0f, 0.01f);
+  EXPECT_NEAR(y, -100.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_RotateAndTranslate) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate_translate;
+  rotate_translate.Translate(50.0f, 60.0f);
+  rotate_translate.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate_translate;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 60.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 0.0f, 0.01f);
+  EXPECT_NEAR(y, -50.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_RotateScaleTranslate) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform combined;
+  combined.Translate(50.0f, 60.0f);
+  combined.Scale(2.0f, 3.0f);
+  combined.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = combined;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 50.0f;
+  float y = 60.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 0.0f, 0.01f);
+  EXPECT_NEAR(y, 0.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_RotateWithOffset) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate;
+  rotate.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 100.0f;
+  float y = 200.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 200.0f, 0.01f);
+  EXPECT_NEAR(y, -100.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_ZeroCoords) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform rotate;
+  rotate.Rotate(90.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = rotate;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 0.0f;
+  float y = 0.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_NEAR(x, 0.0f, 0.01f);
+  EXPECT_NEAR(y, 0.0f, 0.01f);
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOn_SkewBoth) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(true);
+
+  gfx::Transform skew;
+  skew.Skew(20.0, 15.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = skew;
+
+  gfx::RectF native_rect(0, 0, 100, 50);
+  float x = 100.0f;
+  float y = 50.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_TRUE(std::isfinite(x));
+  EXPECT_TRUE(std::isfinite(y));
+}
+
+TEST_F(InputHandlerProxyUtilsTest,
+       ConvertToNativeCoordinates_FlagOff_SkewTransform) {
+  mock_layer_utils_->set_native_embed_transform_rotate_and_skew_enabled(false);
+
+  gfx::Transform skew;
+  skew.SkewX(30.0);
+  mock_layer_impl_->set_contributes_to_drawn_render_surface(true);
+  mock_layer_impl_->draw_properties().screen_space_transform = skew;
+
+  gfx::RectF native_rect(100, 200, 300, 400);
+  float x = 150.0f;
+  float y = 250.0f;
+  utils_->ConvertToNativeCoordinates(x, y, mock_layer_impl_.get(), native_rect);
+  EXPECT_FLOAT_EQ(x, 50.0f);
+  EXPECT_FLOAT_EQ(y, 50.0f);
+}
+#endif  // BUILDFLAG(ARKWEB_SAME_LAYER)
 #pragma clang diagnostic pop
 }  // namespace blink
