@@ -37,6 +37,12 @@ void WebSettingsImplExt::SetScrollBarColor(uint32_t value) {
 }
 #endif  // ARKWEB_SCROLLBAR
 
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+void WebSettingsImplExt::SetCaretColor(uint32_t value) {
+  settings_->SetCaretColor(value);
+}
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
+
 #if BUILDFLAG(ARKWEB_AI)
 void WebSettingsImplExt::SetImageAnalyzerEnabled(bool enabled) {
   settings_->SetImageAnalyzerEnabled(enabled);

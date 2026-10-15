@@ -155,6 +155,12 @@
   uint32_t GetScrollBarColor() { return scrollbar_color_; }
 #endif
 
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  void SetCaretColor(uint32_t colorValue) { caret_color_ = colorValue; }
+
+  uint32_t GetCaretColor() { return caret_color_; }
+#endif
+
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   void SetVideoAssistantEnabled(bool enabled) {
     video_assistant_enabled_ = enabled;

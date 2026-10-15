@@ -876,6 +876,21 @@ TEST(NWebPreferenceDelegateTest, PutScrollBarColor) {
     EXPECT_EQ(preference_delegate->GetScrollBarColor(), 2);
 }
 
+TEST(NWebPreferenceDelegateTest, PutCaretColor) {
+    auto preference_delegate = std::make_shared<NWebPreferenceDelegate>();
+    CefRefPtr<CefBrowser> browser = nullptr;
+    preference_delegate->SetBrowser(browser);
+    EXPECT_EQ(preference_delegate->GetCaretColor(), 0U);
+    preference_delegate->PutCaretColor(0xFFFF0000U);
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+    EXPECT_EQ(preference_delegate->GetCaretColor(), 0xFFFF0000U);
+#else
+    EXPECT_EQ(preference_delegate->GetCaretColor(), 0U);
+#endif
+    preference_delegate->PutCaretColor(0U);
+    EXPECT_EQ(preference_delegate->GetCaretColor(), 0U);
+}
+
 TEST(NWebPreferenceDelegateTest, SetDrawMode) {
     auto preference_delegate = std::make_shared<NWebPreferenceDelegate>();
     CefRefPtr<CefBrowser> browser = nullptr;

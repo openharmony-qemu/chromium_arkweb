@@ -137,6 +137,8 @@ class NWebPreferenceDelegate : public NWebPreference {
   int32_t GetBackgroundColor() const;
 #endif  // BUILDFLAG(ARKWEB_BACKGROUND_COLOR)
   void PutScrollBarColor(uint32_t colorValue) override;
+  uint32_t GetCaretColor() override;
+  void PutCaretColor(uint32_t colorValue) override;
 #if BUILDFLAG(IS_OHOS)
   void SetDrawMode(int mode);
   int GetDrawMode() const;
@@ -439,6 +441,9 @@ class NWebPreferenceDelegate : public NWebPreference {
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
   uint32_t scrollbar_color_{0};
 #endif  // ARKWEB_SCROLLBAR
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  uint32_t caret_color_{0};
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
   double border_radius_top_left_{0.0};
   double border_radius_top_right_{0.0};

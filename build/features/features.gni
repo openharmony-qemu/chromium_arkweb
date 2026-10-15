@@ -41,6 +41,7 @@ declare_args() {
   arkweb_bfcache = true
   arkweb_bugfix_crash = true
   arkweb_ca = true
+  arkweb_caret_color = true
   arkweb_cache = true
   arkweb_clipboard = true
   arkweb_close_steps = true

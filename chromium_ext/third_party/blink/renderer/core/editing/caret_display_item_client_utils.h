@@ -23,6 +23,7 @@ namespace blink {
 class CaretDisplayItemClient;
 class LayoutBlock;
 class GraphicsContext;
+class Color;
 
 class CORE_EXPORT CaretDisplayItemClientUtils : public GarbageCollected<CaretDisplayItemClientUtils> {
  public:
@@ -35,6 +36,12 @@ class CORE_EXPORT CaretDisplayItemClientUtils : public GarbageCollected<CaretDis
                          const Color& color);
   bool IsViewportScale(LayoutBlock* layout_block);
 #endif  // BUILDFLAG(ARKWEB_MENU)
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  // Resolves the caret color. A non-zero caretColor API value overrides the
+  // CSS cascade result; zero preserves the CSS result.
+  Color ResolveCaretColor(const Color& css_color,
+                          LayoutBlock* layout_block);
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
   void Trace(Visitor*) const;
  private:
   Member<CaretDisplayItemClient> caret_display_item_client_;

@@ -58,6 +58,9 @@ public:
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
   virtual void SetScrollBarColor(uint32_t) = 0;
 #endif  // ARKWEB_SCROLLBAR
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  virtual void SetCaretColor(uint32_t) = 0;
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   virtual void SetNativeEmbedModeEnabled(bool) = 0;
   virtual void SetIntrinsicSizeEnabled(bool) = 0;

@@ -68,6 +68,10 @@
   uint32_t scrollbar_color_ = 0;
 #endif
 
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  uint32_t caret_color_ = 0;
+#endif
+
 #if BUILDFLAG(ARKWEB_NIGHT_MODE)
   bool night_mode_enabled_ = false;
 #endif
