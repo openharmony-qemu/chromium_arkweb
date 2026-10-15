@@ -62,6 +62,10 @@ class OHOSAudioOutputStream : public AudioOutputStream {
   // Resets internal state and reports an error to |callback_|.
   void ReportError();
 
+  void OnInterruptStop();
+
+  bool ShouldHandleInterruptStopAsRenderError() const;
+
   void OnSuspend();
 
   void OnResume();
