@@ -113,6 +113,9 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
     fill_content_ = content;
     fill_content_node_id_ = node_id;
   }
+  void SetPendingFillContent(const std::string& content) override {
+    pending_fill_content_ = content;
+  }
 #endif
 
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
@@ -245,6 +248,7 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
   std::string fill_content_;
   int32_t fill_content_node_id_ = -1;
+  std::string pending_fill_content_;
 #endif
   IMPLEMENT_REFCOUNTING(NWebInputMethodHandler);
 };

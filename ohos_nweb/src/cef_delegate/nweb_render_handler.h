@@ -115,6 +115,7 @@ class NWebRenderHandler : public ArkWebRenderHandlerExt {
 
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
   void SetFillContent(const CefString& content) override;
+  void SetPendingFillContent(const CefString& content) override;
 #endif
   bool GetScreenInfo(CefRefPtr<CefBrowser> browser,
                      CefScreenInfo& screen_info) override;

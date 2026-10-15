@@ -71,6 +71,7 @@ class NWebInputMethodClient : public virtual CefBaseRefCounted {
 
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
   virtual void SetFillContent(const std::string& content, int32_t node_id) = 0;
+  virtual void SetPendingFillContent(const std::string& content) = 0;
 #endif
 };
 }  // namespace OHOS::NWeb

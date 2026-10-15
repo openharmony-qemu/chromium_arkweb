@@ -94,7 +94,16 @@ class TestNWebInputMethodClient : public NWebInputMethodClient {
   bool IsKeyboardShow() override { return false; }
 
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
-  void SetFillContent(const std::string&, int32_t) override {}
+  void SetFillContent(const std::string& content, int32_t node_id) override {
+    last_fill_content_ = content;
+    last_fill_node_id_ = node_id;
+  }
+  void SetPendingFillContent(const std::string& content) override {
+    last_pending_content_ = content;
+  }
+  std::string last_fill_content_;
+  int32_t last_fill_node_id_ = -1;
+  std::string last_pending_content_;
 #endif
 
   void ResetAttachResult() {

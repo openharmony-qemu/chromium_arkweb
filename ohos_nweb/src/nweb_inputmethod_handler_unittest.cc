@@ -839,6 +839,10 @@ class MockIMFAdapterImpl : public IMFAdapter {
               OnSelectionChange,
               (std::u16string text, int start, int end),
               (override));
+  MOCK_METHOD(bool,
+              SendPrivateCommand,
+              (const std::string& commandKey, const std::string& commandValue),
+              (override));
 };
 
 class MockArkWebClientExt : public ArkWebClientExt {
@@ -2860,6 +2864,89 @@ TEST_F(NWebInputMethodHandlerTest, AttachToSystemIME) {
   EXPECT_TRUE(inputmethod_handler_->isAttachSuccess_);
   EXPECT_TRUE(inputmethod_handler_->fill_content_.empty());
 }
+
+#if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
+// v9: SetPendingFillContent stores content without staging.
+TEST_F(NWebInputMethodHandlerTest, SetPendingFillContent_StoresContent) {
+  std::string payload = R"({"userName":"test","hasAccount":"true"})";
+  inputmethod_handler_->SetPendingFillContent(payload);
+  EXPECT_EQ(inputmethod_handler_->pending_fill_content_, payload);
+  // fill_content_ should NOT be set (pending is separate)
+  EXPECT_TRUE(inputmethod_handler_->fill_content_.empty());
+}
+
+// v9: AttachToSystemIME consumes pending → stages fill_content_ with
+// correct input_node_id_ → MATCH → SendPrivateCommand called.
+TEST_F(NWebInputMethodHandlerTest, Attach_ConsumesPending_StagesWithCorrectNode) {
+  inputmethod_handler_->focus_status_ = true;
+  inputmethod_handler_->inputmethod_listener_ =
+      std::make_shared<MockOnTextChangedListenerImpl>();
+  auto* mock = static_cast<MockIMFAdapterImpl*>(
+      inputmethod_handler_->inputmethod_adapter_.get());
+  ASSERT_NE(mock, nullptr);
+  ON_CALL(*mock, AttachWithRequestKeyboardReason(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillByDefault(testing::Return(true));
+  EXPECT_CALL(*mock, SendPrivateCommand(testing::_, testing::_)).Times(1);
+
+  inputmethod_handler_->input_node_id_ = 42;
+  inputmethod_handler_->SetPendingFillContent(
+      R"({"userName":"test","hasAccount":"true"})");
+
+  bool result = inputmethod_handler_->AttachToSystemIME(true, 0);
+  EXPECT_TRUE(result);
+  // Pending consumed
+  EXPECT_TRUE(inputmethod_handler_->pending_fill_content_.empty());
+  // fill_content_ staged with correct node
+  EXPECT_FALSE(inputmethod_handler_->fill_content_.empty());
+  EXPECT_EQ(inputmethod_handler_->fill_content_node_id_, 42);
+}
+
+// v9: fill_content_ MATCH (same node) → send, and NOT cleared after send.
+TEST_F(NWebInputMethodHandlerTest, Attach_FillContentMatch_SendsAndPersists) {
+  inputmethod_handler_->focus_status_ = true;
+  inputmethod_handler_->inputmethod_listener_ =
+      std::make_shared<MockOnTextChangedListenerImpl>();
+  auto* mock = static_cast<MockIMFAdapterImpl*>(
+      inputmethod_handler_->inputmethod_adapter_.get());
+  ASSERT_NE(mock, nullptr);
+  ON_CALL(*mock, AttachWithRequestKeyboardReason(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillByDefault(testing::Return(true));
+  EXPECT_CALL(*mock, SendPrivateCommand(testing::_, testing::_)).Times(1);
+
+  inputmethod_handler_->fill_content_ = R"({"userName":"test"})";
+  inputmethod_handler_->fill_content_node_id_ = 42;
+  inputmethod_handler_->input_node_id_ = 42;
+
+  bool result = inputmethod_handler_->AttachToSystemIME(true, 0);
+  EXPECT_TRUE(result);
+  // fill_content_ NOT cleared (v9: removed one-shot clear)
+  EXPECT_FALSE(inputmethod_handler_->fill_content_.empty());
+  EXPECT_EQ(inputmethod_handler_->fill_content_node_id_, 42);
+}
+
+// v9: fill_content_ MISMATCH (different node) → no send, persists.
+TEST_F(NWebInputMethodHandlerTest, Attach_FillContentMismatch_NoSend_Persists) {
+  inputmethod_handler_->focus_status_ = true;
+  inputmethod_handler_->inputmethod_listener_ =
+      std::make_shared<MockOnTextChangedListenerImpl>();
+  auto* mock = static_cast<MockIMFAdapterImpl*>(
+      inputmethod_handler_->inputmethod_adapter_.get());
+  ASSERT_NE(mock, nullptr);
+  ON_CALL(*mock, AttachWithRequestKeyboardReason(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillByDefault(testing::Return(true));
+  EXPECT_CALL(*mock, SendPrivateCommand(testing::_, testing::_)).Times(0);
+
+  inputmethod_handler_->fill_content_ = R"({"userName":"test"})";
+  inputmethod_handler_->fill_content_node_id_ = 22;
+  inputmethod_handler_->input_node_id_ = 42;
+
+  bool result = inputmethod_handler_->AttachToSystemIME(true, 0);
+  EXPECT_TRUE(result);
+  // MISMATCH: no send, but fill_content_ persists
+  EXPECT_FALSE(inputmethod_handler_->fill_content_.empty());
+  EXPECT_EQ(inputmethod_handler_->fill_content_node_id_, 22);
+}
+#endif
 
 TEST_F(NWebInputMethodHandlerTest, ComputeEditorInfo) {
   NWebInputMethodClient::InputInfo inputInfo;
