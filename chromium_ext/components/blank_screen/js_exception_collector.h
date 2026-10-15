@@ -21,13 +21,14 @@
 namespace blank_screen {
 
 // Renderer-side JS exception collector singleton.
-// Captures JS runtime errors via V8 AddMessageListener (sync) and
-// SetPromiseRejectCallback (async), sends them to browser via Mojo.
+// Captures JS runtime errors via V8 AddMessageListener (sync exceptions).
+// Async promise rejections are NOT captured here to avoid replacing Blink's
+// SetPromiseRejectCallback; they are captured via Path C
+// (OnDidAddMessageToConsole) after Blink processes them.
 class JsExceptionCollector {
  public:
-  // Exception source: 0=sync (AddMessageListener), 1=async (PromiseRejectCallback)
+  // Exception source: 0=sync (AddMessageListener)
   static constexpr int kSourceSync = 0;
-  static constexpr int kSourceAsync = 1;
 
   static JsExceptionCollector& GetInstance();
 
@@ -48,7 +49,6 @@ class JsExceptionCollector {
 
   static void MessageListenerCallback(v8::Local<v8::Message> message,
                                       v8::Local<v8::Value> data);
-  static void PromiseRejectCallback(v8::PromiseRejectMessage message);
 
   void SendException(int source,
                      const std::string& message,

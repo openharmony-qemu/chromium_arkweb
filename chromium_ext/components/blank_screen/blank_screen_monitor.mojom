@@ -20,9 +20,9 @@ interface BlankScreenMonitorHost {
                   float content_area_ratio,
                   bool has_text_like_content);
 
-  // Report JS exception (captured by V8 hooks in Renderer)
+  // Report JS exception (captured by V8 AddMessageListener in Renderer)
   // |frame_sink_id| identifies which WebView the exception belongs to
-  // |source| 0=sync (AddMessageListener), 1=async (PromiseRejectCallback)
+  // |source| 0=sync (AddMessageListener)
   // |message| error message, |url| and |line| are source location
   [EnableIf=arkweb_blank_screen_monitor]
   OnJsException(viz.mojom.FrameSinkId frame_sink_id,
