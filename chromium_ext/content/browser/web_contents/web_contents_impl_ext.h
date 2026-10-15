@@ -8,6 +8,11 @@
 #include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "arkweb/chromium_ext/components/blank_screen/blank_screen_monitor.h"
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_WEBRTC)
 #include "content/browser/renderer_host/media/media_stream_manager.h"
 #include "content/browser/renderer_host/media/video_capture_manager.h"
@@ -374,6 +379,7 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
       const std::vector<int32_t>& detectionMethods,
       int32_t contentfulNodesCountThreshold) override;
   void DetectBlankScreen(const std::string& url);
+  void NotifyBlankScreenViewResize(uint32_t width, uint32_t height);
 #endif
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
@@ -550,6 +556,10 @@ private:
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   std::unique_ptr<NativeWebContentsObserver> native_web_contents_observer_;
   std::map<std::string,gfx::Rect> native_embed_rect_info_map_;
+#endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  std::unique_ptr<blank_screen::BlankScreenMonitor> blank_screen_monitor_;
+  viz::FrameSinkId frame_sink_id_;
 #endif
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
   bool touch_insert_handle_menu_show_ = false;

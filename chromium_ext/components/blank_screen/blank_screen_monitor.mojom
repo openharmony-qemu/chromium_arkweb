@@ -1,0 +1,33 @@
+// Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module blank_screen.mojom;
+
+import "services/viz/public/mojom/compositing/frame_sink_id.mojom";
+
+// Frame analysis result reporting interface (Renderer -> Browser).
+// Renderer analyzes frame content before submitting CompositorFrame,
+// sending results to Browser process via FrameStatsBridge.
+[EnableIf=arkweb_blank_screen_monitor]
+interface BlankScreenMonitorHost {
+  // Report single-frame analysis result
+  OnFrameAnalyzed(viz.mojom.FrameSinkId frame_sink_id,
+                  int32 total_quads,
+                  int32 solid_color_quads,
+                  int32 content_quads,
+                  float white_area_ratio,
+                  float content_area_ratio,
+                  bool has_text_like_content);
+
+  // Report JS exception (captured by V8 hooks in Renderer)
+  // |frame_sink_id| identifies which WebView the exception belongs to
+  // |source| 0=sync (AddMessageListener), 1=async (PromiseRejectCallback)
+  // |message| error message, |url| and |line| are source location
+  [EnableIf=arkweb_blank_screen_monitor]
+  OnJsException(viz.mojom.FrameSinkId frame_sink_id,
+                int32 source,
+                string message,
+                string url,
+                int32 line);
+};

@@ -17,6 +17,10 @@
 #error "must be in include form CC_TREES_LAYER_TREE_HOST_IMPL_H_"
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "cc/mojo_embedder/async_layer_tree_frame_sink.h"
+#endif
+
 namespace cc {
 
 namespace {
@@ -108,6 +112,30 @@ bool LayerTreeHostImpl::IsThrottleEnable() {
                                       .GetSystemPropertiesInstance()
                                       .GetBoolParameter("web.throttle.enabled", false);
   return feature_allowed && frame_rate_estimator_.GetBeginFrameThrottleMode();
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void LayerTreeHostImpl::SetArkWebFrameSinkIdToFrameSink(
+    const viz::FrameSinkId& frame_sink_id) {
+  if (!frame_sink_id.is_valid()) {
+    return;
+  }
+  auto* frame_sink = layer_tree_frame_sink();
+  if (!frame_sink) {
+    return;
+  }
+  // ArkWeb always uses AsyncLayerTreeFrameSink as the LayerTreeFrameSink impl.
+  // RTTI is disabled (-fno-rtti), so dynamic_cast is unavailable; the
+  // static_cast is safe because SetArkWebFrameSinkIdToFrameSink is only
+  // called from the ArkWeb compositor path which always creates this type.
+  auto* async_sink = static_cast<cc::mojo_embedder::AsyncLayerTreeFrameSink*>(
+      frame_sink);
+  auto* utils = async_sink->GetAsyncLayerTreeFrameSinkUtils();
+  DCHECK(utils) << "Expected AsyncLayerTreeFrameSink but GetAsyncLayerTreeFrameSinkUtils() returned null";
+  if (utils) {
+    utils->SetFrameSinkId(frame_sink_id);
+  }
 }
 #endif
 } // namespace cc

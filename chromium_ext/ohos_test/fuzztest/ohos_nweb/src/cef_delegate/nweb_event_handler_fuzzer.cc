@@ -65,6 +65,7 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
       const std::vector<double>& detectionTiming,
       const std::vector<int32_t>& detectionMethods,
       int32_t contentfulNodesCountThreshold) override {}
+  void NotifyBlankScreenViewResize(uint32_t width, uint32_t height) override {}
 #endif
 
   CefWindowHandle GetWindowHandle() override { return 0; }

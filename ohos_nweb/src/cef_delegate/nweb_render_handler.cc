@@ -1785,6 +1785,17 @@ void NWebRenderHandler::OnDetectedBlankScreen(
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void NWebRenderHandler::OnMonitoredBlankScreen(
+    const std::string& url,
+    int32_t reason,
+    const std::string& extraMsg) {
+  if (auto handler = handler_.lock()) {
+    handler->OnMonitoredBlankScreen(url, reason, extraMsg);
+  }
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_FIRST_SCREEN_PAINT)
 void NWebRenderHandler::OnFirstScreenPaint(const std::string& url,
                                            int64_t navigationStartTime,

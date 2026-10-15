@@ -22,6 +22,10 @@
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "base/allocator/partition_allocator/src/partition_alloc/pointers/raw_ptr.h"
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "services/viz/privileged/mojom/compositing/frame_sink_manager.mojom.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
 #include "components/viz/service/gl/gpu_service_impl.h"
 #endif
