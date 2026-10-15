@@ -189,10 +189,6 @@ void ApplyOhosWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetScrollBarColor(prefs.scrollbar_color);
 #endif
 
-#if BUILDFLAG(ARKWEB_CARET_COLOR)
-  settings->SetCaretColor(prefs.caret_color);
-#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
-
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
   settings->SetClipboardSitePermissionEnabled(prefs.clipboard_site_permission_enabled);
 #endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
