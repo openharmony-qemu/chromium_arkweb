@@ -138,6 +138,7 @@ class MockSystemPropertiesAdapter : public OHOS::NWeb::SystemPropertiesAdapter {
               (const std::string& configName, int32_t defaultValue),
               (override));
   MOCK_METHOD(int32_t, GetRenderProcessMode, (), (override));
+  MOCK_METHOD(std::string, GetPartialDraw, (), (override));
 };
 
 class MockWindowAdapter : public WindowAdapter {
