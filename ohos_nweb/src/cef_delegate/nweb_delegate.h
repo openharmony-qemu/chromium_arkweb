@@ -1199,6 +1199,9 @@ void AbortDistill() override;
   void AddAccessibilityNodeInfoActions(
       std::shared_ptr<NWebAccessibilityNodeInfoImpl> nodeInfo,
       const BrowserAccessibilityOHOS* node) const;
+  void AddAccessibilityNodeInfoCssAttributes(
+      std::shared_ptr<NWebAccessibilityNodeInfoImpl> nodeInfo,
+      const base::StringPairs& htmlAttributes) const;
   float GetViewPointHeight() const;
 #endif
 

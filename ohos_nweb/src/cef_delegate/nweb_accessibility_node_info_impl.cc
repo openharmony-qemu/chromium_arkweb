@@ -493,4 +493,70 @@ std::string NWebAccessibilityNodeInfoImpl::GetRemoveText() {
   return remove_text_;
 }
 
+// ArkWeb CSS properties.
+void NWebAccessibilityNodeInfoImpl::SetZIndex(int32_t zindex) {
+  zindex_ = zindex;
+}
+
+int32_t NWebAccessibilityNodeInfoImpl::GetZIndex() {
+  return zindex_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetFontSize(int32_t font_size) {
+  font_size_ = font_size;
+}
+
+int32_t NWebAccessibilityNodeInfoImpl::GetFontSize() {
+  return font_size_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetImageRendering(
+    int32_t image_rendering) {
+  image_rendering_ = image_rendering;
+}
+
+int32_t NWebAccessibilityNodeInfoImpl::GetImageRendering() {
+  return image_rendering_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetBgSizeType(int32_t bg_size_type) {
+  bg_size_type_ = bg_size_type;
+}
+
+int32_t NWebAccessibilityNodeInfoImpl::GetBgSizeType() {
+  return bg_size_type_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetBgColor(uint32_t bg_color) {
+  bg_color_ = bg_color;
+}
+
+uint32_t NWebAccessibilityNodeInfoImpl::GetBgColor() {
+  return bg_color_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetCssVisible(bool css_visible) {
+  css_visible_ = css_visible;
+}
+
+bool NWebAccessibilityNodeInfoImpl::GetCssVisible() {
+  return css_visible_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetBgImg(const std::string& bg_img) {
+  bg_img_ = bg_img;
+}
+
+std::string NWebAccessibilityNodeInfoImpl::GetBgImg() {
+  return bg_img_;
+}
+
+void NWebAccessibilityNodeInfoImpl::SetBgSize(const std::string& bg_size) {
+  bg_size_ = bg_size;
+}
+
+std::string NWebAccessibilityNodeInfoImpl::GetBgSize() {
+  return bg_size_;
+}
+
 }  // namespace OHOS::NWeb
