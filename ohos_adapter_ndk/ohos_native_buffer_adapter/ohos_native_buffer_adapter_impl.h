@@ -64,7 +64,7 @@ public:
 private:
     bool IsBufferLocked(OH_NativeBuffer* buffer) const;
 
-    std::shared_ptr<std::mutex> mutex_;
+    mutable std::mutex mutex_;
     std::unordered_map<OH_NativeBuffer*, bool> lockedBuffers_;
 };
 
