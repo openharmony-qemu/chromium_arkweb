@@ -930,6 +930,8 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void OnBottomControlsChanged(float bottom_controls_offset,
                                float bottom_content_offset) override;
   int OnGetTopControlsHeight() override;
+  float GetTopContentOffset() override;
+  float GetBottomContentOffset() override;
   // #endif
 
   // save ark js function for window.open
@@ -1392,6 +1394,8 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool on_load_start_notified_ = false;
+  float top_content_offset_ = 0;
+  float bottom_content_offset_ = 0;
 #endif  // ARKWEB_NWEB_EX
 #if BUILDFLAG(ARKWEB_PAGE_UP_DOWN)
   float scale_ = 100.0;
