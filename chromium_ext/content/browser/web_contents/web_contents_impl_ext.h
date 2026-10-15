@@ -382,6 +382,11 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
   void NotifyBlankScreenViewResize(uint32_t width, uint32_t height);
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  void SetBlankScreenMonitorEnabled(bool enable);
+  bool CheckHiviewUserTypeBeta();
+#endif
+
 #if BUILDFLAG(ARKWEB_READER_MODE)
   void EnableReaderMode(bool enabled) override;
   void EnableCustomReaderMode(bool enabled) override;
@@ -560,6 +565,7 @@ private:
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
   std::unique_ptr<blank_screen::BlankScreenMonitor> blank_screen_monitor_;
   viz::FrameSinkId frame_sink_id_;
+  bool is_beta_ = false;
 #endif
 #if BUILDFLAG(ARKWEB_CLIPBOARD)
   bool touch_insert_handle_menu_show_ = false;

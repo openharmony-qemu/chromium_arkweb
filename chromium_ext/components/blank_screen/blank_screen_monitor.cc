@@ -900,6 +900,12 @@ void BlankScreenMonitor::Report(RootCauseReport report) {
   LOG(WARNING) << "[BlankScreenMonitor] Report: " << report.ToString();
 
   // Forward to RenderWidgetHostViewBase for NWeb callback propagation.
+  // HiSysEvent is always reported (above). The app callback is gated by
+  // callback_enabled_, which is controlled by PutWebBlankScreenMonitorEnabled.
+  if (!callback_enabled_) {
+    LOG(DEBUG) << "[BlankScreenMonitor] Callback disabled, skip OnMonitoredBlankScreen";
+    return;
+  }
   auto* rfh = web_contents()->GetPrimaryMainFrame();
   if (rfh) {
     auto* rwh = rfh->GetRenderWidgetHost();

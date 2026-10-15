@@ -81,6 +81,7 @@
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "arkweb/chromium_ext/components/blank_screen/frame_stats_bridge.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #endif
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
@@ -100,8 +101,22 @@ WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
       std::make_unique<NativeWebContentsObserver>(this);
 #endif
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
-  blank_screen_monitor_ =
-      std::make_unique<blank_screen::BlankScreenMonitor>(this);
+  {
+    if (CheckHiviewUserTypeBeta()) {
+      if (!blank_screen_monitor_) {
+        blank_screen_monitor_ =
+            std::make_unique<blank_screen::BlankScreenMonitor>(this);
+      }
+      // Sync to renderer prefs so renderer enables compositor frame analysis.
+      blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+      if (prefs) {
+        prefs->blank_screen_monitor_enabled = true;
+        SyncRendererPrefs();
+      }
+      LOG(INFO) << "[BlankScreenMonitor] Beta version detected, "
+                << "monitor created at construction";
+    }
+  }
 #endif
 }
 
@@ -1600,6 +1615,57 @@ void WebContentsImplExt::NotifyBlankScreenViewResize(uint32_t width,
   }
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void WebContentsImplExt::SetBlankScreenMonitorEnabled(bool enable) {
+  LOG(INFO) << "[BlankScreenMonitor] SetBlankScreenMonitorEnabled: " << enable
+            << " is_beta: " << is_beta_;
+  if (enable) {
+    if (!blank_screen_monitor_) {
+      blank_screen_monitor_ =
+          std::make_unique<blank_screen::BlankScreenMonitor>(this);
+      LOG(INFO) << "[BlankScreenMonitor] Monitor created on enable";
+    }
+    blank_screen_monitor_->SetCallbackEnabled(true);
+  } else {
+    if (blank_screen_monitor_) {
+      blank_screen_monitor_->SetCallbackEnabled(false);
+    }
+    if (is_beta_) {
+      LOG(INFO) << "[BlankScreenMonitor] Beta device, keep monitor alive";
+    } else if (blank_screen_monitor_) {
+      if (frame_sink_id_.is_valid()) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen_monitor_.reset();
+      LOG(INFO) << "[BlankScreenMonitor] Monitor destroyed on disable";
+    }
+  }
+
+  // Sync enable state to renderer via RendererPreferences.
+  // Renderer reads this in InitBlankScreenMonitor() to decide whether
+  // to call SetArkWebFrameSinkId (which enables compositor frame analysis).
+  blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+  if (prefs && prefs->blank_screen_monitor_enabled != enable) {
+    prefs->blank_screen_monitor_enabled = enable;
+    SyncRendererPrefs();
+  }
+}
+
+bool WebContentsImplExt::CheckHiviewUserTypeBeta() {
+    static constexpr const char* const kHiviewUserTypeKey =
+        "const.logsystem.versiontype";
+    static const bool is_beta =
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetStringParameter(kHiviewUserTypeKey, "")
+            .find("beta") != std::string::npos;
+    is_beta_ = is_beta;
+    return is_beta_;
+}
+#endif // ARKWEB_BLANK_SCREEN_MONITOR
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
 void WebContentsImplExt::EnableReaderMode(bool enabled) {

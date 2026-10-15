@@ -377,6 +377,9 @@ if (defined(arkweb_ext_http_dns_fallback_on_dns_hijacking) && arkweb_ext_http_dn
 if (defined(arkweb_reader_mode) && arkweb_reader_mode) {
   arkweb_mojo_features += [ "arkweb_reader_mode" ]
 }
+if (defined(arkweb_blank_screen_monitor) && arkweb_blank_screen_monitor) {
+  arkweb_mojo_features += [ "arkweb_blank_screen_monitor" ]
+}
 if (defined(arkweb_ext_video_load_optimization) &&
     arkweb_ext_video_load_optimization) {
   arkweb_mojo_features += [ "arkweb_ext_video_load_optimization" ]

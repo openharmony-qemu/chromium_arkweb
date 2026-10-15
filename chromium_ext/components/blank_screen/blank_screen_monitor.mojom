@@ -9,6 +9,8 @@ import "services/viz/public/mojom/compositing/frame_sink_id.mojom";
 // Frame analysis result reporting interface (Renderer -> Browser).
 // Renderer analyzes frame content before submitting CompositorFrame,
 // sending results to Browser process via FrameStatsBridge.
+// Browser side (FrameStatsBridge) gates whether results are actually
+// processed — renderer always initializes and sends unconditionally.
 [EnableIf=arkweb_blank_screen_monitor]
 interface BlankScreenMonitorHost {
   // Report single-frame analysis result

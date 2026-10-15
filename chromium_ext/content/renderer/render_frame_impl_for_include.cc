@@ -27,6 +27,20 @@ void RenderFrameImpl::InitBlankScreenMonitor() {
   if (!is_main_frame_)
     return;
 
+  // Gate on RendererPreferences.blank_screen_monitor_enabled.
+  // RendererPreferences is synced from browser via SyncRendererPrefs() before
+  // navigation commit, so the value is available here without any sync IPC.
+  // When disabled, skip all initialization — no Mojo host, no compositor
+  // frame analysis, no JS exception collection.
+  bool enabled = false;
+  if (auto* web_view = GetWebView()) {
+    enabled = web_view->GetRendererPreferences().blank_screen_monitor_enabled;
+  }
+  if (!enabled) {
+    LOG(DEBUG) << "[BlankScreenMonitor] Renderer: detection not enabled, skipping init";
+    return;
+  }
+
   // Get FrameSinkId
   auto* widget = GetLocalRootWebFrameWidget();
   if (!widget)
@@ -35,19 +49,20 @@ void RenderFrameImpl::InitBlankScreenMonitor() {
   auto frame_sink_id = widget->GetFrameSinkId();
   cached_blank_screen_frame_sink_id_ = frame_sink_id;
 
-  // Get BlankScreenMonitorHost Mojo proxy
+  // Get BlankScreenMonitorHost Mojo proxy.
   mojo::PendingRemote<blank_screen::mojom::BlankScreenMonitorHost> pending_host;
   GetBrowserInterfaceBroker().GetInterface(
       pending_host.InitWithNewPipeAndPassReceiver());
 
+  auto remote = mojo::SharedRemote<blank_screen::mojom::BlankScreenMonitorHost>(
+      std::move(pending_host));
+
   blank_screen::BlankScreenReporter::GetInstance().SetHost(
-      frame_sink_id,
-      mojo::SharedRemote<blank_screen::mojom::BlankScreenMonitorHost>(
-          std::move(pending_host)));
+      frame_sink_id, std::move(remote));
   blank_screen::BlankScreenReporter::GetInstance().ResetForNewNavigation(
       frame_sink_id);
 
-  // Pass FrameSinkId to compositor thread via commit channel
+  // Enable compositor frame analysis.
   widget->SetArkWebFrameSinkId(frame_sink_id);
 
   LOG(DEBUG) << "[BlankScreenMonitor] Renderer: BlankScreenMonitor initialized for main frame, "
