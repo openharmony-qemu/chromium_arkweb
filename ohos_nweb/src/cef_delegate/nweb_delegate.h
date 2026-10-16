@@ -1088,6 +1088,7 @@ void AbortDistill() override;
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
   void SetFocusWebId(int32_t nweb_id) override;
+  std::string GetCachedUrl() const override;
 #endif
 
 #if BUILDFLAG(ARKWEB_USERAGENT)

@@ -2307,6 +2307,11 @@ void NWebHandlerDelegate::OnNavigationEntryCommitted(
     }
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
     fmp_url_ = details->GetCurrentURL().ToString();
+#endif
+#if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
+    if (details->IsMainFrame()) {
+      cached_url_ = details->GetCurrentURL().ToString();
+    }
 #endif 
   }
 #else

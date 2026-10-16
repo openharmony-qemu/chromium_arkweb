@@ -1374,6 +1374,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
   MOCK_METHOD(void, SetFocusWebId, (int32_t nweb_id), (override));
+  MOCK_METHOD(std::string, GetCachedUrl, (), (const, override));
 #endif 
 
   base::WeakPtr<MockNWebDelegate> WeakFromThis() {

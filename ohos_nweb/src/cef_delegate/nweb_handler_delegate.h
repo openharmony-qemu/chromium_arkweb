@@ -1268,6 +1268,10 @@ void OnMediaCastEnter() override;
   void SaveEnableSafeBrowsingDetection(bool enable, bool strictMode);
 #endif
 
+#if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
+  std::string GetCachedUrl() const { return cached_url_; }
+#endif
+
 // 加载状态管理接口
 #if BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)
   static void SetLoadFinished(uint32_t nweb_id, bool finished);
@@ -1523,6 +1527,10 @@ void OnMediaCastEnter() override;
 
 #if BUILDFLAG(ARKWEB_WEB_APP)
   base::CallbackListSubscription manifest_subscription_;
+#endif
+
+#if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
+  std::string cached_url_;
 #endif
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
