@@ -695,6 +695,12 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
               (int, float, float, float, float),
               (override));
   MOCK_METHOD(std::string, GetCurrentLanguage, (), (override));
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  MOCK_METHOD(void,
+              GetWebLanguageAsync,
+              (CefRefPtr<CefWebLanguageDetectedCallback>),
+              (override));
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   MOCK_METHOD(void, MaximizeResize, (), (override));
   MOCK_METHOD(void, PutWebMediaAVSessionEnabled, (bool), (override));
   MOCK_METHOD(void, SetEnableHalfFrameRate, (bool), (override));

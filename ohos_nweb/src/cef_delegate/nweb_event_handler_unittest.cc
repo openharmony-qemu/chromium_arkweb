@@ -811,6 +811,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void SetEnableCustomVideoPlayer(bool flag) override {}
   void ScaleGestureChangeV2(int type, float scale, float originScale, float width, float height) override {}
   virtual std::string GetCurrentLanguage() override { return ""; }
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  void GetWebLanguageAsync(
+      CefRefPtr<CefWebLanguageDetectedCallback> callback) override {}
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   void MaximizeResize() override {}
   void PutWebMediaAVSessionEnabled(bool enable) override {}
   void SetEnableHalfFrameRate(bool enabled) override {}

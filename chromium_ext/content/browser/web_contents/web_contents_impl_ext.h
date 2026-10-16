@@ -187,12 +187,14 @@ class CONTENT_EXPORT WebContentsImplExt : public WebContentsImpl {
                                     const std::string& embed_id_attribute);
   void OnLayerRectVisibilityChange(const std::string& embed_id,
                                    bool visibility);
+  void OnNativeEmbedObjectParamChange(
+      const NativeEmbedParamDataInfo& native_param_info) override;
+#endif
+#if BUILDFLAG(ARKWEB_SAME_LAYER) || BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
   void OnRenderFrameHostEnterBackForwardCache(
       const GlobalRenderFrameHostId& id) override;
   void OnRenderFrameHostLeaveBackForwardCache(
       const GlobalRenderFrameHostId& id) override;
-  void OnNativeEmbedObjectParamChange(
-      const NativeEmbedParamDataInfo& native_param_info) override;
 #endif
 
 #if BUILDFLAG(ARKWEB_SCREEN_LOCK)

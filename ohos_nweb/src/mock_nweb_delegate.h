@@ -645,6 +645,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
   MOCK_METHOD(bool, GetPendingSizeStatus, (), (override));
   MOCK_METHOD(void, SetFitContentMode, (int32_t mode), (override));
   MOCK_METHOD(std::string, GetCurrentLanguage, (), (override));
+  MOCK_METHOD(void, GetWebLanguageAsync, (OnWebLanguageDetectedCallback), (override));
 #endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
   MOCK_METHOD(void, SetNativeInnerWeb, (bool isInnerWeb), (override));

@@ -28,6 +28,12 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_widget_host_impl.h"
+#include "ui/base/page_transition_types.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_CSS_INPUT_TIME)
 #include "content/browser/ohos/date_time_chooser_ohos.h"
 #endif  // ARKWEB_CSS_INPUT_TIME
@@ -573,25 +579,55 @@ void WebContentsImplExt::OnLayerRectVisibilityChange(
   }
 }
 
-void WebContentsImplExt::OnRenderFrameHostEnterBackForwardCache(
-    const GlobalRenderFrameHostId& id) {
-  if (native_web_contents_observer_) {
-    native_web_contents_observer_->OnRenderFrameHostEnterBackForwardCache(id);
-  }
-}
-
-void WebContentsImplExt::OnRenderFrameHostLeaveBackForwardCache(
-    const GlobalRenderFrameHostId& id) {
-  if (native_web_contents_observer_) {
-    native_web_contents_observer_->OnRenderFrameHostLeaveBackForwardCache(id);
-  }
-}
-
 void WebContentsImplExt::OnNativeEmbedObjectParamChange(
     const NativeEmbedParamDataInfo& native_param_info) {
   if (delegate_) {
     delegate_->OnNativeEmbedObjectParamChange(native_param_info);
   }
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_SAME_LAYER) || BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+void WebContentsImplExt::OnRenderFrameHostEnterBackForwardCache(
+    const GlobalRenderFrameHostId& id) {
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+  if (native_web_contents_observer_) {
+    native_web_contents_observer_->OnRenderFrameHostEnterBackForwardCache(id);
+  }
+#endif
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  auto* rfh = RenderFrameHostImpl::FromID(id);
+  if (rfh) {
+    auto* rwh = rfh->GetRenderWidgetHost();
+    if (rwh) {
+      auto* view = rwh->GetView();
+      if (view) {
+        view->SaveLanguageDetailsForBFCache();
+      }
+    }
+  }
+#endif
+}
+
+void WebContentsImplExt::OnRenderFrameHostLeaveBackForwardCache(
+    const GlobalRenderFrameHostId& id) {
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+  if (native_web_contents_observer_) {
+    native_web_contents_observer_->OnRenderFrameHostLeaveBackForwardCache(id);
+  }
+#endif
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  auto* rfh = RenderFrameHostImpl::FromID(id);
+  if (rfh) {
+    auto* rwh = rfh->GetRenderWidgetHost();
+    if (rwh) {
+      auto* view = rwh->GetView();
+      if (view) {
+        view->RestoreLanguageDetailsForBFCache();
+      }
+    }
+  }
+#endif
 }
 #endif
 
@@ -1269,6 +1305,29 @@ void WebContentsImplExt::DidFinishNavigation(NavigationHandle* navigation_handle
 #if BUILDFLAG(ARKWEB_EXT_PULL_TO_REFRESH) || BUILDFLAG(ARKWEB_PULL_TO_REFRESH)
   if (navigation_handle->IsInPrimaryMainFrame() && view_) {
     view_->DidStopRefresh();
+  }
+#endif
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  if (!navigation_handle->IsInPrimaryMainFrame() ||
+      !navigation_handle->HasCommitted()) {
+    return;
+  }
+  // Skip BFCache restores: RestoreLanguageDetailsForBFCache already
+  // restored the language cache. Clearing here would wipe the restored
+  // cache before any caller can consume it.
+  if (navigation_handle->IsServedFromBackForwardCache()) {
+    return;
+  }
+  auto* rvh = GetRenderViewHost();
+  if (!rvh) {
+    return;
+  }
+  auto* view = rvh->GetWidget()->GetView();
+  if (view) {
+    const bool reload =
+        navigation_handle->GetReloadType() != content::ReloadType::NONE ||
+        navigation_handle->IsSameDocument();
+    view->ClearLanguageCache(navigation_handle->IsSameDocument(), reload);
   }
 #endif
 }
