@@ -1598,6 +1598,18 @@ void NWebPreferenceDelegate::PutWebMediaNetworkProxyEnabled(bool enable) {
 }
 #endif // ARKWEB_MEDIA_HLS
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void NWebPreferenceDelegate::PutWebBlankScreenMonitorEnabled(bool enable) {
+  if (!(browser_.get()) || !(browser_->GetHost())) {
+    LOG(ERROR) << "PutWebBlankScreenMonitorEnabled failed, browser or host is null";
+    return;
+  }
+  LOG(INFO) << "NWebPreferenceDelegate::PutWebBlankScreenMonitorEnabled enable:"
+            << enable;
+  browser_->GetHost()->PutWebBlankScreenMonitorEnabled(enable);
+}
+#endif  // ARKWEB_BLANK_SCREEN_MONITOR
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAST)
   bool NWebPreferenceDelegate::GetCastEnabled() {
     return cast_enabled_;

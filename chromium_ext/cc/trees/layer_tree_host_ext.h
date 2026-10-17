@@ -27,6 +27,10 @@
 #include <unordered_set>
 #include <set>
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#endif
+
 namespace cc {
 class CC_EXPORT LayerTreeHostExt : public LayerTreeHost {
  public:
@@ -47,6 +51,10 @@ class CC_EXPORT LayerTreeHostExt : public LayerTreeHost {
   const gfx::Rect& clipped_selection_bounds() {
     return this->LayerTreeHost::pending_commit_state()->clipped_selection_bounds;
   }
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  void SetArkWebFrameSinkId(const viz::FrameSinkId& frame_sink_id);
 #endif
 
 #if BUILDFLAG(ARKWEB_SAME_LAYER)

@@ -56,6 +56,12 @@ class CONTENT_EXPORT RenderWidgetHostViewBaseInterface {
                                      int32_t detectedContentfulNodesCount) {}
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  virtual void OnMonitoredBlankScreen(const std::string& url,
+                                      int32_t reason,
+                                      const std::string& extraMsg) {}
+#endif
+
 #if BUILDFLAG(ARKWEB_FIRST_SCREEN_PAINT)
   virtual void OnFirstScreenPaint(const std::string& url,
                                   int64_t navigationStartTime,

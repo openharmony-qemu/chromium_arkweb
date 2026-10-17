@@ -121,5 +121,76 @@ void AsyncLayerTreeFrameSinkUtils::OnBeginFrameArkWebSwBuTr(int64_t trace_id)
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void AsyncLayerTreeFrameSinkUtils::SetFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id) {
+  frame_sink_id_ = frame_sink_id;
+}
+
+void AsyncLayerTreeFrameSinkUtils::AnalyzeFrameForBlankScreen(
+    const viz::CompositorFrame& frame) {
+  // Need FrameSinkId to send frame analysis results to the correct Browser side
+  if (!frame_sink_id_.is_valid()) {
+    return;
+  }
+
+  auto& reporter = blank_screen::BlankScreenReporter::GetInstance();
+
+  // Content already confirmed, skip analysis (until reset by new navigation)
+  if (reporter.IsContentConfirmed(frame_sink_id_)) {
+    return;
+  }
+
+  auto host = reporter.GetHost(frame_sink_id_);
+  if (!host.is_bound()) {
+    return;
+  }
+
+  // Rate limit: 500ms interval
+  auto now = base::TimeTicks::Now();
+  if (!last_blank_screen_analyze_time_.is_null() &&
+      (now - last_blank_screen_analyze_time_) < kBlankScreenAnalyzeIntervalBlank) {
+    return;
+  }
+  last_blank_screen_analyze_time_ = now;
+
+  gfx::Size viewport_size = frame.size_in_pixels();
+  auto stats = blank_screen::AnalyzeFrameOnVizThread(frame, viewport_size);
+
+  LOG(DEBUG) << "[BlankScreenMonitor] Renderer frame analyzed: frame_sink_id="
+            << frame_sink_id_.ToString()
+            << " viewport=" << viewport_size.width() << "x" << viewport_size.height()
+            << " total_quads=" << stats.total_quads
+            << " content_quads=" << stats.content_quads
+            << " white_ratio=" << stats.white_area_ratio
+            << " content_ratio=" << stats.content_area_ratio
+            << " has_text_like_content=" << stats.has_text_like_content;
+
+  host->OnFrameAnalyzed(
+      frame_sink_id_,
+      stats.total_quads,
+      stats.solid_color_quads,
+      stats.content_quads,
+      stats.white_area_ratio,
+      stats.content_area_ratio,
+      stats.has_text_like_content);
+
+  // Track consecutive content frames to stop analysis once content is stable.
+  // This mirrors the browser-side 3-frame confirmation and prevents the
+  // renderer from analyzing every frame indefinitely.
+  if (stats.content_quads > 0) {
+    renderer_content_streak_++;
+    if (renderer_content_streak_ >= kMinRendererContentStreak) {
+      reporter.SetContentConfirmed(frame_sink_id_);
+      LOG(DEBUG) << "[BlankScreenMonitor] Renderer content confirmed after "
+                << renderer_content_streak_ << " consecutive content frames, "
+                << "stopping frame analysis for " << frame_sink_id_.ToString();
+    }
+  } else {
+    renderer_content_streak_ = 0;
+  }
+}
+#endif
+
 }  // namespace mojo_embedder
 }  // namespace cc

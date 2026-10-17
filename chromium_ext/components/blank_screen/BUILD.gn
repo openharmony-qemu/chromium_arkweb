@@ -1,0 +1,68 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//arkweb/build/features/features.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+
+source_set("frame_analysis") {
+  sources = [
+    "attribution_engine.cc",
+    "attribution_engine.h",
+    "frame_analysis.cc",
+    "frame_analysis.h",
+    "frame_stats_bridge.cc",
+    "frame_stats_bridge.h",
+    "blank_screen_reason.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/viz/common",
+    "//net",
+    "//skia",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+
+  if (arkweb_blank_screen_monitor) {
+    sources += [
+      "blank_screen_reporter.cc",
+      "blank_screen_reporter.h",
+      "js_exception_collector.cc",
+      "js_exception_collector.h",
+    ]
+    deps += [
+      ":blank_screen_monitor",
+      "//v8",
+    ]
+  }
+}
+
+# Renderer -> Browser frame analysis Mojo interface
+mojom("blank_screen_monitor") {
+  sources = [ "blank_screen_monitor.mojom" ]
+
+  public_deps = [
+    "//services/viz/public/mojom",
+  ]
+
+  enabled_features = []
+  if (arkweb_blank_screen_monitor) {
+    enabled_features += [ "arkweb_blank_screen_monitor" ]
+  }
+}
+
+source_set("blank_screen_monitor_browser") {
+  sources = [
+    "//arkweb/chromium_ext/content/browser/blank_screen_monitor_host_impl.cc",
+    "//arkweb/chromium_ext/content/browser/blank_screen_monitor_host_impl.h",
+  ]
+
+  deps = [
+    ":blank_screen_monitor",
+    ":frame_analysis",
+    "//base",
+    "//components/viz/common",
+  ]
+}
