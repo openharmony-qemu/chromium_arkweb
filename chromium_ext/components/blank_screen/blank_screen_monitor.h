@@ -131,6 +131,8 @@ class BlankScreenMonitor : public content::WebContentsObserver {
   // Starts the load watchdog timer for the current navigation generation.
   void StartLoadWatchdog();
 
+  bool GetHiviewUserTypeBeta();
+
   viz::FrameSinkId frame_sink_id_;
 
   State state_ = State::kIdle;

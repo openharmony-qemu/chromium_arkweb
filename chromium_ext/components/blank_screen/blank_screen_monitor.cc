@@ -854,6 +854,17 @@ void BlankScreenMonitor::ClearGpuEvidence() {
   gpu_crash_reason_.clear();
 }
 
+bool BlankScreenMonitor::GetHiviewUserTypeBeta() {
+    static constexpr const char* const kHiviewUserTypeKey =
+        "const.logsystem.versiontype";
+    static const bool is_beta =
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetStringParameter(kHiviewUserTypeKey, "")
+            .find("beta") != std::string::npos;
+    return is_beta;
+}
+
 void BlankScreenMonitor::Report(RootCauseReport report) {
   state_ = State::kFinished;
 
@@ -887,11 +898,13 @@ void BlankScreenMonitor::Report(RootCauseReport report) {
   report = AttributionEngine::Attribute(attribution_ctx_);
 
   int32_t reason_code = static_cast<int32_t>(report.reason);
-  OHOS::NWeb::OhosAdapterHelper::GetInstance()
-      .GetHiSysEventAdapterInstance()
-      .Write(kBlankScreenEvent,
-             OHOS::NWeb::HiSysEventAdapter::EventType::FAULT,
-             std::make_tuple(reason_code, 0));
+  if (GetHiviewUserTypeBeta()) {
+    OHOS::NWeb::OhosAdapterHelper::GetInstance()
+        .GetHiSysEventAdapterInstance()
+        .Write(kBlankScreenEvent,
+              OHOS::NWeb::HiSysEventAdapter::EventType::FAULT,
+              std::make_tuple(reason_code, 0));
+  }
 
   // Clear all consumed evidence.
   ClearGpuEvidence();
