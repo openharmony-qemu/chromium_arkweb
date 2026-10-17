@@ -21,6 +21,7 @@
 #include <vector>
 #include <cstdint>
 
+#include "base/time/time.h"
 #include "protos/perfetto/trace/track_event/track_event.pbzero.h"
 
 namespace perfetto {
@@ -79,6 +80,9 @@ class OHTrackEventStateTracker {
 
     // Stack of opened slices on this track.
     std::vector<StackFrame> stack;
+
+    // LRU touch stamp for evicting SessionState::tracks.
+    uint64_t last_used{};
   };
 
   struct SequenceState {
@@ -96,11 +100,20 @@ class OHTrackEventStateTracker {
     uint64_t most_recent_absolute_time_ns = 0;
 
     uint32_t default_clock_id = 0;
+
+    // True after this sequence's first packet. Distinguishes
+    // first-packet clears (construction default) from service-side periodic
+    // clears used for wave-clear of tracks.
+    bool established = false;
   };
 
   struct SessionState {
     // Non-thread-bound tracks.
     std::map<uint64_t /*uuid*/, Track> tracks;
+
+    // LRU counter and wave-clear timestamp for tracks eviction.
+    uint64_t touch_counter = 0;
+    base::TimeTicks last_tracks_clear;
   };
 
   struct ParsedTrackEvent {
