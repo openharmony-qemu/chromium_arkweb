@@ -2325,6 +2325,17 @@ void NWebHandlerDelegate::OnNavigationEntryCommitted(
 #endif
 }
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+void NWebHandlerDelegate::OnNavigationEntriesDeleted() {
+  LOG(INFO) << "NWebHandlerDelegate::OnNavigationEntriesDeleted entered, nweb_id_=" << nweb_id_;
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  LOG(INFO) << "NWebHandlerDelegate::OnNavigationEntriesDeleted calling OnNavigationEntriesDeleted()";
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnNavigationEntriesDeleted(nweb_id_);
+  return;
+#endif
+}
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
+
 // Returns a data: URI with the specified contents.
 std::string GetDataURI(const std::string& data, const std::string& mime_type) {
   return "data:" + mime_type + ";base64," +
