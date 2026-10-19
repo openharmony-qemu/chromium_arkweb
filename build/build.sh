@@ -471,7 +471,6 @@ if [ -f "${ROOT_DIR}/third_party/ohos_nweb_hap/BUILD.gn" ]; then
 fi
 
 if [[ "${build_type}" == "rk3568" ]] || [[ "${build_type}" == "rk3568_64" ]]; then
-  rm -rf ./src/arkweb/ohos_nweb_ex
   with_nweb_ex=0
 fi
 
