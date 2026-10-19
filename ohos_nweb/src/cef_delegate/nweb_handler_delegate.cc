@@ -6229,6 +6229,22 @@ void NWebHandlerDelegate::OnRequestOpenDevTools(const RequestOpenDevToolsParams&
 #endif  // OHOS_NWEB_EX
 }
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+bool NWebHandlerDelegate::OnShowDialog(NWebModalDialogHandlerPtr handler) {
+  LOG(INFO) << "NWebHandlerDelegate::OnShowDialog: nweb_id=" << nweb_id_;
+  if (!handler) {
+    LOG(WARNING) << "OnShowDialog: handler is null";
+    return false;
+  }
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnShowDialog(
+      nweb_id_, std::move(handler));
+#else
+  return false;
+#endif  // BUILDFLAG(ARKWEB_NWEB_EX)
+}
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
+
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
 void NWebHandlerDelegate::OnActivateContent() {
   if (nweb_handler_) {
