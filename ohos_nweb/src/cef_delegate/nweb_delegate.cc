@@ -5394,10 +5394,12 @@ bool NWebDelegate::ExecuteAction(
       if (newText.empty()) {
         return false;
       }
-      accessibilityManager->SetValue(*node, newText);
-      accessibilityManager->SetSelection(BrowserAccessibility::AXRange(
-          node->CreatePositionForSelectionAt(newText.length()),
-          node->CreatePositionForSelectionAt(newText.length())));
+      // Use kReplaceSelectedText for all text fields: inserts text at the
+      // current cursor position (or replaces selected text), via
+      // Editor::ReplaceSelectionWithText in the renderer. This is the same
+      // path as user typing and preserves cursor position for all field
+      // types, including contenteditable.
+      accessibilityManager->ReplaceSelectedText(*node, newText);
       break;
     }
 

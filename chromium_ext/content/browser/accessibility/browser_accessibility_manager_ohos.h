@@ -128,6 +128,9 @@ class CONTENT_EXPORT BrowserAccessibilityManagerOHOS
 
   void FireLocationChanged(BrowserAccessibility* node);
 
+  void ReplaceSelectedText(const BrowserAccessibility& node,
+                           const std::string& value);
+
   void SendLocationChangeEvents(
        const std::vector<AXLocationChange>& changes) override;
 
