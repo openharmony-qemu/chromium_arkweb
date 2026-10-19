@@ -1051,6 +1051,18 @@ const CefRefPtr<ArkWebBrowserExt> NWebHandlerDelegate::GetBrowser() {
   return main_browser_->AsArkWebBrowser();
 }
 
+#if BUILDFLAG(ARKWEB_ZOOM)
+void NWebHandlerDelegate::SetZoomFactor(double zoom_factor) {
+  pending_zoom_factor_ = zoom_factor;
+  CefRefPtr<ArkWebBrowserExt> browser = GetBrowser();
+  if (browser == nullptr || browser->GetHost() == nullptr) {
+    return;
+  }
+  browser->GetHost()->SetZoomFactor(*pending_zoom_factor_);
+  pending_zoom_factor_.reset();
+}
+#endif
+
 bool NWebHandlerDelegate::IsClosing() const {
   return is_closing_;
 }
@@ -1485,6 +1497,11 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   if (!main_browser_ && browser->IsPopup()) {
     main_browser_ = browser;
+#if BUILDFLAG(ARKWEB_ZOOM)
+    if (pending_zoom_factor_) {
+      SetZoomFactor(*pending_zoom_factor_);
+    }
+#endif
     if (preference_delegate_.get()) {
       preference_delegate_->SetBrowser(main_browser_);
       preference_delegate_->WebPreferencesChanged();
@@ -1664,6 +1681,11 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
 
   if (!main_browser_) {
     main_browser_ = browser;
+#if BUILDFLAG(ARKWEB_ZOOM)
+    if (pending_zoom_factor_) {
+      SetZoomFactor(*pending_zoom_factor_);
+    }
+#endif
     if (event_handler_.get()) {
       event_handler_->SetBrowser(browser);
     }
@@ -3624,6 +3646,15 @@ void NWebHandlerDelegate::OnContentsBrowserZoomChange(double zoom_factor,
 #endif  // ARKWEB_NWEB_EX
 #endif
 }
+
+#if BUILDFLAG(ARKWEB_ZOOM)
+void NWebHandlerDelegate::OnZoomFactorChanged(double old_zoom_factor,
+                                              double new_zoom_factor) {
+  if (nweb_handler_) {
+    nweb_handler_->OnZoomFactorChanged(old_zoom_factor, new_zoom_factor);
+  }
+}
+#endif
 /* CefDisplayHandler method end */
 
 /* CefFocusHandler method begin */

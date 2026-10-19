@@ -486,6 +486,10 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(bool, Discard, (), (override));
   MOCK_METHOD(bool, Restore, (), (override));
   MOCK_METHOD(void, SetBrowserZoomLevel, (double), (override));
+#if BUILDFLAG(ARKWEB_ZOOM)
+  MOCK_METHOD(void, SetZoomFactor, (double), (override));
+  MOCK_METHOD(double, GetZoomFactor, (), (override));
+#endif
   MOCK_METHOD(float, GetTopControlsOffset, (), (override));
   MOCK_METHOD(float, GetShrinkViewportHeight, (), (override));
   MOCK_METHOD(void, OnEyeDropperResult, (bool, uint32_t), (override));

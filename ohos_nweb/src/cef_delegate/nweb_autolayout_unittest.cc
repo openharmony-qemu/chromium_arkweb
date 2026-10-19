@@ -306,6 +306,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   bool Discard() override { return false; }
   bool Restore() override { return false; }
   void SetBrowserZoomLevel(double) override {}
+#if BUILDFLAG(ARKWEB_ZOOM)
+  void SetZoomFactor(double) override {}
+  double GetZoomFactor() override { return 1.0; }
+#endif
   float GetTopControlsOffset() override { return 0; }
   float GetShrinkViewportHeight() override { return 0; }
   void SetPrintBackground(bool) override {}

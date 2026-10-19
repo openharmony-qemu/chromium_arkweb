@@ -163,6 +163,9 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void RegisterReleaseSurfaceListener(
       std::shared_ptr<NWebReleaseSurfaceCallback> releaseSurfaceListener);
   void RegisterNWebHandler(std::shared_ptr<NWebHandler> handler);
+#if BUILDFLAG(ARKWEB_ZOOM)
+  void SetZoomFactor(double zoom_factor);
+#endif
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   // Triggers the NWeb popup flow: fires Phase 1 callbacks (OnWindowNewByJS
   // isFirst=true + OnWindowNewExtByJS), then stores |callback| in
@@ -639,6 +642,10 @@ class NWebHandlerDelegate : public ArkWebClientExt,
                      float page_scale_factor) override;
   void OnContentsBrowserZoomChange(double zoom_factor,
                                    bool can_show_bubble) override;
+#if BUILDFLAG(ARKWEB_ZOOM)
+  void OnZoomFactorChanged(double old_zoom_factor,
+                           double new_zoom_factor) override;
+#endif
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   bool OnCursorChange(CefRefPtr<CefBrowser> browser,
                       CefCursorHandle cursor,
@@ -1285,6 +1292,9 @@ void OnMediaCastEnter() override;
   BrowserList browser_list_;
 
   CefRefPtr<CefBrowser> main_browser_ = nullptr;
+#if BUILDFLAG(ARKWEB_ZOOM)
+  std::optional<double> pending_zoom_factor_;
+#endif
   bool is_closing_ = false;
 
 #if BUILDFLAG(IS_ARKWEB)

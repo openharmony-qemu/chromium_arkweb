@@ -696,6 +696,10 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   void SetBrowserZoomLevel(double zoom_factor) override;
   double GetBrowserZoomLevel() override;
 #endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+  void SetZoomFactor(double zoom_factor) override;
+  double GetZoomFactor() override;
+#endif
 #if BUILDFLAG(ARKWEB_SCROLLBAR_AVOID_CORNER)
   void SetBorderRadiusFromWeb(double borderRadiusTopLeft,
                               double borderRadiusTopRight,

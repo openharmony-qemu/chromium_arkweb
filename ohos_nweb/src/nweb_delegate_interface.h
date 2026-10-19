@@ -217,6 +217,10 @@ class NWebDelegateInterface
   virtual void SetBrowserZoomLevel(double zoom_factor) = 0;
   virtual double GetBrowserZoomLevel() = 0;
 #endif
+#if BUILDFLAG(ARKWEB_ZOOM)
+  virtual void SetZoomFactor(double zoom_factor) = 0;
+  virtual double GetZoomFactor() = 0;
+#endif
 
 #if BUILDFLAG(ARKWEB_SCREEN_OFFSET)
   virtual void SetScreenOffset(double x, double y) = 0;
