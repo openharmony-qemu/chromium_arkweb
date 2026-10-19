@@ -1544,6 +1544,10 @@ arkweb_content_browser_unittests_sources = [
   "//arkweb/chromium_ext/content/browser/ohos/overscroll_controller_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/ohos/software_compositor_host_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/speech/tts_ohos_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/devtools/protocol/audits_handler_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/devtools/protocol/browser_handler_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/devtools/protocol/emulation_handler_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/devtools/protocol/log_handler_unittest.cc",
 ]
 
 arkweb_components_page_load_metrics_browser_sources = [ "//arkweb/chromium_ext/components/page_load_metrics/browser/ark_web_page_load_metrics_forward_observer.cc" ]
