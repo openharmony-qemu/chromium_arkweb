@@ -211,3 +211,41 @@ void ArkWeb_Response_::GetHeaderByName(const char* name, char** value) const {
     *value = nullptr;
   }
 }
+
+void ArkWeb_Response_::SetErrorInfo(const ArkWeb_ErrorInfo* errorInfo) {
+  if (!errorInfo) {
+    LOG(ERROR) << "scheme_handler errorInfo is nullptr";
+    return;
+  }
+  if (!error_info_) {
+    error_info_ = std::make_unique<ArkWeb_ErrorInfo_>();
+  }
+  error_info_->SetCompleteIfNoResponse(errorInfo->GetCompleteIfNoResponse());
+  error_info_->SetCustomErrorCode(errorInfo->GetCustomErrorCode());
+  error_info_->SetErrorCode(errorInfo->GetErrorCode());
+  cef_response->SetError(static_cast<cef_errorcode_t>(errorInfo->GetErrorCode()));
+  cef_response->SetCustomErrorCode(errorInfo->GetCustomErrorCode());
+}
+
+ArkWeb_ErrorInfo* ArkWeb_Response_::GetErrorInfo() const {
+  return error_info_.get();
+}
+
+void ArkWeb_Response_::SetCustomErrorCode(int32_t customErrorCode) {
+  if (!cef_response) {
+    LOG(ERROR) << "scheme_handler response is nullptr";
+    return;
+  }
+  if (!error_info_) {
+    error_info_ = std::make_unique<ArkWeb_ErrorInfo_>();
+  }
+  error_info_->SetCustomErrorCode(customErrorCode);
+  cef_response->SetCustomErrorCode(customErrorCode);
+}
+
+int32_t ArkWeb_Response_::GetCustomErrorCode() const {
+  if (!error_info_) {
+    return 0;
+  }
+  return error_info_->GetCustomErrorCode();
+}

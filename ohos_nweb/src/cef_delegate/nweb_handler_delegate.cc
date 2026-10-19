@@ -2388,6 +2388,7 @@ void NWebHandlerDelegate::OnLoadErrorWithRequest(CefRefPtr<CefRequest> request,
                                                  bool is_main_frame,
                                                  bool has_user_gesture,
                                                  int error_code,
+                                                 int custom_error_code,
                                                  const CefString& error_text) {
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
   if (error_code == ERR_ABORTED) {
@@ -2419,7 +2420,9 @@ void NWebHandlerDelegate::OnLoadErrorWithRequest(CefRefPtr<CefRequest> request,
           request->GetMethod().ToString(), request_headers,
           request->GetURL().ToString(), has_user_gesture, is_main_frame);
   std::shared_ptr<NWebUrlResourceError> error =
-      std::make_shared<UrlResourceErrorImpl>(error_code, error_text.ToString());
+      std::make_shared<UrlResourceErrorImpl>(error_code, error_text.ToString(), custom_error_code);
+  LOG(INFO) << "NWebHandlerDelegate::OnLoadErrorWithRequest error_code="
+            << error_code << ", custom_error_code=" << custom_error_code;
   if (nweb_handler_ != nullptr) {
     nweb_handler_->OnResourceLoadError(web_request, error);
   }
