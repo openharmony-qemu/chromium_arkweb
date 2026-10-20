@@ -51,15 +51,23 @@ arkweb_content_renderer_sources = [
   "//arkweb/chromium_ext/content/renderer/renderer_engine_event.h",
   "//arkweb/chromium_ext/content/renderer/renderer_blink_platform_impl_ext.cc",
   "//arkweb/chromium_ext/content/renderer/renderer_blink_platform_impl_ext.h",
-  "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client.cc",
-  "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client.h",
-  "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client_factory.cc",
-  "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client_factory.h",
   "//arkweb/chromium_ext/content/renderer/media/ohos/arkweb_media_factory_ext.h",
   "//arkweb/chromium_ext/content/renderer/media/ohos/arkweb_media_factory_ext.cc",
   "//arkweb/chromium_ext/content/renderer/media/ohos/arkweb_media_factory_utils.h",
   "//arkweb/chromium_ext/content/renderer/media/ohos/arkweb_media_factory_utils.cc",
 ]
+
+# The MediaPlayer renderer client only exists for the OHOS system-player HLS
+# path; it binds the MediaPlayerRendererClientExtension mojom interface that
+# is generated only when arkweb_media_hls is enabled.
+if (defined(arkweb_media_hls) && arkweb_media_hls) {
+  arkweb_content_renderer_sources += [
+    "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client.cc",
+    "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client.h",
+    "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client_factory.cc",
+    "//arkweb/chromium_ext/content/renderer/media/ohos/ohos_media_player_renderer_client_factory.h",
+  ]
+}
 
 if (defined(arkweb_logger_report) && arkweb_logger_report) {
   arkweb_content_renderer_sources += [
@@ -929,7 +937,6 @@ arkweb_content_renderer_test_sources = [
 
 arbweb_content_media_test_sources = [
   "//arkweb/chromium_ext/content/browser/media/ohos/native_web_contents_observer_unittest.cc",
-  "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/audio_focus_delegate_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_impl_utils_unittest.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_controller_ext_unittest.cc",

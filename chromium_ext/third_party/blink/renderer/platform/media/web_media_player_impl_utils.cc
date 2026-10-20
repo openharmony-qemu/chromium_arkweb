@@ -269,13 +269,16 @@ void WebMediaPlayerImplUtils::CreateRendererExtSetRendererType() {
 
 std::unique_ptr<media::Renderer> WebMediaPlayerImplUtils::CreateRendererExtConfigRenderer(
     media::RequestOverlayInfoCB request_overlay_info_cb) {
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
   if (impl->media_player_url_params_.GetMediaPlayerUrlType() == media::MediaPlayerUrlType::kHlsMediaPlayer) {
     return impl->renderer_factory_selector_->GetCurrentFactory()->CreateOHOSMediaPlayerRenderer(
           impl->media_task_runner_, impl->worker_task_runner_,
           impl->audio_source_provider_.get(), impl->compositor_.get(),
           std::move(request_overlay_info_cb), impl->client_->TargetColorSpace(),
           impl->GetPlayerId(), impl->media_player_url_params_);
-  } else if (impl->should_create_custom_renderer_) {
+  } else
+#endif  // BUILDFLAG(ARKWEB_MEDIA_HLS)
+  if (impl->should_create_custom_renderer_) {
     impl->media_player_url_params_.SetMediaPlayerUrlType(media::MediaPlayerUrlType::kCustomMediaPlayer);
     auto renderer =
         impl->renderer_factory_selector_->GetCurrentFactory()->CreateCustomRenderer(

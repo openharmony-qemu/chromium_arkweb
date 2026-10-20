@@ -35,7 +35,10 @@ void MojoRenderer::OnInitializedExt() {
 #endif  // ARKWEB_VIDEO_ASSISTANT
 // LCOV_EXCL_STOP
 
-#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+// Gate aligned with the declaration in mojo_renderer.h (ARKWEB_MEDIA), the
+// mojom Renderer::SetNativeWindowSurface EnableIf (arkweb_media), and the
+// MojoRendererWrapper consumer — not specific to the HLS system player.
+#if BUILDFLAG(ARKWEB_MEDIA)
 void MojoRenderer::SetNativeWindowSurface(int native_window_id) {
   BindRemoteRendererIfNeeded();
   if (remote_renderer_.is_bound()) {
@@ -44,7 +47,7 @@ void MojoRenderer::SetNativeWindowSurface(int native_window_id) {
     LOG(ERROR) << "SetNativeWindowSurface failed";
   }
 }
-#endif // ARKWEB_MEDIA
+#endif  // BUILDFLAG(ARKWEB_MEDIA)
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 void MojoRenderer::SetMuted(bool muted) {

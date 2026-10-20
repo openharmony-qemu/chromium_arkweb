@@ -13,7 +13,12 @@
  * limitations under the License.
 */
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(ARKWEB_MEDIA)
+// Keep this definition gate aligned with the declaration in
+// mojo_renderer_factory.h: the ArkWeb overload is declared under
+// `#elif BUILDFLAG(ARKWEB_MEDIA_HLS)` (the Android arm declares the upstream
+// 2-argument overload instead, which this 5-argument definition never
+// matches; this tree is never is_android).
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
 std::unique_ptr<MojoRenderer> MojoRendererFactory::CreateMediaPlayerRenderer(
     mojo::PendingRemote<mojom::MediaPlayerRendererClientExtension>
         client_extension_remote,
@@ -33,7 +38,7 @@ std::unique_ptr<MojoRenderer> MojoRendererFactory::CreateMediaPlayerRenderer(
                                         video_renderer_sink,
                                         std::move(renderer_remote));
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(ARKWEB_MEDIA)
+#endif  // BUILDFLAG(ARKWEB_MEDIA_HLS)
 
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 std::unique_ptr<MojoRenderer> MojoRendererFactory::CreateCustomMediaPlayerRenderer(

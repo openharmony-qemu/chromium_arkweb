@@ -12,7 +12,6 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "content/renderer/media/ohos/ohos_custom_media_player_renderer_client.h"
-#include "content/renderer/media/ohos/ohos_media_player_renderer_client.h"
 #include "media/mojo/clients/mojo_renderer.h"
 #include "media/mojo/clients/mojo_renderer_factory.h"
 #include "media/mojo/mojom/renderer_extensions.mojom.h"
