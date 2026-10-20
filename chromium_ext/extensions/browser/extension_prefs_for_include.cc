@@ -82,4 +82,34 @@ void ExtensionPrefs::RemoveRuntimeUserBlockedPermissions(
   }
 }
 
+void ExtensionPrefs::MaybeMigrateDisableReasonsBitflagToList() {
+  constexpr char kDisableReasonsPref[] = "disable_reasons";
+  const ExtensionsInfo extensions_info = GetInstalledExtensionsInfo();
+
+  for (const ExtensionInfo& info : extensions_info) {
+    const ExtensionId& extension_id = info.extension_id;
+
+    // An integer value indicates that this entry has not been migrated.
+    int disable_reasons = -1;
+    if (!ReadPrefAsInteger(extension_id, kDisableReasonsPref,
+                           &disable_reasons)) {
+      // Already migrated, or the preference does not exist.
+      continue;
+    }
+
+    if (disable_reasons == disable_reason::DISABLE_NONE) {
+      UpdateExtensionPref(extension_id, kDisableReasonsPref, std::nullopt);
+      continue;
+    }
+
+    base::Value::List disable_reasons_list;
+    for (int reason : BitflagToIntegerSet(disable_reasons)) {
+      disable_reasons_list.Append(reason);
+    }
+
+    UpdateExtensionPref(extension_id, kDisableReasonsPref,
+                        base::Value(std::move(disable_reasons_list)));
+  }
+}
+
 }  // namespace extensions
