@@ -455,14 +455,19 @@ bool EchoAILanguageModelOHOS::ValidatePromptInput(
   new_tokens = 0;
   for (const auto& prompt : prompts) {
     for (const auto& content : prompt->content) {
-      auto type =
-          content->is_text()
-              ? blink::mojom::AILanguageModelPromptType::kText
-              : content->is_bitmap()
-                    ? blink::mojom::AILanguageModelPromptType::kImage
-                    : content->is_audio()
-                          ? blink::mojom::AILanguageModelPromptType::kAudio
-                          : blink::mojom::AILanguageModelPromptType::kText;
+      blink::mojom::AILanguageModelPromptType type;
+      if (content->is_text()) {
+        type = blink::mojom::AILanguageModelPromptType::kText;
+      } else if (content->is_bitmap()) {
+        type = blink::mojom::AILanguageModelPromptType::kImage;
+      } else if (content->is_audio()) {
+        type = blink::mojom::AILanguageModelPromptType::kAudio;
+      } else {
+        NOTIMPLEMENTED_LOG_ONCE();
+        error_status =
+            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure;
+        return false;
+      }
       if (!input_types_.contains(type)) {
         error_status =
             blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure;
