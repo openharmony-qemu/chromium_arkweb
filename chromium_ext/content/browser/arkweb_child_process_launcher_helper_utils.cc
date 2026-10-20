@@ -109,7 +109,12 @@ void ArkwebChildProcessLauncherHelperUtils::LaunchChildProcess(
       LOG(DEBUG) << "report render process create event success, render pid: "
                  << render_pid << ", process type = "
                  << child_process_launcher_helper_->GetProcessType();
-
+#if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
+      if (process_type == switches::kRendererProcess) {
+        OHOS::NWeb::ResSchedClientAdapter::ReportNWebPreloadRenderProcess(render_pid);
+        OHOS::NWeb::ResSchedClientAdapter::ReportPreloadNWebCreate(false);
+      }
+#endif
 #if BUILDFLAG(ARKWEB_WARMUP_SPARE_RENDER_PROCESS)
       if (OHOS::NWeb::SpareRenderProcessManagerOhos::GetInstance().IsWarmupEnabled() &&
           OHOS::NWeb::SpareRenderProcessManagerOhos::GetInstance().GetState() == 
