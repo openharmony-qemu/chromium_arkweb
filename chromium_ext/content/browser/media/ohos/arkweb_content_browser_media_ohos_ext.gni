@@ -3,7 +3,17 @@ arkweb_content_browser_media_ohos_player_sources = [
     "//arkweb/chromium_ext/content/browser/media/ohos/ohos_custom_media_player_renderer.h",
 ]
 
-arkweb_content_browser_media_ohos_audio_sources = [
+# The observer previously rode this list (a historical misfiling: it is not an
+# audio source); it moved to arkweb_content_browser_media_hls_sources below.
+arkweb_content_browser_media_ohos_audio_sources = []
+
+# The MediaPlayer renderer and its WebContentsObserver exist only for the OHOS
+# system-player HLS path (they consume the MediaPlayerRendererClientExtension
+# mojom interface generated under arkweb_media_hls), so they are gated on
+# arkweb_media_hls instead of riding the avsession/mute_audio lists.
+arkweb_content_browser_media_hls_sources = [
+    "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer.cc",
+    "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer.h",
     "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer_web_contents_observer.cc",
     "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer_web_contents_observer.h",
 ]

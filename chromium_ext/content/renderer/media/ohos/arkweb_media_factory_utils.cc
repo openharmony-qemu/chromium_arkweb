@@ -132,7 +132,7 @@
 #include "base/system/sys_info.h"
 #endif
 
-#if BUILDFLAG(ARKWEB_MEDIA)
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
 #include "content/renderer/media/ohos/ohos_media_player_renderer_client_factory.h"
 #endif
 
@@ -152,8 +152,12 @@ ArkwebMediaFactoryUtils::ArkwebMediaFactoryUtils(MediaFactory* media_factory)
 
 void ArkwebMediaFactoryUtils::AddOhosAndCustomMediaFactory(media::RendererFactorySelector* factory_selector,
     RenderThreadImpl* render_thread) {
+  // Declared before both gated blocks: the custom-player block below reuses
+  // it and must stay compilable when the HLS system-player block is disabled.
+  gl::ohos::TextureOwnerMode texture_owner_mode =
+      gl::ohos::TextureOwnerMode::kNativeImageTexture;
 #if BUILDFLAG(ARKWEB_MEDIA_HLS)
-  gl::ohos::TextureOwnerMode texture_owner_mode = features::IsUsingVulkan()
+  texture_owner_mode = features::IsUsingVulkan()
       ? gl::ohos::TextureOwnerMode::kHwVideoZeroCopyNativeBuffer
       : gl::ohos::TextureOwnerMode::kNativeImageTexture;
   auto ohos_media_player_factory =

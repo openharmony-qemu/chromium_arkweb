@@ -178,7 +178,7 @@ if (!enable_arkweb) {
   arkweb_media_per = false
   arkweb_media_policy = false
   arkweb_media_capture = false
-  arkweb_media_hls = true
+  arkweb_media_hls = false
   arkweb_media_interaction = false
   arkweb_mem = false
   arkweb_menu = false

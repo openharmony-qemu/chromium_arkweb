@@ -13,8 +13,11 @@
  * limitations under the License.
  */
 
-#if BUILDFLAG(ARKWEB_MEDIA)
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
 #include "content/browser/media/ohos/ohos_media_player_renderer.h"
+#endif
+
+#if BUILDFLAG(ARKWEB_MEDIA)
 #include "media/mojo/services/mojo_renderer_service.h"  // nogncheck
 #endif
 

@@ -23,9 +23,10 @@ arkweb_content_browser_mediasession_sources = [
 
   "//arkweb/chromium_ext/content/browser/media/session/media_session_ohos.cc",
   "//arkweb/chromium_ext/content/browser/media/session/media_session_ohos.h",
-  
-  "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer.cc",
-  "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_player_renderer.h",
+
+  # ohos_media_player_renderer.{cc,h} and its WebContentsObserver are moved
+  # to the arkweb_media_hls-gated block in //content/browser/BUILD.gn: they
+  # exist only for the OHOS system-player HLS path.
 
   "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_resource_getter_impl.cc",
   "//arkweb/chromium_ext/content/browser/media/ohos/ohos_media_resource_getter_impl.h",
