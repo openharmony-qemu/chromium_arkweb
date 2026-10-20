@@ -24,6 +24,9 @@
 #if BUILDFLAG(ARKWEB_TEST)
 #define private public
 #include "arkweb/chromium_ext/media/gpu/ohos/codec_wrapper.h"
+#define ARKWEB_TEST_INCLUDE
+#include "arkweb/chromium_ext/media/gpu/ohos/codec_wrapper.cc"
+#undef ARKWEB_TEST_INCLUDE
 #undef private
 #else
 #include "arkweb/chromium_ext/media/gpu/ohos/codec_wrapper.h"
@@ -181,8 +184,9 @@ class CodecWrapperTest : public testing::Test {
   // mock getter methods) and copies data via memcpy_s, so the OhosBuffer
   // must have a valid addr and sufficient bufferSize.
   void PushInputBuffer(uint32_t index = 0) {
-    if (input_buffer_storage_.empty())
+    if (input_buffer_storage_.empty()) {
       input_buffer_storage_.resize(4096, 0);
+    }
     VideoBridgeDecoderInputBuffer buf;
     buf.inputBufferIndex = index;
     buf.inputBuffer.addr = input_buffer_storage_.data();
@@ -555,8 +559,8 @@ TEST_F(CodecWrapperTest, SetDecryptionConfig_DecoderError) {
 // ---------- CodecOutputBuffer: null codec branches ----------
 #if BUILDFLAG(ARKWEB_UNITTESTS)
 TEST_F(CodecWrapperTest, CodecOutputBuffer_ReleaseToSurface_NullCodec) {
-  auto buffer = CodecOutputBuffer::CreateForTesting(
-      gfx::Size(640, 480),
+  auto buffer =
+      CodecOutputBuffer::CreateForTesting(gfx::Size(640, 480),
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
       false,
 #endif
@@ -566,12 +570,12 @@ TEST_F(CodecWrapperTest, CodecOutputBuffer_ReleaseToSurface_NullCodec) {
 
 TEST_F(CodecWrapperTest, CodecOutputBuffer_Destructor_Unrendered_NullCodec) {
   {
-    auto buffer = CodecOutputBuffer::CreateForTesting(
-        gfx::Size(320, 240),
+    auto buffer =
+        CodecOutputBuffer::CreateForTesting(gfx::Size(320, 240),
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
-        false,
+      false,
 #endif
-        gfx::ColorSpace::CreateSRGB());
+      gfx::ColorSpace::CreateSRGB());
     // Don't call ReleaseToSurface; destructor with !was_rendered_ && !codec_
   }
 }
@@ -579,12 +583,11 @@ TEST_F(CodecWrapperTest, CodecOutputBuffer_Destructor_Unrendered_NullCodec) {
 TEST_F(CodecWrapperTest, CodecOutputBuffer_SizeAndColorSpace) {
   gfx::Size expected_size(1280, 720);
   gfx::ColorSpace expected_cs = gfx::ColorSpace::CreateSRGB();
-  auto buffer = CodecOutputBuffer::CreateForTesting(
-      expected_size,
+  auto buffer = CodecOutputBuffer::CreateForTesting(expected_size,
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
-      false,
+        false,
 #endif
-      expected_cs);
+        expected_cs);
   EXPECT_EQ(buffer->size(), expected_size);
   EXPECT_EQ(buffer->color_space(), expected_cs);
 }
@@ -778,7 +781,8 @@ TEST_F(CodecWrapperTest, IsDrained_AfterEOSDequeue) {
   base::TimeDelta presentation_time;
   bool end_of_stream = false;
   std::unique_ptr<CodecOutputBuffer> codec_buffer;
-  wrapper_->DequeueOutputBuffer(&presentation_time, &end_of_stream, &codec_buffer);
+  wrapper_->DequeueOutputBuffer(&presentation_time, &end_of_stream,
+                                &codec_buffer);
 
   EXPECT_TRUE(wrapper_->IsDrained());
   EXPECT_FALSE(wrapper_->IsDraining());
@@ -842,5 +846,58 @@ TEST_F(CodecWrapperTest, OnBufferRendered_ThroughCodecOutputBuffer) {
       .WillByDefault(Return(DecoderAdapterCode::DECODER_OK));
 }
 #endif  // ARKWEB_VIDEO_ASSISTANT
+
+// ==================== Additional uncovered branch tests ====================
+
+// ---------- ReleaseCodecOutputBuffer: invalid id (not in buffer_ids_)
+// ---------- Access impl_ directly to test ReleaseCodecOutputBuffer with an id
+// that doesn't exist in buffer_ids_. Since no buffer has been dequeued,
+// buffer_ids_ is empty and any id is invalid.
+TEST_F(CodecWrapperTest, ReleaseCodecOutputBuffer_InvalidId) {
+  // Call ReleaseCodecOutputBuffer with a bogus id. buffer_ids_ is empty,
+  // so the id won't be found and the function returns false.
+  bool result = wrapper_->impl_->ReleaseCodecOutputBuffer(999, true);
+  EXPECT_FALSE(result);
+}
+
+// ---------- DequeueOutputBuffer: empty output queue → kTryAgainLater
+// ---------- With an empty output queue, the bridge's DequeueOutputBuffer
+// returns DECODER_RETRY, and the wrapper immediately returns kTryAgainLater.
+TEST_F(CodecWrapperTest, DequeueOutputBuffer_EmptyQueue_TryAgainLater) {
+  base::TimeDelta presentation_time;
+  bool end_of_stream = false;
+  std::unique_ptr<CodecOutputBuffer> codec_buffer;
+
+  // With empty outputQueue_, bridge returns DECODER_RETRY, wrapper returns
+  // kTryAgainLater on the first attempt.
+  auto status = wrapper_->DequeueOutputBuffer(&presentation_time,
+                                              &end_of_stream, &codec_buffer);
+  EXPECT_EQ(status, CodecWrapper::DequeueStatus::kTryAgainLater);
+}
+
+// ---------- CodecWrapper::SetSurface with null impl_ ----------
+#if BUILDFLAG(ARKWEB_TEST)
+TEST_F(CodecWrapperTest, SetSurface_NullImpl) {
+  wrapper_->impl_ = nullptr;
+  auto result =
+      wrapper_->SetSurface(base::MakeRefCounted<CodecSurfaceBundle>());
+  EXPECT_FALSE(result);
+}
+#endif  // ARKWEB_TEST
+
+#if BUILDFLAG(ARKWEB_MEDIA_DMABUF)
+// ---------- RecycleDmaBuffer / ResumeDmaBuffer with null impl_ ----------
+#if BUILDFLAG(ARKWEB_TEST)
+TEST_F(CodecWrapperTest, RecycleDmaBuffer_NullImpl) {
+  wrapper_->impl_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(wrapper_->RecycleDmaBuffer());
+}
+
+TEST_F(CodecWrapperTest, ResumeDmaBuffer_NullImpl) {
+  wrapper_->impl_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(wrapper_->ResumeDmaBuffer());
+}
+#endif  // ARKWEB_TEST
+#endif  // ARKWEB_MEDIA_DMABUF
 
 }  // namespace media

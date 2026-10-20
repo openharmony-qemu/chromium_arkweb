@@ -203,4 +203,148 @@ TEST_F(DirectSharedImageVideoProviderTest, RequestImage) {
   // With null stub, CreateImage returns early without invoking callback.
   EXPECT_FALSE(callback_called);
 }
+
+// ---- Phase 3 — Additional branch-coverage tests ----
+
+// Verify that Initialize can be called multiple times without crashing.
+TEST_F(DirectSharedImageVideoProviderTest, Initialize_MultipleCalls) {
+  auto get_stub_cb =
+      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; });
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+  auto provider = std::make_unique<DirectSharedImageVideoProvider>(
+      task_environment_.GetMainThreadTaskRunner(), get_stub_cb, drdc_lock);
+
+  int call_count = 0;
+  auto cb = base::BindOnce(
+      [](int* count, scoped_refptr<gpu::SharedContextState> state) {
+        (*count)++;
+      },
+      &call_count);
+  provider->Initialize(std::move(cb));
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(call_count, 1);
+
+  // Second Initialize call.
+  auto cb2 = base::BindOnce(
+      [](int* count, scoped_refptr<gpu::SharedContextState> state) {
+        (*count)++;
+      },
+      &call_count);
+  provider->Initialize(std::move(cb2));
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(call_count, 2);
+}
+
+// Verify that RequestImage can be called multiple times with different specs.
+TEST_F(DirectSharedImageVideoProviderTest, RequestImage_MultipleCalls) {
+  auto get_stub_cb =
+      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; });
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+  auto provider = std::make_unique<DirectSharedImageVideoProvider>(
+      task_environment_.GetMainThreadTaskRunner(), get_stub_cb, drdc_lock);
+
+  int callback_count = 0;
+  for (int i = 0; i < 3; i++) {
+    SharedImageVideoProvider::ImageSpec spec;
+    spec.coded_size = gfx::Size(100 + i, 100 + i);
+    provider->RequestImage(
+        base::BindOnce(
+            [](int* count, SharedImageVideoProvider::ImageRecord record) {
+              (*count)++;
+            },
+            &callback_count),
+        spec);
+  }
+  task_environment_.RunUntilIdle();
+  // With null stub, none of the callbacks should be invoked.
+  EXPECT_EQ(callback_count, 0);
+}
+
+// Verify that GetDrDcLock returns the lock passed to the constructor.
+TEST_F(DirectSharedImageVideoProviderTest, GetDrDcLock_ReturnsProvidedLock) {
+  auto get_stub_cb =
+      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; });
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+  auto provider = std::make_unique<DirectSharedImageVideoProvider>(
+      task_environment_.GetMainThreadTaskRunner(), get_stub_cb, drdc_lock);
+  EXPECT_EQ(provider->GetDrDcLock().get(), drdc_lock.get());
+}
+
+// Verify that GpuSharedImageVideoFactory::CreateImage does not invoke the
+// callback when stub_ is null, even with a valid spec and lock.
+TEST_F(GpuSharedImageVideoFactoryTest,
+       CreateImage_null_stub_with_valid_spec_no_callback) {
+  SharedImageVideoProvider::ImageSpec spec;
+  spec.coded_size = gfx::Size(1920, 1080);
+  spec.color_space = gfx::ColorSpace::CreateSRGB();
+  spec.generation_id = 42u;
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+
+  bool callback_called = false;
+  factory_->CreateImage(
+      base::BindOnce(
+          [](bool* flag, SharedImageVideoProvider::ImageRecord record) {
+            *flag = true;
+          },
+          &callback_called),
+      spec, drdc_lock);
+
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(factory_->stub_, nullptr);
+}
+
+// Verify that CreateImageInternal returns false when stub_ is null even with
+// a non-zero mailbox.
+TEST_F(GpuSharedImageVideoFactoryTest,
+       CreateImageInternal_null_stub_with_nonzero_mailbox) {
+  SharedImageVideoProvider::ImageSpec spec;
+  spec.coded_size = gfx::Size(16, 16);
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+  gpu::Mailbox mailbox = gpu::Mailbox::Generate();
+  auto image = base::MakeRefCounted<CodecImage>(spec.coded_size, drdc_lock);
+
+  EXPECT_FALSE(factory_->CreateImageInternal(spec, mailbox, image, drdc_lock));
+}
+
+// Verify that OnWillDestroyStub can be called multiple times safely (second
+// call is a no-op since stub_ is already null).
+TEST_F(GpuSharedImageVideoFactoryTest, OnWillDestroyStub_multiple_calls) {
+  factory_->stub_ = reinterpret_cast<gpu::CommandBufferStub*>(0x1);
+  factory_->OnWillDestroyStub(true);
+  EXPECT_EQ(factory_->stub_, nullptr);
+  // Second call should be safe even though stub_ is already null.
+  factory_->OnWillDestroyStub(false);
+  EXPECT_EQ(factory_->stub_, nullptr);
+}
+
+// Verify that the provider's destructor does not crash when there are pending
+// async operations.
+TEST_F(DirectSharedImageVideoProviderTest,
+       DestructorWithPendingOperations_NoCrash) {
+  auto get_stub_cb =
+      base::BindRepeating([]() -> gpu::CommandBufferStub* { return nullptr; });
+  scoped_refptr<gpu::RefCountedLock> drdc_lock =
+      base::MakeRefCounted<gpu::RefCountedLock>();
+  auto provider = std::make_unique<DirectSharedImageVideoProvider>(
+      task_environment_.GetMainThreadTaskRunner(), get_stub_cb, drdc_lock);
+
+  // Post an Initialize without running the task.
+  bool was_called = false;
+  provider->Initialize(base::BindOnce(
+      [](bool* flag, scoped_refptr<gpu::SharedContextState> state) {
+        *flag = true;
+      },
+      &was_called));
+
+  // Destroy the provider before the async task runs.
+  provider.reset();
+  task_environment_.RunUntilIdle();
+  // The callback may or may not be called depending on SequenceBound teardown,
+  // but the key assertion is that no crash occurs.
+}
 }  // namespace media
