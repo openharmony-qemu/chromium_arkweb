@@ -61,8 +61,6 @@ class SoftwareCompositorProxyOhos
 
   mojo::Receiver<mojom::blink::SoftwareCompositorOhos> receiver_{this};
   raw_ptr<cc::mojo_embedder::SoftwareCompositorRendererOhos> software_render_ = nullptr;
-
-  std::optional<gfx::Rect> pending_draw_rect_;
 };
 
 }  // namespace blink
