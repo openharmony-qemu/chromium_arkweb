@@ -312,8 +312,16 @@ int AafwkAppMgrClientAdapterImpl::StartChildProcess(
     // for Render process
     const char* entry = "libarkweb_engine.so:NWebRenderMain";
 
+    // Renderer workers cannot synchronously query preferences through Mojo.
+    std::string renderParamWithConfig = renderParam;
+    constexpr const char* intParameterKeys[] = {"web.debug.memtest", "web.device_end.type"};
+    for (const char* key : intParameterKeys) {
+        int32_t value = SystemPropertiesAdapterImpl::GetInstance().GetIntParameter(std::string(key), 0);
+        renderParamWithConfig.append("#--").append(key).append("=").append(std::to_string(value));
+    }
+
     NativeChildProcess_Args args;
-    args.entryParams = const_cast<char*>(renderParam.c_str());
+    args.entryParams = const_cast<char*>(renderParamWithConfig.c_str());
     NativeChildProcess_Fd ipcFdStruct{const_cast<char*>(IPC_FD_NAME), ipcFd, nullptr};
     NativeChildProcess_Fd sharedFdStruct{const_cast<char*>(SHARED_FD_NAME), sharedFd, &ipcFdStruct};
     NativeChildProcess_Fd crashFdStruct{const_cast<char*>(CRASH_FD_NAME), crashFd, &sharedFdStruct};
