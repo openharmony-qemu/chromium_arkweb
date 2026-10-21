@@ -30,8 +30,6 @@ bool IsEnableVulkan()
     cmd_value = command_line->HasSwitch(switches::kOhosEnableVulkan);
   }
   std::string vulkan_enable = system_properties_adapter.GetVulkanStatus();
-  LOG(DEBUG) << "vulkan switch config is: " << cmd_value
-             << ", cmd is: " << vulkan_enable;
   if (vulkan_enable == "false") {
     return false;
   } else if (vulkan_enable == "None") {
