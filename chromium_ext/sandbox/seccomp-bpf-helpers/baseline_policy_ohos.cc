@@ -313,6 +313,11 @@ constexpr unsigned int FFTS_SCHED_MAGIC = 0xBF;
 #define FFTS_SCHED_IOCTL_3 _IO(FFTS_SCHED_MAGIC, 3)
 #define FFTS_SCHED_IOCTL_4 _IO(FFTS_SCHED_MAGIC, 4)
 
+// Current FFRT also uses read/write requests with a 32-bit payload.
+constexpr unsigned int FFTS_SCHED_IOCTL_1_IOWR32 = _IOWR(FFTS_SCHED_MAGIC, 1, __u32);
+constexpr unsigned int FFTS_SCHED_IOCTL_2_IOWR32 = _IOWR(FFTS_SCHED_MAGIC, 2, __u32);
+constexpr unsigned int FFTS_SCHED_IOCTL_3_IOWR32 = _IOWR(FFTS_SCHED_MAGIC, 3, __u32);
+
 // SHMM ioctl commands
 constexpr unsigned int SHMM_MAGIC = 0x46;
 #define SHMM_IOCTL_1 _IO(SHMM_MAGIC, 1)
@@ -342,6 +347,8 @@ constexpr unsigned int SHMM_MAGIC = 0x46;
                     QOS_CTRL_BASIC_OPERATION,
                     FFTS_SCHED_IOCTL_1, FFTS_SCHED_IOCTL_2,
                     FFTS_SCHED_IOCTL_3, FFTS_SCHED_IOCTL_4,
+                    FFTS_SCHED_IOCTL_1_IOWR32, FFTS_SCHED_IOCTL_2_IOWR32,
+                    FFTS_SCHED_IOCTL_3_IOWR32,
                     SHMM_IOCTL_1, SHMM_IOCTL_2, SHMM_IOCTL_3,
                     SHMM_IOCTL_4, SHMM_IOCTL_5, SHMM_IOCTL_8},
                     Allow())
@@ -370,6 +377,8 @@ constexpr unsigned int SHMM_MAGIC = 0x46;
                         BINDER_GET_ACCESS_TOKEN, QOS_CTRL_BASIC_OPERATION,
                         FFTS_SCHED_IOCTL_1, FFTS_SCHED_IOCTL_2,
                         FFTS_SCHED_IOCTL_3, FFTS_SCHED_IOCTL_4,
+                        FFTS_SCHED_IOCTL_1_IOWR32, FFTS_SCHED_IOCTL_2_IOWR32,
+                        FFTS_SCHED_IOCTL_3_IOWR32,
                         SHMM_IOCTL_1, SHMM_IOCTL_2, SHMM_IOCTL_3,
                         SHMM_IOCTL_4, SHMM_IOCTL_5, SHMM_IOCTL_8},
                     Allow())
