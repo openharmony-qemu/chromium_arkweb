@@ -68,6 +68,8 @@ class WebContentsImplUtils {
   void DiscardCompositingResources();
   void NotifyFocusStatus(bool focused);
   void NotifyScreenCountChanged(int screen_count);
+  bool IsWebContentsFocused() const { return is_focused_; }
+  bool IsSingleScreen() const { return is_single_screen_; }
 
 private:
   std::unique_ptr<OHOS::NWeb::DisplayManagerAdapter> display_mgr_;
@@ -76,7 +78,6 @@ private:
   bool is_foldable_ = false;
   bool is_single_screen_ = false;
   int screen_count_ = 0;
-
 };
 }  // namespace content
 #endif

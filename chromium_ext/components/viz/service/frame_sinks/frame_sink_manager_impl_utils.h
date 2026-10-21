@@ -54,10 +54,10 @@ public:
   void SetRootCompositorFrameSink(const FrameSinkId& frame_sink_id);
   void SetIsOfflineWebComponentInactive(bool is_inactive, const FrameSinkId& frame_sink_id);
 #endif
-void DiscardCompositingResources(const FrameSinkId& root_frame_sink_id);
-void UpdateFocusAndScreenStatus(bool is_focused,
-                                bool is_single_screen,
-                                const FrameSinkId& frame_sink_id);
+  void DiscardCompositingResources(const FrameSinkId& root_frame_sink_id);
+  void UpdateFocusAndScreenStatus(bool is_focused,
+                                  bool is_single_screen,
+                                  const FrameSinkId& frame_sink_id);
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
   void UpdateVSyncFrequency(const FrameSinkId& frame_sink_id,
                             uint32_t client_id);

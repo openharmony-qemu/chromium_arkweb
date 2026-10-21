@@ -93,6 +93,8 @@ class GPU_GLES2_EXPORT NativeImageTextureOwner
 
   void OnContextLost() override;
 
+  virtual bool IsColorSpaceSupported() const { return false; }
+
  protected:
   friend class base::RefCountedDeleteOnSequence<NativeImageTextureOwner>;
   friend class base::DeleteHelper<NativeImageTextureOwner>;

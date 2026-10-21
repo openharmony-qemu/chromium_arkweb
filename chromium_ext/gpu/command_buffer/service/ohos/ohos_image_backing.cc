@@ -9,6 +9,7 @@
 
 #include "gpu/command_buffer/service/ohos/ohos_image_backing.h"
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/logging.h"
 #include "base/posix/eintr_wrapper.h"
 #include "gpu/config/gpu_finch_features.h"
@@ -95,8 +96,13 @@ bool OhosImageBacking::BeginRead(const SharedImageRepresentation* reader,
 
   active_readers_.insert(reader);
   if (features::IsUsingVulkan()) {
-    gl::ohos::SyncFenceWait(std::move(write_sync_fd_));
-    (*fd_to_wait_on) = base::ScopedFD{};
+    if (base::ohos::IsDelegatedCompositingEnabledOhos() && write_sync_fd_.is_valid()) {
+      (*fd_to_wait_on) =
+          base::ScopedFD(HANDLE_EINTR(dup(write_sync_fd_.get())));
+    } else {
+      gl::ohos::SyncFenceWait(std::move(write_sync_fd_));
+      (*fd_to_wait_on) = base::ScopedFD{};
+    }
   } else {
     if (write_sync_fd_.is_valid()) {
       (*fd_to_wait_on) =

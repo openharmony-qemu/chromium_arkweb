@@ -22,6 +22,7 @@
 #include "base/no_destructor.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/system/sys_info.h"
+#include "components/viz/common/features.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 
 namespace base {
@@ -341,6 +342,10 @@ BASE_EXPORT bool IsOhosLowEndDevice() {
 }
 
 BASE_EXPORT bool IsDelegatedCompositingEnabledOhos() {
+  if (!features::IsDelegatedCompositingFeatureEnabledOhos()) {
+    return false;
+  }
+
   static const bool is_delegated_enabled =
       OHOS::NWeb::OhosAdapterHelper::GetInstance()
           .GetSystemPropertiesInstance()

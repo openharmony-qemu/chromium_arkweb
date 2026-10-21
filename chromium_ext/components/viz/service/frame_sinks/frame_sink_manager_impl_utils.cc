@@ -224,6 +224,10 @@ void FrameSinkManagerImplUtils::DiscardCompositingResources(
       LOG(ERROR) << "DiscardCompositingResources Fail, no valid root sink";
       return;
     }
+    if (root_it->second->AsExt() == nullptr) {
+      LOG(ERROR) << "DiscardCompositingResources Fail, AsExt is nullptr";
+      return;
+    }
     root_it->second->AsExt()->DiscardCompositingResources();
   }
 }
@@ -239,8 +243,12 @@ void FrameSinkManagerImplUtils::UpdateFocusAndScreenStatus(
       LOG(ERROR) << "UpdateFocusAndScreenStatus Fail, no valid root sink";
       return;
     }
+    if (root_it->second->AsExt() == nullptr) {
+      LOG(ERROR) << "UpdateFocusAndScreenStatus Fail, AsExt is nullptr";
+      return;
+    }
     root_it->second->AsExt()->UpdateFocusAndScreenStatus(is_focused,
-                                                        is_single_screen);
+                                                         is_single_screen);
   }
 }
 }
