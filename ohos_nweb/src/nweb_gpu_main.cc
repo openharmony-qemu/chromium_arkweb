@@ -28,8 +28,8 @@
 
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "base/command_line.h"
+#include "base/strings/string_number_conversions.h"
 #include "include/cef_app.h"
-#include "third_party/blink/renderer/core/render_mojom/render_mojom_client.h"
 #include "nweb_export.h"
 #include "nweb_hilog.h"
 
@@ -183,9 +183,11 @@ bool QueryBoolFromBrowserProcess(const std::string &key, bool default_value) {
 int32_t QueryIntFromBrowserProcess(const std::string &key, int32_t default_value) {
   auto* cmd = base::CommandLine::ForCurrentProcess();
   if (cmd && cmd->GetSwitchValueASCII("type") == "renderer") {
-    int32_t mojo_result = default_value;
-    if (blink::SysPropRenderObserverClientRep::QueryInt(key, default_value, &mojo_result)) {
-      return mojo_result;
+    // The browser snapshots these parameters before starting the renderer.
+    // Read them locally so raster jobs do not require a Mojo task sequence.
+    int result;
+    if (base::StringToInt(cmd->GetSwitchValueASCII(key), &result)) {
+      return result;
     }
     return default_value;
   }
