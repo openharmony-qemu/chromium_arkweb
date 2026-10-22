@@ -46,6 +46,8 @@
 #include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #include "url/gurl.h"
 
+#include "cert_blocked_ca_certificates_ohos.h"
+
 #define ROOT_CERT_PATH "/system/etc/security/certificates/"
 #define MIN_CERT_NUM 1
 #define DER_ENCODED 0x30
@@ -53,6 +55,10 @@ namespace net {
 BASE_FEATURE(kEnableSslPartialChainFeature,
              "EnableSslPartialChainFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableSslBlockedCaOhosFeature,
+             "EnableSslBlockedCaOhosFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // OH ignores the authType parameter to
 // X509TrustManager.checkServerTrusted, so pass in a dummy value. See
@@ -680,6 +686,19 @@ int CertVerifyProcOHOS::VerifyInternal(X509Certificate* cert,
 
   if (IsCertStatusError(verify_result->cert_status)) {
     return MapCertStatusToNetError(verify_result->cert_status);
+  }
+
+  // Check the SPKI blocklist (kSPKIBlockList in cert_verify_proc_blocklist.inc)
+  // for all certificates in the verified chain. The base class
+  // CertVerifyProc::Verify() only checks IsKnownInterceptionKey() after
+  // VerifyInternal(), not CheckSPKI(). The builtin verify path
+  // (CertVerifyProcBuiltin) checks this via revocation_checker.cc, but
+  // CertVerifyProcOHOS does not go through that path, so the check must be
+  // done here.
+  if (base::FeatureList::IsEnabled(kEnableSslBlockedCaOhosFeature) &&
+      CertBlockedCaCertificatesOHOS::IsChainBlocked(verify_result->public_key_hashes)) {
+    verify_result->cert_status |= CERT_STATUS_AUTHORITY_INVALID;
+    return ERR_CERT_AUTHORITY_INVALID;
   }
 
   return OK;

@@ -410,7 +410,9 @@ arkweb_net_proxy_resolution_sources = [
 arkweb_net_cert_sources = [
   "//arkweb/chromium_ext/net/cert/cert_verify_proc_ohos.cc",
   "//arkweb/chromium_ext/net/cert/cert_verify_proc_ohos.h",
-  "//arkweb/chromium_ext/net/cert/test_root_certs_ohos.cc"
+  "//arkweb/chromium_ext/net/cert/cert_blocked_ca_certificates_ohos.cc",
+  "//arkweb/chromium_ext/net/cert/cert_blocked_ca_certificates_ohos.h",
+  "//arkweb/chromium_ext/net/cert/test_root_certs_ohos.cc",
 ]
 
 arkweb_net_cert_unittest_sources = [
