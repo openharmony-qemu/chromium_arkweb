@@ -556,6 +556,20 @@ class MockNWebDelegate : public NWebDelegateInterface {
               (const std::vector<uint8_t>& state),
               (override));
 #endif  // BUILDFLAG(ARKWEB_NAVIGATION)
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+  MOCK_METHOD(void,
+              SetNavigationEntryUserData,
+              (const std::string& key, const std::string& value),
+              (override));
+  MOCK_METHOD(std::string,
+              GetNavigationEntryUserData,
+              (const std::string& key),
+              (override));
+  MOCK_METHOD(void,
+              RemoveNavigationEntryUserData,
+              (const std::string& key),
+              (override));
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
 #if BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)
   MOCK_METHOD(void, SetAudioMuted, (bool muted), (override));
 #endif  // BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)

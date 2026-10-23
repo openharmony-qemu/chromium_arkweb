@@ -470,6 +470,13 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
   bool RestoreWebState(const std::vector<uint8_t>& state) override;
 #endif  // BUILDFLAG(ARKWEB_NAVIGATION)
 
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+  void SetNavigationEntryUserData(const std::string& key,
+                                  const std::string& value) override;
+  std::string GetNavigationEntryUserData(const std::string& key) override;
+  void RemoveNavigationEntryUserData(const std::string& key) override;
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool CanStoreWebArchive() const override;
   void UnRegisterArkWebAppClientExtensionListener() override;

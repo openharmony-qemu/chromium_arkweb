@@ -190,6 +190,7 @@ if (!enable_arkweb) {
   arkweb_multi_window = true
   arkweb_mojo_connector_teardown_guard = false
   arkweb_navigation = true
+  arkweb_navigation_entry_userdata = false
   arkweb_network_conninfo = false
   arkweb_network_load = true
   arkweb_network_proxy = false
@@ -488,6 +489,7 @@ buildflag_header("features") {
     "ARKWEB_MULTI_WINDOW=$arkweb_multi_window",
     "ARKWEB_MOJO_CONNECTOR_TEARDOWN_GUARD=$arkweb_mojo_connector_teardown_guard",
     "ARKWEB_NAVIGATION=$arkweb_navigation",
+    "ARKWEB_NAVIGATION_ENTRY_USERDATA=$arkweb_navigation_entry_userdata",
     "ARKWEB_NETWORK_CONNINFO=$arkweb_network_conninfo",
     "ARKWEB_NETWORK_LOAD=$arkweb_network_load",
     "ARKWEB_NETWORK_PROXY=$arkweb_network_proxy",

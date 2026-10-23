@@ -3861,6 +3861,48 @@ std::shared_ptr<NWebHistoryList> NWebImpl::GetHistoryList() {
   return nweb_delegate_->GetHistoryList();
 }
 
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+void NWebImpl::SetNavigationEntryUserData(const std::string& key,
+                                          const std::string& value) {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->SetNavigationEntryUserData(key, value);
+}
+
+std::string NWebImpl::GetNavigationEntryUserData(const std::string& key) {
+  if (nweb_delegate_ == nullptr) {
+    return "";
+  }
+
+  std::string result = nweb_delegate_->GetNavigationEntryUserData(key);
+  return result;
+}
+
+void NWebImpl::RemoveNavigationEntryUserData(const std::string& key) {
+  if (nweb_delegate_ == nullptr) {
+    return;
+  }
+
+  nweb_delegate_->RemoveNavigationEntryUserData(key);
+}
+#else
+void NWebImpl::SetNavigationEntryUserData(const std::string& key,
+                                          const std::string& value) {
+  WVLOG_D("NWebImpl::SetNavigationEntryUserData feature is disabled");
+}
+
+std::string NWebImpl::GetNavigationEntryUserData(const std::string& key) {
+  WVLOG_D("NWebImpl::GetNavigationEntryUserData feature is disabled");
+  return "";
+}
+
+void NWebImpl::RemoveNavigationEntryUserData(const std::string& key) {
+  WVLOG_D("NWebImpl::RemoveNavigationEntryUserData feature is disabled");
+}
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+
 std::vector<uint8_t> NWebImpl::SerializeWebState() {
   if (nweb_delegate_ == nullptr) {
     std::vector<uint8_t> empty;

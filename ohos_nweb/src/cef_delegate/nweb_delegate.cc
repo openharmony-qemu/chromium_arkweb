@@ -734,6 +734,48 @@ class NavigationEntryVisitorImpl : public CefNavigationEntryVisitor {
 
 #endif  // BUILDFLAG(ARKWEB_NAVIGATION)
 
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+class NavigationEntryUserDataVisitor : public CefNavigationEntryVisitor {
+ public:
+  enum class Operation { kSet, kGet, kRemove };
+
+  NavigationEntryUserDataVisitor(Operation op,
+                                 const std::string& key,
+                                 const std::string& value)
+      : op_(op), key_(key), value_(value) {}
+
+  bool Visit(CefRefPtr<CefNavigationEntry> entry,
+             bool current,
+             int index,
+             int total) override {
+    if (!entry || !current) {
+      return true;
+    }
+    switch (op_) {
+      case Operation::kSet:
+        entry->SetUserData(CefString(key_), CefString(value_));
+        break;
+      case Operation::kGet:
+        result_ = entry->GetUserData(CefString(key_)).ToString();
+        break;
+      case Operation::kRemove:
+        entry->RemoveUserData(CefString(key_));
+        break;
+    }
+    return true;
+  }
+
+  const std::string& result() const { return result_; }
+
+ private:
+  Operation op_;
+  std::string key_;
+  std::string value_;
+  std::string result_;
+  IMPLEMENT_REFCOUNTING(NavigationEntryUserDataVisitor);
+};
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+
 #if BUILDFLAG(ARKWEB_NWEB_EX)
 class JavaScriptInFramesResultCallbackImpl : public CefJavaScriptResultCallback {
  public:
@@ -3881,6 +3923,47 @@ bool NWebDelegate::RestoreWebState(const std::vector<uint8_t>& state) {
   return GetBrowser()->GetHost()->RestoreWebState(web_state);
 }
 #endif  // BUILDFLAG(ARKWEB_NAVIGATION)
+
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+void NWebDelegate::SetNavigationEntryUserData(const std::string& key,
+                                              const std::string& value) {
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "SetNavigationEntryUserData can not get browser";
+    return;
+  }
+
+  CefRefPtr<NavigationEntryUserDataVisitor> visitor =
+      new NavigationEntryUserDataVisitor(
+          NavigationEntryUserDataVisitor::Operation::kSet, key, value);
+  GetBrowser()->GetHost()->GetNavigationEntries(visitor, true);
+}
+
+std::string NWebDelegate::GetNavigationEntryUserData(const std::string& key) {
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "GetNavigationEntryUserData can not get browser";
+    return "";
+  }
+
+  CefRefPtr<NavigationEntryUserDataVisitor> visitor =
+      new NavigationEntryUserDataVisitor(
+          NavigationEntryUserDataVisitor::Operation::kGet, key, "");
+  GetBrowser()->GetHost()->GetNavigationEntries(visitor, true);
+  std::string result = visitor->result();
+  return result;
+}
+
+void NWebDelegate::RemoveNavigationEntryUserData(const std::string& key) {
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "RemoveNavigationEntryUserData can not get browser";
+    return;
+  }
+
+  CefRefPtr<NavigationEntryUserDataVisitor> visitor =
+      new NavigationEntryUserDataVisitor(
+          NavigationEntryUserDataVisitor::Operation::kRemove, key, "");
+  GetBrowser()->GetHost()->GetNavigationEntries(visitor, true);
+}
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
 
 #if BUILDFLAG(ARKWEB_PAGE_UP_DOWN)
 void NWebDelegate::PageUp(bool top) {
