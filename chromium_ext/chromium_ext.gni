@@ -812,6 +812,7 @@ arkweb_media_gpu_unittest_sources = [
   "//arkweb/chromium_ext/media/gpu/ohos/ohos_image_decoder_unittest.cc",
   "//arkweb/chromium_ext/media/gpu/ohos/ohos_video_decoder_unittest.cc",
   "//arkweb/chromium_ext/media/gpu/ohos/ohos_video_encode_accelerator_unittest.cc",
+  "//arkweb/chromium_ext/media/gpu/ohos/pooled_shared_image_video_provider_unittest.cc",
   "//arkweb/chromium_ext/media/gpu/ohos/shared_image_video_provider_unittest.cc",
   "//arkweb/chromium_ext/media/gpu/ohos/video_frame_factory_impl_unittest.cc",
   "//arkweb/chromium_ext/media/mojo/clients/mojo_renderer_wrapper_for_include_unittest.cc",
