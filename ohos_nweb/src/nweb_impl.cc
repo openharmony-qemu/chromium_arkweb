@@ -1354,6 +1354,7 @@ void InitialWebEngineArgs(
     }
   }
 
+  ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   base::FilePath user_data_dir = base::FilePath();
   auto args_to_add = GetArgsToAdd(init_args);
   bool is_migration = false;
@@ -1407,7 +1408,6 @@ void InitialWebEngineArgs(
                             .GetSystemPropertiesInstance().GetStringParameter("const.boot.oemmode", "");
   // The OEM mode information is fixed and has only two values. 
   LOG(DEBUG) << "const.boot.oemmode: " << oemmode;
-  ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   base::FilePath ohos_command_line_file(
     FILE_PATH_LITERAL("/data/storage/el1/bundle/arkwebcore/libs/ohos-command-line"));
   if (oemmode == "rd" && base::PathExists(ohos_command_line_file)) {
@@ -1446,6 +1446,7 @@ base::FilePath GetMigrateBasePath() {
 }
 
 void MigratePasswordsToPasswordVault() {
+  ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   base::FilePath appDataDir = GetMigrateBasePath();
   if (appDataDir.empty()) {
     LOG(ERROR) << "[Autofill] appDataDir is empty.";
@@ -1456,7 +1457,6 @@ void MigratePasswordsToPasswordVault() {
     return;
   }
   base::FilePath flagFile = appDataDir.Append(FILE_PATH_LITERAL(kMigrateKeyFlagFile));
-  ScopedAllowBlockingForNwebInit allow_blocking_for_using_path;
   bool IsFlagFileExist = base::PathExists(flagFile);
   bool migrateReady = g_browser_process->local_state()->GetBoolean(browser_prefs::kMigratePasswordsReady);
   bool migrateVault = g_browser_process->local_state()->GetBoolean(browser_prefs::kMigratePasswordsToPasswordVault);
