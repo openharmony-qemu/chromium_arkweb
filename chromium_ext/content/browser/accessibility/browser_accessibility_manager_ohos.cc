@@ -9,6 +9,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/accessibility/ax_selection.h"
+#include "ui/accessibility/platform/ax_platform.h"
 #include "ui/gfx/geometry/point_conversions.h"
 
 namespace ui {
@@ -668,6 +669,23 @@ void BrowserAccessibilityManagerOHOS::FireLocationChanged(
   BrowserAccessibilityOHOS* ohos_node =
       static_cast<BrowserAccessibilityOHOS*>(node);
   HandleContentChanged(ohos_node->GetAccessibilityId());
+}
+
+void BrowserAccessibilityManagerOHOS::ReplaceSelectedText(
+    const BrowserAccessibility& node,
+    const std::string& value) {
+  if (!delegate_)
+    return;
+
+  AXActionData action_data;
+  action_data.target_node_id = node.GetId();
+  action_data.action = ax::mojom::Action::kReplaceSelectedText;
+  action_data.value = value;
+  // Notify the platform that this action originates from assistive tech
+  // *before* dispatching, so the platform can suppress round-trip events
+  // produced by the action itself.
+  AXPlatform::GetInstance().OnActionFromAssistiveTech();
+  delegate_->AccessibilityPerformAction(action_data);
 }
 
 void BrowserAccessibilityManagerOHOS::SendLocationChangeEvents(

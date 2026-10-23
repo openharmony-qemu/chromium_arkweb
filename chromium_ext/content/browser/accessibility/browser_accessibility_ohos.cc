@@ -365,7 +365,6 @@ int32_t BrowserAccessibilityOHOS::GetSelectionEnd() const {
       GetIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, &sel_end)) {
     return sel_end;
   }
-  return sel_end;
 }
 
 size_t BrowserAccessibilityOHOS::GetItemCount() const {
