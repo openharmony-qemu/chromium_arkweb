@@ -240,9 +240,12 @@ AudioParameters OHOSAudioManager::GetPreferredOutputStreamParameters(
   if (input_params.latency_tag() == AudioLatency::Type::kPlayback) {
     buffer_size = kMinimumOutputBufferSize;
   }
+  AudioParameters::HardwareCapabilities hardware_capabilities(
+      kLowLatencyOutputBufferSize, kMinimumOutputBufferSize,
+      buffer_size, false);
   return AudioParameters(AudioParameters::AUDIO_PCM_LOW_LATENCY,
                          ChannelLayoutConfig::Guess(kDefaultChannelCount),
-                         kDefaultSampleRate, buffer_size);
+                         kDefaultSampleRate, buffer_size, hardware_capabilities);
 }
 
 #if BUILDFLAG(ARKWEB_WEBRTC)
