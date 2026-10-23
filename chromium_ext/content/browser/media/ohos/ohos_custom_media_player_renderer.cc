@@ -420,8 +420,45 @@ void OHOSCustomMediaPlayerRenderer::CreateMediaPlayer() {
     return;
   }
 
-  std::string surface_id_string =
-      gpu_process_host->gpu_host()->GetSurfaceId(surface_id_);
+  // Async: fetch the surface id from the GPU process without blocking the UI
+  // thread. The synchronous variant used to deadlock the UI thread against the
+  // IO thread when the GPU process reply needed to be marshalled back. The
+  // continuation runs in OnSurfaceIdRetrieved.
+  gpu_process_host->gpu_host()->GetSurfaceId(
+      surface_id_,
+      base::BindOnce(&OHOSCustomMediaPlayerRenderer::OnSurfaceIdRetrieved,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void OHOSCustomMediaPlayerRenderer::OnSurfaceIdRetrieved(
+    const std::string& surface_id_string) {
+  DVLOG(1) << __func__;
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  if (!init_cb_) {
+    LOG(ERROR) << "OnSurfaceIdRetrieved: no init_cb, possibly destroyed";
+    return;
+  }
+  if (initialized_) {
+    LOG(ERROR) << "OnSurfaceIdRetrieved: already initialized";
+    std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
+    return;
+  }
+  if (!media_url_params_) {
+    LOG(ERROR) << "OnSurfaceIdRetrieved: no media_url_params_";
+    std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
+    return;
+  }
+
+  WebContentsImpl* web_contents_impl =
+      static_cast<WebContentsImpl*>(web_contents());
+  if (!web_contents_impl || !web_contents_impl->AsWebContentsImplExt()) {
+    LOG(ERROR) << "OnSurfaceIdRetrieved: web_contents or "
+                  "AsWebContentsImplExt is null";
+    std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
+    return;
+  }
+
   media_player_ =
       web_contents_impl->AsWebContentsImplExt()->CreateCustomMediaPlayer(
           std::make_unique<CustomMediaPlayerListenerImpl>(

@@ -274,11 +274,52 @@ void OHOSMediaPlayerBridge::SetPlayerSurface() {
     return;
   }
 
-  SetNativeWindowFromSurfaceId();
-  if (native_window_origin_ == nullptr) {
-    LOG(ERROR) << "OHOSMediaPlayerBridge GetNativeWindow is null";
+  if (native_window_id_ == -1) {
+    LOG(ERROR) << "OHOSMediaPlayerBridge native_window id is invalid";
     return;
   }
+
+  content::GpuProcessHost* gpu_process_host = content::GpuProcessHost::Get();
+  if (!gpu_process_host || !gpu_process_host->gpu_host()) {
+    LOG(ERROR) << "SetPlayerSurface failed, no gpu host";
+    return;
+  }
+
+  // Async: fetch the surface id from the GPU process without blocking the UI
+  // thread. The synchronous variant used to deadlock the UI thread against the
+  // IO thread when the GPU process reply needed to be marshalled back. The
+  // continuation (NativeWindow creation + SetVideoSurface + PrepareAsync) runs
+  // in OnSurfaceIdForSurface.
+  gpu_process_host->gpu_host()->GetSurfaceId(
+      native_window_id_,
+      base::BindOnce(&OHOSMediaPlayerBridge::OnSurfaceIdForSurface,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void OHOSMediaPlayerBridge::OnSurfaceIdForSurface(
+    const std::string& surface_id_string) {
+  if (!player_) {
+    LOG(ERROR) << "OnSurfaceIdForSurface: player is null";
+    return;
+  }
+
+  LOG(INFO) << "OnSurfaceIdForSurface native_window_id_: " << native_window_id_
+            << ", surface_id_string: " << surface_id_string;
+  uint64_t id_of_surface = 0;
+  if (!base::StringToUint64(surface_id_string, &id_of_surface)) {
+    LOG(ERROR) << "invalid surface_id_string:" << surface_id_string;
+    return;
+  }
+
+  OHNativeWindow* oh_native_window = nullptr;
+  int32_t oh_ret = OH_NativeWindow_CreateNativeWindowFromSurfaceId(
+      id_of_surface, &oh_native_window);
+  if (oh_ret != 0 || oh_native_window == nullptr) {
+    LOG(ERROR) << "CreateNativeWindowFromSurfaceId failed.";
+    return;
+  }
+  native_window_origin_ = oh_native_window;
+  LOG(INFO) << "CreateNativeWindowFromSurfaceId successful.";
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   int32_t ret = -1;
@@ -311,38 +352,6 @@ void OHOSMediaPlayerBridge::SetPlayerSurface() {
   if (prepare_ret != 0) {
     LOG(ERROR) << "Prepare error::ret=" << prepare_ret;
   }
-}
-
-void OHOSMediaPlayerBridge::SetNativeWindowFromSurfaceId() {
-  if (native_window_id_ == -1) {
-    LOG(ERROR) << "OHOSMediaPlayerBridge native_window id is invalid";
-    return;
-  }
-
-  content::GpuProcessHost* gpu_process_host = content::GpuProcessHost::Get();
-  if (!gpu_process_host || !gpu_process_host->gpu_host()) {
-    LOG(ERROR) << "CreateMediaPlayer failed, no gpu host";
-    return;
-  }
-
-  std::string surface_id_string = gpu_process_host->gpu_host()->GetSurfaceId(native_window_id_);
-  LOG(INFO) << "CreateMediaPlayer native_window_id_: " << native_window_id_
-            << ", surface_id_string: " << surface_id_string;
-  uint64_t id_of_surface = 0;
-  if (!base::StringToUint64(surface_id_string, &id_of_surface)) {
-    LOG(ERROR) << "invalid surface_id_string:" << surface_id_string;
-    return;
-  }
-
-  OHNativeWindow* oh_native_window = nullptr;
-  int32_t oh_ret = OH_NativeWindow_CreateNativeWindowFromSurfaceId(id_of_surface, &oh_native_window);
-  if (oh_ret != 0 || oh_native_window == nullptr) {
-    LOG(ERROR) << "CreateNativeWindowFromSurfaceId failed.";
-    return;
-  }
-
-  native_window_origin_ = oh_native_window;
-  LOG(INFO) << "CreateNativeWindowFromSurfaceId successful.";
 }
 
 void OHOSMediaPlayerBridge::StartInternal() {
