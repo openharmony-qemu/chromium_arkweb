@@ -239,7 +239,19 @@ void OHOSAudioOutputStream::OnResume() {
     return;
   }
   AudioParameters parameters = parameters_;
-  if (OHOSAudioFocusController::IsSuspended(parameters_)) {
+  // Web Audio (AudioContext, default latencyHint="interactive") has
+  // latency_tag == kInteractive, while <video>/<audio> (AudioRendererImpl)
+  // has latency_tag == kPlayback. In 7.1 AudioContext registers as an
+  // ambient MediaSession player, so IsSuspended() returns true after suspend;
+  // but MediaSession->Resume cannot recover it (OnResumeInternal only
+  // iterates normal_players_, and AudioContext::RequestPlay() is a no-op).
+  // For kInteractive streams, skip the suspended branch and fall through to
+  // the "try to restart stream" path, matching 6.1 where AudioContext never
+  // participated in MediaSession. latency_tag is per-stream (from
+  // AudioParameters), so it is not affected by other players in the same
+  // WebContents.
+  if (OHOSAudioFocusController::IsSuspended(parameters_) &&
+      parameters_.latency_tag() != AudioLatency::Type::kInteractive) {
     if(isNeedResume(audioResumeInterval_)) {
       if (!main_task_runner_) {
         LOG(ERROR) << "OHOSAudioOutputStream::OnResume main task runner is nullptr";
