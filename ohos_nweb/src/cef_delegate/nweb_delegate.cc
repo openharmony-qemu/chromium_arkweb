@@ -7513,6 +7513,13 @@ void NWebDelegate::SetFocusWebId(int32_t nweb_id) {
   }
   GetBrowser()->GetHost()->SetFocusWebId(nweb_id);
 }
+
+std::string NWebDelegate::GetCachedUrl() const {
+  if (handler_delegate_) {
+    return handler_delegate_->GetCachedUrl();
+  }
+  return "";
+}
 #endif
 
 #if BUILDFLAG(ARKWEB_USERAGENT)

@@ -1106,6 +1106,7 @@ class NWebDelegateInterface
 
 #if BUILDFLAG(ARKWEB_REPORT_LOSS_FRAME)
   virtual void SetFocusWebId(int32_t nweb_id) = 0;
+  virtual std::string GetCachedUrl() const = 0;
 #endif
 
 
