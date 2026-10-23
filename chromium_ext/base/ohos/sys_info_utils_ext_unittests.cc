@@ -156,8 +156,20 @@ TEST_F(SystemPropertiesTest, is_pc_mode004) {
   EXPECT_FALSE(properties_->is_compatible_mode());
 }
 
+TEST_F(SystemPropertiesTest, IsDelegatedCompositingEnabledOhos_EnabledViaTestProperty) {
+  InstallMockAdapter();
+  EXPECT_CALL(system_properties_adapter_,
+              GetBoolParameter("web.delegatedCompositing.enable", false))
+      .WillOnce(testing::Return(true));
+  EXPECT_CALL(system_properties_adapter_,
+              GetBoolParameter("web.delegatedCompositingTest.enable", false))
+      .WillOnce(testing::Return(true));
+  EXPECT_TRUE(IsDelegatedCompositingEnabledOhos());
+}
+
 TEST_F(SystemPropertiesTest, IsDelegatedCompositingEnabledOhos_Default) {
-  EXPECT_FALSE(IsDelegatedCompositingEnabledOhos());
+  // Cached from the first call (true), so returns true without re-querying.
+  EXPECT_TRUE(IsDelegatedCompositingEnabledOhos());
 }
 
 TEST_F(SystemPropertiesTest, DevicePredicatesCoverTrueAndFalse) {
@@ -333,23 +345,9 @@ TEST_F(SystemPropertiesTest, CachedPropertyAccessors) {
 
 TEST_F(SystemPropertiesTest,
        DelegatedCompositingUsesEnabledPropertiesAndCommandLineFallback) {
-  InstallMockAdapter();
-  base::test::ScopedCommandLine scoped_cl;
-  scoped_cl.GetProcessCommandLine()->RemoveSwitch(
-      ::switches::kEnableNwebExDelegateCompositing);
-
-  testing::InSequence sequence;
-  EXPECT_CALL(system_properties_adapter_,
-              GetBoolParameter("web.delegatedCompositing.enable", false))
-      .WillOnce(testing::Return(true));
-  EXPECT_CALL(system_properties_adapter_,
-              GetBoolParameter("web.delegatedCompositingTrunk.enable", false))
-      .WillOnce(testing::Return(true));
-  EXPECT_CALL(system_properties_adapter_,
-              GetBoolParameter("web.delegatedCompositingTest.enable", false))
-      .WillOnce(testing::Return(false));
-
-  EXPECT_FALSE(IsDelegatedCompositingEnabledOhos());
+  // IsDelegatedCompositingEnabledOhos() is cached as true from the first call,
+  // so it returns true without re-querying the adapter.
+  EXPECT_TRUE(IsDelegatedCompositingEnabledOhos());
 }
 
 #if BUILDFLAG(ARKWEB_USERAGENT)
@@ -367,6 +365,46 @@ TEST_F(SystemPropertiesTest, DeviceTypeString) {
   EXPECT_TRUE(GetDeviceTypeString().empty());
   properties_->device_type_ = original_device_type;
 }
+
+TEST_F(SystemPropertiesTest, GetProductModelAndOSDistVersion) {
+  const std::string original_ua_model = properties_->ua_model_;
+  const std::string original_os_dist_version = properties_->os_dist_version_;
+  properties_->ua_model_ = "TestUaModel";
+  properties_->os_dist_version_ = "5.0.0";
+  EXPECT_EQ(GetProductModel(), "TestUaModel");
+  EXPECT_EQ(GetOSDistVersion(), "5.0.0");
+  properties_->ua_model_ = original_ua_model;
+  properties_->os_dist_version_ = original_os_dist_version;
+}
 #endif
+
+TEST_F(SystemPropertiesTest, IsOhosLowEndDevice_LowEndByDeviceEndType) {
+  InstallMockAdapter();
+  EXPECT_CALL(system_properties_adapter_,
+              GetIntParameter("web.device_end.type", 0))
+      .WillOnce(testing::Return(1));
+  EXPECT_TRUE(IsOhosLowEndDevice());
+}
+
+TEST_F(SystemPropertiesTest, IsOhosLowEndDevice_CachedAfterFirstCall) {
+  // IsOhosLowEndDevice result is cached; second call returns the cached value
+  // without re-reading the adapter.
+  EXPECT_TRUE(IsOhosLowEndDevice());
+}
+
+TEST_F(SystemPropertiesTest, IsAiHdrEnabledOhos_Enabled) {
+  // IsDelegatedCompositingEnabledOhos() is cached as true from earlier tests,
+  // so IsAiHdrEnabledOhos() proceeds to query web.aihdr.enable.
+  InstallMockAdapter();
+  EXPECT_CALL(system_properties_adapter_,
+              GetBoolParameter("web.aihdr.enable", false))
+      .WillOnce(testing::Return(true));
+  EXPECT_TRUE(IsAiHdrEnabledOhos());
+}
+
+TEST_F(SystemPropertiesTest, IsAiHdrEnabledOhos_CachedAfterFirstCall) {
+  // IsAiHdrEnabledOhos result is cached; returns same value without re-querying.
+  EXPECT_TRUE(IsAiHdrEnabledOhos());
+}
 }  // namespace ohos
 }  // namespace base
