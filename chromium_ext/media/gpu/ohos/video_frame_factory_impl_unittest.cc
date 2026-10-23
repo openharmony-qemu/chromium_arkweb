@@ -31,10 +31,6 @@
 #include "base/test/task_environment.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/config/gpu_finch_features.h"
-#include "arkweb/chromium_ext/gpu/config/gpu_finch_features_ext.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
-#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "gpu/config/gpu_preferences.h"
 #include "media/base/limits.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
@@ -89,8 +85,10 @@ class MockFrameInfoHelper : public FrameInfoHelper {
   void GetFrameInfo(std::unique_ptr<CodecOutputBufferRenderer> buffer_renderer,
                     FrameInfoReadyCB cb) override {
     FrameInfo info;
-    info.coded_size = buffer_renderer->size();
-    info.visible_rect = gfx::Rect(info.coded_size);
+    if (buffer_renderer) {
+      info.coded_size = buffer_renderer->size();
+      info.visible_rect = gfx::Rect(info.coded_size);
+    }
 
     std::move(cb).Run(std::move(buffer_renderer), info);
   }
@@ -336,15 +334,15 @@ TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_AllowOverlayMetadata) {
   gfx::Size natural_size(coded_size);
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGBLinear();
   scoped_refptr<CodecWrapperImpl> codec;
-  auto output_buffer = std::make_unique<CodecOutputBuffer>(
-      std::move(codec), 0, coded_size,
+  auto output_buffer =
+      std::make_unique<CodecOutputBuffer>(std::move(codec), 0, coded_size,
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
-      false,
+                                          false,
 #endif  // ARKWEB_VIDEO_ASSISTANT
-      color_space);
-  ASSERT_TRUE(VideoFrame::IsValidConfig(
-      PIXEL_FORMAT_ARGB, VideoFrame::STORAGE_OPAQUE,
-      coded_size, visible_rect, natural_size));
+                                          color_space);
+  ASSERT_TRUE(VideoFrame::IsValidConfig(PIXEL_FORMAT_ARGB,
+                                        VideoFrame::STORAGE_OPAQUE, coded_size,
+                                        visible_rect, natural_size));
 
   scoped_refptr<VideoFrame> result_frame;
   VideoFrameFactoryImpl::OnceOutputCB output_cb = base::BindOnce(
@@ -529,6 +527,9 @@ TEST_F(VideoFrameFactoryImplTest,
 // GetVideoFrameCopyStatus kDefault arm with copy_required=false,
 // kVulkanVideoZeroCopy enabled, delegatedValue=true → result is false
 // (line 125: copy_required || !delegatedValue → false || false = false).
+// Note: is_delegated_enabled_ is set at construction time based on
+// IsDelegatedCompositingEnabledOhos() and is false in the test environment,
+// so we manually set it to true to exercise this branch.
 TEST_F(VideoFrameFactoryImplTest,
        GetVideoFrameCopyStatus_kdefault_delegated_true) {
   OHOS::NWeb::MockOhosAdapterHelper* instance =
@@ -546,6 +547,7 @@ TEST_F(VideoFrameFactoryImplTest,
   fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
   impl_->pip_enable_ = false;
   impl_->video_frame_copy_required_ = false;
+  impl_->is_delegated_enabled_ = true;
   bool r = impl_->GetVideoFrameCopyStatus();
   EXPECT_FALSE(r);
   OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
@@ -570,5 +572,88 @@ TEST_F(VideoFrameFactoryImplTest,
   impl_->CreateVideoFrame_OnFrameInfoReady(image_ready_cb.Get(),
                                            std::move(renderer), frame_info);
   EXPECT_EQ(impl_->image_spec_.coded_size, gfx::Size(100, 100));
+}
+
+// ---- Phase 3 — Additional branch-coverage tests ----
+
+// Initialize forwards to image_provider_->Initialize.
+TEST_F(VideoFrameFactoryImplTest, Initialize_ForwardsToImageProvider) {
+  EXPECT_CALL(*image_provider_raw_, Initialize_(testing::_));
+  impl_->Initialize(base::BindRepeating(
+      [](scoped_refptr<gpu::NativeImageTextureOwner> owner) {}));
+  task_environment_.RunUntilIdle();
+}
+
+// RunAfterPendingVideoFrames calls RequestImage with nullptr buffer_renderer.
+// Pre-set image_spec_.coded_size so CreateVideoFrame_OnFrameInfoReady does not
+// short-circuit (it returns early if coded_size is empty when
+// buffer_renderer is null).
+TEST_F(VideoFrameFactoryImplTest,
+       RunAfterPendingVideoFrames_CallsRequestImage) {
+  impl_->image_spec_.coded_size = gfx::Size(100, 100);
+  EXPECT_CALL(*image_provider_raw_, MockRequestImage());
+  bool closure_called = false;
+  impl_->RunAfterPendingVideoFrames(
+      base::BindOnce([](bool* flag) { *flag = true; }, &closure_called));
+  task_environment_.RunUntilIdle();
+}
+
+// SetSurfaceBundle with null increments generation_id.
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_null_increments_generation) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(nullptr);
+  EXPECT_EQ(impl_->image_spec_.generation_id, before + 1);
+  EXPECT_EQ(impl_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+// SetSurfaceBundle called multiple times increments generation_id each time.
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_multiple_increments) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(nullptr);
+  impl_->SetSurfaceBundle(nullptr);
+  impl_->SetSurfaceBundle(nullptr);
+  EXPECT_EQ(impl_->image_spec_.generation_id, before + 3);
+}
+
+// GetVideoFrameCopyStatus with IsUsingVulkan false returns copy_required
+// directly (no adapter interaction needed).
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_vulkan_not_using_returns_copy_required) {
+  // When features::IsUsingVulkan() is false, the function returns
+  // copy_required directly. In test environment, Vulkan is typically not
+  // enabled, so this exercises the early return path.
+  impl_->video_frame_copy_required_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  // copy_required includes video_frame_copy_required_ and possibly pip_enable_.
+  EXPECT_TRUE(r);
+}
+
+// GetVideoFrameCopyStatus with copy_required false and vulkan not using.
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_vulkan_not_using_false) {
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  // Without vulkan, returns copy_required directly (false here).
+  EXPECT_FALSE(r);
+}
+
+// CreateVideoFrame_OnImageReady with null thiz should return early without
+// crashing.
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnImageReady_null_thiz) {
+  base::WeakPtr<VideoFrameFactoryImpl> thiz;
+  FrameInfoHelper::FrameInfo frame_info;
+  gfx::Size natural_size(100, 100);
+  VideoPixelFormat pixel_format = PIXEL_FORMAT_ABGR;
+  scoped_refptr<base::SequencedTaskRunner> gpu_task_runner = task_runner_;
+  std::unique_ptr<CodecOutputBufferRenderer> output_buffer_renderer;
+  SharedImageVideoProvider::ImageRecord record;
+  // Should not crash even with null thiz.
+  impl_->CreateVideoFrame_OnImageReady(
+      thiz, output_cb_.Get(), base::TimeDelta(), natural_size, false,
+      pixel_format, false, gpu_task_runner, std::move(output_buffer_renderer),
+      frame_info, std::move(record));
+  // No assertion needed; not crashing is the success criterion.
+  SUCCEED() << "CreateVideoFrame_OnImageReady with null thiz did not crash";
 }
 }  // namespace media
