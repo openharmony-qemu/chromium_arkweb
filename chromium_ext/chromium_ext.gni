@@ -1180,6 +1180,11 @@ arkweb_chrome_browser_notifications_sources = [
   "//arkweb/chromium_ext/chrome/browser/notifications/notification_platform_bridge_ohos.h",
 ]
 
+arkweb_chrome_extensions_api_impl_sources = [
+  "//arkweb/chromium_ext/chrome/browser/extensions/api/hwext_agent/hwext_agent_api.cc",
+  "//arkweb/chromium_ext/chrome/browser/extensions/api/hwext_agent/hwext_agent_api.h",
+]
+
 arkweb_chrome_browser_password_manager_sources = [
   "//arkweb/chromium_ext/chrome/browser/password_manager/chrome_password_manager_client_ext.cc",
   "//arkweb/chromium_ext/chrome/browser/password_manager/chrome_password_manager_client_ext.h",
