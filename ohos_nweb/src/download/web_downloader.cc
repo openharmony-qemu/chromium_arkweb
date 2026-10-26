@@ -230,7 +230,7 @@ void WebDownloadItem_SetTotalBytes(NWebDownloadItem* download_item,
 
 void WebDownloadItem_SetReceivedSlices(NWebDownloadItem* download_item,
                                        const char* received_slices) {
-  if (download_item) {
+  if (download_item && received_slices) {
     download_item->received_slices = strdup(received_slices);
     return;
   }
@@ -239,7 +239,7 @@ void WebDownloadItem_SetReceivedSlices(NWebDownloadItem* download_item,
 
 void WebDownloadItem_SetETag(NWebDownloadItem* download_item,
                              const char* etag) {
-  if (download_item) {
+  if (download_item && etag) {
     download_item->etag = strdup(etag);
     return;
   }
@@ -248,7 +248,7 @@ void WebDownloadItem_SetETag(NWebDownloadItem* download_item,
 
 void WebDownloadItem_SetLastModified(NWebDownloadItem* download_item,
                                      const char* last_modified) {
-  if (download_item) {
+  if (download_item && last_modified) {
     download_item->last_modified = strdup(last_modified);
     return;
   }
