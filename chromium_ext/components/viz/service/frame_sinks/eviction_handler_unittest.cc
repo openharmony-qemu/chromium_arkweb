@@ -17,7 +17,9 @@
 #include <utility>
 #include <vector>
  
+#include "base/test/null_task_runner.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/unguessable_token.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -28,8 +30,12 @@
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "components/viz/common/surfaces/surface_id.h"
-#include "components/viz/service/display/display.h"
 #include "components/viz/common/display/renderer_settings.h"
+#include "components/viz/service/display/display.h"
+#include "components/viz/service/display/display_client.h"
+#include "components/viz/service/display/display_scheduler.h"
+#include "components/viz/service/display/overlay_processor_stub.h"
+#include "components/viz/service/display/software_output_device.h"
 #define private public
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/frame_sinks/eviction_handler.h"
@@ -40,6 +46,7 @@
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "components/viz/test/compositor_frame_helpers.h"
 #include "components/viz/test/fake_external_begin_frame_source.h"
+#include "components/viz/test/fake_output_surface.h"
 #include "components/viz/test/fake_surface_observer.h"
 #include "components/viz/test/mock_compositor_frame_sink_client.h"
 #include "components/viz/test/test_context_provider.h"
@@ -47,6 +54,9 @@
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/sync_token.h"
+#include "gpu/command_buffer/service/scheduler.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
+#include "gpu/command_buffer/service/sync_point_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/khronos/GLES2/gl2.h"
 #include "ui/gfx/geometry/rect.h"
@@ -55,9 +65,71 @@
 namespace viz {
  
 constexpr FrameSinkId kFrameSinkId(1, 1);
+// MakeDefaultCompositorFrame() produces a 20x20 render pass.
+constexpr gfx::Size kDefaultSurfaceSize(20, 20);
 const base::UnguessableToken kArbitraryToken =
     base::UnguessableToken::CreateForTesting(1, 2);
  
+// Minimal DisplayClient so a real Display can be built; the eviction handler
+// only relies on Display state (visibility / current surface id) plus
+// ForceImmediateDrawAndSwapIfPossible().
+class EvictionTestDisplayClient : public DisplayClient {
+ public:
+  void DisplayOutputSurfaceLost() override {}
+  void DisplayWillDrawAndSwap(bool will_draw_and_swap,
+                              AggregatedRenderPassList* render_passes) override {}
+  void DisplayDidDrawAndSwap() override { ++draw_and_swap_count; }
+  void DisplayDidReceiveCALayerParams(
+      const gfx::CALayerParams& ca_layer_params) override {}
+  void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override {}
+  void DisplayAddChildWindowToBrowser(gpu::SurfaceHandle child_window) override {}
+  void SetWideColorEnabled(bool enabled) override {}
+  void RestoreRenderFit(const FrameSinkId& frame_sink_id) override {}
+  void ModifyRenderFit(int32_t fit_type, const FrameSinkId& frame_sink_id) override {}
+  void DisplayDidRealSwapBuffer() override { ++real_swap_count; }
+
+  int draw_and_swap_count = 0;
+  int real_swap_count = 0;
+};
+
+// Real Display wrapper used only by the WillEvictSurface tests. Display has no
+// interface to mock, so the branches below can only be reached with a real one.
+class EvictionTestDisplay {
+ public:
+  EvictionTestDisplay(SurfaceManager* surface_manager,
+                      const FrameSinkId& frame_sink_id)
+      : gpu_scheduler_(&sync_point_manager_) {
+    RendererSettings settings;
+    auto device = std::make_unique<SoftwareOutputDevice>();
+    auto output_surface =
+        std::make_unique<FakeSoftwareOutputSurface>(std::move(device));
+    auto overlay_processor = std::make_unique<OverlayProcessorStub>();
+    scheduler_ = std::make_unique<DisplayScheduler>(
+        &begin_frame_source_, task_runner_.get(), PendingSwapParams(1));
+    display_ = std::make_unique<Display>(
+        &shared_image_manager_, &gpu_scheduler_, settings, &debug_settings_,
+        frame_sink_id, /*gpu_dependency=*/nullptr, std::move(output_surface),
+        std::move(overlay_processor), std::move(scheduler_), task_runner_);
+    display_->Initialize(&client_, surface_manager);
+  }
+
+  Display* display() { return display_.get(); }
+  EvictionTestDisplayClient* client() { return &client_; }
+  const RendererSettings& settings() const { return settings_; }
+
+ private:
+  DebugRendererSettings debug_settings_;
+  RendererSettings settings_;
+  gpu::SharedImageManager shared_image_manager_;
+  gpu::SyncPointManager sync_point_manager_;
+  gpu::Scheduler gpu_scheduler_;
+  scoped_refptr<base::NullTaskRunner> task_runner_ = new base::NullTaskRunner();
+  StubBeginFrameSource begin_frame_source_;
+  EvictionTestDisplayClient client_;
+  std::unique_ptr<DisplayScheduler> scheduler_;
+  std::unique_ptr<Display> display_;
+};
+
 class EvictionHandlerTest : public testing::Test {
  public:
   EvictionHandlerTest() : begin_frame_source_(0.f, false) {}
@@ -426,6 +498,126 @@ TEST_F(EvictionHandlerTest, InProgressFlagSetAndResetCorrectly) {
   EXPECT_FALSE(InProgress());
 }
  
+// Without a current surface id the display has nothing to protect, so the
+// surface is evicted immediately.
+TEST_F(EvictionHandlerTest, WillEvictSurfaceWithoutCurrentSurfaceId) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+  ASSERT_FALSE(test_display.display()->CurrentSurfaceId().is_valid());
+
+  LocalSurfaceId local_id(2, kArbitraryToken);
+  EXPECT_TRUE(handler_->WillEvictSurface(GetSurfaceId(local_id)));
+  EXPECT_FALSE(InProgress());
+}
+
+// A visible display means an eviction for the root surface already happened;
+// the handler must not start a second one.
+TEST_F(EvictionHandlerTest, WillEvictSurfaceWhenDisplayVisible) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+
+  LocalSurfaceId local_id(2, kArbitraryToken);
+  CreateSurfaceWithFrame(local_id);
+  test_display.display()->SetLocalSurfaceId(local_id, 1.f);
+  test_display.display()->SetVisible(true);
+
+  SetInProgress(true);
+  EXPECT_FALSE(handler_->WillEvictSurface(GetSurfaceId(local_id)));
+  EXPECT_FALSE(InProgress());
+  EXPECT_FALSE(ToEvictIsValid());
+}
+
+// An older surface than the one on screen must be evicted immediately and must
+// not trigger the placeholder frame submission.
+TEST_F(EvictionHandlerTest, WillEvictSurfaceOlderSurfaceEvictsImmediately) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+
+  LocalSurfaceId current_id(5, kArbitraryToken);
+  CreateSurfaceWithFrame(current_id);
+  test_display.display()->SetLocalSurfaceId(current_id, 1.f);
+  ASSERT_FALSE(test_display.display()->visible());
+
+  LocalSurfaceId older_id(3, kArbitraryToken);
+  EXPECT_TRUE(handler_->WillEvictSurface(GetSurfaceId(older_id)));
+  EXPECT_FALSE(InProgress());
+  EXPECT_FALSE(ToEvictIsValid());
+}
+
+// A surface at least as new as the current one goes through the placeholder
+// frame path: the handler submits white content and defers eviction to the
+// next draw and swap.
+TEST_F(EvictionHandlerTest, WillEvictSurfaceSubmitsPlaceholderFrame) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+
+  LocalSurfaceId current_id(4, kArbitraryToken);
+  CreateSurfaceWithFrame(current_id);
+  test_display.display()->SetLocalSurfaceId(current_id, 1.f);
+  test_display.display()->Resize(kDefaultSurfaceSize);
+  ASSERT_FALSE(test_display.display()->visible());
+
+  LocalSurfaceId same_id(4, kArbitraryToken);
+  EXPECT_FALSE(handler_->WillEvictSurface(GetSurfaceId(same_id)));
+  EXPECT_TRUE(InProgress());
+  EXPECT_TRUE(ToEvictIsValid());
+  EXPECT_EQ(handler_->GetNextEvictLocalSurfaceId(), same_id);
+  // Placeholder content turns the display visible so the frame is drawn.
+  EXPECT_TRUE(test_display.display()->visible());
+}
+
+// If the current surface disappeared from the surface manager the placeholder
+// frame cannot be submitted, so the process is finished instead of hanging.
+TEST_F(EvictionHandlerTest, SubmitPlaceholderContentWithoutCurrentSurface) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+
+  SetInProgress(true);
+  LocalSurfaceId to_evict_id(6, kArbitraryToken);
+  SurfaceId to_evict(kFrameSinkId, to_evict_id);
+
+  SubmitPlaceholderContentForEvictionTest(
+      to_evict, 1, std::unique_ptr<CopyOutputResult>());
+
+  EXPECT_FALSE(InProgress());
+  EXPECT_FALSE(ToEvictIsValid());
+}
+
+// After the placeholder frame, the draw and swap actually evicts the deferred
+// surface and resets the handler state.
+TEST_F(EvictionHandlerTest, DisplayDidDrawAndSwapEvictsDeferredSurface) {
+  EvictionTestDisplay test_display(manager_->surface_manager(), kFrameSinkId);
+  handler_ = std::make_unique<EvictionHandler>(
+      test_display.display(), support_.get(),
+      manager_->reserved_resource_id_tracker());
+
+  LocalSurfaceId current_id(7, kArbitraryToken);
+  CreateSurfaceWithFrame(current_id);
+  test_display.display()->SetLocalSurfaceId(current_id, 1.f);
+  test_display.display()->Resize(kDefaultSurfaceSize);
+
+  ASSERT_FALSE(handler_->WillEvictSurface(GetSurfaceId(current_id)));
+  ASSERT_TRUE(InProgress());
+  ASSERT_TRUE(ToEvictIsValid());
+
+  handler_->DisplayDidDrawAndSwap();
+
+  EXPECT_FALSE(InProgress());
+  EXPECT_FALSE(ToEvictIsValid());
+  EXPECT_FALSE(test_display.display()->visible());
+  EXPECT_FALSE(test_display.display()->CurrentSurfaceId().is_valid());
+}
+
 #if BUILDFLAG(ARKWEB_EVICT_UNLOCK_FRAMES)
 // Tests that GetNextEvictLocalSurfaceId returns the stored eviction target ID.
 // The handler should provide access to the LocalSurfaceId scheduled for eviction

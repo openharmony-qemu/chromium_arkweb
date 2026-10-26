@@ -13,10 +13,16 @@
  * limitations under the License.
  */
 
+#include <AbilityKit/ability_runtime/ability_runtime_common.h>
 #include <cinttypes>
 #include <cstring>
 #include <ctime>
+#include <securec.h>
+#include <string>
 #include <gtest/gtest.h>
+
+#include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 
 #define private public
 #include "arkweb/ohos_adapter_ndk/distributeddatamgr_adapter/ohos_web_nweb_stats_adapter_impl.h"
@@ -24,6 +30,72 @@
 
 #include <database/rdb/relational_store.h>
 #include <database/rdb/relational_store_error_code.h>
+
+namespace {
+enum class AbilityRuntimeStage {
+    kOk,
+    kCacheDirError,
+    kMissingWebDir,
+    kBundleNameError,
+    kAreaModeError,
+};
+
+AbilityRuntimeStage g_stage = AbilityRuntimeStage::kOk;
+std::string g_cache_root;
+
+bool CopyString(const std::string& value, char* buffer, int32_t buffer_size, int32_t* write_length)
+{
+    if (buffer == nullptr || write_length == nullptr || buffer_size <= static_cast<int32_t>(value.size())) {
+        return false;
+    }
+    errno_t ret = memcpy_s(buffer, static_cast<size_t>(buffer_size), value.c_str(), value.size() + 1);
+    if (ret != EOK) {
+        return false;
+    }
+    *write_length = static_cast<int32_t>(value.size());
+    return true;
+}
+} // namespace
+
+// The production code calls these AbilityRuntime NDK entry points directly. The
+// executable defines them here so the unit test can drive every InitDatabase
+// branch without touching production code or build flags.
+extern "C" AbilityRuntime_ErrorCode OH_AbilityRuntime_ApplicationContextGetCacheDir(
+    char* buffer, int32_t bufferSize, int32_t* writeLength)
+{
+    if (g_stage == AbilityRuntimeStage::kCacheDirError) {
+        return ABILITY_RUNTIME_ERROR_CODE_CONTEXT_NOT_EXIST;
+    }
+    if (!CopyString(g_cache_root, buffer, bufferSize, writeLength)) {
+        return ABILITY_RUNTIME_ERROR_CODE_PARAM_INVALID;
+    }
+    return ABILITY_RUNTIME_ERROR_CODE_NO_ERROR;
+}
+
+extern "C" AbilityRuntime_ErrorCode OH_AbilityRuntime_ApplicationContextGetBundleName(
+    char* buffer, int32_t bufferSize, int32_t* writeLength)
+{
+    if (g_stage == AbilityRuntimeStage::kBundleNameError) {
+        return ABILITY_RUNTIME_ERROR_CODE_CONTEXT_NOT_EXIST;
+    }
+    if (!CopyString("com.example.arkweb.ut", buffer, bufferSize, writeLength)) {
+        return ABILITY_RUNTIME_ERROR_CODE_PARAM_INVALID;
+    }
+    return ABILITY_RUNTIME_ERROR_CODE_NO_ERROR;
+}
+
+extern "C" AbilityRuntime_ErrorCode OH_AbilityRuntime_ApplicationContextGetAreaMode(
+    AbilityRuntime_AreaMode* areaMode)
+{
+    if (g_stage == AbilityRuntimeStage::kAreaModeError) {
+        return ABILITY_RUNTIME_ERROR_CODE_CONTEXT_NOT_EXIST;
+    }
+    if (areaMode == nullptr) {
+        return ABILITY_RUNTIME_ERROR_CODE_PARAM_INVALID;
+    }
+    *areaMode = AbilityRuntime_AreaMode::ABILITY_RUNTIME_AREA_MODE_EL2;
+    return ABILITY_RUNTIME_ERROR_CODE_NO_ERROR;
+}
 
 namespace OHOS::NWeb {
 namespace {
@@ -212,5 +284,121 @@ TEST_F(NWebStatsAdapterTest, RdbNullptrStoreTest)
 
     std::swap(stats.rdbStore_, g_TmpRdbStore);
     EXPECT_EQ(stats.QueryInt64Value("any_key"), 0);
+}
+
+// InitDatabase is normally bypassed because the tests open their own store.
+// These cases construct a real adapter instance so the whole initialization
+// path, including table creation and the reopen branch, is executed.
+class NWebStatsInitDatabaseTest : public testing::Test {
+public:
+    void SetUp() override
+    {
+        ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+        g_cache_root = temp_dir_.GetPath().value();
+        g_stage = AbilityRuntimeStage::kOk;
+        ASSERT_TRUE(base::CreateDirectory(temp_dir_.GetPath().AppendASCII("web")));
+    }
+
+    void TearDown() override
+    {
+        g_stage = AbilityRuntimeStage::kOk;
+        g_cache_root.clear();
+    }
+
+protected:
+    base::ScopedTempDir temp_dir_;
+};
+
+TEST_F(NWebStatsInitDatabaseTest, CreatesDatabaseAndTable)
+{
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_TRUE(stats.dbInitialized_);
+    ASSERT_NE(stats.rdbStore_, nullptr);
+    EXPECT_EQ(stats.QueryInt64Value(MAX_INSTANCE_COUNT_KEY), 0);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, ReopensExistingDatabase)
+{
+    {
+        OhosWebNWebStatsAdapterImpl first;
+        ASSERT_TRUE(first.dbInitialized_);
+        first.StoreInt64Value(MAX_INSTANCE_COUNT_KEY, 7);
+    }
+    OhosWebNWebStatsAdapterImpl second;
+    EXPECT_TRUE(second.dbInitialized_);
+    EXPECT_EQ(second.QueryInt64Value(MAX_INSTANCE_COUNT_KEY), 7);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, CacheDirFailure) {
+    g_stage = AbilityRuntimeStage::kCacheDirError;
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_FALSE(stats.dbInitialized_);
+    EXPECT_EQ(stats.rdbStore_, nullptr);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, MissingWebDirectoryFailure) {
+    g_stage = AbilityRuntimeStage::kMissingWebDir;
+    ASSERT_TRUE(base::DeletePathRecursively(temp_dir_.GetPath().AppendASCII("web")));
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_FALSE(stats.dbInitialized_);
+    EXPECT_EQ(stats.rdbStore_, nullptr);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, BundleNameFailure) {
+    g_stage = AbilityRuntimeStage::kBundleNameError;
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_FALSE(stats.dbInitialized_);
+    EXPECT_EQ(stats.rdbStore_, nullptr);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, AreaModeFailure) {
+    g_stage = AbilityRuntimeStage::kAreaModeError;
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_FALSE(stats.dbInitialized_);
+    EXPECT_EQ(stats.rdbStore_, nullptr);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, RdbOpenFailure) {
+    ASSERT_TRUE(base::DeletePathRecursively(temp_dir_.GetPath().AppendASCII("web")));
+    const std::string not_a_directory = "not a directory";
+    ASSERT_TRUE(base::WriteFile(temp_dir_.GetPath().AppendASCII("web"), not_a_directory));
+    OhosWebNWebStatsAdapterImpl stats;
+    EXPECT_FALSE(stats.dbInitialized_);
+    EXPECT_EQ(stats.rdbStore_, nullptr);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, StoreFailsWithoutTable) {
+    OhosWebNWebStatsAdapterImpl stats;
+    ASSERT_NE(stats.rdbStore_, nullptr);
+
+    const std::string web_dir = temp_dir_.GetPath().AppendASCII("web").value();
+    OH_Rdb_Config config = {0};
+    config.selfSize = sizeof(OH_Rdb_Config);
+    config.dataBaseDir = web_dir.c_str();
+    config.bundleName = "com.example.arkweb.ut";
+    config.storeName = "empty.db";
+    config.area = Rdb_SecurityArea::RDB_SECURITY_AREA_EL2;
+    config.securityLevel = OH_Rdb_SecurityLevel::S1;
+    int errCode = RDB_OK;
+    OH_Rdb_Store* empty_store = OH_Rdb_GetOrOpen(&config, &errCode);
+    ASSERT_NE(empty_store, nullptr);
+
+    OH_Rdb_Store* original = stats.rdbStore_;
+    stats.rdbStore_ = empty_store;
+    stats.StoreInt64Value("missing_table_key", 1);
+    stats.rdbStore_ = original;
+    OH_Rdb_CloseStore(empty_store);
+}
+
+TEST_F(NWebStatsInitDatabaseTest, QueryMissingKeyAndResetInterval)
+{
+    OhosWebNWebStatsAdapterImpl stats;
+    ASSERT_NE(stats.rdbStore_, nullptr);
+
+    EXPECT_EQ(stats.QueryInt64Value("missing"), 0);
+    EXPECT_GT(stats.GetResetIntervalSeconds(), 0);
+
+    stats.StoreInt64Value(MAX_INSTANCE_COUNT_KEY, -5);
+    EXPECT_EQ(stats.GetMaxInstanceCount(), 0);
 }
 } // namespace OHOS::NWeb
