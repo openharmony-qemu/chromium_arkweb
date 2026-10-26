@@ -67,6 +67,7 @@ config("mock_ndk_api_config") {
 
   ldflags += [
     "-Wl,--wrap=OH_NativeVSync_Create",
+    "-Wl,--wrap=OH_NativeVSync_Destroy",
     "-Wl,--wrap=OH_NativeVSync_GetPeriod",
     "-Wl,--wrap=OH_NativeVSync_RequestFrame",
     "-Wl,--wrap=OH_NativeWindow_CreateNativeWindow",

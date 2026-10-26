@@ -237,6 +237,10 @@ extern std::function<OH_NativeVSync* (const char* name, unsigned int length)> g_
 OH_NativeVSync* __real_OH_NativeVSync_Create(const char* name, unsigned int length);
 OH_NativeVSync* __wrap_OH_NativeVSync_Create(const char* name, unsigned int length);
 
+extern std::function<void (OH_NativeVSync* nativeVsync)> g_mock_OH_NativeVSync_Destroy;
+void __real_OH_NativeVSync_Destroy(OH_NativeVSync* nativeVsync);
+void __wrap_OH_NativeVSync_Destroy(OH_NativeVSync* nativeVsync);
+
 extern std::function<int (OH_NativeVSync* nativeVSync, long long* period)> g_mock_OH_NativeVSync_GetPeriod;
 int __real_OH_NativeVSync_GetPeriod(OH_NativeVSync* nativeVSync, long long* period);
 int __wrap_OH_NativeVSync_GetPeriod(OH_NativeVSync* nativeVSync, long long* period);
