@@ -5,12 +5,12 @@
 // Based on stream_texture_wrapper_impl.cc originally written by
 // Copyright (c) 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file. 
+// found in the LICENSE file.
 
 #include "ohos_sdk/openharmony/native/llvm/bin/../include/libcxx-ohos/include/c++/v1/__ranges/lazy_split_view.h"
 #define private public
-#include "content/renderer/media/ohos/native_texture_wrapper_impl.h"
 #include "content/renderer/media/ohos/native_texture_factory.h"
+#include "content/renderer/media/ohos/native_texture_wrapper_impl.h"
 #undef private
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -69,11 +69,11 @@ class MockClientSharedImageInterface : public gpu::ClientSharedImageInterface {
                                  scoped_refptr<gpu::GpuChannelHost> channel)
       : gpu::ClientSharedImageInterface(proxy, channel) {};
   // gpu::SharedImageInterface implementation.
-  MOCK_METHOD3(
-      CreateSharedImage,
-      scoped_refptr<gpu::ClientSharedImage>(const gpu::SharedImageInfo& si_info,
-                                            gpu::SurfaceHandle surface_handle,
-                                            std::optional<gpu::SharedImagePoolId>));
+  MOCK_METHOD3(CreateSharedImage,
+               scoped_refptr<gpu::ClientSharedImage>(
+                   const gpu::SharedImageInfo& si_info,
+                   gpu::SurfaceHandle surface_handle,
+                   std::optional<gpu::SharedImagePoolId>));
   MOCK_METHOD2(CreateSharedImage,
                scoped_refptr<gpu::ClientSharedImage>(
                    const gpu::SharedImageInfo& si_info,
@@ -99,7 +99,7 @@ class MockClientSharedImageInterface : public gpu::ClientSharedImageInterface {
                     scoped_refptr<gpu::ClientSharedImage> client_shared_image));
   MOCK_METHOD1(ImportSharedImage,
                scoped_refptr<gpu::ClientSharedImage>(
-                  gpu::ExportedSharedImage exported_shared_image));
+                   gpu::ExportedSharedImage exported_shared_image));
   MOCK_METHOD2(PresentSwapChain,
                void(const gpu::SyncToken& sync_token,
                     const gpu::Mailbox& mailbox));
@@ -193,8 +193,8 @@ class NativeTextureWrapperImplTest : public testing::Test {
     channel_ = base::MakeRefCounted<TestGpuChannelHost>(mock_gpu_channel_);
     factory_ = NativeTextureFactory::Create(channel_);
     ON_CALL(mock_gpu_channel_,
-            CreateNativeTextureReturnBool(::testing::_, ::testing::_, ::testing::_,
-                                    ::testing::_))
+            CreateNativeTextureReturnBool(::testing::_, ::testing::_,
+                                          ::testing::_, ::testing::_))
         .WillByDefault(::testing::Invoke(
             [](int32_t a, int32_t b,
                mojo::PendingAssociatedReceiver<gpu::mojom::StreamTexture>,
@@ -228,7 +228,7 @@ class NativeTextureWrapperImplTest : public testing::Test {
 
     EXPECT_CALL(mock_gpu_channel_,
                 CreateNativeTextureReturnBool(::testing::_, ::testing::_,
-                                        ::testing::_, ::testing::_))
+                                              ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke(
             [](int32_t a, int32_t b,
                mojo::PendingAssociatedReceiver<gpu::mojom::StreamTexture>,
@@ -268,13 +268,22 @@ TEST_F(NativeTextureWrapperImplTest, CreateVideoFrame001) {
   auto mock_image =
       static_cast<MockClientSharedImageInterface*>(shared_image.get());
   factory_->shared_image_interface_ = std::move(shared_image);
-  auto test_shared_image = gpu::ClientSharedImage::CreateForTesting();
+  // CreateForTesting() defaults to 64x64, but WrapSharedImage CHECKs that
+  // coded_size matches the shared image size. Build a shared image whose
+  // metadata size matches the coded_size used below.
+  gpu::SharedImageMetadata metadata;
+  metadata.format = viz::SinglePlaneFormat::kRGBA_8888;
+  metadata.size = gfx::Size(100, 100);
+  metadata.color_space = gfx::ColorSpace::CreateSRGB();
+  metadata.surface_origin = kTopLeft_GrSurfaceOrigin;
+  metadata.alpha_type = kPremul_SkAlphaType;
+  metadata.usage = gpu::SharedImageUsageSet();
+  auto test_shared_image = gpu::ClientSharedImage::CreateForTesting(metadata);
   EXPECT_CALL(*mock_image, NotifyMailboxAddedWithTarget(
                                testing::_, testing::_, testing::_, testing::_,
                                testing::_, testing::_, testing::_, testing::_))
       .Times(testing::AnyNumber())
-      .WillRepeatedly(
-          testing::Return(test_shared_image));
+      .WillRepeatedly(testing::Return(test_shared_image));
 
   gpu::Mailbox mailbox;
   gfx::Size coded_size{100, 100};
@@ -295,13 +304,20 @@ TEST_F(NativeTextureWrapperImplTest, CreateVideoFrame002) {
   auto mock_image =
       static_cast<MockClientSharedImageInterface*>(shared_image.get());
   factory_->shared_image_interface_ = std::move(shared_image);
-  auto test_shared_image = gpu::ClientSharedImage::CreateForTesting();
+  // See CreateVideoFrame001: shared image size must match coded_size.
+  gpu::SharedImageMetadata metadata;
+  metadata.format = viz::SinglePlaneFormat::kRGBA_8888;
+  metadata.size = gfx::Size(100, 100);
+  metadata.color_space = gfx::ColorSpace::CreateSRGB();
+  metadata.surface_origin = kTopLeft_GrSurfaceOrigin;
+  metadata.alpha_type = kPremul_SkAlphaType;
+  metadata.usage = gpu::SharedImageUsageSet();
+  auto test_shared_image = gpu::ClientSharedImage::CreateForTesting(metadata);
   EXPECT_CALL(*mock_image, NotifyMailboxAddedWithTarget(
                                testing::_, testing::_, testing::_, testing::_,
                                testing::_, testing::_, testing::_, testing::_))
       .Times(testing::AnyNumber())
-      .WillRepeatedly(
-          testing::Return(test_shared_image));
+      .WillRepeatedly(testing::Return(test_shared_image));
   gpu::Mailbox mailbox;
   gfx::Size coded_size{100, 100};
   gfx::Rect visible_rect{0, 0, 100, 100};
@@ -394,8 +410,8 @@ TEST_F(NativeTextureWrapperImplTest, InitializeOnMainThread002) {
   base::OnceCallback<void(int)> create_texture_cb = base::DoNothing();
   base::RepeatingCallback<void()> destroy_texture_cb = base::DoNothing();
   ON_CALL(mock_gpu_channel_,
-          CreateNativeTextureReturnBool(::testing::_, ::testing::_, ::testing::_,
-                                  ::testing::_))
+          CreateNativeTextureReturnBool(::testing::_, ::testing::_,
+                                        ::testing::_, ::testing::_))
       .WillByDefault(::testing::Invoke(
           [](int32_t a, int32_t b,
              mojo::PendingAssociatedReceiver<gpu::mojom::StreamTexture>,
@@ -430,5 +446,180 @@ TEST_F(NativeTextureWrapperImplTest, InitializeOnMainThread003) {
                                 destroy_texture_cb);
 
   EXPECT_TRUE(init_result);
+}
+
+// ---------- Create (static factory) ----------
+TEST_F(NativeTextureWrapperImplTest, Create_StaticFactory) {
+  auto wrapper = NativeTextureWrapperImpl::Create(
+      true, gl::ohos::TextureOwnerMode::kNone,
+#if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
+      false,
+#endif  // ARKWEB_CUSTOM_VIDEO_PLAYER
+      factory_, base::SingleThreadTaskRunner::GetCurrentDefault());
+  EXPECT_NE(wrapper.get(), nullptr);
+  // The static Create returns a ScopedNativeTextureWrapper (unique_ptr).
+  // Release the raw pointer into our deleter-managed unique_ptr so the existing
+  // teardown logic runs. First reset the existing impl_ to avoid double
+  // ownership.
+  if (impl_) {
+    impl_.reset();
+  }
+  NativeTextureWrapperImpl* raw =
+      static_cast<NativeTextureWrapperImpl*>(wrapper.release());
+  impl_ = std::unique_ptr<NativeTextureWrapperImpl,
+                          NativeTextureWrapperImplDeleter>(
+      raw, NativeTextureWrapperImplDeleter{});
+  impl_->compositor_task_runner_ =
+      base::MakeRefCounted<MockSingleThreadTaskRunner>();
+}
+
+// ---------- GetCurrentFrame: returns current_frame_ ----------
+TEST_F(NativeTextureWrapperImplTest, GetCurrentFrame_NullFrame) {
+  impl_->current_frame_ = nullptr;
+  auto frame = impl_->GetCurrentFrame();
+  EXPECT_EQ(frame, nullptr);
+}
+
+TEST_F(NativeTextureWrapperImplTest, GetCurrentFrame_NonNullFrame) {
+  auto test_frame = media::VideoFrame::CreateFrame(
+      media::PIXEL_FORMAT_I420, gfx::Size(320, 240), gfx::Rect(320, 240),
+      gfx::Size(320, 240), base::TimeDelta());
+  impl_->current_frame_ = test_frame;
+  auto frame = impl_->GetCurrentFrame();
+  EXPECT_EQ(frame.get(), test_frame.get());
+}
+
+// ---------- SetCurrentFrameInternal ----------
+TEST_F(NativeTextureWrapperImplTest, SetCurrentFrameInternal) {
+  auto test_frame = media::VideoFrame::CreateFrame(
+      media::PIXEL_FORMAT_I420, gfx::Size(640, 480), gfx::Rect(640, 480),
+      gfx::Size(640, 480), base::TimeDelta());
+  impl_->SetCurrentFrameInternal(test_frame);
+  EXPECT_EQ(impl_->current_frame_.get(), test_frame.get());
+  // Reset to nullptr to avoid holding references during teardown.
+  impl_->SetCurrentFrameInternal(nullptr);
+  EXPECT_EQ(impl_->current_frame_, nullptr);
+}
+
+// ---------- Initialize (public): PostTask to main thread ----------
+// Initialize() should PostTask to the main thread. We verify this by setting
+// up a mock task runner that does not actually run the task; if Initialize
+// directly invoked InitializeOnMainThread, the gpu channel mock would be
+// called. By asserting the gpu channel is NOT called and the PostTask IS
+// called, we confirm the PostTask branch is taken.
+TEST_F(NativeTextureWrapperImplTest, Initialize_PostsToMainThread) {
+  scoped_refptr<base::SingleThreadTaskRunner> mock_runner =
+      base::MakeRefCounted<MockSingleThreadTaskRunner>();
+  auto* mock = static_cast<MockSingleThreadTaskRunner*>(mock_runner.get());
+  ON_CALL(*mock, BelongsToCurrentThread()).WillByDefault(testing::Return(true));
+  // We expect a PostTask (the queued InitializeOnMainThread).
+  EXPECT_CALL(*mock, PostDelayedTask(::testing::_, ::testing::_, ::testing::_))
+      .WillOnce(testing::Return(true));
+  impl_->main_task_runner_ = mock_runner;
+
+  // The gpu channel should NOT be called since we never run the posted task.
+  EXPECT_CALL(mock_gpu_channel_,
+              CreateNativeTextureReturnBool(::testing::_, ::testing::_,
+                                            ::testing::_, ::testing::_))
+      .Times(0);
+
+  base::RepeatingClosure received_frame_cb = base::DoNothing();
+  base::OnceCallback<void(bool)> init_cb = base::DoNothing();
+  base::OnceCallback<void(int)> create_texture_cb = base::DoNothing();
+  base::RepeatingCallback<void()> destroy_texture_cb = base::DoNothing();
+  scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner =
+      base::MakeRefCounted<MockSingleThreadTaskRunner>();
+  impl_->Initialize(received_frame_cb, compositor_task_runner,
+                    std::move(init_cb), std::move(create_texture_cb),
+                    destroy_texture_cb);
+  // Restore the real task runner for safe teardown (impl_ destructor asserts
+  // main_task_runner_->BelongsToCurrentThread()).
+  impl_->main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+}
+
+// ---------- Destroy: non-main-thread branch (PostTask) ----------
+TEST_F(NativeTextureWrapperImplTest, Destroy_NonMainThread_PostsTask) {
+  // Configure main_task_runner_ to NOT belong to current thread so Destroy
+  // takes the PostTask branch. We use a mock task runner that reports false.
+  scoped_refptr<base::SingleThreadTaskRunner> mock_runner =
+      base::MakeRefCounted<MockSingleThreadTaskRunner>();
+  auto* mock = static_cast<MockSingleThreadTaskRunner*>(mock_runner.get());
+  ON_CALL(*mock, BelongsToCurrentThread())
+      .WillByDefault(testing::Return(false));
+  EXPECT_CALL(*mock, PostDelayedTask(::testing::_, ::testing::_, ::testing::_))
+      .WillOnce(testing::Return(true));
+  impl_->main_task_runner_ = mock_runner;
+
+  // Release ownership from the deleter-managed unique_ptr so Destroy can
+  // safely handle deletion (which it won't actually do because it posts).
+  NativeTextureWrapperImpl* raw = impl_.release();
+  raw->Destroy();
+  // Since Destroy posted the task instead of deleting, we need to clean up
+  // manually. Re-acquire into our deleter-managed ptr.
+  impl_ = std::unique_ptr<NativeTextureWrapperImpl,
+                          NativeTextureWrapperImplDeleter>(
+      raw, NativeTextureWrapperImplDeleter{});
+  // Replace the mock runner with the real one for safe teardown.
+  impl_->main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+}
+
+// ---------- Destructor with non-null native_texture_proxy_ ----------
+TEST_F(NativeTextureWrapperImplTest, Destructor_WithProxy) {
+  InitializeOnMainThread();
+  EXPECT_NE(impl_->native_texture_proxy_, nullptr);
+  // Releasing impl_ will call the deleter -> Destroy -> delete this, which
+  // invokes ~NativeTextureWrapperImpl() with a non-null proxy. The destructor
+  // calls ClearCreateVideoFrameCB() and SetCurrentFrameInternal(nullptr).
+  impl_.reset();
+}
+
+// ---------- CreateVideoFrame: null frame path ----------
+// When VideoFrame::WrapSharedImage returns nullptr (e.g., invalid params),
+// CreateVideoFrame logs an error and returns without setting current_frame_.
+TEST_F(NativeTextureWrapperImplTest, CreateVideoFrame_NullFrame) {
+  gpu::SharedImageInterfaceProxy proxy = gpu::SharedImageInterfaceProxy(
+      channel_.get(), 0, gpu::SharedImageCapabilities());
+  scoped_refptr<gpu::ClientSharedImageInterface> shared_image =
+      base::MakeRefCounted<MockClientSharedImageInterface>(&proxy, channel_);
+  auto mock_image =
+      static_cast<MockClientSharedImageInterface*>(shared_image.get());
+  factory_->shared_image_interface_ = std::move(shared_image);
+  // Return a null shared image to force WrapSharedImage to return nullptr.
+  EXPECT_CALL(*mock_image, NotifyMailboxAddedWithTarget(
+                               testing::_, testing::_, testing::_, testing::_,
+                               testing::_, testing::_, testing::_, testing::_))
+      .Times(testing::AnyNumber())
+      .WillRepeatedly(testing::Return(nullptr));
+
+  gpu::Mailbox mailbox;
+  gfx::Size coded_size{0, 0};  // zero size to force null frame
+  gfx::Rect visible_rect{0, 0, 0, 0};
+  absl::optional<gpu::VulkanYCbCrInfo> ycbcr_info;
+  impl_->current_frame_.reset();
+  impl_->CreateVideoFrame(mailbox, coded_size, visible_rect, ycbcr_info);
+  // current_frame_ should remain null because WrapSharedImage returned null.
+  EXPECT_EQ(impl_->current_frame_, nullptr);
+}
+
+// ---------- UpdateTextureSize: non-main-thread PostTask branch ----------
+TEST_F(NativeTextureWrapperImplTest, UpdateTextureSize_NonMainThread) {
+  gfx::Size new_size{1280, 720};
+  scoped_refptr<base::SingleThreadTaskRunner> mock_runner =
+      base::MakeRefCounted<MockSingleThreadTaskRunner>();
+  auto* mock = static_cast<MockSingleThreadTaskRunner*>(mock_runner.get());
+  ON_CALL(*mock, BelongsToCurrentThread())
+      .WillByDefault(testing::Return(false));
+  // UpdateTextureSize posts one task; the deleter's Destroy() may also post.
+  EXPECT_CALL(*mock, PostDelayedTask(::testing::_, ::testing::_, ::testing::_))
+      .Times(::testing::AtLeast(1))
+      .WillRepeatedly(testing::Return(true));
+  impl_->main_task_runner_ = mock_runner;
+  impl_->UpdateTextureSize(new_size);
+  // Should not have updated rotated_visible_size_ since it posted to main
+  // thread.
+  EXPECT_NE(impl_->rotated_visible_size_, new_size);
+  // Restore the real task runner for safe teardown (deleter calls Destroy()
+  // which checks BelongsToCurrentThread and may PostTask).
+  impl_->main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 }
 }  // namespace content

@@ -20,6 +20,7 @@
 #include <memory>
 #include <utility>
 
+#include "arkweb/chromium_ext/media/base/renderer_ext.h"
 #include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/task_environment.h"
@@ -40,8 +41,6 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 
-#include "arkweb/chromium_ext/media/base/renderer_ext.h"
-
 using ::testing::_;
 using ::testing::ByMove;
 using ::testing::DoAll;
@@ -54,499 +53,684 @@ using ::testing::StrictMock;
 namespace content {
 
 class MockNativeMediaResource : public media::MediaResource {
-public:
+ public:
   MockNativeMediaResource() = default;
   ~MockNativeMediaResource() override = default;
 
   // MediaResource implementation.
   MOCK_METHOD0(GetAllStreams, std::vector<media::DemuxerStream*>());
-  MOCK_METHOD1(GetFirstStream, media::DemuxerStream*(media::DemuxerStream::Type type));
-  MOCK_METHOD1(ForwardDurationChangeToDemuxerHost, void(base::TimeDelta duration));
-  MOCK_METHOD1(ForwardBufferedEndTimeChangeToDemuxerHost, void(base::TimeDelta buffered_time));
+  MOCK_METHOD1(GetFirstStream,
+               media::DemuxerStream*(media::DemuxerStream::Type type));
+  MOCK_METHOD1(ForwardDurationChangeToDemuxerHost,
+               void(base::TimeDelta duration));
+  MOCK_METHOD1(ForwardBufferedEndTimeChangeToDemuxerHost,
+               void(base::TimeDelta buffered_time));
 };
 
 class MockNativeTextureWrapper : public media::NativeTextureWrapper {
-public:
-    MockNativeTextureWrapper() = default;
-    ~MockNativeTextureWrapper() override = default;
+ public:
+  MockNativeTextureWrapper() = default;
+  ~MockNativeTextureWrapper() override = default;
 
-    // Make Initialize more flexible with default actions
-    MOCK_METHOD5(Initialize, void(const base::RepeatingClosure& received_frame_cb,
-        scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
-        StreamTextureWrapperInitCB init_cb,
-        CreateSurfaceTextureCB create_surface_cb,
-        DestroyTextureCB destroy_surface_cb));
+  // Make Initialize more flexible with default actions
+  MOCK_METHOD5(
+      Initialize,
+      void(const base::RepeatingClosure& received_frame_cb,
+           scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
+           StreamTextureWrapperInitCB init_cb,
+           CreateSurfaceTextureCB create_surface_cb,
+           DestroyTextureCB destroy_surface_cb));
 
-    MOCK_METHOD1(UpdateTextureSize, void(const gfx::Size& size));
-    MOCK_METHOD0(GetCurrentFrame, scoped_refptr<media::VideoFrame>());
-    MOCK_METHOD0(ClearCBOnAnyThread, void());
-    MOCK_METHOD0(Destroy, void());
+  MOCK_METHOD1(UpdateTextureSize, void(const gfx::Size& size));
+  MOCK_METHOD0(GetCurrentFrame, scoped_refptr<media::VideoFrame>());
+  MOCK_METHOD0(ClearCBOnAnyThread, void());
+  MOCK_METHOD0(Destroy, void());
 };
 
 class MockMojoRenderer : public media::MojoRenderer {
-public:
-    MockMojoRenderer(scoped_refptr<base::SequencedTaskRunner> task_runner, media::VideoRendererSink* sink) :
-        media::MojoRenderer(std::move(task_runner), 
-        std::make_unique<media::VideoOverlayFactory>(),
-        sink, 
-        mojo::NullRemote()) {}
+ public:
+  MockMojoRenderer(scoped_refptr<base::SequencedTaskRunner> task_runner,
+                   media::VideoRendererSink* sink)
+      : media::MojoRenderer(std::move(task_runner),
+                            std::make_unique<media::VideoOverlayFactory>(),
+                            sink,
+                            mojo::NullRemote()) {}
 
-    ~MockMojoRenderer() override = default;
+  ~MockMojoRenderer() override = default;
 
-    MOCK_METHOD5(Initialize,
-                void(media::MediaResource* media_resource,
-                media::RendererClient* client,
-                media::RequestSurfaceCB request_surface_cb,
-                media::VideoDecoderChangedCB decoder_changed_cb,
-                media::PipelineStatusCallback init_cb));
+  MOCK_METHOD5(Initialize,
+               void(media::MediaResource* media_resource,
+                    media::RendererClient* client,
+                    media::RequestSurfaceCB request_surface_cb,
+                    media::VideoDecoderChangedCB decoder_changed_cb,
+                    media::PipelineStatusCallback init_cb));
 
-    MOCK_METHOD1(Flush, void(base::OnceClosure flush_cb));
-    MOCK_METHOD1(StartPlayingFrom, void(base::TimeDelta time));
-    MOCK_METHOD1(SetPlaybackRate, void(double playback_rate));
-    MOCK_METHOD1(SetVolume, void(float volume));
-    MOCK_METHOD1(SetMuted, void(bool muted));
-    MOCK_METHOD0(GetMediaTime, base::TimeDelta());
-    MOCK_METHOD2(SetSurfaceId, void(int surface_id, const gfx::Rect& rect));
+  MOCK_METHOD1(Flush, void(base::OnceClosure flush_cb));
+  MOCK_METHOD1(StartPlayingFrom, void(base::TimeDelta time));
+  MOCK_METHOD1(SetPlaybackRate, void(double playback_rate));
+  MOCK_METHOD1(SetVolume, void(float volume));
+  MOCK_METHOD1(SetMuted, void(bool muted));
+  MOCK_METHOD0(GetMediaTime, base::TimeDelta());
+  MOCK_METHOD2(SetSurfaceId, void(int surface_id, const gfx::Rect& rect));
 };
 
 class MockRendererClient : public media::RendererClient {
-public:
-    MockRendererClient() = default;
-    virtual ~MockRendererClient() = default;
+ public:
+  MockRendererClient() = default;
+  virtual ~MockRendererClient() = default;
 
-    MOCK_METHOD1(OnError, void(media::PipelineStatus status));
-    MOCK_METHOD1(OnFallback, void(media::PipelineStatus status));
-    MOCK_METHOD0(OnEnded, void());
-    MOCK_METHOD1(OnStatisticsUpdate, void(const media::PipelineStatistics& stats));
-    MOCK_METHOD2(OnBufferingStateChange, void(media::BufferingState state, media::BufferingStateChangeReason reason));
-    MOCK_METHOD1(OnWaiting, void(media::WaitingReason reason));
-    MOCK_METHOD1(OnAudioConfigChange, void(const media::AudioDecoderConfig& config));
-    MOCK_METHOD1(OnVideoConfigChange, void(const media::VideoDecoderConfig& config));
-    MOCK_METHOD1(OnVideoNaturalSizeChange, void(const gfx::Size& size));
-    MOCK_METHOD1(OnVideoOpacityChange, void(bool opaque));
-    MOCK_METHOD0(IsVideoStreamAvailable, bool());
-    MOCK_METHOD1(OnVideoFrameRateChange, void(std::optional<int> fps));
+  MOCK_METHOD1(OnError, void(media::PipelineStatus status));
+  MOCK_METHOD1(OnFallback, void(media::PipelineStatus status));
+  MOCK_METHOD0(OnEnded, void());
+  MOCK_METHOD1(OnStatisticsUpdate,
+               void(const media::PipelineStatistics& stats));
+  MOCK_METHOD2(OnBufferingStateChange,
+               void(media::BufferingState state,
+                    media::BufferingStateChangeReason reason));
+  MOCK_METHOD1(OnWaiting, void(media::WaitingReason reason));
+  MOCK_METHOD1(OnAudioConfigChange,
+               void(const media::AudioDecoderConfig& config));
+  MOCK_METHOD1(OnVideoConfigChange,
+               void(const media::VideoDecoderConfig& config));
+  MOCK_METHOD1(OnVideoNaturalSizeChange, void(const gfx::Size& size));
+  MOCK_METHOD1(OnVideoOpacityChange, void(bool opaque));
+  MOCK_METHOD0(IsVideoStreamAvailable, bool());
+  MOCK_METHOD1(OnVideoFrameRateChange, void(std::optional<int> fps));
 };
 
-class OHOSCustomMediaPlayerRendererClientTest
-    : public ::testing::Test {
-protected:
-    OHOSCustomMediaPlayerRendererClientTest() {
-        media_task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
-        compositor_task_runner_ = task_environment_.GetMainThreadTaskRunner();
-        mock_video_renderer_sink_ = std::make_unique<media::MockVideoRendererSink>();
-        mock_mojo_renderer_ = std::make_unique<MockMojoRenderer>(base::SequencedTaskRunner::GetCurrentDefault(),
-            mock_video_renderer_sink_.get());
-        mock_native_texture_wrapper_ = std::make_unique<MockNativeTextureWrapper>();
-    }
+class OHOSCustomMediaPlayerRendererClientTest : public ::testing::Test {
+ protected:
+  OHOSCustomMediaPlayerRendererClientTest() {
+    media_task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
+    compositor_task_runner_ = task_environment_.GetMainThreadTaskRunner();
+    mock_video_renderer_sink_ =
+        std::make_unique<media::MockVideoRendererSink>();
+    mock_mojo_renderer_ = std::make_unique<MockMojoRenderer>(
+        base::SequencedTaskRunner::GetCurrentDefault(),
+        mock_video_renderer_sink_.get());
+    mock_native_texture_wrapper_ = std::make_unique<MockNativeTextureWrapper>();
+  }
 
-    ~OHOSCustomMediaPlayerRendererClientTest() override = default;
+  ~OHOSCustomMediaPlayerRendererClientTest() override = default;
 
-    void SetUp() override {
+  void SetUp() override {
+    renderer_client_ = std::make_unique<MockRendererClient>();
 
-        renderer_client_ = std::make_unique<MockRendererClient>();
+    mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension>
+        client_extension_remote;
+    auto client_extension_receiver =
+        client_extension_remote.InitWithNewPipeAndPassReceiver();
 
-        mojo::PendingRemote<media::mojom::CustomMediaPlayerRendererClientExtension> client_extension_remote;
-        auto client_extension_receiver = client_extension_remote.InitWithNewPipeAndPassReceiver();
+    client_ = std::make_unique<OHOSCustomMediaPlayerRendererClient>(
+        std::move(client_extension_receiver), media_task_runner_,
+        compositor_task_runner_, std::move(mock_mojo_renderer_),
+        media::ScopedNativeTextureWrapper(mock_native_texture_wrapper_.get()),
+        mock_video_renderer_sink_.get());
 
-        client_ = std::make_unique<OHOSCustomMediaPlayerRendererClient>(
-            std::move(client_extension_receiver),
-            media_task_runner_, compositor_task_runner_,
-            std::move(mock_mojo_renderer_),
-            media::ScopedNativeTextureWrapper(mock_native_texture_wrapper_.get()),
-            mock_video_renderer_sink_.get()
-        );
+    media_resource_ = std::make_unique<MockNativeMediaResource>();
+    // Create media resource and set it as a raw pointer (will be cleaned up in
+    // TearDown)
+    client_->media_resource_ = media_resource_.get();
+  }
 
-        media_resource_ = std::make_unique<MockNativeMediaResource>();
-            // Create media resource and set it as a raw pointer (will be cleaned up in TearDown)
-        client_->media_resource_ = media_resource_.get();
-    }
+  void TearDown() override {
+    media_resource_.reset();
+    client_.reset();
+  }
 
-    void TearDown() override {
-        media_resource_.reset();
-        client_.reset();
-    }
+  base::test::SingleThreadTaskEnvironment task_environment_;
 
-    base::test::SingleThreadTaskEnvironment task_environment_;
+  scoped_refptr<base::SequencedTaskRunner> media_task_runner_;
+  scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner_;
 
-    scoped_refptr<base::SequencedTaskRunner> media_task_runner_;
-    scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner_;
+  std::unique_ptr<MockRendererClient> renderer_client_;
+  std::unique_ptr<OHOSCustomMediaPlayerRendererClient> client_;
 
-    std::unique_ptr<MockRendererClient> renderer_client_;
-    std::unique_ptr<OHOSCustomMediaPlayerRendererClient> client_;
-
-    std::unique_ptr<MockMojoRenderer> mock_mojo_renderer_;
-    std::unique_ptr<MockNativeTextureWrapper> mock_native_texture_wrapper_;
-    std::unique_ptr<media::MockVideoRendererSink> mock_video_renderer_sink_;
-    std::unique_ptr<MockNativeMediaResource> media_resource_;
+  std::unique_ptr<MockMojoRenderer> mock_mojo_renderer_;
+  std::unique_ptr<MockNativeTextureWrapper> mock_native_texture_wrapper_;
+  std::unique_ptr<media::MockVideoRendererSink> mock_video_renderer_sink_;
+  std::unique_ptr<MockNativeMediaResource> media_resource_;
 };
 
 // Test constructor
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, Constructor) {
-    EXPECT_TRUE(client_ != nullptr);
-    EXPECT_EQ(client_->GetRendererType(), media::RendererType::kOHOSCustomMediaPlayer);
+  EXPECT_TRUE(client_ != nullptr);
+  EXPECT_EQ(client_->GetRendererType(),
+            media::RendererType::kOHOSCustomMediaPlayer);
 }
 
 // Test destructor
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, Destructor) {
-    EXPECT_CALL(*mock_native_texture_wrapper_, Destroy()).Times(1);
-    client_.reset();
+  EXPECT_CALL(*mock_native_texture_wrapper_, Destroy()).Times(1);
+  client_.reset();
 }
 
 // Test successful initialization
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, Initialize_Success) {
-    // media::MediaResource media_resource(GURL("http://test.com"), 0, 0);
-    media::PipelineStatusCallback init_cb =
-        base::BindOnce([](media::PipelineStatus status) {});
+  // media::MediaResource media_resource(GURL("http://test.com"), 0, 0);
+  media::PipelineStatusCallback init_cb =
+      base::BindOnce([](media::PipelineStatus status) {});
 
-    EXPECT_CALL(*mock_native_texture_wrapper_, Initialize(
-        testing::_, testing::_, testing::_, testing::_, testing::_))
-        .WillOnce(testing::Return());
+  EXPECT_CALL(
+      *mock_native_texture_wrapper_,
+      Initialize(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return());
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  task_environment_.RunUntilIdle();
 }
 
 // Test initialization failure
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, Initialize_Failure) {
-    // media::MediaResource media_resource(GURL("http://test.com"), 0, 0);
-    media::PipelineStatusCallback init_cb =
-        base::BindOnce([](media::PipelineStatus status) {});
+  // media::MediaResource media_resource(GURL("http://test.com"), 0, 0);
+  media::PipelineStatusCallback init_cb =
+      base::BindOnce([](media::PipelineStatus status) {});
 
-    EXPECT_CALL(*mock_native_texture_wrapper_, Initialize(
-        testing::_, testing::_, testing::_, testing::_, testing::_))
-        .WillOnce(testing::Return());
+  EXPECT_CALL(
+      *mock_native_texture_wrapper_,
+      Initialize(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return());
 
-    media::PipelineStatusCallback cb =
-        base::BindOnce([](media::PipelineStatus status) {
-            EXPECT_EQ(status, media::PipelineStatus::Codes::PIPELINE_ERROR_INITIALIZATION_FAILED);
-        });
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb), std::move(cb));
+  media::PipelineStatusCallback cb =
+      base::BindOnce([](media::PipelineStatus status) {
+        EXPECT_EQ(
+            status,
+            media::PipelineStatus::Codes::PIPELINE_ERROR_INITIALIZATION_FAILED);
+      });
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb), std::move(cb));
 
-    task_environment_.RunUntilIdle();
+  task_environment_.RunUntilIdle();
 }
 
 // Test renderer initialization failure
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, Initialize_RendererFailure) {
-    EXPECT_CALL(*mock_native_texture_wrapper_, Initialize(
-        testing::_, testing::_, testing::_, testing::_, testing::_))
-        .WillOnce(testing::Return());
+  EXPECT_CALL(
+      *mock_native_texture_wrapper_,
+      Initialize(testing::_, testing::_, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return());
 
-    media::PipelineStatusCallback cb =
-        base::BindOnce([](media::PipelineStatus status) {
-            EXPECT_EQ(status, media::PipelineStatus::Codes::PIPELINE_ERROR_INITIALIZATION_FAILED_CUSTOM_PLAYER);
-        });
+  media::PipelineStatusCallback cb =
+      base::BindOnce([](media::PipelineStatus status) {
+        EXPECT_EQ(status,
+                  media::PipelineStatus::Codes::
+                      PIPELINE_ERROR_INITIALIZATION_FAILED_CUSTOM_PLAYER);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-        std::move(request_surface_cb), std::move(decoder_changed_cb), 
-        std::move(cb));
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb), std::move(cb));
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnVideoSizeChange
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnVideoSizeChange) {
-    gfx::Size size(1280, 720);
-    EXPECT_CALL(*renderer_client_, OnVideoNaturalSizeChange(size)).Times(1);
+  gfx::Size size(1280, 720);
+  EXPECT_CALL(*renderer_client_, OnVideoNaturalSizeChange(size)).Times(1);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->OnVideoSizeChange(size);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->OnVideoSizeChange(size);
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnDurationChange
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnDurationChange_WithMediaResource) {
-    base::TimeDelta duration = base::Seconds(60);
-    EXPECT_CALL(*(media_resource_.get()), ForwardDurationChangeToDemuxerHost(duration))
-        .Times(1);
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       OnDurationChange_WithMediaResource) {
+  base::TimeDelta duration = base::Seconds(60);
+  EXPECT_CALL(*(media_resource_.get()),
+              ForwardDurationChangeToDemuxerHost(duration))
+      .Times(1);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->OnDurationChange(duration);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->OnDurationChange(duration);
+  task_environment_.RunUntilIdle();
 }
 
 // Test UpdatePlaybackStatus
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdatePlaybackStatus_WithCallback) {
-    media::Renderer::UpdatePlaybackStatusCallback cb = base::BindRepeating([](uint32_t value) {
-      uint32_t expect_value = 1;
-      EXPECT_EQ(value, expect_value);
-    });
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdatePlaybackStatus_WithCallback) {
+  media::Renderer::UpdatePlaybackStatusCallback cb =
+      base::BindRepeating([](uint32_t value) {
+        uint32_t expect_value = 1;
+        EXPECT_EQ(value, expect_value);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
 
-    client_->SetUpdatePlaybackStatusCallback(std::move(cb));
-    client_->UpdatePlaybackStatus(1);
-    task_environment_.RunUntilIdle();
+  client_->SetUpdatePlaybackStatusCallback(std::move(cb));
+  client_->UpdatePlaybackStatus(1);
+  task_environment_.RunUntilIdle();
 }
 
 // Test UpdateVolume
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdateVolume_WithCallback) {
-    media::Renderer::UpdateVolumeCallback cb = base::BindRepeating([](double volume) {
+  media::Renderer::UpdateVolumeCallback cb =
+      base::BindRepeating([](double volume) {
         double expect_value = 0.5;
-        EXPECT_DOUBLE_EQ(volume, expect_value); 
-    });
+        EXPECT_DOUBLE_EQ(volume, expect_value);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdateVolumeCallback(std::move(cb));
-    client_->UpdateVolume(0.5);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdateVolumeCallback(std::move(cb));
+  client_->UpdateVolume(0.5);
+  task_environment_.RunUntilIdle();
 }
 
 // Test UpdateMuted
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdateMuted_WithCallback) {
-    media::Renderer::UpdateMutedCallback cb = base::BindRepeating([](bool muted) {
-        bool expect_value = true;
-        EXPECT_EQ(muted, expect_value);
-    });
+  media::Renderer::UpdateMutedCallback cb = base::BindRepeating([](bool muted) {
+    bool expect_value = true;
+    EXPECT_EQ(muted, expect_value);
+  });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdateMutedCallback(std::move(cb));
-    client_->UpdateMuted(true);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdateMutedCallback(std::move(cb));
+  client_->UpdateMuted(true);
+  task_environment_.RunUntilIdle();
 }
 
-
 // Test UpdatePlaybackRate
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdatePlaybackRate_WithCallback) {
-    media::Renderer::UpdatePlaybackRateCallback cb = base::BindRepeating([](double playback_rate) {
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdatePlaybackRate_WithCallback) {
+  media::Renderer::UpdatePlaybackRateCallback cb =
+      base::BindRepeating([](double playback_rate) {
         double expect_value = 1.5;
         EXPECT_DOUBLE_EQ(playback_rate, expect_value);
-    });
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdatePlaybackRateCallback(std::move(cb));
-    client_->UpdatePlaybackRate(1.5);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdatePlaybackRateCallback(std::move(cb));
+  client_->UpdatePlaybackRate(1.5);
+  task_environment_.RunUntilIdle();
 }
 
 // Test UpdateBufferedEndTime_WithMediaResource
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdateBufferedEndTime_WithMediaResource) {
-    base::TimeDelta buffered_time = base::Seconds(30);
-    EXPECT_CALL(*(media_resource_.get()), ForwardBufferedEndTimeChangeToDemuxerHost(buffered_time))
-        .Times(1);
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdateBufferedEndTime_WithMediaResource) {
+  base::TimeDelta buffered_time = base::Seconds(30);
+  EXPECT_CALL(*(media_resource_.get()),
+              ForwardBufferedEndTimeChangeToDemuxerHost(buffered_time))
+      .Times(1);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->UpdateBufferedEndTime(30.0);
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->UpdateBufferedEndTime(30.0);
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnSurfaceCreated_WithCallback
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnSurfaceCreated_WithCallback) {
-    media::Renderer::SurfaceCreatedCallback cb = base::BindRepeating(
-        [](int surface_id, media::Renderer::OnGetRectCallback get_rect_cb) {
-            EXPECT_EQ(surface_id, 1);
-    });
+  media::Renderer::SurfaceCreatedCallback cb = base::BindRepeating(
+      [](int surface_id, media::Renderer::OnGetRectCallback get_rect_cb) {
+        EXPECT_EQ(surface_id, 1);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetSurfaceCreatedCallback(std::move(cb));
-    client_->surface_id_ = 1;
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetSurfaceCreatedCallback(std::move(cb));
+  client_->surface_id_ = 1;
 
-    client_->OnSurfaceCreated(1);
-    task_environment_.RunUntilIdle();
+  client_->OnSurfaceCreated(1);
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnSurfaceCreated_WithoutCallback
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnSurfaceCreated_WithoutCallback) {
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->surface_id_ = 1;
-    EXPECT_NO_FATAL_FAILURE(client_->OnSurfaceCreated(1));
-    task_environment_.RunUntilIdle();
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       OnSurfaceCreated_WithoutCallback) {
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->surface_id_ = 1;
+  EXPECT_NO_FATAL_FAILURE(client_->OnSurfaceCreated(1));
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnSurfaceDestroyed
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnSurfaceDestroyed) {
-    EXPECT_NO_FATAL_FAILURE(client_->OnSurfaceDestroyed());
+  EXPECT_NO_FATAL_FAILURE(client_->OnSurfaceDestroyed());
 }
 
 // Test OnFrameAvailable
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnFrameAvailable) {
-    auto mock_frame = media::VideoFrame::CreateFrame(
-        media::PIXEL_FORMAT_I420,  // media::VideoPixelFormat
-        gfx::Size(640, 480),       // coded_size
-        gfx::Rect(640, 480),       // visible_rect
-        gfx::Size(640, 480),       // natural_size
-        base::TimeDelta()          // timestamp
-    );
+  auto mock_frame = media::VideoFrame::CreateFrame(
+      media::PIXEL_FORMAT_I420,  // media::VideoPixelFormat
+      gfx::Size(640, 480),       // coded_size
+      gfx::Rect(640, 480),       // visible_rect
+      gfx::Size(640, 480),       // natural_size
+      base::TimeDelta()          // timestamp
+  );
 
-    EXPECT_CALL(*mock_native_texture_wrapper_, GetCurrentFrame())
-        .WillOnce(Return(mock_frame));
+  EXPECT_CALL(*mock_native_texture_wrapper_, GetCurrentFrame())
+      .WillOnce(Return(mock_frame));
 
-    EXPECT_CALL(*mock_video_renderer_sink_, PaintSingleFrame(_, _))
-        .WillOnce(Invoke([mock_frame](scoped_refptr<media::VideoFrame> frame, bool repainting) {
-            EXPECT_NE(frame.get(), mock_frame.get());
-            EXPECT_EQ(frame->natural_size(), mock_frame->natural_size());
-        }));
+  EXPECT_CALL(*mock_video_renderer_sink_, PaintSingleFrame(_, _))
+      .WillOnce(Invoke([mock_frame](scoped_refptr<media::VideoFrame> frame,
+                                    bool repainting) {
+        EXPECT_NE(frame.get(), mock_frame.get());
+        EXPECT_EQ(frame->natural_size(), mock_frame->natural_size());
+      }));
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->OnFrameAvailable();
-    task_environment_.RunUntilIdle();
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->OnFrameAvailable();
+  task_environment_.RunUntilIdle();
 }
 
 // Test OnGetVideoRect_FirstCall
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnGetVideoRect_FirstCall) {
-    gfx::Rect rect(100, 100);
+  gfx::Rect rect(100, 100);
 
-    EXPECT_CALL(*mock_native_texture_wrapper_, UpdateTextureSize(rect.size())).Times(1);
+  EXPECT_CALL(*mock_native_texture_wrapper_, UpdateTextureSize(rect.size()))
+      .Times(1);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->surface_id_ = 1;
-    client_->has_sent_surface_id_to_remote_ = true;
-    client_->OnGetVideoRect(rect);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->surface_id_ = 1;
+  client_->has_sent_surface_id_to_remote_ = true;
+  client_->OnGetVideoRect(rect);
 }
 
 // Test OnGetVideoRect_SecondCall
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, OnGetVideoRect_SecondCall) {
-    gfx::Rect rect(200, 200);
+  gfx::Rect rect(200, 200);
 
-    EXPECT_CALL(*mock_native_texture_wrapper_, UpdateTextureSize(rect.size())).Times(1);
+  EXPECT_CALL(*mock_native_texture_wrapper_, UpdateTextureSize(rect.size()))
+      .Times(1);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->surface_id_ = 1;
-    client_->has_sent_surface_id_to_remote_ = false;
-    client_->OnGetVideoRect(rect);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->surface_id_ = 1;
+  client_->has_sent_surface_id_to_remote_ = false;
+  client_->OnGetVideoRect(rect);
 }
 
 // Test SetUpdatePlaybackStatusCallback
-TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetUpdatePlaybackStatusCallback) {
-    media::Renderer::UpdatePlaybackStatusCallback cb = base::BindRepeating([](uint32_t value) {
-      uint32_t expect_value = 1;
-      EXPECT_EQ(value, expect_value);
-    });
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       SetUpdatePlaybackStatusCallback) {
+  media::Renderer::UpdatePlaybackStatusCallback cb =
+      base::BindRepeating([](uint32_t value) {
+        uint32_t expect_value = 1;
+        EXPECT_EQ(value, expect_value);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdatePlaybackStatusCallback(std::move(cb));
-    bool is_callback_empty = client_->update_playback_status_cb_.is_null();
-    EXPECT_FALSE(is_callback_empty);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdatePlaybackStatusCallback(std::move(cb));
+  bool is_callback_empty = client_->update_playback_status_cb_.is_null();
+  EXPECT_FALSE(is_callback_empty);
 }
 
 // Test SetUpdateVolumeCallback
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetUpdateVolumeCallback) {
-    media::Renderer::UpdateVolumeCallback cb = base::BindRepeating([](double volume) {
+  media::Renderer::UpdateVolumeCallback cb =
+      base::BindRepeating([](double volume) {
         double expect_value = 0.5;
-        EXPECT_DOUBLE_EQ(volume, expect_value); 
-    });
+        EXPECT_DOUBLE_EQ(volume, expect_value);
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdateVolumeCallback(std::move(cb));
-    bool is_callback_empty = client_->update_volume_cb_.is_null();
-    EXPECT_FALSE(is_callback_empty);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdateVolumeCallback(std::move(cb));
+  bool is_callback_empty = client_->update_volume_cb_.is_null();
+  EXPECT_FALSE(is_callback_empty);
 }
 
 // Test SetUpdateMutedCallback
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetUpdateMutedCallback) {
-    media::Renderer::UpdateMutedCallback cb = base::BindRepeating([](bool muted) {
-        bool expect_value = true;
-        EXPECT_EQ(muted, expect_value);
-    });
+  media::Renderer::UpdateMutedCallback cb = base::BindRepeating([](bool muted) {
+    bool expect_value = true;
+    EXPECT_EQ(muted, expect_value);
+  });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdateMutedCallback(std::move(cb));
-    bool is_callback_empty = client_->update_muted_cb_.is_null();
-    EXPECT_FALSE(is_callback_empty);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdateMutedCallback(std::move(cb));
+  bool is_callback_empty = client_->update_muted_cb_.is_null();
+  EXPECT_FALSE(is_callback_empty);
 }
 
 // Test SetUpdatePlaybackRateCallback
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetUpdatePlaybackRateCallback) {
-    media::Renderer::UpdatePlaybackRateCallback cb = base::BindRepeating([](double playback_rate) {
+  media::Renderer::UpdatePlaybackRateCallback cb =
+      base::BindRepeating([](double playback_rate) {
         double expect_value = 1.5;
         EXPECT_DOUBLE_EQ(playback_rate, expect_value);
-    });
+      });
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->SetUpdatePlaybackRateCallback(std::move(cb));
-    bool is_callback_empty = client_->update_playback_rate_cb_.is_null();
-    EXPECT_FALSE(is_callback_empty);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->SetUpdatePlaybackRateCallback(std::move(cb));
+  bool is_callback_empty = client_->update_playback_rate_cb_.is_null();
+  EXPECT_FALSE(is_callback_empty);
 }
 
 // Test renderer extension binding functionality
 TEST_F(OHOSCustomMediaPlayerRendererClientTest, RendererExtension_Binding) {
-    // Test SetSurfaceId with rect
-    gfx::Rect test_rect(100, 200, 300, 400);
+  // Test SetSurfaceId with rect
+  gfx::Rect test_rect(100, 200, 300, 400);
 
-    media::RequestSurfaceCB request_surface_cb;
-    media::VideoDecoderChangedCB decoder_changed_cb;
-    client_->Initialize(media_resource_.get(), renderer_client_.get(), 
-                        std::move(request_surface_cb), std::move(decoder_changed_cb),
-                        base::BindOnce([](media::PipelineStatus status) {}));
-    client_->surface_id_ = 1;
-    client_->has_sent_surface_id_to_remote_ = false;
-    client_->OnGetVideoRect(test_rect);
-    EXPECT_TRUE(client_->has_sent_surface_id_to_remote_);
-    // Verify that subsequent calls don't re-send surface id
-    client_->OnGetVideoRect(test_rect);
-    EXPECT_TRUE(client_->has_sent_surface_id_to_remote_);
+  media::RequestSurfaceCB request_surface_cb;
+  media::VideoDecoderChangedCB decoder_changed_cb;
+  client_->Initialize(media_resource_.get(), renderer_client_.get(),
+                      std::move(request_surface_cb),
+                      std::move(decoder_changed_cb),
+                      base::BindOnce([](media::PipelineStatus status) {}));
+  client_->surface_id_ = 1;
+  client_->has_sent_surface_id_to_remote_ = false;
+  client_->OnGetVideoRect(test_rect);
+  EXPECT_TRUE(client_->has_sent_surface_id_to_remote_);
+  // Verify that subsequent calls don't re-send surface id
+  client_->OnGetVideoRect(test_rect);
+  EXPECT_TRUE(client_->has_sent_surface_id_to_remote_);
 }
 
+// ---------- OnDurationChange with null media_resource_ ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       OnDurationChange_NullMediaResource) {
+  base::TimeDelta duration = base::Seconds(60);
+  // Set media_resource_ to nullptr to exercise the early return branch.
+  client_->media_resource_ = nullptr;
+  EXPECT_CALL(*(media_resource_.get()), ForwardDurationChangeToDemuxerHost(_))
+      .Times(0);
+  EXPECT_NO_FATAL_FAILURE(client_->OnDurationChange(duration));
+}
+
+// ---------- UpdatePlaybackStatus with null callback ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdatePlaybackStatus_NullCallback) {
+  // Don't set the callback; verify no crash and no-op.
+  EXPECT_TRUE(client_->update_playback_status_cb_.is_null());
+  EXPECT_NO_FATAL_FAILURE(client_->UpdatePlaybackStatus(1));
+}
+
+// ---------- UpdateVolume with null callback ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdateVolume_NullCallback) {
+  EXPECT_TRUE(client_->update_volume_cb_.is_null());
+  EXPECT_NO_FATAL_FAILURE(client_->UpdateVolume(0.5));
+}
+
+// ---------- UpdateMuted with null callback ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest, UpdateMuted_NullCallback) {
+  EXPECT_TRUE(client_->update_muted_cb_.is_null());
+  EXPECT_NO_FATAL_FAILURE(client_->UpdateMuted(true));
+}
+
+// ---------- UpdatePlaybackRate with null callback ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdatePlaybackRate_NullCallback) {
+  EXPECT_TRUE(client_->update_playback_rate_cb_.is_null());
+  EXPECT_NO_FATAL_FAILURE(client_->UpdatePlaybackRate(1.5));
+}
+
+// ---------- UpdateBufferedEndTime with null media_resource_ ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       UpdateBufferedEndTime_NullMediaResource) {
+  client_->media_resource_ = nullptr;
+  EXPECT_CALL(*(media_resource_.get()),
+              ForwardBufferedEndTimeChangeToDemuxerHost(_))
+      .Times(0);
+  EXPECT_NO_FATAL_FAILURE(client_->UpdateBufferedEndTime(30.0));
+}
+
+// ---------- OnRemoteRendererInitialized with PIPELINE_OK (statistics)
+// ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       OnRemoteRendererInitialized_PipelineOK) {
+  // Set up init_cb_ so OnRemoteRendererInitialized has something to run.
+  media::PipelineStatus received_status = media::PIPELINE_ERROR_ABORT;
+  client_->init_cb_ =
+      base::BindOnce([](media::PipelineStatus* out,
+                        media::PipelineStatus status) { *out = status; },
+                     &received_status);
+  // OnRemoteRendererInitialized calls client_->OnStatisticsUpdate(stats) on
+  // PIPELINE_OK, so set client_ to the mock renderer client.
+  client_->client_ = renderer_client_.get();
+
+  // OnStatisticsUpdate should be called with video+audio pipeline info.
+  EXPECT_CALL(*renderer_client_, OnStatisticsUpdate(_))
+      .WillOnce(testing::Invoke([](const media::PipelineStatistics& stats) {
+        EXPECT_TRUE(stats.video_pipeline_info.is_platform_decoder);
+        EXPECT_FALSE(stats.video_pipeline_info.has_decrypting_demuxer_stream);
+        EXPECT_EQ(stats.video_pipeline_info.decoder_type,
+                  media::VideoDecoderType::kMediaCodec);
+        EXPECT_TRUE(stats.audio_pipeline_info.is_platform_decoder);
+        EXPECT_FALSE(stats.audio_pipeline_info.has_decrypting_demuxer_stream);
+        EXPECT_EQ(stats.audio_pipeline_info.decoder_type,
+                  media::AudioDecoderType::kMediaCodec);
+      }));
+
+  client_->OnRemoteRendererInitialized(media::PIPELINE_OK);
+  EXPECT_EQ(received_status, media::PIPELINE_OK);
+}
+
+// ---------- OnRemoteRendererInitialized with error status (fallback)
+// ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest,
+       OnRemoteRendererInitialized_ErrorStatus) {
+  media::PipelineStatus received_status = media::PIPELINE_OK;
+  client_->init_cb_ =
+      base::BindOnce([](media::PipelineStatus* out,
+                        media::PipelineStatus status) { *out = status; },
+                     &received_status);
+  client_->client_ = renderer_client_.get();
+
+  // Statistics should NOT be reported on error.
+  EXPECT_CALL(*renderer_client_, OnStatisticsUpdate(_)).Times(0);
+
+  client_->OnRemoteRendererInitialized(
+      media::PipelineStatus(media::PipelineStatus::Codes::PIPELINE_ERROR_READ));
+  EXPECT_EQ(received_status,
+            media::PipelineStatus(
+                media::PipelineStatus::Codes::
+                    PIPELINE_ERROR_INITIALIZATION_FAILED_CUSTOM_PLAYER));
+}
+
+// ---------- SetSurfaceCreatedCallback direct test ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetSurfaceCreatedCallback) {
+  media::Renderer::SurfaceCreatedCallback cb = base::BindRepeating(
+      [](int surface_id, media::Renderer::OnGetRectCallback) {});
+  client_->SetSurfaceCreatedCallback(std::move(cb));
+  EXPECT_FALSE(client_->surface_created_cb_.is_null());
+}
+
+// ---------- SetUpdatePlaybackStatusCallback / SetUpdateVolumeCallback etc.
+// -------------- Verify the setters store the callback (already covered by
+// existing tests, this is a combined setter verification) ----------
+TEST_F(OHOSCustomMediaPlayerRendererClientTest, SetCallbacks_AllSetters) {
+  media::Renderer::UpdatePlaybackStatusCallback playback_cb =
+      base::BindRepeating([](uint32_t) {});
+  media::Renderer::UpdateVolumeCallback volume_cb =
+      base::BindRepeating([](double) {});
+  media::Renderer::UpdateMutedCallback muted_cb =
+      base::BindRepeating([](bool) {});
+  media::Renderer::UpdatePlaybackRateCallback rate_cb =
+      base::BindRepeating([](double) {});
+  client_->SetUpdatePlaybackStatusCallback(std::move(playback_cb));
+  client_->SetUpdateVolumeCallback(std::move(volume_cb));
+  client_->SetUpdateMutedCallback(std::move(muted_cb));
+  client_->SetUpdatePlaybackRateCallback(std::move(rate_cb));
+  EXPECT_FALSE(client_->update_playback_status_cb_.is_null());
+  EXPECT_FALSE(client_->update_volume_cb_.is_null());
+  EXPECT_FALSE(client_->update_muted_cb_.is_null());
+  EXPECT_FALSE(client_->update_playback_rate_cb_.is_null());
+}
 }  // namespace content
