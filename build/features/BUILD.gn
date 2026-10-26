@@ -386,6 +386,7 @@ if (!enable_arkweb) {
   arkweb_v8_oom_monitor = false
   arkweb_web_app = false
  arkweb_warmup_spare_render_process = false
+  arkweb_ext_actor = false
 }
 
 buildflag_header("features") {
@@ -700,6 +701,7 @@ buildflag_header("features") {
       "ARKWEB_EXT_EXTENSIONS_HEADER_CLIENT=false",
       "ARKWEB_WEB_APP=false",
       "ARKWEB_EXT_SAFEBROWSING=false",
+      "ARKWEB_EXT_ACTOR=$arkweb_ext_actor"
     ]
   }
 
