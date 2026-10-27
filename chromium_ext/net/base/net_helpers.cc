@@ -61,8 +61,8 @@ int UpdateCacheLoadFlags(int load_flags, int cache_control_flags) {
 bool NetHelpers::allow_content_access = false;
 bool NetHelpers::allow_file_access = false;
 bool NetHelpers::is_network_blocked = false;
-bool NetHelpers::accept_cookies = true;
-bool NetHelpers::third_party_cookies = false;
+std::atomic<bool> NetHelpers::accept_cookies = true;
+std::atomic<bool> NetHelpers::third_party_cookies = false;
 int NetHelpers::cache_mode = 0;
 int NetHelpers::connection_timeout = 30;
 #if BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)

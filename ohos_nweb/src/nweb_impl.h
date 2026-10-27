@@ -1611,6 +1611,7 @@ void SetVisibility(bool isVisible) override;
   std::atomic<bool> is_visible_ = false;
 
 #if BUILDFLAG(ARKWEB_COOKIE)
+  static base::Lock save_initargs_lock_;
   static std::shared_ptr<NWebEngineInitArgs> save_initargs_;
   static std::atomic<bool> should_lazy_init_web_engine_;
 #endif
