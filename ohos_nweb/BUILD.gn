@@ -313,7 +313,7 @@ static_library("cef_nweb") {
     }
     if (defined(arkweb_nweb_ex) && arkweb_nweb_ex) {
       deps += [
-        "//ohos_nweb_ex:dispatcher",
+        "//ohos_nweb_ex:delegate",
       ]
     }
     
@@ -616,12 +616,9 @@ static_library("nweb_sources") {
   }
   #endif
 
-  if (!defined(ohos_nweb_ex) || !ohos_nweb_ex) {
-    sources += [ "src/download/web_downloader.cc" ]
-  }
-
   if (arkweb_download) {
     sources += [
+      "src/download/web_downloader.cc",
       "src/nweb_file_writer_cleaner.cc",
       "src/nweb_file_writer_cleaner.h",
     ]
