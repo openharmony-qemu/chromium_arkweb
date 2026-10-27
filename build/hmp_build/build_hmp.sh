@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 set -x
-
+ 
 echo "building hmp..."
 
 cd $HW_HARMONY_ENGINE_ROOT/signature_nweb
