@@ -17,7 +17,6 @@
 #if BUILDFLAG(ARKWEB_TEST)
 
 #include <cstring>
-
 #include <memory>
 #include <ranges>
 
@@ -2262,6 +2261,635 @@ TEST_F(ArktsTtsAdapterTest, NapiSpeakListener_DefineProperties_002_Failure) {
   EXPECT_EQ(status, napi_invalid_arg);
 }
 
+// JS_OnComplete: argc != 2 branch (line 179)
+TEST_F(ArktsTtsAdapterTest, JS_OnComplete_005_ArgCountNotTwo) {
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_cb_info(env, testing::_, testing::_, testing::_,
+                               testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(1),
+                               testing::Return(napi_ok)));
+
+  napi_value result = NapiSpeakListener::JS_OnComplete(env, nullptr);
+  EXPECT_EQ(result, nullptr);
+}
+
+// CreateEngine: napi_wrap failure branch (line 580-583)
+TEST_F(ArktsTtsAdapterTest, CreateEngine_005_NapiWrapFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  int nweb = TEST_NWEB;
+  napi_value ttsModule = reinterpret_cast<napi_value>(0x2);
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_load_module_with_info(env, testing::_, testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<3>(ttsModule),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_get_named_property(env, ttsModule, "createEngine", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_function(env, testing::_, testing::_, testing::_,
+                                   testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_object(env, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_wrap(env, testing::_, testing::_, testing::_, testing::_,
+                        testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.CreateEngine(env, nweb);
+  EXPECT_EQ(result, nullptr);
+
+  adapter.Exit(nweb);
+  adapter.EraseNweb(nweb);
+}
+
+// SetListener: DefineProperties failure branch (line 669-672)
+TEST_F(ArktsTtsAdapterTest, SetListener_005_DefinePropertiesFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value ttsEngine = reinterpret_cast<napi_value>(0x2);
+  int nweb = TEST_NWEB;
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_get_named_property(env, ttsEngine, "setListener", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_object(env, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_wrap(env, testing::_, testing::_, testing::_, testing::_,
+                        testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_define_properties(env, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SetListener(env, ttsEngine, nweb);
+  EXPECT_EQ(result, nullptr);
+}
+
+// Speak: napi_get_named_property("speak") failure branch (line 792-795)
+TEST_F(ArktsTtsAdapterTest, Speak_006_GetNamedPropertySpeakFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value ttsEngine = reinterpret_cast<napi_value>(0x2);
+  int nweb = TEST_NWEB;
+  std::string text = "Hello";
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_named_property(env, ttsEngine, "speak", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.Speak(env, ttsEngine, nweb, text);
+  EXPECT_EQ(result, nullptr);
+
+  adapter.Exit(nweb);
+  adapter.EraseNweb(nweb);
+}
+
+// Stop: success path (line 858)
+TEST_F(ArktsTtsAdapterTest, Stop_004_Success) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value ttsEngine = reinterpret_cast<napi_value>(0x2);
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_named_property(env, ttsEngine, "stop", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_call_function(env, ttsEngine, testing::_, testing::_,
+                                 testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  napi_value result = adapter.Stop(env, ttsEngine);
+  EXPECT_EQ(result, nullptr);
+}
+
+// ListVoices: napi_set_named_property("requestId") failure (line 885-888)
+TEST_F(ArktsTtsAdapterTest, ListVoices_005_SetNamedPropertyRequestIdFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value ttsEngine = reinterpret_cast<napi_value>(0x2);
+  int nweb = TEST_NWEB;
+
+  adapter.SetNweb(nweb);
+  adapter.SetRef(nweb, reinterpret_cast<napi_ref>(0x3));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_named_property(env, ttsEngine, "listVoices", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_object(env, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_string_utf8(env, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, testing::_, "requestId", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.ListVoices(env, ttsEngine, nweb);
+  EXPECT_EQ(result, nullptr);
+
+  adapter.EraseNweb(nweb);
+}
+
+// ListVoices: napi_set_named_property("online") failure (line 892-895)
+TEST_F(ArktsTtsAdapterTest, ListVoices_006_SetNamedPropertyOnlineFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value ttsEngine = reinterpret_cast<napi_value>(0x2);
+  int nweb = TEST_NWEB;
+
+  adapter.SetNweb(nweb);
+  adapter.SetRef(nweb, reinterpret_cast<napi_ref>(0x3));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_named_property(env, ttsEngine, "listVoices", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_object(env, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_string_utf8(env, testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, testing::_, "requestId", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_int32(env, testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, testing::_, "online", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.ListVoices(env, ttsEngine, nweb);
+  EXPECT_EQ(result, nullptr);
+
+  adapter.EraseNweb(nweb);
+}
+
+// SpeakExtraParamsString: "audioType" set failure (line 713-716)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsString_002_AudioTypeFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  params.language = "zh-CN";
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_string_utf8(env, testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "languageContext",
+                                      testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "audioType", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsString(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsString: success path
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsString_003_Success) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  params.language = "zh-CN";
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_string_utf8(env, testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "languageContext",
+                                      testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "audioType", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  napi_value result = adapter.SpeakExtraParamsString(env, jsExtraParams);
+  EXPECT_EQ(result, jsExtraParams);
+}
+
+// SpeakExtraParamsNumber: "queueMode" set failure (line 731-734)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_002_QueueModeFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: "speed" set failure (line 738-741)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_003_SpeedFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: "volume" set failure (line 745-748)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_004_VolumeFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: "pitch" set failure (line 752-755)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_005_PitchFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "pitch", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: napi_create_int32 for soundChannel failure
+// (line 758-761)
+TEST_F(ArktsTtsAdapterTest,
+       SpeakExtraParamsNumber_006_SoundChannelCreateFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "pitch", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  // napi_create_int32 for soundChannel (value=3) fails
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 3, testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: "soundChannel" set failure (line 764-767)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_007_SoundChannelSetFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "pitch", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 3, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "soundChannel", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: "playType" set failure (line 771-774)
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_008_PlayTypeFailure) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 0, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "pitch", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 3, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "soundChannel", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions, napi_create_int32(env, 1, testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "playType", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, nullptr);
+}
+
+// SpeakExtraParamsNumber: success path
+TEST_F(ArktsTtsAdapterTest, SpeakExtraParamsNumber_009_Success) {
+  ArktsTtsAdapter& adapter = ArktsTtsAdapter::GetInstance();
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value jsExtraParams = reinterpret_cast<napi_value>(0x2);
+
+  TtsSpeakParameters params;
+  params.rate = 1.0;
+  params.pitch = 1.0;
+  params.volume = 1.0;
+  adapter.SetSpeakParameters(params);
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_int32(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_create_double(env, testing::_, testing::_))
+      .WillRepeatedly(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "queueMode", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "speed", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "volume", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_set_named_property(env, jsExtraParams, "pitch", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "soundChannel", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+  EXPECT_CALL(
+      *g_MockNapiFunctions,
+      napi_set_named_property(env, jsExtraParams, "playType", testing::_))
+      .WillOnce(testing::Return(napi_ok));
+
+  napi_value result = adapter.SpeakExtraParamsNumber(env, jsExtraParams);
+  EXPECT_EQ(result, jsExtraParams);
+}
+
+// ListVoicesCallback: napi_get_element failure → continue branch (line 963-966)
+TEST_F(ArktsTtsAdapterTest, ListVoicesCallback_005_GetElementFailure) {
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value argv[2];
+  argv[0] = reinterpret_cast<napi_value>(0x10);
+  argv[1] = reinterpret_cast<napi_value>(0x11);
+
+  ArktsTtsAdapter::GetInstance().ClearVoices();
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_cb_info(env, testing::_, testing::_, testing::_,
+                               testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(2),
+                               testing::SetArrayArgument<3>(argv, argv + 2),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_typeof(env, argv[0], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(napi_undefined),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_is_array(env, argv[1], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(true),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_array_length(env, argv[1], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(1),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_element(env, argv[1], 0, testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = ArktsTtsAdapter::ListVoicesCallback(env, nullptr);
+  EXPECT_EQ(result, nullptr);
+
+  auto voices = ArktsTtsAdapter::GetInstance().GetVoiceInfos();
+  EXPECT_TRUE(voices.empty());
+}
+
+// ListVoicesCallback: napi_get_named_property failure → continue branch
+// (line 968-977)
+TEST_F(ArktsTtsAdapterTest, ListVoicesCallback_006_GetNamedPropertyFailure) {
+  napi_env env = reinterpret_cast<napi_env>(0x1);
+  napi_value argv[2];
+  argv[0] = reinterpret_cast<napi_value>(0x10);
+  argv[1] = reinterpret_cast<napi_value>(0x11);
+  napi_value obj = reinterpret_cast<napi_value>(0x20);
+
+  ArktsTtsAdapter::GetInstance().ClearVoices();
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_cb_info(env, testing::_, testing::_, testing::_,
+                               testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(2),
+                               testing::SetArrayArgument<3>(argv, argv + 2),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_typeof(env, argv[0], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(napi_undefined),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions, napi_is_array(env, argv[1], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(true),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_array_length(env, argv[1], testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<2>(1),
+                               testing::Return(napi_ok)));
+
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_element(env, argv[1], 0, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<3>(obj),
+                               testing::Return(napi_ok)));
+
+  // "language" get_named_property fails → continue
+  EXPECT_CALL(*g_MockNapiFunctions,
+              napi_get_named_property(env, obj, "language", testing::_))
+      .WillOnce(testing::Return(napi_invalid_arg));
+
+  napi_value result = ArktsTtsAdapter::ListVoicesCallback(env, nullptr);
+  EXPECT_EQ(result, nullptr);
+
+  auto voices = ArktsTtsAdapter::GetInstance().GetVoiceInfos();
+  EXPECT_TRUE(voices.empty());
+}
 }  // namespace NWeb
 }  // namespace OHOS
 #endif  // BUILDFLAG(ARKWEB_TEST)

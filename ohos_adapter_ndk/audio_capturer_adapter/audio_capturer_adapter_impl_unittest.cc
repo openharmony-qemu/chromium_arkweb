@@ -535,3 +535,210 @@ TEST_F(AudioCapturerAdapterImplTest, Start_Insert) {
   EXPECT_FALSE(adapter_->Start());
   EXPECT_FALSE(adapter_->Release());
 }
+
+// Pause() with null audio_capturer_ returns false (early-return branch).
+TEST_F(AudioCapturerAdapterImplTest, Pause_NullCapturer_ReturnsFalse) {
+  adapter_->audio_capturer_ = nullptr;
+  EXPECT_FALSE(adapter_->Pause());
+}
+
+// OnInterruptEvent with an unknown capturer (FindAudioCapturerAdapter returns
+// nullptr) returns -1.
+TEST_F(AudioCapturerAdapterImplTest,
+       OnInterruptEvent_UnknownCapturer_ReturnsError) {
+  OH_AudioCapturer* unknownCapturer =
+      reinterpret_cast<OH_AudioCapturer*>(0x9999);
+  int32_t result = adapter_->OnInterruptEvent(
+      unknownCapturer, nullptr,
+      OH_AudioInterrupt_ForceType::AUDIOSTREAM_INTERRUPT_FORCE,
+      OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_RESUME);
+  EXPECT_EQ(result, -1);
+}
+
+// OnInterruptEvent with a registered capturer and RESUME hint triggers
+// adapter->Start(). Verify Start() is called and succeeds.
+TEST_F(AudioCapturerAdapterImplTest,
+       OnInterruptEvent_ResumeHint_TriggersStart) {
+  OH_AudioCapturer* capturer = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  adapter_->audio_capturer_ = capturer;
+  // Start() is called twice: once explicitly to register the capturer in the
+  // captures_ map, and once inside OnInterruptEvent for the RESUME hint.
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Start(capturer))
+      .Times(2)
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Release(capturer))
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Stop(capturer))
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  // Register the capturer in the captures_ map by calling Start() first.
+  EXPECT_TRUE(adapter_->Start());
+  int32_t result = adapter_->OnInterruptEvent(
+      capturer, nullptr,
+      OH_AudioInterrupt_ForceType::AUDIOSTREAM_INTERRUPT_FORCE,
+      OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_RESUME);
+  EXPECT_EQ(result, 0);
+  // Clean up: remove from captures_ map to avoid affecting other tests.
+  adapter_->Stop();
+}
+
+// OnInterruptEvent with a registered capturer and non-RESUME hint does NOT
+// call Start(); just logs and returns 0.
+TEST_F(AudioCapturerAdapterImplTest,
+       OnInterruptEvent_NonResumeHint_ReturnsZero) {
+  OH_AudioCapturer* capturer = reinterpret_cast<OH_AudioCapturer*>(0x3456);
+  adapter_->audio_capturer_ = capturer;
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Start(capturer))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Release(capturer))
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Stop(capturer))
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  // Register the capturer via Start().
+  EXPECT_TRUE(adapter_->Start());
+  // OnInterruptEvent with a non-RESUME hint must not call Start() again.
+  int32_t result = adapter_->OnInterruptEvent(
+      capturer, nullptr,
+      OH_AudioInterrupt_ForceType::AUDIOSTREAM_INTERRUPT_FORCE,
+      OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_PAUSE);
+  EXPECT_EQ(result, 0);
+  adapter_->Stop();
+}
+
+// GetFrameCount when OH_AudioCapturer_GetFrameSizeInCallback succeeds but
+// frameCountValue < 0 returns AUDIO_ERROR.
+TEST_F(AudioCapturerAdapterImplTest,
+       GetFrameCount_NegativeFrameCount_ReturnsError) {
+  uint32_t frameCount = 0;
+  adapter_->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  int32_t frameCountValue = -1;
+  EXPECT_CALL(
+      MockAudioCommonEventSupport::GetInstance(),
+      OH_AudioCapturer_GetFrameSizeInCallback(adapter_->audio_capturer_, _))
+      .WillOnce(DoAll(SetArgPointee<1>(frameCountValue),
+                      Return(AUDIOSTREAM_SUCCESS)));
+  EXPECT_EQ(adapter_->GetFrameCount(frameCount), AUDIO_ERROR);
+  EXPECT_EQ(frameCount, 0U);
+}
+
+// Destructor when audio_capturer_ != nullptr calls Release(); when
+// callback_index_ > 0 calls callback_wrapper_.Clear(). Verify no crash.
+TEST_F(AudioCapturerAdapterImplTest,
+       Destructor_WithCapturerAndCallback_NoCrash) {
+  auto adapter = std::make_shared<AudioCapturerAdapterImpl>();
+  adapter->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Release(adapter->audio_capturer_))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  auto userCallBack = std::make_shared<UserDataCallBack>();
+  adapter->callback_index_ =
+      adapter->callback_wrapper_.AddCallback(userCallBack);
+  EXPECT_NO_FATAL_FAILURE(adapter.reset());
+}
+
+// Destructor when audio_capturer_ is nullptr but callback_index_ > 0 only
+// calls callback_wrapper_.Clear(). Verify no crash.
+TEST_F(AudioCapturerAdapterImplTest, Destructor_WithOnlyCallback_NoCrash) {
+  auto adapter = std::make_shared<AudioCapturerAdapterImpl>();
+  adapter->audio_capturer_ = nullptr;
+  auto userCallBack = std::make_shared<UserDataCallBack>();
+  adapter->callback_index_ =
+      adapter->callback_wrapper_.AddCallback(userCallBack);
+  EXPECT_NO_FATAL_FAILURE(adapter.reset());
+}
+
+// Create when callback_index_ > 0 (a previous callback exists) clears the old
+// callback before adding a new one. Verify Create still succeeds.
+TEST_F(AudioCapturerAdapterImplTest,
+       Create_WithExistingCallback_ClearsOldCallback) {
+  // Set up an existing callback.
+  auto oldUserCallBack = std::make_shared<UserDataCallBack>();
+  adapter_->callback_index_ =
+      adapter_->callback_wrapper_.AddCallback(oldUserCallBack);
+  ASSERT_GT(adapter_->callback_index_, 0u);
+
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_Create(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_SetSamplingRate(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_SetEncodingType(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_SetSampleFormat(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_SetChannelCount(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_SetCapturerInfo(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(*options_, GetCapturerFlags()).WillOnce(Return(0));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_GenerateCapturer(_, _))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioStreamBuilder_Destroy(_));
+  int32_t result = adapter_->Create(options_, "");
+  EXPECT_EQ(result, AUDIO_OK);
+}
+
+// Release failure path: OH_AudioCapturer_Release returns non-SUCCESS, the
+// method returns false and audio_capturer_ is NOT set to nullptr.
+TEST_F(AudioCapturerAdapterImplTest, Release_Failure_ReturnsFalse) {
+  adapter_->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Release(adapter_->audio_capturer_))
+      .WillOnce(Return(AUDIOSTREAM_ERROR_SYSTEM));
+  EXPECT_FALSE(adapter_->Release());
+  // audio_capturer_ remains non-null because release failed.
+  EXPECT_NE(adapter_->audio_capturer_, nullptr);
+  // Clean up to avoid affecting the destructor.
+  adapter_->audio_capturer_ = nullptr;
+}
+
+// Stop success path returns true.
+TEST_F(AudioCapturerAdapterImplTest, Stop_Success_ReturnsTrue) {
+  adapter_->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Stop(adapter_->audio_capturer_))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_TRUE(adapter_->Stop());
+}
+
+// Stop failure path (OH_AudioCapturer_Stop returns non-SUCCESS) returns false.
+TEST_F(AudioCapturerAdapterImplTest, Stop_Failure_ReturnsFalse) {
+  adapter_->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Stop(adapter_->audio_capturer_))
+      .WillOnce(Return(AUDIOSTREAM_ERROR_SYSTEM));
+  EXPECT_FALSE(adapter_->Stop());
+}
+
+// Start success path inserts the capturer into the captures_ map. Calling
+// Start() twice with the same capturer is idempotent for the map insert.
+TEST_F(AudioCapturerAdapterImplTest, Start_Success_InsertsIntoMap) {
+  adapter_->audio_capturer_ = reinterpret_cast<OH_AudioCapturer*>(0x2345);
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Start(adapter_->audio_capturer_))
+      .WillOnce(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_CALL(MockAudioCommonEventSupport::GetInstance(),
+              OH_AudioCapturer_Release(adapter_->audio_capturer_))
+      .WillRepeatedly(Return(AUDIOSTREAM_SUCCESS));
+  EXPECT_TRUE(adapter_->Start());
+  // Verify the capturer is in the map by invoking OnInterruptEvent which
+  // uses FindAudioCapturerAdapter.
+  int32_t result = adapter_->OnInterruptEvent(
+      adapter_->audio_capturer_, nullptr,
+      OH_AudioInterrupt_ForceType::AUDIOSTREAM_INTERRUPT_FORCE,
+      OH_AudioInterrupt_Hint::AUDIOSTREAM_INTERRUPT_HINT_PAUSE);
+  EXPECT_EQ(result, 0);
+  adapter_->Release();
+}
