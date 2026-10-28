@@ -31,6 +31,7 @@
 #include "arkweb/chromium_ext/base/ohos/render_uid_define.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 
 #define DECLARE_NAPI_FUNCTION(name, func) \
   {(name), nullptr, (func), nullptr, nullptr, nullptr, napi_default, nullptr}
@@ -1025,8 +1026,20 @@ void ArktsTtsAdapter::SetVoiceQuery(bool status) {
 }
 
 void ArktsTtsAdapter::SetSpeakParameters(const TtsSpeakParameters& params) {
+  // Note: Currently, the KIT only supports two languages, en-US and zh-CN.
+  static constexpr std::string_view kEnglish = "en-US";
+  static constexpr std::string_view kChinese = "zh-CN";
+  if (base::EqualsCaseInsensitiveASCII(params.language, "en") ||
+      base::EqualsCaseInsensitiveASCII(params.language, kEnglish)) {
+    params_.language = kEnglish;
+  } else if (base::EqualsCaseInsensitiveASCII(params.language, "zh") ||
+             base::EqualsCaseInsensitiveASCII(params.language, kChinese)) {
+    params_.language = kChinese;
+  } else {
+    params_.language = params.language;
+  }
   params_.person = params.person;
-  params_.language = params.language;
+
   params_.rate = params.rate;
   params_.pitch = params.pitch;
   params_.volume = params.volume;
