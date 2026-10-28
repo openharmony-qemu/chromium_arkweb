@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "media/audio/ohos/ohos_audio_focus_controller.h"
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/logging.h"
 #include "base/synchronization/waitable_event.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -33,6 +34,23 @@ void OHOSAudioFocusController::OnResume(const AudioParameters &parameters)
 
 void OHOSAudioFocusController::OnSuspend(const AudioParameters &parameters)
 {
+    OnSuspendInternal(parameters, /*suspend_web_audio=*/false);
+}
+
+void OHOSAudioFocusController::OnSuspendWebAudio(const AudioParameters &parameters)
+{
+    if (!base::ohos::IsPcDevice()) {
+        OnSuspend(parameters);
+        return;
+    }
+    OnSuspendInternal(parameters, /*suspend_web_audio=*/true);
+}
+
+void OHOSAudioFocusController::OnSuspendInternal(
+    const AudioParameters &parameters, bool suspend_web_audio)
+{
+    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    suspend_web_audio = suspend_web_audio && base::ohos::IsPcDevice();
     content::RenderFrameHost *renderFrameHost =
         content::RenderFrameHost::FromID(parameters.render_process_id(), parameters.render_frame_id());
     if (!renderFrameHost) {
@@ -51,6 +69,13 @@ void OHOSAudioFocusController::OnSuspend(const AudioParameters &parameters)
         return;
     }
     mediaSession->Suspend(content::MediaSession::SuspendType::kSystem);
+    if (suspend_web_audio) {
+        LOG(INFO) << "[PC_AUDIO_CONTEXT_SUSPEND] stage=focus_notify_ambient"
+                  << " session_suspended=" << mediaSession->IsSuspended()
+                  << " pid=" << parameters.render_process_id()
+                  << " frame=" << parameters.render_frame_id();
+        mediaSession->SuspendWebAudioPlayers();
+    }
 }
 
 MediaContentType OHOSAudioFocusController::GetMediaContentType(const AudioParameters &parameters)

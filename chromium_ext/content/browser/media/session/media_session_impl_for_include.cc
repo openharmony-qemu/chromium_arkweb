@@ -17,6 +17,10 @@
 #error "must be in include form CONTENT_BROWSER_MEDIA_SESSION_MEDIA_SESSION_IMPL_H_"
 #endif
 
+#if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
+#endif
+
 namespace content {
 
 #if BUILDFLAG(ARKWEB_MEDIA_POLICY)
@@ -27,6 +31,21 @@ bool MediaSessionImpl::HasOnlyOneShotPlayersPublic() const {
 
 bool MediaSessionImpl::HasOneShotPlayersWhenSetMetadataPublic() const {
   return has_one_shot_players_;
+}
+
+void MediaSessionImpl::SuspendWebAudioPlayers() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (!base::ohos::IsPcDevice()) {
+    return;
+  }
+  // AudioContext registers as ambient and is excluded from OnSuspendInternal's
+  // normal-player loop. Keep a snapshot in case an observer removes a player.
+  const auto players = ambient_players_;
+  LOG(INFO) << "[PC_AUDIO_CONTEXT_SUSPEND] stage=session_ambient_snapshot,"
+            << " count=" << players.size();
+  for (const auto& player : players) {
+    player.observer->OnSuspend(player.player_id);
+  }
 }
 #endif
 

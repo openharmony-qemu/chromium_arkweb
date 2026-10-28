@@ -109,6 +109,8 @@ class OHOSAudioOutputStream : public AudioOutputStream {
 
   bool StartRender();
 
+  void OnSuspendInternal(bool suspend_web_audio);
+
   void Prepare(const AudioParameters& parameters);
 
   void SuspendOtherMediaSession();

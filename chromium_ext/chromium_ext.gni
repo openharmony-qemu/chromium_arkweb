@@ -1041,6 +1041,10 @@ arkweb_third_party_blink_renderer_core_unittest_sources = [
   "//arkweb/chromium_ext/third_party/blink/renderer/platform/loader/fetch/url_loader/resource_request_sender_ext_unittest.cc",
 ]
 
+arkweb_blink_webaudio_include_files = [
+  "//arkweb/chromium_ext/third_party/blink/renderer/modules/webaudio/audio_context_for_include.cc",
+]
+
 arkweb_third_party_blink_renderer_modules_unittest_sources = [
   "//arkweb/chromium_ext/third_party/blink/renderer/modules/ai/on_device_translation/language_detector_ohos_unittest.cc",
 ]

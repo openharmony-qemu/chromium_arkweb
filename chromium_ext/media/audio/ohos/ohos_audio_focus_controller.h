@@ -14,7 +14,9 @@ class OHOSAudioFocusController {
 public:
   // OHOSAudioOutputStream mediaSession State
   static void OnSuspend(const AudioParameters& parameters);
-  
+
+  static void OnSuspendWebAudio(const AudioParameters& parameters);
+
   static MediaContentType GetMediaContentType(const AudioParameters& parameters);
 
   static bool IsActive(const AudioParameters& parameters);
@@ -46,6 +48,9 @@ public:
 
   static bool IsWebContentCurrentlyAudible(const AudioParameters& parameters);
 private:
+  static void OnSuspendInternal(const AudioParameters& parameters,
+                                bool suspend_web_audio);
+
   // OHOSAudioOutputStream mediaSession State
   static bool CheckActiveOnUIThread(const AudioParameters& params);
 
