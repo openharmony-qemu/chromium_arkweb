@@ -1280,6 +1280,7 @@ class MockNWebDelegate : public NWebDelegateInterface {
               SetTouchHandleExistState,
               (bool touchHandleExist),
               (override));
+  MOCK_METHOD(void, SetClickExtEnabled, (bool enable), (override));
   MOCK_METHOD(void, SetViewportScaleState, (bool viewportScale), (override));
 #endif  // BUILDFLAG(ARKWEB_MENU)
   MOCK_METHOD(void,
