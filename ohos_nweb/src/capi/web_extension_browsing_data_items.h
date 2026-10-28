@@ -39,4 +39,17 @@ struct NWebExtensionBrowsingDataQueryOptions {
   std::optional<bool> includeIncognitoInfo;
 };
 
+struct NWebExtensionBrowsingDataSettings {
+  std::optional<bool> history;
+  std::optional<bool> cache;
+  std::optional<bool> siteData;
+  std::optional<bool> passwords;
+  std::optional<bool> formData;
+  std::optional<bool> siteSettings;
+  std::optional<bool> downloads;
+  std::optional<bool> hostedAppsData;
+  std::optional<bool> tabs;
+  std::optional<double> sinceTime;
+};
+
 #endif  // OHOS_NWEB_EX_BROWSER_WEB_EXTENSION_BROWSING_DATA_ITEMS_H_

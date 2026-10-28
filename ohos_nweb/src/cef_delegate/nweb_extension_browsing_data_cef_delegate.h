@@ -20,10 +20,12 @@
 #include "base/values.h"
 #include "ohos_nweb/src/capi/web_extension_browsing_data_items.h"
 
+namespace OHOS::NWeb {
+
 using BrowsingDataRemoveCallback =
     base::RepeatingCallback<void(const std::optional<std::string>&)>;
-
-namespace OHOS::NWeb {
+using BrowsingDataSettingsCallback =
+    base::RepeatingCallback<void(const NWebExtensionBrowsingDataSettings&, const std::optional<std::string>&)>;
 
 class NWebExtensionBrowsingDataCefDelegate {
  public:
@@ -35,11 +37,15 @@ class NWebExtensionBrowsingDataCefDelegate {
       const NWebExtensionBrowsingDataRemovalOptions& removalOptions,
       BrowsingDataRemoveCallback callback,
       const std::optional<NWebExtensionBrowsingDataQueryOptions>& queryOptions);
-
+  static bool GetSettings(BrowsingDataSettingsCallback callback,
+                          const NWebExtensionBrowsingDataQueryOptions& queryOptions);
   static void RemoveDownloadsCallback(int32_t request_id,
                                       const std::optional<std::string>& error);
   static void RemoveHistoryCallback(int32_t request_id,
                                     const std::optional<std::string>& error);
+  static void GetSettingsCallback(int32_t request_id,
+                                  const NWebExtensionBrowsingDataSettings& settings,
+                                  const std::optional<std::string>& error);
 };
 
 }  // namespace OHOS::NWeb
