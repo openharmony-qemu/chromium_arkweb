@@ -3894,6 +3894,20 @@ bool NWebHandlerDelegate::OnBeforeUnloadDialog(
   return flag;
 }
 
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+int NWebHandlerDelegate::OnHandleJavaScriptDialog(
+    CefRefPtr<CefBrowser> browser,
+    bool accept,
+    const CefString& prompt_text) {
+  DLOG(INFO) << "NWebHandlerDelegate::OnHandleJavaScriptDialog"
+             << " nweb_id=" << nweb_id_ << " accept=" << accept
+             << " prompt_text_len=" << prompt_text.ToString().length();
+  return nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance()
+      .OnHandleJavaScriptDialog(nweb_id_, accept,
+                                std::string(prompt_text.ToString()));
+}
+#endif  // ARKWEB_NWEB_EX
+
 /* CefJSDialogHandler method end */
 
 /* CefDialogHandler method begin */
