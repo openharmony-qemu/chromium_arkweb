@@ -49,6 +49,7 @@ class NWebDevToolsMessageHandlerImpl
                               int width,
                               int height) override;
   bool SetDockMode(int mode) override;
+  bool ShowCertificateViewer(const CefString& cert_chain) override;
 
  private:
   void GetFileSelectorTitle(std::string& title, uint32_t mode);

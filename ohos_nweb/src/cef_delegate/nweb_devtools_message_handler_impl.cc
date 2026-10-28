@@ -380,4 +380,33 @@ bool NWebDevToolsMessageHandlerImpl::SetDockMode(int mode) {
   return false;
 }
 
+bool NWebDevToolsMessageHandlerImpl::ShowCertificateViewer(
+    const CefString& cert_chain) {
+  std::string cert_chain_str = cert_chain.ToString();
+  LOG(DEBUG) << "NWebDevToolsMessageHandlerImpl::ShowCertificateViewer "
+                "cert_chain_len: " << cert_chain_str.size();
+  if (handler_) {
+    if (!CheckValid(handler_.get(), &handler_->show_certificate_viewer)) {
+      LOG(ERROR) << "ShowCertificateViewer failed, method is invalid";
+      return false;
+    }
+    return (handler_.get()
+        ->*(handler_->show_certificate_viewer))(cert_chain_str.c_str());
+  }
+
+  if (handlerNativeApi_) {
+    if (!CheckValid(handlerNativeApi_.get(),
+                    &handlerNativeApi_->show_certificate_viewer)) {
+      LOG(ERROR) << "ShowCertificateViewer failed, method is invalid";
+      return false;
+    }
+    return (handlerNativeApi_.get()
+        ->*(handlerNativeApi_->show_certificate_viewer))
+            (cert_chain_str.c_str());
+  }
+
+  LOG(INFO) << "ShowCertificateViewer failed, handler is null";
+  return false;
+}
+
 }  // namespace OHOS::NWeb
