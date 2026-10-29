@@ -17,10 +17,12 @@
 #define OHOS_NWEB_SRC_CAPI_SCHEME_HANDLER_RESPONSE_H_
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "cef/include/cef_response.h"
 #include "ohos_nweb/src/capi/arkweb_net_error_list.h"
+#include "ohos_nweb/src/ndk/scheme_handler/error_info.h"
 
 struct ArkWeb_Response_ {
   ArkWeb_Response_();
@@ -47,7 +49,14 @@ struct ArkWeb_Response_ {
   void SetHeaderByName(const char* name, const char* value, bool overwrite);
   void GetHeaderByName(const char* name, char** value) const;
 
+  void SetErrorInfo(const ArkWeb_ErrorInfo* errorInfo);
+  ArkWeb_ErrorInfo* GetErrorInfo() const;
+
+  void SetCustomErrorCode(int32_t customErrorCode);
+  int32_t GetCustomErrorCode() const;
+
   CefRefPtr<CefResponse> cef_response;
+  std::unique_ptr<ArkWeb_ErrorInfo> error_info_;
 };
 
 #endif  // OHOS_NWEB_SRC_CAPI_SCHEME_HANDLER_RESPONSE_H_

@@ -64,6 +64,9 @@ class NWebPipeResourceHandler : public CefResourceHandlerExt {
   void DidReceiveData(const uint8_t* buffer, int64_t buf_len);
   void DidFinish();
   void DidFailWithError(int error_code, bool completeIfNoResponse);
+  void DidFailWithErrorInfo(int error_code, bool completeIfNoResponse, int custom_error_code);
+
+  int GetCustomErrorCode() override { return custom_error_code_; }
 
   void AddRef() const override { ref_count_.AddRef(); }
   bool Release() const override;
@@ -85,6 +88,7 @@ class NWebPipeResourceHandler : public CefResourceHandlerExt {
   bool remain_read_{false};
   bool canceled_{false};
   int error_code_{0};
+  int custom_error_code_{0};
   CefRefPtr<CefResponse> response_;
   CefRefPtr<CefCallback> response_ready_callback_;
   CefRefPtr<CefResourceReadCallback> resource_ready_callback_;
