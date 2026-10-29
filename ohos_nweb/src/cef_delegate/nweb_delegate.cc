@@ -1093,6 +1093,7 @@ void NWebDelegate::OnDestroy(bool is_close_all) {
   if (preference_delegate_ != nullptr) {
     preference_delegate_->OnDestroy();
   }
+  runJSCallbackMap_.clear();
 }
 
 void NWebDelegate::RegisterDownLoadListener(
