@@ -7037,7 +7037,7 @@ void NWebImpl::PrepareForPageLoad(const std::string& url,
   preconnectUrlInfo.url = url;
   preconnectUrlInfo.num_sockets = num_sockets;
   preconnectUrlInfo.is_preconnectable = preconnectable;
-  predictor::PredictorDatabase::preconnect_url_info_list.emplace_back(
+  predictor::PredictorDatabase::GetPreconnectUrlInfoList().emplace_back(
       preconnectUrlInfo);
 
   std::vector<CefBrowserContext*> browser_context_all =
@@ -7061,7 +7061,7 @@ void NWebImpl::PrepareForPageLoad(const std::string& url,
   }
 
   std::vector<predictor::PreconnectUrlInfo> preconnect_url_infos =
-      std::move(predictor::PredictorDatabase::preconnect_url_info_list);
+      std::move(predictor::PredictorDatabase::GetPreconnectUrlInfoList());
   for (auto& preconnect_url_info : preconnect_url_infos) {
     loading_predictor->PrepareForPageLoad(
         GURL(preconnect_url_info.url), ohos_predictors::HintOrigin::OMNIBOX,
