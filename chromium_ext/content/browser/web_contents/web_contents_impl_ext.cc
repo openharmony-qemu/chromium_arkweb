@@ -78,6 +78,12 @@
 #include "net/http/http_util.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#include "arkweb/chromium_ext/components/blank_screen/frame_stats_bridge.h"
+#include "third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#endif
+
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/public/common/content_client.h"
@@ -94,9 +100,37 @@ WebContentsImplExt::WebContentsImplExt(BrowserContext* browser_context)
   native_web_contents_observer_ =
       std::make_unique<NativeWebContentsObserver>(this);
 #endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  {
+    if (CheckHiviewUserTypeBeta()) {
+      if (!blank_screen_monitor_) {
+        blank_screen_monitor_ =
+            std::make_unique<blank_screen::BlankScreenMonitor>(this);
+      }
+      // Sync to renderer prefs so renderer enables compositor frame analysis.
+      blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+      if (prefs) {
+        prefs->blank_screen_monitor_enabled = true;
+        SyncRendererPrefs();
+      }
+      LOG(INFO) << "[BlankScreenMonitor] Beta version detected, "
+                << "monitor created at construction";
+    }
+  }
+#endif
 }
 
 WebContentsImplExt::~WebContentsImplExt() {
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  if (blank_screen_monitor_) {
+    if (frame_sink_id_.is_valid()) {
+      blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+      blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+          frame_sink_id_);
+    }
+    blank_screen_monitor_.reset();
+  }
+#endif
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   DelAllVideoSurfaces();
 #endif  // ARKWEB_VIDEO_ASSISTANT
@@ -1299,12 +1333,73 @@ void WebContentsImplExt::RenderViewReady(RenderViewHost* rvh) {
                                std::nullopt);
   }
 #endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  // Register frame analysis callback: dispatch viz thread frame analysis results to detector
+  if (blank_screen_monitor_) {
+    auto* rvh_local = rvh ? rvh->GetWidget() : nullptr;
+    auto frame_sink_id = rvh_local ? rvh_local->GetFrameSinkId() : viz::FrameSinkId();
+    LOG(DEBUG) << "[BlankScreenMonitor] RenderViewReady: rvh=" << rvh
+              << " widget=" << rvh_local
+              << " frame_sink_id=" << frame_sink_id.ToString()
+              << " is_valid=" << frame_sink_id.is_valid();
+    if (frame_sink_id.is_valid()) {
+      // Unregister old frame_sink_id_ before registering new one to avoid leak on renderer swap
+      if (frame_sink_id_.is_valid() && frame_sink_id_ != frame_sink_id) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen::FrameStatsBridge::GetInstance().Register(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnFrameStatsReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      blank_screen::FrameStatsBridge::GetInstance().RegisterJsExceptionCallback(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnJsExceptionReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      frame_sink_id_ = frame_sink_id;
+    }
+  }
+#endif
 }
 void WebContentsImplExt::DidFinishNavigation(NavigationHandle* navigation_handle) {
   WebContentsImpl::DidFinishNavigation(navigation_handle);
 #if BUILDFLAG(ARKWEB_EXT_PULL_TO_REFRESH) || BUILDFLAG(ARKWEB_PULL_TO_REFRESH)
   if (navigation_handle->IsInPrimaryMainFrame() && view_) {
     view_->DidStopRefresh();
+  }
+#endif
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  // Try registering FrameStatsBridge after navigation commit (FrameSinkId may not be ready at RenderViewReady)
+  if (blank_screen_monitor_ && navigation_handle->IsInPrimaryMainFrame() &&
+      navigation_handle->HasCommitted() && !navigation_handle->IsErrorPage()) {
+    auto* rvh = GetRenderViewHost();
+    auto* widget = rvh ? rvh->GetWidget() : nullptr;
+    auto frame_sink_id = widget ? widget->GetFrameSinkId() : viz::FrameSinkId();
+    LOG(DEBUG) << "[BlankScreenMonitor] DidFinishNavigation commit: frame_sink_id="
+              << frame_sink_id.ToString()
+              << " is_valid=" << frame_sink_id.is_valid();
+    if (frame_sink_id.is_valid()) {
+      // Unregister old frame_sink_id_ before registering new one to avoid leak on renderer swap
+      if (frame_sink_id_.is_valid() && frame_sink_id_ != frame_sink_id) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen::FrameStatsBridge::GetInstance().Register(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnFrameStatsReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      blank_screen::FrameStatsBridge::GetInstance().RegisterJsExceptionCallback(
+          frame_sink_id,
+          base::BindRepeating(
+              &blank_screen::BlankScreenMonitor::OnJsExceptionReceived,
+              blank_screen_monitor_->GetWeakPtr()));
+      frame_sink_id_ = frame_sink_id;
+    }
   }
 #endif
 #if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
@@ -1507,7 +1602,68 @@ void WebContentsImplExt::SetBlankScreenDetectionConfig(
   render_frame_host->SetBlankScreenDetectionConfig(
       enable, detectionTiming, detectionMethods, contentfulNodesCountThreshold);
 }
+
+void WebContentsImplExt::NotifyBlankScreenViewResize(uint32_t width,
+                                                      uint32_t height) {
+  LOG(DEBUG) << "[BlankScreen] WebContentsImplExt::NotifyBlankScreenViewResize "
+               << width << "x" << height
+               << " monitor=" << (blank_screen_monitor_ ? "valid" : "null");
+  if (blank_screen_monitor_) {
+    blank_screen_monitor_->NotifyViewResize(width, height);
+  }
+}
 #endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void WebContentsImplExt::SetBlankScreenMonitorEnabled(bool enable) {
+  LOG(INFO) << "[BlankScreenMonitor] SetBlankScreenMonitorEnabled: " << enable
+            << " is_beta: " << is_beta_;
+  if (enable) {
+    if (!blank_screen_monitor_) {
+      blank_screen_monitor_ =
+          std::make_unique<blank_screen::BlankScreenMonitor>(this);
+      LOG(INFO) << "[BlankScreenMonitor] Monitor created on enable";
+    }
+    blank_screen_monitor_->SetCallbackEnabled(true);
+  } else {
+    if (blank_screen_monitor_) {
+      blank_screen_monitor_->SetCallbackEnabled(false);
+    }
+    if (is_beta_) {
+      LOG(INFO) << "[BlankScreenMonitor] Beta device, keep monitor alive";
+    } else if (blank_screen_monitor_) {
+      if (frame_sink_id_.is_valid()) {
+        blank_screen::FrameStatsBridge::GetInstance().Unregister(frame_sink_id_);
+        blank_screen::FrameStatsBridge::GetInstance().UnregisterJsExceptionCallback(
+            frame_sink_id_);
+      }
+      blank_screen_monitor_.reset();
+      LOG(INFO) << "[BlankScreenMonitor] Monitor destroyed on disable";
+    }
+  }
+
+  // Sync enable state to renderer via RendererPreferences.
+  // Renderer reads this in InitBlankScreenMonitor() to decide whether
+  // to call SetArkWebFrameSinkId (which enables compositor frame analysis).
+  blink::RendererPreferences* prefs = GetMutableRendererPrefs();
+  if (prefs && prefs->blank_screen_monitor_enabled != enable) {
+    prefs->blank_screen_monitor_enabled = enable;
+    SyncRendererPrefs();
+  }
+}
+
+bool WebContentsImplExt::CheckHiviewUserTypeBeta() {
+    static constexpr const char* const kHiviewUserTypeKey =
+        "const.logsystem.versiontype";
+    static const bool is_beta =
+        OHOS::NWeb::OhosAdapterHelper::GetInstance()
+            .GetSystemPropertiesInstance()
+            .GetStringParameter(kHiviewUserTypeKey, "")
+            .find("beta") != std::string::npos;
+    is_beta_ = is_beta;
+    return is_beta_;
+}
+#endif // ARKWEB_BLANK_SCREEN_MONITOR
 
 #if BUILDFLAG(ARKWEB_READER_MODE)
 void WebContentsImplExt::EnableReaderMode(bool enabled) {

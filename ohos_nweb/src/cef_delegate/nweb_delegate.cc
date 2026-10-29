@@ -1469,6 +1469,12 @@ void NWebDelegate::Resize(uint32_t width, uint32_t height, bool isKeyboard) {
     AvoidVisibleViewportBottom(avoid_height_);
   }
 #endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  if (browser && browser->GetHost()) {
+    browser->GetHost()->NotifyBlankScreenViewResize(width, height);
+  }
+#endif
 }
 
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS) || BUILDFLAG(ARKWEB_VIEWPORT_AVOID)

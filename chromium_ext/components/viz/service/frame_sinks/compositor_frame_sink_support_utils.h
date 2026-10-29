@@ -22,6 +22,11 @@
 #endif
 #include "base/memory/raw_ptr.h"
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#include "ui/gfx/geometry/size.h"
+#endif
+
 namespace viz {
 
 #if BUILDFLAG(ARKWEB_FLING) && BUILDFLAG(ARKWEB_SLIDE)

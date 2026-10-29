@@ -167,8 +167,7 @@ void BlankScreenDetector::RunDetectionTask() {
         LOG(INFO) << "BlankScreenDetector::RunDetectionTask blank screen "
                      "detected result_count "
                   << result_count;
-        OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(BLANK_SCREEN_EVENT,
-            OHOS::NWeb::HiSysEventAdapter::EventType::FAULT, std::make_tuple(static_cast<int32_t>(result_reason), result_count));
+        // HiSysEvent reporting disabled — handled by new BlankScreenMonitor
         if (detection_enable_) {
           local_frame_->OnDetectedBlankScreen(
             url_, static_cast<int32_t>(result_reason), result_count);

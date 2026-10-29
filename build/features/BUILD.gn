@@ -331,6 +331,7 @@ if (!enable_arkweb) {
   arkweb_cwnd = false
   arkweb_blank_optimize = true
   arkweb_blank_screen_detection = false
+  arkweb_blank_screen_monitor = false
   arkweb_first_screen_paint = false
   arkweb_font_settings = false
   arkweb_bgtask = false
@@ -628,6 +629,7 @@ buildflag_header("features") {
     "ARKWEB_EX_HTTP_DNS_FALLBACK=$arkweb_ex_http_dns_fallback",
     "ARKWEB_BLANK_OPTIMIZE=$arkweb_blank_optimize",
     "ARKWEB_BLANK_SCREEN_DETECTION=$arkweb_blank_screen_detection",
+    "ARKWEB_BLANK_SCREEN_MONITOR=$arkweb_blank_screen_monitor",
     "ARKWEB_FIRST_SCREEN_PAINT=$arkweb_first_screen_paint",
     "ARKWEB_BGTASK=$arkweb_bgtask",
     "ARKWEB_HWASAN=$is_hwasan",

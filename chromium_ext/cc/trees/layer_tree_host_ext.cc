@@ -48,6 +48,19 @@ void LayerTreeHostExt::RegisterClippedVisualViewportSelectionBounds(
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+void LayerTreeHostExt::SetArkWebFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id) {
+  if (this->LayerTreeHost::pending_commit_state()->arkweb_frame_sink_id ==
+      frame_sink_id) {
+    return;
+  }
+
+  this->LayerTreeHost::pending_commit_state()->arkweb_frame_sink_id = frame_sink_id;
+  this->LayerTreeHost::SetNeedsCommit();
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_SAME_LAYER)
 void LayerTreeHostExt::OnLayerRectUpdate(int id, const gfx::Rect& rect) {
   DCHECK(this->LayerTreeHost::IsMainThread());
