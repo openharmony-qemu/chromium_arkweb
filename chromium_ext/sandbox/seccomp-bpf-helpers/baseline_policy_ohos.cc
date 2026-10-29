@@ -430,7 +430,7 @@ constexpr unsigned int SHMM_MAGIC = 0x46;
 
         return Switch(clockid)
             .Cases({CLOCK_MONOTONIC},
-                If(flags == (TFD_CLOEXEC | TFD_NONBLOCK), Allow()).Else(CrashSIGSYS()))
+                If(flags == (TFD_CLOEXEC | TFD_NONBLOCK), Error(EPERM)).Else(CrashSIGSYS()))
             .Default(BaselinePolicy::EvaluateSyscall(sysno));
     }
 
