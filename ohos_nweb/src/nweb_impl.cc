@@ -1582,6 +1582,12 @@ std::shared_ptr<NWeb> NWebImpl::CreateNWeb(
   }
 #endif
 
+#if BUILDFLAG(ARKWEB_PERFORMANCE_SCHEDULING)
+  auto init_args = create_info->GetEngineInitArgs();
+  if (init_args && init_args->GetIsPreloadNWeb()) {
+    OHOS::NWeb::ResSchedClientAdapter::ReportPreloadNWebCreate(true);
+  }
+#endif
   return nweb;
 }
 
