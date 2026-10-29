@@ -1236,6 +1236,12 @@ class NWebImpl : public NWeb {
 #endif
   static base::Lock nweb_map_lock_;
 
+  // Returns true when at least one live NWeb instance is in incognito mode.
+  // Registered with Profile::SetHasIncognitoNWebCallback so that
+  // Profile::HasOTRProfile() reflects active incognito windows rather than
+  // the always-existing OTR profile created at engine startup.
+  static bool HasActiveIncognitoNWeb();
+
 #if BUILDFLAG(ARKWEB_SOFTWARE_COMPOSITOR)
   static void SetWholeWebDrawing();
 

@@ -1736,6 +1736,10 @@ void NWebImpl::InitializeWebEngine(
     }
   }
 #endif
+#if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
+  Profile::SetHasIncognitoNWebCallback(
+      base::BindRepeating(&OHOS::NWeb::NWebImpl::HasActiveIncognitoNWeb));
+#endif  // BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
   LOG_FEEDBACK(INFO, kNetwork) << "NWebImpl::InitializeWebEngine end";
 }
 #endif  // BUILDFLAG(ARKWEB_API_INIT_WEB_ENGINE)
@@ -1751,6 +1755,24 @@ typedef std::unordered_map<int32_t, std::weak_ptr<NWebImpl>> NWebMap;
 base::LazyInstance<NWebMap>::DestructorAtExit g_nweb_map =
     LAZY_INSTANCE_INITIALIZER;
 base::Lock OHOS::NWeb::NWebImpl::nweb_map_lock_;
+
+#if BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
+// static
+bool NWebImpl::HasActiveIncognitoNWeb() {
+  base::AutoLock lock_scope(nweb_map_lock_);
+  NWebMap* map = g_nweb_map.Pointer();
+  for (auto it = map->begin(); it != map->end(); it++) {
+    auto nweb_weak_ptr = it->second.lock();
+    if (nweb_weak_ptr) {
+      auto nweb = nweb_weak_ptr.get();
+      if (nweb && nweb->IsIncognitoMode()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+#endif  // BUILDFLAG(ARKWEB_ARKWEB_EXTENSIONS)
 
 void NWebImpl::AddNWebToMap(uint32_t id, std::shared_ptr<NWebImpl>& nweb) {
   if (nweb) {
