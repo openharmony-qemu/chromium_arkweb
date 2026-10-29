@@ -52,4 +52,9 @@ TEST_F(FilePathStaTest, IsDataShareUrl) {
   EXPECT_FALSE(input_false.IsDataShareUrl(url5));
 }
 
+TEST_F(FilePathStaTest, IsDataShareUrl_Docs) {
+  EXPECT_TRUE(FilePath::IsDataShareUrl("file://docs/abc"));
+  EXPECT_FALSE(FilePath::IsDataShareUrl("file://doc/abc"));
+}
+
 }  // namespace base

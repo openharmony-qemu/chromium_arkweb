@@ -60,25 +60,19 @@ class MockOhosFileMapper : public OHOS::NWeb::OhosFileMapper {
   bool UnzipData(uint8_t** dest, size_t& len) override { return false; }
 };
 
-TEST_F(MemoryMappedFileExtTest, DeleteMemoryMappedFile_001)
-{
-  std::shared_ptr<MemoryMappedFile> memory_mapped_file_test =
-      std::make_shared<MemoryMappedFile>();
-  memory_mapped_file_test->mapper_file_ext_.customizeData_ = true;
-  EXPECT_FALSE(memory_mapped_file_test->mapper_file_ext_.mapper_ == nullptr);
-  memory_mapped_file_test.reset();
-}
+class MockOhosFileMapperUncompressed : public OHOS::NWeb::OhosFileMapper {
+ public:
+  int32_t GetFd() override { return 1; }
+  int32_t GetOffset() override { return 1; }
+  std::string GetFileName() override { return "name"; }
+  bool IsCompressed() override { return false; }
+  void* GetDataPtr() override { return data_; }
+  size_t GetDataLen() override { return 2; }
+  bool UnzipData(uint8_t** dest, size_t& len) override { return false; }
 
-TEST_F(MemoryMappedFileExtTest, DeleteMemoryMappedFile_002)
-{
-  std::shared_ptr<MemoryMappedFile> memory_mapped_file_test =
-      std::make_shared<MemoryMappedFile>();
-  uint8_t* raw_ptr_to_array = new uint8_t[2]{0x01, 0x02};
-  memory_mapped_file_test->mapper_file_ext_.customizeData_ = true;
-  memory_mapped_file_test->mapper_file_ext_.mapper_ = nullptr;
-  EXPECT_TRUE(memory_mapped_file_test->mapper_file_ext_.mapper_ == nullptr);
-  memory_mapped_file_test.reset();
-}
+ private:
+  uint8_t data_[2] = {0x01, 0x02};
+};
 
 TEST_F(MemoryMappedFileExtTest, SetOhosFileMapper_001)
 {
@@ -120,6 +114,54 @@ TEST_F(MemoryMappedFileExtTest, SetOhosFileMapper_003)
   memory_mapped_file_test.mapper_file_ext_.mapper_ = mapper;
   memory_mapped_file_test.SetOhosFileMapper(mapper);
   EXPECT_EQ(memory_mapped_file_test.bytes_.empty(), false);
+}
+
+TEST_F(MemoryMappedFileExtTest, ClearData_NotCustomized_CallsCallback)
+{
+  MemoryMappedFileExt memory_mapped_file_ext_test;
+  bool callback_called = false;
+  memory_mapped_file_ext_test.ClearData([&callback_called]() { callback_called = true; });
+  EXPECT_TRUE(callback_called);
+}
+
+TEST_F(MemoryMappedFileExtTest, SetOhosFileMapper_EmptyBytes_NoCallback)
+{
+  MemoryMappedFileExt memory_mapped_file_ext_test;
+  MockOhosFileMapper mock_ohos_file_mapper;
+  std::shared_ptr<OHOS::NWeb::OhosFileMapper> mapper =
+      std::make_shared<MockOhosFileMapper>(mock_ohos_file_mapper);
+  bool callback_called = false;
+  span<uint8_t> bytes;
+  memory_mapped_file_ext_test.SetOhosFileMapper(mapper,
+      [&callback_called]() { callback_called = true; }, bytes);
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(memory_mapped_file_ext_test.customizeData_, true);
+}
+
+TEST_F(MemoryMappedFileExtTest, SetOhosFileMapper_NullMapper_ReturnsEarly)
+{
+  MemoryMappedFileExt memory_mapped_file_ext_test;
+  std::shared_ptr<OHOS::NWeb::OhosFileMapper> mapper = nullptr;
+  uint8_t test[2] = {0x01, 0x02};
+  span<uint8_t> bytes{test};
+  bool callback_called = false;
+  memory_mapped_file_ext_test.SetOhosFileMapper(mapper,
+      [&callback_called]() { callback_called = true; }, bytes);
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(memory_mapped_file_ext_test.customizeData_, false);
+}
+
+TEST_F(MemoryMappedFileExtTest, SetOhosFileMapper_NotCompressed_SetsBytes)
+{
+  MemoryMappedFileExt memory_mapped_file_ext_test;
+  MockOhosFileMapperUncompressed mock_ohos_file_mapper;
+  std::shared_ptr<OHOS::NWeb::OhosFileMapper> mapper =
+      std::make_shared<MockOhosFileMapperUncompressed>(mock_ohos_file_mapper);
+  uint8_t test[2] = {0x01, 0x02};
+  span<uint8_t> bytes{test};
+  memory_mapped_file_ext_test.SetOhosFileMapper(mapper,
+      []() {}, bytes);
+  EXPECT_EQ(bytes.size(), 2u);
 }
 #endif  // ARKWEB_UNITTESTS
 
