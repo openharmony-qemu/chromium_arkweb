@@ -104,6 +104,10 @@ void OHOSMediaPlayerRenderer::CreateMediaPlayer() {
     const std::string user_agent = GetContentClient()->browser()->GetUserAgent();
     std::vector<std::string> grantMediaFileAccessDirs;
     GetGrantMediaFileAccessDirs(grantMediaFileAccessDirs);
+    if (!init_cb_) {
+      LOG(ERROR) << "CreateMediaPlayer failed, init_cb is null";
+      return;
+    }
     if (!url_params_) {
       LOG(ERROR) << "CreateMediaPlayer failed, no url_params_";
       std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
