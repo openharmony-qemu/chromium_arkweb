@@ -27,14 +27,6 @@
 
 namespace blink {
 
-#if BUILDFLAG(ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION)
-const uint16_t kVideoPreloadTimeDefault = 4;   // preloadTime default 4s
-const uint16_t kVideoMinCacheTimeDefault = 2;  // minCacheTime default 2s
-const uint16_t kVideoMaxCacheTimeDefault = 6;  // maxCacheTime default 6s
-const uint16_t kVideoMoovSizeDefault = 512;    // moovSize default 512kB
-const uint16_t kVideoBitrateDefault = 2000;    // bitRate default 2000kb/s
-#endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
-
 // LCOV_EXCL_START
 #if BUILDFLAG(ARKWEB_CUSTOM_VIDEO_PLAYER)
 void HTMLVideoElement::RequestEnterFullscreen() {
