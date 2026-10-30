@@ -40,6 +40,7 @@
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_delegate.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/http/http_transaction_test_util.h"
 #include "net/log/net_log.h"
 #include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/socket/connection_attempts.h"
@@ -57,6 +58,7 @@
 #endif
 
 #if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
 #include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
 #endif
 
@@ -208,6 +210,88 @@ class FallbackProxyMockDelegate : public ProxyDelegate {
               (override));
 };
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)
+
+#if BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
+// Mock HiTraceAdapter so the trace-event paths that consult
+// OhosAdapterHelper::GetHiTraceAdapterInstance() (e.g. IsCategoryEnable during
+// gtest failure stack printing) do not hit an uninteresting gmock call that
+// recursively blows the stack while reporting.
+class MockHiTraceAdapter : public OHOS::NWeb::HiTraceAdapter {
+ public:
+  MOCK_METHOD(void,
+              StartTrace,
+              (const std::string& value, float limit),
+              (override));
+  MOCK_METHOD(void,
+              StartTraceEx,
+              (HiTrace_Output_Level level,
+               const std::string& name,
+               const std::string& value,
+               float limit),
+              (override));
+  MOCK_METHOD(void, FinishTrace, (), (override));
+  MOCK_METHOD(void,
+              StartAsyncTrace,
+              (const std::string& value, int32_t taskId, float limit),
+              (override));
+  MOCK_METHOD(void,
+              FinishAsyncTrace,
+              (const std::string& value, int32_t taskId),
+              (override));
+  MOCK_METHOD(void,
+              CountTrace,
+              (const std::string& name, int64_t count),
+              (override));
+  MOCK_METHOD(bool, IsHiTraceEnable, (), (override));
+  MOCK_METHOD(void,
+              StartOHOSTrace,
+              (const std::string& value, float limit),
+              (override));
+  MOCK_METHOD(void, FinishOHOSTrace, (), (override));
+  MOCK_METHOD(void,
+              CountOHOSTrace,
+              (const std::string& name, int64_t count),
+              (override));
+  MOCK_METHOD(bool, IsACETraceEnable, (), (override));
+};
+
+// Mock NetConnectAdapter that captures the auth refresh callback so tests
+// can drive OnRunnable/RunNotifyAuthRequiredCallback directly.
+class MockNetConnectAdapter : public OHOS::NWeb::NetConnectAdapter {
+ public:
+  MOCK_METHOD(int32_t,
+              RegisterNetConnCallback,
+              (std::shared_ptr<OHOS::NWeb::NetConnCallback> cb),
+              (override));
+  MOCK_METHOD(int32_t, UnregisterNetConnCallback, (int32_t id), (override));
+  MOCK_METHOD(int32_t,
+              GetDefaultNetConnect,
+              (OHOS::NWeb::NetConnectType & type,
+               OHOS::NWeb::NetConnectSubtype& netConnectSubtype),
+              (override));
+  MOCK_METHOD(std::vector<std::string>, GetDnsServers, (), (override));
+  MOCK_METHOD(std::vector<std::string>,
+              GetDnsServersByNetId,
+              (int32_t netId),
+              (override));
+  MOCK_METHOD(std::vector<std::string>, GetDnsServersForVpn, (), (override));
+  MOCK_METHOD(void,
+              RegisterVpnListener,
+              (std::shared_ptr<OHOS::NWeb::VpnListener>),
+              (override));
+  MOCK_METHOD(void, UnRegisterVpnListener, (), (override));
+  MOCK_METHOD(std::vector<std::string>,
+              GetNetAddrListByNetId,
+              (int32_t netId),
+              (override));
+  MOCK_METHOD(std::vector<std::string>, GetNetAddrListForVpn, (), (override));
+  MOCK_METHOD(
+      bool,
+      NotifyNetworkServiceAuthRequired,
+      (std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback> callback),
+      (override));
+};
+#endif  // BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)
 
 class URLRequestHttpJobForIncludeTest : public testing::Test {
  public:
@@ -658,6 +742,322 @@ TEST_F(URLRequestHttpJobForIncludeTest,
   job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
   // Verify that the delegate received the auth challenge
   EXPECT_TRUE(d.auth_required_called());
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       NotifyNetworkServiceAuthRequired_AdapterNotifyFalse) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  // Mock adapter helper so CreateNetConnectAdapter returns a non-null adapter.
+  auto mock_helper = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  auto mock_adapter = std::make_unique<MockNetConnectAdapter>();
+  // NotifyNetworkServiceAuthRequired returns false, so the job immediately
+  // calls RunNotifyAuthRequiredCallback -> NotifyAuthRequiredForRequest.
+  EXPECT_CALL(*mock_adapter, NotifyNetworkServiceAuthRequired(testing::_))
+      .WillOnce(testing::Return(false));
+  EXPECT_CALL(*mock_helper, CreateNetConnectAdapter())
+      .WillOnce(testing::Return(testing::ByMove(std::move(mock_adapter))));
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper.get());
+
+  auto auth_info = std::make_unique<AuthChallengeInfo>();
+  auth_info->challenger =
+      url::SchemeHostPort(url::kHttpScheme, "proxy.example.com", 8080);
+  auth_info->scheme = "Basic";
+  auth_info->realm = "test";
+  job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
+
+  // RunNotifyAuthRequiredCallback runs synchronously on the current sequence.
+  EXPECT_TRUE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       NotifyNetworkServiceAuthRequired_OnRunnableFalse) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  auto mock_helper = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  auto mock_adapter = std::make_unique<MockNetConnectAdapter>();
+  std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback> captured;
+  EXPECT_CALL(*mock_adapter, NotifyNetworkServiceAuthRequired(testing::_))
+      .WillOnce(testing::Invoke(
+          [&captured](
+              std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback>
+                  callback) {
+            captured = std::move(callback);
+            return true;
+          }));
+  EXPECT_CALL(*mock_helper, CreateNetConnectAdapter())
+      .WillOnce(testing::Return(testing::ByMove(std::move(mock_adapter))));
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper.get());
+
+  auto auth_info = std::make_unique<AuthChallengeInfo>();
+  auth_info->challenger =
+      url::SchemeHostPort(url::kHttpScheme, "proxy.example.com", 8080);
+  auth_info->scheme = "Basic";
+  auth_info->realm = "test";
+  job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
+  ASSERT_NE(captured, nullptr);
+
+  // OnRunnable(false) runs the notify-auth-required callback.
+  captured->OnRunnable(false);
+  EXPECT_TRUE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       NotifyNetworkServiceAuthRequired_OnRunnableTrue) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto mock_network_layer = std::make_unique<MockNetworkLayer>();
+  context_builder->SetHttpTransactionFactoryForTesting(
+      std::move(mock_network_layer));
+  auto ctx = context_builder->Build();
+
+  // Make Start() return ERR_IO_PENDING synchronously so RestartTransaction
+  // does not post an async OnStartCompleted to the net task scheduler thread
+  // pool (where touching the OhosAdapterHelper trace mock would crash).
+  ScopedMockTransaction mock_transaction("http://example.com");
+  mock_transaction.start_return_code = ERR_IO_PENDING;
+  mock_transaction.test_mode = TEST_MODE_SYNC_NET_START;
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+  // The constructor already recorded request_creation_time_ via ResetTimer;
+  // clear it so the RestartTransaction path can ResetTimer again.
+  job_ptr->request_creation_time_ = base::Time();
+  // Bypass the cookie path in RestartTransaction so the transaction is
+  // restarted synchronously without async cookie work. request_info_ is only
+  // populated by Start() (never called here), so set it directly.
+  job_ptr->request_info_.load_flags = LOAD_DO_NOT_SEND_COOKIES;
+
+  auto mock_helper = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  auto mock_adapter = std::make_unique<MockNetConnectAdapter>();
+  MockHiTraceAdapter hitrace;
+  std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback> captured;
+  EXPECT_CALL(*mock_adapter, NotifyNetworkServiceAuthRequired(testing::_))
+      .WillOnce(testing::Invoke(
+          [&captured](
+              std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback>
+                  callback) {
+            captured = std::move(callback);
+            return true;
+          }));
+  EXPECT_CALL(*mock_helper, CreateNetConnectAdapter())
+      .WillOnce(testing::Return(testing::ByMove(std::move(mock_adapter))));
+  EXPECT_CALL(*mock_helper, GetHiTraceAdapterInstance())
+      .WillRepeatedly(testing::ReturnRef(hitrace));
+  ON_CALL(hitrace, IsHiTraceEnable()).WillByDefault(testing::Return(false));
+  ON_CALL(hitrace, IsACETraceEnable()).WillByDefault(testing::Return(false));
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper.get());
+
+  auto auth_info = std::make_unique<AuthChallengeInfo>();
+  auth_info->challenger =
+      url::SchemeHostPort(url::kHttpScheme, "proxy.example.com", 8080);
+  auth_info->scheme = "Basic";
+  auth_info->realm = "test";
+  job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
+  ASSERT_NE(captured, nullptr);
+
+  // OnRunnable(true) runs the proxy-auth-refresh-complete callback, which
+  // invokes RestartTransactionAfterProxyAuth -> RestartTransaction. The
+  // transaction is restarted through the mock network layer.
+  captured->OnRunnable(true);
+  // The delegate should not receive the auth challenge on the
+  // refresh-complete path.
+  EXPECT_FALSE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       NotifyNetworkServiceAuthRequired_OnRunnableConsumed) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto mock_network_layer = std::make_unique<MockNetworkLayer>();
+  context_builder->SetHttpTransactionFactoryForTesting(
+      std::move(mock_network_layer));
+  auto ctx = context_builder->Build();
+
+  // Same as OnRunnableTrue: make Start() return ERR_IO_PENDING synchronously
+  // so no async OnStartCompleted is posted to the thread pool.
+  ScopedMockTransaction mock_transaction("http://example.com");
+  mock_transaction.start_return_code = ERR_IO_PENDING;
+  mock_transaction.test_mode = TEST_MODE_SYNC_NET_START;
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+  job_ptr->request_creation_time_ = base::Time();
+  job_ptr->request_info_.load_flags = LOAD_DO_NOT_SEND_COOKIES;
+
+  auto mock_helper = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  auto mock_adapter = std::make_unique<MockNetConnectAdapter>();
+  MockHiTraceAdapter hitrace;
+  std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback> captured;
+  EXPECT_CALL(*mock_adapter, NotifyNetworkServiceAuthRequired(testing::_))
+      .WillOnce(testing::Invoke(
+          [&captured](
+              std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback>
+                  callback) {
+            captured = std::move(callback);
+            return true;
+          }));
+  EXPECT_CALL(*mock_helper, CreateNetConnectAdapter())
+      .WillOnce(testing::Return(testing::ByMove(std::move(mock_adapter))));
+  EXPECT_CALL(*mock_helper, GetHiTraceAdapterInstance())
+      .WillRepeatedly(testing::ReturnRef(hitrace));
+  ON_CALL(hitrace, IsHiTraceEnable()).WillByDefault(testing::Return(false));
+  ON_CALL(hitrace, IsACETraceEnable()).WillByDefault(testing::Return(false));
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper.get());
+
+  auto auth_info = std::make_unique<AuthChallengeInfo>();
+  auth_info->challenger =
+      url::SchemeHostPort(url::kHttpScheme, "proxy.example.com", 8080);
+  auth_info->scheme = "Basic";
+  auth_info->realm = "test";
+  job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
+  ASSERT_NE(captured, nullptr);
+
+  // First call consumes the callbacks.
+  captured->OnRunnable(true);
+  EXPECT_FALSE(d.auth_required_called());
+  // Second call hits the auth_callback_consumed_ early-return path.
+  captured->OnRunnable(false);
+  EXPECT_FALSE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       NotifyNetworkServiceAuthRequired_OnTimeout) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto ctx = context_builder->Build();
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+
+  auto mock_helper = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  auto mock_adapter = std::make_unique<MockNetConnectAdapter>();
+  MockHiTraceAdapter hitrace;
+  std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback> captured;
+  EXPECT_CALL(*mock_adapter, NotifyNetworkServiceAuthRequired(testing::_))
+      .WillOnce(testing::Invoke(
+          [&captured](
+              std::shared_ptr<OHOS::NWeb::NetGlobalHttpProxyRefreshCallback>
+                  callback) {
+            captured = std::move(callback);
+            return true;
+          }));
+  EXPECT_CALL(*mock_helper, CreateNetConnectAdapter())
+      .WillOnce(testing::Return(testing::ByMove(std::move(mock_adapter))));
+  EXPECT_CALL(*mock_helper, GetHiTraceAdapterInstance())
+      .WillRepeatedly(testing::ReturnRef(hitrace));
+  ON_CALL(hitrace, IsHiTraceEnable()).WillByDefault(testing::Return(false));
+  ON_CALL(hitrace, IsACETraceEnable()).WillByDefault(testing::Return(false));
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_helper.get());
+
+  auto auth_info = std::make_unique<AuthChallengeInfo>();
+  auth_info->challenger =
+      url::SchemeHostPort(url::kHttpScheme, "proxy.example.com", 8080);
+  auth_info->scheme = "Basic";
+  auth_info->realm = "test";
+  job_ptr->NotifyNetworkServiceAuthRequired(std::move(auth_info));
+  ASSERT_NE(captured, nullptr);
+
+  // Neither OnRunnable nor RunNotifyAuthRequiredCallback is invoked, so the
+  // internal 3-second timeout fires and runs the notify-auth-required
+  // callback.
+  d.RunUntilAuthRequired();
+  EXPECT_TRUE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+}
+
+TEST_F(URLRequestHttpJobForIncludeTest,
+       RestartTransactionAfterProxyAuth_WithTransaction) {
+  auto context_builder = CreateTestURLRequestContextBuilder();
+  auto mock_network_layer = std::make_unique<MockNetworkLayer>();
+  context_builder->SetHttpTransactionFactoryForTesting(
+      std::move(mock_network_layer));
+  auto ctx = context_builder->Build();
+
+  // Make Start() return ERR_IO_PENDING synchronously so the restarted
+  // transaction does not post an async OnStartCompleted to the thread pool.
+  ScopedMockTransaction mock_transaction("http://example.com");
+  mock_transaction.start_return_code = ERR_IO_PENDING;
+  mock_transaction.test_mode = TEST_MODE_SYNC_NET_START;
+
+  TestDelegate d;
+  auto req = ctx->CreateRequest(GURL("http://example.com"), DEFAULT_PRIORITY,
+                                &d, TRAFFIC_ANNOTATION_FOR_TESTS);
+  req->status_ = OK;
+
+  auto job = std::make_unique<URLRequestHttpJob>(
+      req.get(), ctx->http_user_agent_settings());
+  URLRequestHttpJob* job_ptr = job.get();
+  req->job_ = std::move(job);
+  // Clear the timer so the RestartTransactionAfterProxyAuth path can reset it.
+  job_ptr->request_creation_time_ = base::Time();
+
+  // Create a transaction through the mock network layer so the
+  // transaction_ != nullptr branch of RestartTransactionAfterProxyAuth is
+  // taken.
+  job_ptr->transaction_ =
+      ctx->http_transaction_factory()->CreateTransaction(DEFAULT_PRIORITY);
+  ASSERT_NE(job_ptr->transaction_.get(), nullptr);
+
+  // RestartTransactionAfterProxyAuth closes and destroys the existing
+  // transaction, then restarts. The restarted transaction starts
+  // synchronously through the mock layer and should not crash.
+  job_ptr->RestartTransactionAfterProxyAuth();
+  // The transaction is recreated for the restart.
+  EXPECT_NE(job_ptr->transaction_.get(), nullptr);
+  // The delegate must not receive an auth challenge on this path.
+  EXPECT_FALSE(d.auth_required_called());
+
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
 }
 
 #endif  // BUILDFLAG(ARKWEB_NETWORK_PROXY_AUTH_RETRY)

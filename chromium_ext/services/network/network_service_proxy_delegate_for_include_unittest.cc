@@ -440,6 +440,101 @@ TEST_F(NetworkServiceProxyDelegateExtTest, UpdateFallbackProxyStatus) {
             net::FallbackProxyStatus::DISABLE_BY_CLOUD_CONTROL);
 }
 
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       IsDomainInProxyWhitelist_EmptyList_ReturnsFalse) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  auto delegate = CreateDelegate(std::move(config));
+
+  EXPECT_FALSE(delegate->IsDomainInProxyWhitelist("example.com"));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       IsDomainInProxyWhitelist_ExactMatch) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  auto delegate = CreateDelegate(std::move(config));
+  delegate->proxy_whitelist_domains_ = {"example.com"};
+
+  EXPECT_TRUE(delegate->IsDomainInProxyWhitelist("example.com"));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       IsDomainInProxyWhitelist_SubdomainMatch) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  auto delegate = CreateDelegate(std::move(config));
+  delegate->proxy_whitelist_domains_ = {"example.com"};
+
+  // sub.example.com ends with ".example.com" and the preceding char is '.'
+  EXPECT_TRUE(delegate->IsDomainInProxyWhitelist("sub.example.com"));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest, IsDomainInProxyWhitelist_NoMatch) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  auto delegate = CreateDelegate(std::move(config));
+  delegate->proxy_whitelist_domains_ = {"example.com"};
+
+  // Different domain, same suffix but no leading '.' boundary.
+  EXPECT_FALSE(delegate->IsDomainInProxyWhitelist("notexample.com"));
+  EXPECT_FALSE(delegate->IsDomainInProxyWhitelist("evil.org"));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       IsDomainInProxyWhitelist_ShorterDomain) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  auto delegate = CreateDelegate(std::move(config));
+  delegate->proxy_whitelist_domains_ = {"example.com"};
+
+  // domain shorter than the whitelist entry - the length check fails.
+  EXPECT_FALSE(delegate->IsDomainInProxyWhitelist("com"));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       OnTunnelConnectResult_TokenAuthFailed_WithToken) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  config->connect_tunnel_headers.SetHeader("connect", "baz");
+  auto delegate = CreateDelegate(std::move(config));
+
+  std::string host = "www.example.com";
+  auto proxy_chain =
+      net::ProxyChain(net::PacResultElementToProxyServer("HTTPS proxy"));
+  scoped_refptr<net::HttpResponseHeaders> response_headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>(
+          "HTTP/1.1 " +
+          std::to_string(net::FallbackProxyResponseCode::TOKEN_AUTH_FAILED) +
+          " TokenAuthFailed\n\n");
+  net::HttpRequestHeaders request_headers;
+  request_headers.SetHeader(net::kFallbackProxyTunnelHeaderKey, "test-token");
+
+  EXPECT_NO_FATAL_FAILURE(delegate->OnTunnelConnectResult(
+      proxy_chain, host, *response_headers, request_headers));
+}
+
+TEST_F(NetworkServiceProxyDelegateExtTest,
+       OnTunnelConnectResult_TokenAuthFailed_NoToken) {
+  auto config = mojom::CustomProxyConfig::New();
+  config->rules.ParseFromString("https://proxy");
+  config->connect_tunnel_headers.SetHeader("connect", "baz");
+  auto delegate = CreateDelegate(std::move(config));
+
+  std::string host = "www.example.com";
+  auto proxy_chain =
+      net::ProxyChain(net::PacResultElementToProxyServer("HTTPS proxy"));
+  scoped_refptr<net::HttpResponseHeaders> response_headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>(
+          "HTTP/1.1 " +
+          std::to_string(net::FallbackProxyResponseCode::TOKEN_AUTH_FAILED) +
+          " TokenAuthFailed\n\n");
+  net::HttpRequestHeaders request_headers;
+
+  EXPECT_NO_FATAL_FAILURE(delegate->OnTunnelConnectResult(
+      proxy_chain, host, *response_headers, request_headers));
+}
+
 }  // namespace network
 
 #endif  // BUILDFLAG(ARKWEB_EX_FALLBACK_PROXY)

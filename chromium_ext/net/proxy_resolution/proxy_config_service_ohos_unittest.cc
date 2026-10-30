@@ -1017,4 +1017,131 @@ TEST_F(ProxyConfigServiceOHOSTest, AddBypassRules_004) {
   EXPECT_TRUE(bypass_rules.Matches(GURL("http://test.c.com")));
 }
 
+TEST_F(ProxyConfigServiceOHOSTest, ConstructProxyServer_006) {
+  // Port "0" parses to a valid integer 0 but is not a legal proxy port, so
+  // ConstructProxyServer should reject it (port_as_int <= 0 branch).
+  std::string valid_host = "proxy.example.com";
+  ProxyServer result =
+      ConstructProxyServer(ProxyServer::SCHEME_HTTP, valid_host, "0");
+  EXPECT_FALSE(result.is_valid());
+  ProxyServer result2 =
+      ConstructProxyServer(ProxyServer::SCHEME_HTTP, valid_host, "00");
+  EXPECT_FALSE(result2.is_valid());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, LookupProxy_004) {
+  // Prefix host present but port is invalid -> invalid proxy server.
+  std::string prefix = "test_prefix";
+  GetPropertyCallback get_property =
+      base::BindRepeating([](const std::string& property) -> std::string {
+        if (property == "test_prefix.proxyHost") {
+          return "proxy1.example.com";
+        }
+        if (property == "test_prefix.proxyPort") {
+          return "abc";
+        }
+        return std::string();
+      });
+  ProxyServer result =
+      LookupProxy(prefix, get_property, ProxyServer::SCHEME_HTTP);
+  EXPECT_FALSE(result.is_valid());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, LookupProxy_005) {
+  // Default proxy host present but port is invalid -> invalid proxy server.
+  std::string prefix = "test_prefix";
+  GetPropertyCallback get_property =
+      base::BindRepeating([](const std::string& property) -> std::string {
+        if (property == "proxyHost") {
+          return "default.example.com";
+        }
+        if (property == "proxyPort") {
+          return "65536";
+        }
+        return std::string();
+      });
+  ProxyServer result =
+      LookupProxy(prefix, get_property, ProxyServer::SCHEME_HTTP);
+  EXPECT_FALSE(result.is_valid());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, LookupProxy_006) {
+  // Prefix host present with port "0" -> ConstructProxyServer rejects it.
+  std::string prefix = "test_prefix";
+  GetPropertyCallback get_property =
+      base::BindRepeating([](const std::string& property) -> std::string {
+        if (property == "test_prefix.proxyHost") {
+          return "proxy1.example.com";
+        }
+        if (property == "test_prefix.proxyPort") {
+          return "0";
+        }
+        return std::string();
+      });
+  ProxyServer result =
+      LookupProxy(prefix, get_property, ProxyServer::SCHEME_HTTP);
+  EXPECT_FALSE(result.is_valid());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, LookupSocksProxy_003) {
+  // SOCKS host present with invalid port -> invalid proxy server.
+  GetPropertyCallback get_property =
+      base::BindRepeating([](const std::string& property) -> std::string {
+        if (property == "socksProxyHost") {
+          return "socks.example.com";
+        }
+        if (property == "socksProxyPort") {
+          return "not-a-port";
+        }
+        return std::string();
+      });
+  ProxyServer result = LookupSocksProxy(get_property);
+  EXPECT_FALSE(result.is_valid());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_ClearProxyOverride_003) {
+  // When has_proxy_override_ is true, ClearProxyOverride should fetch the
+  // latest config from the get_property callback, post the new config, and
+  // clear the override flag. Verify the posted config task is processed and
+  // the callback is invoked.
+  delegate_->SetHasProxyOverride(true);
+  bool callback_called = false;
+  base::OnceClosure callback = base::BindOnce(
+      [](bool* callback_called) { *callback_called = true; }, &callback_called);
+  delegate_->ClearProxyOverride(std::move(callback));
+  EXPECT_FALSE(delegate_->GetHasProxyOverride());
+  task_environment_.RunUntilIdle();
+  EXPECT_TRUE(callback_called);
+  ProxyConfigWithAnnotation config;
+  auto result = delegate_->GetLatestProxyConfig(&config);
+  EXPECT_EQ(result, ProxyConfigService::CONFIG_VALID);
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Delegate_ProxySettingsChangedTo_004) {
+  // has_proxy_override_ false + exclude_pac_url_ true with empty pac_url and
+  // host -> CreateStaticProxyConfig direct path.
+  delegate_->SetHasProxyOverride(false);
+  delegate_->set_exclude_pac_url(true);
+  const std::string host = "proxy.example.com";
+  const int port = 0;
+  const std::string pac_url = "http://example.com/pac.js";
+  delegate_->ProxySettingsChangedTo(host, port, pac_url, {});
+  task_environment_.RunUntilIdle();
+  ProxyConfigWithAnnotation config;
+  auto result = delegate_->GetLatestProxyConfig(&config);
+  EXPECT_EQ(result, ProxyConfigService::CONFIG_VALID);
+  EXPECT_TRUE(config.value().proxy_rules().empty());
+}
+
+TEST_F(ProxyConfigServiceOHOSTest, Service_ClearProxyOverride_002) {
+  // ClearProxyOverride wrapper when has_proxy_override_ is false: the
+  // callback should be invoked immediately.
+  service_->delegate_->has_proxy_override_ = false;
+  bool callback_called = false;
+  base::OnceClosure callback = base::BindOnce(
+      [](bool* callback_called) { *callback_called = true; }, &callback_called);
+  service_->ClearProxyOverride(std::move(callback));
+  EXPECT_TRUE(callback_called);
+}
+
 }  // namespace net

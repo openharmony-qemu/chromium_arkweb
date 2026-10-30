@@ -26,7 +26,12 @@ void PermissionControllerImpl::GetPermissionStatusAsync(
     return;
   }
 
-  url::Origin embedding_origin = url::Origin(); 
+  // Override lookup uses the requesting origin as the embedding origin,
+  // matching the worker / no-context convention (GetPermissionResultForWorker
+  // and GetPermissionResultForOriginWithoutContext both pass origin for both).
+  // A default-constructed url::Origin() carries a fresh opaque nonce and can
+  // never match an override key, so it must not be used here.
+  url::Origin embedding_origin = origin;
   std::optional<PermissionResult> result =
       permission_overrides_.Get(origin, embedding_origin, permission);
   if (result.has_value()) {
@@ -73,8 +78,8 @@ void PermissionControllerImpl::RequestPermissionsSkipPermissionsPolicy(
   for (const blink::mojom::PermissionDescriptorPtr& permission :
        request_description.permissions) {
     NotifySchedulerAboutPermissionRequest(
-      render_frame_host, 
-      blink::PermissionDescriptorToPermissionType(permission));
+        render_frame_host,
+        blink::PermissionDescriptorToPermissionType(permission));
   }
 
   request_description.requesting_origin =
@@ -96,7 +101,8 @@ void PermissionControllerImpl::RequestPermissionsSkipPermissionsPolicy(
       browser_context_->GetPermissionControllerDelegate();
   if (!delegate) {
     std::move(wrapper).Run(std::vector<PermissionResult>(
-        request_description.permissions.size(), PermissionResult(PermissionStatus::DENIED)));
+        request_description.permissions.size(),
+        PermissionResult(PermissionStatus::DENIED)));
     return;
   }
 

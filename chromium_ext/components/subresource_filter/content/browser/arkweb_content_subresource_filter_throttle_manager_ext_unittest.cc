@@ -178,6 +178,39 @@ TEST_P(ArkWebContentSubresourceFilterThrottleManagerExtTest,
   EXPECT_NE(log_output.find("map.size():0"), std::string::npos);
 }
 
+TEST_P(ArkWebContentSubresourceFilterThrottleManagerExtTest,
+       ReportSubresourceMap_NonEmptyMap) {
+  // Populate the aggregated statistics with a disallowed URL so the
+  // subresource map is non-empty and ReportSubresourceMap enters the
+  // web_contents->OnAdsBlocked() path.
+  content::MockNavigationHandle handle(GetTestWebContents());
+  handle.set_url(GURL("https://www.example.com/"));
+  ext->StatisticActivationState(&handle);
+  auto* statistics = throttle_manager()->page_load_statistics();
+  ASSERT_NE(statistics, nullptr);
+
+  mojom::DocumentLoadStatisticsPtr stats = mojom::DocumentLoadStatistics::New();
+  stats->num_loads_total = 5;
+  stats->num_loads_disallowed = 1;
+  stats->loads_disallowed_url_map["https://www.blocked.example/ads.js"] = 1;
+  statistics->OnDocumentLoadStatistics(*stats);
+
+  content::RenderFrameHost* fenced_frame = CreateFencedFrameWithTestNavigation(
+      GURL("https://www.a.com/allowed.html"), main_rfh());
+  EXPECT_EQ(content::NavigationThrottle::PROCEED,
+            SimulateStartAndGetResult(navigation_simulator()));
+  EXPECT_EQ(content::NavigationThrottle::PROCEED,
+            SimulateCommitAndGetResult(navigation_simulator()));
+  fenced_frame = navigation_simulator()->GetFinalRenderFrameHost();
+
+  ::testing::internal::CaptureStderr();
+  EXPECT_NO_FATAL_FAILURE(ext->ReportSubresourceMap(
+      fenced_frame, GURL("https://www.a.com/allowed.html")));
+  navigation_simulator()->StopLoading();
+  std::string log_output = ::testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("map.size():1"), std::string::npos);
+}
+
 // ============================================================================
 // StatisticActivationState tests
 // ============================================================================
@@ -248,6 +281,45 @@ TEST_P(ArkWebContentSubresourceFilterThrottleManagerExtTest,
   mojom::DocumentLoadStatisticsPtr stats = mojom::DocumentLoadStatistics::New();
   stats->num_loads_total = 7;
   EXPECT_NO_FATAL_FAILURE(ext->UserSetDocumentLoadStatistics(std::move(stats)));
+}
+
+TEST_P(ArkWebContentSubresourceFilterThrottleManagerExtTest,
+       SetStatisticsAfterDocumentLoad_WithDisallowedUrls) {
+  // A non-empty loads_disallowed_url_map triggers NotifyAndResetStatistics,
+  // which reports blocked URLs via web_contents->OnAdsBlocked() (null
+  // delegate in the harness -> no-op) and resets the after-load statistics.
+  content::MockNavigationHandle handle(GetTestWebContents());
+  handle.set_url(GURL("https://www.example.com/"));
+  ext->StatisticActivationState(&handle);
+  ASSERT_NE(throttle_manager()->page_load_statistics(), nullptr);
+
+  mojom::DocumentLoadStatisticsPtr stats = mojom::DocumentLoadStatistics::New();
+  stats->num_loads_total = 5;
+  stats->num_loads_disallowed = 1;
+  stats->loads_disallowed_url_map["https://www.blocked.example/ads.js"] = 1;
+  EXPECT_NO_FATAL_FAILURE(
+      ext->SetStatisticsAfterDocumentLoad(std::move(stats)));
+
+  // Calling a second time with no disallowed URLs must not crash.
+  mojom::DocumentLoadStatisticsPtr stats2 =
+      mojom::DocumentLoadStatistics::New();
+  stats2->num_loads_total = 1;
+  EXPECT_NO_FATAL_FAILURE(
+      ext->SetStatisticsAfterDocumentLoad(std::move(stats2)));
+}
+
+TEST_P(ArkWebContentSubresourceFilterThrottleManagerExtTest,
+       UserSetStatisticsAfterDocumentLoad_WithDisallowedUrls) {
+  content::MockNavigationHandle handle(GetTestWebContents());
+  handle.set_url(GURL("https://www.example.com/"));
+  ext->StatisticActivationState(&handle);
+  ASSERT_NE(throttle_manager()->page_load_statistics(), nullptr);
+
+  mojom::DocumentLoadStatisticsPtr stats = mojom::DocumentLoadStatistics::New();
+  stats->num_loads_disallowed = 1;
+  stats->loads_disallowed_url_map["https://www.blocked.example/ads.js"] = 2;
+  EXPECT_NO_FATAL_FAILURE(
+      ext->UserSetStatisticsAfterDocumentLoad(std::move(stats)));
 }
 
 // ============================================================================

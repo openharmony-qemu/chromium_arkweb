@@ -43,12 +43,13 @@
 
 #define private public
 #define BIND_DNS_TEST
-#include "net/base/network_change_notifier_passive.h"
 #include "base/feature_list.h"
 #include "net/base/features.h"
+#include "net/base/network_change_notifier_passive.h"
 #include "net/base/network_change_notifier_passive_for_include.cc"
 #undef BIND_DNS_TEST
 #undef private
+#include "arkweb/ohos_adapter_ndk/mock_ndk_api/include/mock_ndk_api.h"
 #include "base/test/task_environment.h"
 #include "net/base/ip_address.h"
 #include "net/base/ip_endpoint.h"
@@ -57,6 +58,9 @@
 #include "net/dns/system_dns_config_change_notifier.h"
 #include "net/dns/test_dns_config_service.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/net_connect_adapter.h"
+
+using MockNdkApi::g_mock_OH_NetConn_GetDefaultNet;
+using MockNdkApi::g_mock_OH_NetConn_GetNetCapabilities;
 
 using net::NetworkChangeNotifier;
 using ::testing::_;
@@ -1036,6 +1040,146 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
 }
 
 TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_GetDefaultNetFailed) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return -1; };
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_GetNetCapabilitiesFailed) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities =
+      [](NetConn_NetHandle*, NetConn_NetCapabilities*) { return -1; };
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_InvalidNetCapsSize) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities = [](NetConn_NetHandle*,
+                                            NetConn_NetCapabilities* caps) {
+    caps->netCapsSize = -1;
+    return 0;
+  };
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapValidated,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  // caps unchanged on invalid size.
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_InvalidNetCapsSizeLarge) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities = [](NetConn_NetHandle*,
+                                            NetConn_NetCapabilities* caps) {
+    caps->netCapsSize = NETCONN_MAX_CAP_SIZE + 1;
+    caps->bearerTypesSize = 0;
+    return 0;
+  };
+  GetNotifier()->network_capability_.store(0, std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_InvalidBearerTypesSize) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities = [](NetConn_NetHandle*,
+                                            NetConn_NetCapabilities* caps) {
+    caps->netCapsSize = 0;
+    caps->bearerTypesSize = NETCONN_MAX_BEARER_TYPE_SIZE + 1;
+    return 0;
+  };
+  GetNotifier()->network_capability_.store(0, std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_SuccessPortalValidated) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities = [](NetConn_NetHandle*,
+                                            NetConn_NetCapabilities* caps) {
+    caps->netCapsSize = 2;
+    caps->netCaps[0] = NETCONN_NET_CAPABILITY_PORTAL;
+    caps->netCaps[1] = NETCONN_NET_CAPABILITY_VALIDATED;
+    caps->bearerTypesSize = 1;
+    caps->bearerTypes[0] = NETCONN_BEARER_WIFI;
+    return 0;
+  };
+  GetNotifier()->network_capability_.store(0, std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_TRUE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+
+  // Second call with the same values: old_caps == new_caps and bearer types
+  // unchanged, so the log/update branch is not taken.
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_TRUE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       UpdateNetworkCapabilityOnUIThread_SuccessNoPortal) {
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(switches::kEnableNwebEx);
+  g_mock_OH_NetConn_GetDefaultNet = [](NetConn_NetHandle*) { return 0; };
+  g_mock_OH_NetConn_GetNetCapabilities = [](NetConn_NetHandle*,
+                                            NetConn_NetCapabilities* caps) {
+    caps->netCapsSize = 1;
+    caps->netCaps[0] = NETCONN_NET_CAPABILITY_INTERNET;
+    caps->bearerTypesSize = 0;
+    return 0;
+  };
+  GetNotifier()->network_capability_.store(
+      NetworkChangeNotifierPassive::kNetworkCapCaptivePortal,
+      std::memory_order_release);
+  ASSERT_NO_FATAL_FAILURE(GetNotifier()->UpdateNetworkCapabilityOnUIThread());
+  EXPECT_FALSE(GetNotifier()->IsCaptivePortalInternal());
+  EXPECT_FALSE(GetNotifier()->IsNetworkValidatedInternal());
+  g_mock_OH_NetConn_GetNetCapabilities = nullptr;
+  g_mock_OH_NetConn_GetDefaultNet = nullptr;
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(switches::kEnableNwebEx);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
        PostUpdateNetworkCapabilityTask_NullRunner) {
   GetNotifier()->ui_task_runner_ = nullptr;
   GetNotifier()->network_capability_.store(
@@ -1424,5 +1568,141 @@ TEST_F(NetworkChangeNotifierPassiveExtTest,
   EXPECT_TRUE(GetNotifier()->IsNetworkValidatedInternal());
 }
 #endif
+
+#if BUILDFLAG(ARKWEB_NETWORK_BASE)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       IsOnlyIPv6Added_NotLargerOrEmptyOld) {
+  NetConnCallbackImpl callback(GetNotifier());
+  // new_list.size() <= old_list.size() -> false.
+  EXPECT_FALSE(callback.IsOnlyIPv6Added({"1.1.1.1"}, {"1.1.1.1", "2.2.2.2"}));
+  EXPECT_FALSE(
+      callback.IsOnlyIPv6Added({"1.1.1.1", "2.2.2.2"}, {"1.1.1.1", "2.2.2.2"}));
+  // old_list.empty() -> false.
+  EXPECT_FALSE(callback.IsOnlyIPv6Added({"1.1.1.1"}, {}));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, IsOnlyIPv6Added_OnlyIPv6Added) {
+  NetConnCallbackImpl callback(GetNotifier());
+  // Same v4 set, new list additionally contains an IPv6 -> true.
+  EXPECT_TRUE(callback.IsOnlyIPv6Added({"1.1.1.1", "fe80::1", "fe80::2"},
+                                       {"1.1.1.1", "fe80::1"}));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, IsOnlyIPv6Added_NewV4Differs) {
+  NetConnCallbackImpl callback(GetNotifier());
+  // v4 set changed -> false.
+  EXPECT_FALSE(callback.IsOnlyIPv6Added({"1.1.1.2", "fe80::1", "fe80::2"},
+                                        {"1.1.1.1", "fe80::1"}));
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, IsOnlyIPv6Added_V6NotSuperset) {
+  NetConnCallbackImpl callback(GetNotifier());
+  // Same v4 set, but new v6 set does not include all old v6 -> false
+  // (std::includes false).
+  EXPECT_FALSE(
+      callback.IsOnlyIPv6Added({"1.1.1.1", "fe80::1", "fe80::3", "fe80::4"},
+                               {"1.1.1.1", "fe80::1", "fe80::2"}));
+}
+#endif
+
+#if BUILDFLAG(IS_ARKWEB_EXT) && BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION) && \
+    BUILDFLAG(ARKWEB_NETWORK_IPV6_SLAAC_FILTER)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetConnectionPropertiesChange_OnlyIPv6AddedSkipsIPChange) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> cur = {"1.1.1.1", "fe80::1"};
+  std::vector<std::string> new_list = {"1.1.1.1", "fe80::1", "fe80::2"};
+  GetNotifier()->SetDefaultAddrList(cur);
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(Return(new_list));
+
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.net_id_ = 5;
+  auto result = callback.NetConnectionPropertiesChange();
+  EXPECT_EQ(result, 0);
+  FastForwardUntilIdle();
+  // Only IPv6 added, skip OnIPAddressChanged.
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       NetConnectionPropertiesChange_NotOnlyIPv6NotSkipped) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  GetNotifier()->SetDefaultAddrList({"1.1.1.1", "fe80::1"});
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(5))
+      .WillRepeatedly(
+          Return(std::vector<std::string>{"2.2.2.2", "fe80::1", "fe80::2"}));
+
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.net_id_ = 5;
+  auto result = callback.NetConnectionPropertiesChange();
+  EXPECT_EQ(result, 0);
+  FastForwardUntilIdle();
+  // v4 changed as well, so the IP change is delivered.
+  EXPECT_EQ(ip_observer.GetIPChanges(), 1);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_OnlyIPv6AddedSetsSkip) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  GetNotifier()->SetDefaultAddrList({"1.1.1.1", "fe80::1"});
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7))
+      .WillRepeatedly(
+          Return(std::vector<std::string>{"1.1.1.1", "fe80::1", "fe80::2"}));
+
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 7;
+  EXPECT_TRUE(callback.HasLinkPropertiesChanged());
+  EXPECT_TRUE(callback.skip_ip_changed_for_ipv6_slaac_);
+}
+
+#if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
+TEST_F(NetworkChangeNotifierPassiveExtTest,
+       HasLinkPropertiesChanged_HttpDnsOnlyIPv6Added) {
+  auto* adapter = new OHOS::NWeb::MockNetConnectAdapter();
+  GetNotifier()->ohos_net_conn_adapter_.reset(adapter);
+  std::vector<std::string> addrs = {"1.1.1.1"};
+  EXPECT_CALL(*adapter, GetNetAddrListByNetId(7)).WillRepeatedly(Return(addrs));
+  EXPECT_CALL(*adapter, GetDnsServersByNetId(_))
+      .WillRepeatedly(Return(std::vector<std::string>{"8.8.8.8", "fe80::1"}));
+  GetNotifier()->SetDefaultAddrList(addrs);
+  // Current DNS has only the v4 server, active DNS additionally has an IPv6.
+  GetNotifier()->dns_servers_ = {"8.8.8.8"};
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.network_for_dns_ = -1;
+  callback.net_id_ = 7;
+  EXPECT_TRUE(callback.HasLinkPropertiesChanged());
+  EXPECT_TRUE(callback.skip_ip_changed_for_ipv6_slaac_);
+  base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+      switches::kEnableNwebExHttpDnsFallback);
+}
+#endif  // ARKWEB_EXT_HTTP_DNS_FALLBACK
+
+TEST_F(NetworkChangeNotifierPassiveExtTest, MaybeNotifyIPAddressChanged_Skip) {
+  testing::StrictMock<MockIPAddressObserver> ip_observer;
+  NetworkChangeNotifier::AddIPAddressObserver(&ip_observer);
+  NetConnCallbackImpl callback(GetNotifier());
+  callback.skip_ip_changed_for_ipv6_slaac_ = true;
+  callback.MaybeNotifyIPAddressChanged();
+  FastForwardUntilIdle();
+  EXPECT_EQ(ip_observer.GetIPChanges(), 0);
+  EXPECT_FALSE(callback.skip_ip_changed_for_ipv6_slaac_);
+  NetworkChangeNotifier::RemoveIPAddressObserver(&ip_observer);
+}
+#endif  // IS_ARKWEB_EXT && ARKWEB_EXT_NETWORK_CONNECTION && SLAAC_FILTER
 
 }  // namespace net

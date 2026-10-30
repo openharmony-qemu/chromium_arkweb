@@ -147,7 +147,7 @@ class ResourceURLLoaderTest : public FileURLLoaderFactoryTest {
     }
   }
 
- private:
+ protected:
   std::unique_ptr<OHOS::NWeb::MockOhosResourceAdapter> mock_resource_adapter_;
   std::unique_ptr<OHOS::NWeb::MockOhosAdapterHelper> mock_ohos_adapter_helper_;
 };
@@ -299,6 +299,61 @@ TEST_F(ResourceURLLoaderTest, NoHapPath) {
   ASSERT_TRUE(request);
   request->url = FilePathToResourceURL(file);
   EXPECT_EQ(net::ERR_FAILED, CreateLoaderAndRun(std::move(request)));
+}
+
+// ResourceURLLoader with a null resource adapter (GetResourceAdapter returns
+// nullptr) completes with ERR_FAILED.
+TEST_F(ResourceURLLoaderTest, ResourceAdapter_Null) {
+  base::FilePath file;
+  ASSERT_TRUE(base::CreateTemporaryFile(&file));
+  auto request = std::make_unique<network::ResourceRequest>();
+  ASSERT_TRUE(request);
+  OpenSwitch();
+  mock_ohos_adapter_helper_ =
+      std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_ohos_adapter_helper_.get());
+  EXPECT_CALL(*mock_ohos_adapter_helper_, GetHiTraceAdapterInstance())
+      .WillRepeatedly(testing::Invoke([]() -> OHOS::NWeb::HiTraceAdapter& {
+        return OHOS::NWeb::HiTraceAdapterImpl::GetInstance();
+      }));
+  EXPECT_CALL(*mock_ohos_adapter_helper_, GetResourceAdapter(testing::_))
+      .WillOnce(testing::Return(
+          testing::ByMove(std::unique_ptr<OHOS::NWeb::OhosResourceAdapter>())));
+  request->url = FilePathToResourceURL(file);
+  EXPECT_EQ(net::ERR_FAILED, CreateLoaderAndRun(std::move(request)));
+}
+
+// ResourceURLLoader with an empty data source (GetRawFileData succeeds with
+// zero length) exercises the total_bytes_to_send == 0 completion path.
+TEST_F(ResourceURLLoaderTest, Response_EmptyData) {
+  base::FilePath file;
+  ASSERT_TRUE(base::CreateTemporaryFile(&file));
+  auto request = std::make_unique<network::ResourceRequest>();
+  ASSERT_TRUE(request);
+  OpenSwitch();
+  mock_ohos_adapter_helper_ =
+      std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(mock_ohos_adapter_helper_.get());
+  mock_resource_adapter_ =
+      std::make_unique<OHOS::NWeb::MockOhosResourceAdapter>();
+  auto adapter_ptr = mock_resource_adapter_.get();
+  EXPECT_CALL(*mock_ohos_adapter_helper_, GetResourceAdapter(testing::_))
+      .WillOnce(
+          testing::Return(testing::ByMove(std::move(mock_resource_adapter_))));
+  EXPECT_CALL(*mock_ohos_adapter_helper_, GetHiTraceAdapterInstance())
+      .WillRepeatedly(testing::Invoke([]() -> OHOS::NWeb::HiTraceAdapter& {
+        return OHOS::NWeb::HiTraceAdapterImpl::GetInstance();
+      }));
+  EXPECT_CALL(*adapter_ptr, GetRawFileData)
+      .WillRepeatedly(
+          testing::Invoke([](const std::string& rawFile, size_t& len,
+                             uint8_t** dest, bool isSys) -> bool {
+            len = 0;
+            *dest = nullptr;
+            return true;
+          }));
+  request->url = FilePathToResourceURL(file);
+  EXPECT_EQ(net::OK, CreateLoaderAndRun(std::move(request)));
 }
 
 // ResourceURLLoader with valid Range header

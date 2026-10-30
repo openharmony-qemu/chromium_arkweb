@@ -37,3 +37,6 @@ arkweb_net_base_ext_host_sources += [
   "//arkweb/chromium_ext/net/base/host_utils.cc",
   "//arkweb/chromium_ext/net/base/host_utils.h",
 ]
+
+arkweb_net_base_ext_unittest_sources +=
+    [ "//arkweb/chromium_ext/net/base/host_utils_unittest.cc" ]

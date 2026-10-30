@@ -379,4 +379,100 @@ TEST_F(CryptLinuxForIncludeTest, TestDecryptWithIvForIncludeBothKeysFail) {
   EXPECT_FALSE(returnValue);
 }
 
+// Test DecryptWithIvForInclude with an invalid IV length: the primary
+// key's decrypt attempt fails at Encryptor::Init (GCM requires 12-byte IV),
+// and with a null ota key the function returns true with result=false.
+TEST_F(CryptLinuxForIncludeTest, TestDecryptWithIvForIncludeWrongIv) {
+  std::string plaintext;
+  std::string testPlaintext = "testWrongIv";
+  std::string rawCiphertext;
+  auto key1 = CreateTestKey(keyString1);
+
+  EXPECT_TRUE(GetEncryptString(testPlaintext, &rawCiphertext, key1.get(), iv));
+
+  std::string wrongIv = "short";
+  bool result = true;
+  bool returnValue = DecryptWithIvForInclude(rawCiphertext, key1.get(), nullptr,
+                                             &plaintext, wrongIv, result);
+  // Init fails (wrong iv), and with a null ota key the function returns true
+  // with result=false.
+  EXPECT_TRUE(returnValue);
+  EXPECT_FALSE(result);
+}
+
+// Test DecryptWithIvForInclude where the primary key decrypt fails because
+// of a bad IV, and the ota key also fails -> returns false.
+TEST_F(CryptLinuxForIncludeTest, TestDecryptWithIvForIncludeWrongIvBothKeys) {
+  std::string plaintext;
+  std::string testPlaintext = "testWrongIvBoth";
+  std::string rawCiphertext;
+  auto key1 = CreateTestKey(keyString1);
+  auto key2 = CreateTestKey(keyString2);
+
+  EXPECT_TRUE(GetEncryptString(testPlaintext, &rawCiphertext, key1.get(), iv));
+
+  std::string wrongIv = "bad";
+  bool result = true;
+  bool returnValue = DecryptWithIvForInclude(
+      rawCiphertext, key1.get(), key2.get(), &plaintext, wrongIv, result);
+  EXPECT_FALSE(returnValue);
+}
+
+// Test Encryptor::Init with an invalid key size (not 16 or 32 bytes).
+// GetCipherForKey returns nullptr for such keys and Init fails even with a
+// correct CBC IV length. Note: SymmetricKey::Import rejects invalid sizes,
+// so construct the key directly via the public span constructor.
+TEST_F(CryptLinuxForIncludeTest, TestEncryptorInitInvalidKeySize) {
+  std::string badKey8(8, 'A');
+  crypto::SymmetricKey key8(base::as_byte_span(badKey8));
+  crypto::Encryptor encryptor;
+  std::string cbcIv(16, '\0');
+  EXPECT_FALSE(encryptor.Init(&key8, crypto::Encryptor::CBC, cbcIv));
+
+  std::string badKey24(24, 'B');
+  crypto::SymmetricKey key24(base::as_byte_span(badKey24));
+  crypto::Encryptor encryptor24;
+  EXPECT_FALSE(encryptor24.Init(&key24, crypto::Encryptor::CBC, cbcIv));
+}
+
+// Test Encryptor::CryptString GCM decrypt with a corrupted tag: the GCM
+// finalization fails, len becomes nullopt and Decrypt returns false.
+TEST_F(CryptLinuxForIncludeTest, TestCryptStringGCMDecryptWrongTag) {
+  auto key = CreateTestKey(keyString1);
+  crypto::Encryptor encryptor;
+  ASSERT_TRUE(encryptor.Init(key.get(), crypto::Encryptor::GCM, iv));
+
+  std::string testPlaintext = "tag corruption test";
+  std::string ciphertext;
+  ASSERT_TRUE(encryptor.Encrypt(testPlaintext, &ciphertext));
+
+  // Corrupt the last GCM_TAG_SIZE bytes (the tag).
+  ASSERT_GT(ciphertext.size(), 16u);
+  ciphertext[ciphertext.size() - 1] ^= 0xFF;
+
+  std::string plaintext;
+  EXPECT_FALSE(encryptor.Decrypt(ciphertext, &plaintext));
+}
+
+// Test DecryptStringForMigrate success path with a correct migrate key.
+TEST_F(CryptLinuxForIncludeTest, TestDecryptStringForMigrateSuccess) {
+  std::string testPlaintext = "migrate success";
+  std::string rawCiphertext;
+  auto encryptionKey = CreateTestKey(keyString1);
+  ASSERT_TRUE(
+      GetEncryptString(testPlaintext, &rawCiphertext, encryptionKey.get(), iv));
+
+  std::string formattedCiphertext =
+      std::string(kObfuscationPrefixV10) + iv + rawCiphertext;
+
+  oscryptImpl->password_migrate_cache_ = CreateTestKey(keyString1);
+  oscryptImpl->is_password_migrate_cached_ = true;
+  oscryptImpl->migration_count_ = 1;
+  std::string plaintext;
+  bool result =
+      oscryptImpl->DecryptStringForMigrate(formattedCiphertext, &plaintext);
+  EXPECT_TRUE(result);
+  EXPECT_EQ(testPlaintext, plaintext);
+}
+
 #endif

@@ -898,3 +898,346 @@ TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWeb_RegisterCustomSchemes_WithFlags) {
       ARKWEB_SCHEME_OPTION_STANDARD | ARKWEB_SCHEME_OPTION_FETCH_ENABLED);
   EXPECT_EQ(ret, ARKWEB_NET_OK);
 }
+
+// ===== Wrapper null-check branches (previously uncovered) =====
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebRequestHeaderList_GetHeader_NullList) {
+  char* key = nullptr;
+  char* value = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebRequestHeaderList_GetHeader(nullptr, 0, &key, &value);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler request header list is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebRequestHeaderList_GetHeader_NullKey) {
+  char* value = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebRequestHeaderList_GetHeader(list_, 0, nullptr, &value);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler key is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebRequestHeaderList_GetHeader_NullValue) {
+  char* key = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebRequestHeaderList_GetHeader(list_, 0, &key, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler value is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebRequestHeaderList_GetHeader_InvalidIndex) {
+  // list_ built from null cef_request -> header_value empty -> index invalid.
+  char* key = nullptr;
+  char* value = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebRequestHeaderList_GetHeader(list_, 0, &key, &value);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler get header index is invalid"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceRequest_GetMethod_NullRequest) {
+  char* method = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetMethod(nullptr, &method);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResourceRequest_GetMethod_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetMethod(request_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler method is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceRequest_GetMethod_SuccessPath) {
+  char* method = nullptr;
+  // request_ has null cef_request -> GetMethod logs and returns without crash.
+  EXPECT_NO_FATAL_FAILURE(
+      OH_ArkWebResourceRequest_GetMethod(request_, &method));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResourceRequest_GetUrl_NullRequest) {
+  char* url = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetUrl(nullptr, &url);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResourceRequest_GetUrl_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetUrl(request_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler url is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResourceRequest_GetUrl_SuccessPath) {
+  char* url = nullptr;
+  EXPECT_NO_FATAL_FAILURE(OH_ArkWebResourceRequest_GetUrl(request_, &url));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceRequest_GetReferrer_NullRequest) {
+  char* referrer = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetReferrer(nullptr, &referrer);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler resource request is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceRequest_GetReferrer_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResourceRequest_GetReferrer(request_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler referrer is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceRequest_GetReferrer_SuccessPath) {
+  char* referrer = nullptr;
+  EXPECT_NO_FATAL_FAILURE(
+      OH_ArkWebResourceRequest_GetReferrer(request_, &referrer));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetUrl_NullResponse) {
+  char* url = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetUrl(nullptr, &url);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetUrl_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetUrl(response_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler url is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetUrl_SuccessPath) {
+  char* url = nullptr;
+  EXPECT_NO_FATAL_FAILURE(OH_ArkWebResponse_GetUrl(response_, &url));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResponse_GetStatusText_NullResponse) {
+  char* status_text = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetStatusText(nullptr, &status_text);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetStatusText_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetStatusText(response_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler status text is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetStatusText_SuccessPath) {
+  char* status_text = nullptr;
+  EXPECT_NO_FATAL_FAILURE(
+      OH_ArkWebResponse_GetStatusText(response_, &status_text));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetCharset_NullResponse) {
+  char* charset = nullptr;
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetCharset(nullptr, &charset);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetCharset_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWebResponse_GetCharset(response_, nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler charset is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetCharset_SuccessPath) {
+  char* charset = nullptr;
+  EXPECT_NO_FATAL_FAILURE(OH_ArkWebResponse_GetCharset(response_, &charset));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_SetErrorInfo_NullResponse) {
+  int32_t ret = OH_ArkWebResponse_SetErrorInfo(nullptr, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResponse_SetErrorInfo_NullErrorInfo) {
+  int32_t ret = OH_ArkWebResponse_SetErrorInfo(response_, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_SetErrorInfo_SuccessPath) {
+  ArkWeb_ErrorInfo* error_info = nullptr;
+  OH_ArkWeb_CreateErrorInfo(&error_info);
+  ASSERT_NE(error_info, nullptr);
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetCompleteIfNoResponse(error_info, true),
+            ARKWEB_NET_OK);
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetCustomErrorCode(error_info, 77),
+            ARKWEB_NET_OK);
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetErrorCode(error_info, ARKWEB_ERR_ABORTED),
+            ARKWEB_NET_OK);
+  int32_t ret = OH_ArkWebResponse_SetErrorInfo(response_, error_info);
+  EXPECT_EQ(ret, ARKWEB_NET_OK);
+  // response keeps its own copy of the error info.
+  ArkWeb_ErrorInfo* got = OH_ArkWebResponse_GetErrorInfo(response_);
+  ASSERT_NE(got, nullptr);
+  EXPECT_TRUE(OH_ArkWebErrorInfo_GetCompleteIfNoResponse(got));
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetCustomErrorCode(got), 77);
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetErrorCode(got), ARKWEB_ERR_ABORTED);
+  OH_ArkWeb_DestroyErrorInfo(error_info);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebResponse_GetErrorInfo_NullResponse) {
+  EXPECT_EQ(OH_ArkWebResponse_GetErrorInfo(nullptr), nullptr);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResponse_SetCustomErrorCode_NullResponse) {
+  int32_t ret = OH_ArkWebResponse_SetCustomErrorCode(nullptr, 100);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResponse_SetCustomErrorCode_SuccessPath) {
+  int32_t ret = OH_ArkWebResponse_SetCustomErrorCode(response_, 100);
+  EXPECT_EQ(ret, ARKWEB_NET_OK);
+  EXPECT_EQ(OH_ArkWebResponse_GetCustomErrorCode(response_), 100);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResponse_GetCustomErrorCode_NullResponse) {
+  EXPECT_EQ(OH_ArkWebResponse_GetCustomErrorCode(nullptr), 0);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceHandler_DidReceiveResponse_NullHandler) {
+  int32_t ret = OH_ArkWebResourceHandler_DidReceiveResponse(nullptr, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceHandler_DidReceiveResponse_NullResponse) {
+  auto factory =
+      OHOS::NWeb::NWebSchemeHandlerFactory::GetOrCreateForScheme("test");
+  auto handler = new ArkWeb_ResourceHandler_(request_, factory, "tag", true);
+  int32_t ret = OH_ArkWebResourceHandler_DidReceiveResponse(handler, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+  delete handler;
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceHandler_DidFailWithErrorInfo_NullHandler) {
+  int32_t ret = OH_ArkWebResourceHandler_DidFailWithErrorInfo(nullptr, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebResourceHandler_DidFailWithErrorInfo_NullErrorInfo) {
+  auto factory =
+      OHOS::NWeb::NWebSchemeHandlerFactory::GetOrCreateForScheme("test");
+  auto handler = new ArkWeb_ResourceHandler_(request_, factory, "tag", true);
+  int32_t ret = OH_ArkWebResourceHandler_DidFailWithErrorInfo(handler, nullptr);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+  delete handler;
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWeb_CreateErrorInfo_NullOut) {
+  testing::internal::CaptureStderr();
+  OH_ArkWeb_CreateErrorInfo(nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler errorInfo is nullptr."),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWeb_DestroyErrorInfo_NullErrorInfo) {
+  testing::internal::CaptureStderr();
+  OH_ArkWeb_DestroyErrorInfo(nullptr);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler errorInfo is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebErrorInfo_SetCompleteIfNoResponse_Null) {
+  int32_t ret = OH_ArkWebErrorInfo_SetCompleteIfNoResponse(nullptr, true);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test,
+       OH_ArkWebErrorInfo_GetCompleteIfNoResponse_Null) {
+  EXPECT_FALSE(OH_ArkWebErrorInfo_GetCompleteIfNoResponse(nullptr));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebErrorInfo_SetCustomErrorCode_Null) {
+  int32_t ret = OH_ArkWebErrorInfo_SetCustomErrorCode(nullptr, 1);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebErrorInfo_GetCustomErrorCode_Null) {
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetCustomErrorCode(nullptr), 0);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebErrorInfo_SetErrorCode_Null) {
+  int32_t ret = OH_ArkWebErrorInfo_SetErrorCode(nullptr, ARKWEB_NET_OK);
+  EXPECT_EQ(ret, ARKWEB_INVALID_PARAM);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebErrorInfo_GetErrorCode_Null) {
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetErrorCode(nullptr), ARKWEB_NET_OK);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWebErrorInfo_RoundTrip) {
+  ArkWeb_ErrorInfo* error_info = nullptr;
+  OH_ArkWeb_CreateErrorInfo(&error_info);
+  ASSERT_NE(error_info, nullptr);
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetCompleteIfNoResponse(error_info, true),
+            ARKWEB_NET_OK);
+  EXPECT_TRUE(OH_ArkWebErrorInfo_GetCompleteIfNoResponse(error_info));
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetCustomErrorCode(error_info, 42),
+            ARKWEB_NET_OK);
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetCustomErrorCode(error_info), 42);
+  EXPECT_EQ(OH_ArkWebErrorInfo_SetErrorCode(error_info, ARKWEB_ERR_ABORTED),
+            ARKWEB_NET_OK);
+  EXPECT_EQ(OH_ArkWebErrorInfo_GetErrorCode(error_info), ARKWEB_ERR_ABORTED);
+  OH_ArkWeb_DestroyErrorInfo(error_info);
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWeb_ReleaseString_Valid) {
+  char* str = new char[4]{"abc"};
+  EXPECT_NO_FATAL_FAILURE(OH_ArkWeb_ReleaseString(str));
+}
+
+TEST_F(ArkWeb_SchemeHandler_Test, OH_ArkWeb_ReleaseString_Null) {
+  EXPECT_NO_FATAL_FAILURE(OH_ArkWeb_ReleaseString(nullptr));
+}

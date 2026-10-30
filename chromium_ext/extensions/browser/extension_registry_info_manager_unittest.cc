@@ -58,6 +58,12 @@ class Extension;
 class ExtensionAction;
 class ExtensionRegistry;
 
+// Declarations for helpers exposed by the ARKWEB_TEST build of
+// extension_registry_info_manager.cc (the anonymous namespace is left open
+// under ARKWEB_TEST so these have external linkage and live directly in
+// namespace extensions).
+int UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason reason);
+
 namespace {
 static int g_expect_reason = 0;
 
@@ -975,5 +981,76 @@ TEST_F(ExtensionRegistryInfoManagerTest,
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   EXPECT_EQ(g_state_changed, static_cast<int>(NWebExtensionState::DISABLED));
 #endif
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, UnloadedReasonEnumToInt_Test) {
+  EXPECT_EQ(
+      UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason::UNDEFINED), 0);
+  EXPECT_EQ(UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason::DISABLE),
+            1);
+  EXPECT_EQ(UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason::UPDATE),
+            2);
+  EXPECT_EQ(
+      UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason::UNINSTALL), 3);
+  // default branch
+  EXPECT_EQ(
+      UnloadedExtensionReasonEnumToInt(UnloadedExtensionReason::TERMINATE), 0);
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionIconImageChanged_NotFound) {
+  // An image that is not in pending_notifiers_ logs a warning and returns
+  // without touching any notifier.
+  ASSERT_NO_FATAL_FAILURE(
+      GetInfoManager()->OnExtensionIconImageChanged(nullptr));
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, OnExtensionInstalled_NullExtension) {
+  // A null extension triggers the early-return branch.
+  ASSERT_NO_FATAL_FAILURE(GetInfoManager()->OnExtensionInstalled(
+      browser_context(), nullptr, false));
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       OnExtensionInstalled_NotDisplayedInSettings) {
+  // A component extension is not displayed in extension settings, so
+  // OnExtensionInstalled returns early.
+  scoped_refptr<Extension> extension(CreateTestExtension("test_extension_id"));
+  ASSERT_TRUE(extension);
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  g_expect_reason = 0;
+  static_cast<ArkWebExtensionManagerCallBack*>(callback_)
+      ->OnArkWebExtensionInstalledFun = [](const char* extensionId,
+                                           int createFlag,
+                                           int location) { g_expect_reason++; };
+  GetInfoManager()->OnExtensionInstalled(browser_context(), extension.get(),
+                                         false);
+  EXPECT_EQ(g_expect_reason, 0);
+#endif
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest,
+       DeleteExtensionActionInfoIcon_WithIcon) {
+  // Exercise the branch that deletes the icon bitmaps and the icon itself.
+  WebExtensionActionInfo action_info;
+  action_info.extensionId = "test_id";
+  auto* icon = new NWebExtensionActionIcon();
+  icon->bitmaps[1.0] = new NWebExtensionActionIconBitmap();
+  action_info.icon = icon;
+  DeleteExtensionActionInfoIcon(action_info);
+  EXPECT_FALSE(action_info.icon.has_value());
+}
+
+TEST_F(ExtensionRegistryInfoManagerTest, Loaded_SuccessPath) {
+  // A registered, displayable extension reaches StartNotifyingExtensionLoaded.
+  // CreateTestExtension() (ExtensionBuilder with action) is displayable.
+  scoped_refptr<const Extension> extension = CreateTestExtension();
+  ASSERT_TRUE(extension);
+  ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context());
+  ASSERT_NE(registry, nullptr);
+  bool added = registry->AddEnabled(extension);
+  ASSERT_TRUE(added);
+  // Loaded() should not crash; the notifier path may or may not fully populate
+  // icons depending on test infrastructure.
+  ASSERT_NO_FATAL_FAILURE(GetInfoManager()->Loaded(extension->id()));
 }
 }  // namespace extensions

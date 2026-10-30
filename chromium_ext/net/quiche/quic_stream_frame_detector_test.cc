@@ -86,15 +86,27 @@ TEST_F(QuicStreamFrameDetectorTest, StreamFrameReceivedExtendsDeadline) {
   detector_.OnStreamFrameReceived(clock_.Now());
   EXPECT_EQ(clock_.Now() + QuicTime::Delta::FromSeconds(10),
             alarm_->deadline());
+  EXPECT_CALL(delegate_, OnBrokenDetect());
   alarm_->Fire();
 }
- 
+
 TEST_F(QuicStreamFrameDetectorTest, NoAlarmAfterStopped) {
+  // StopDetection() only flips the stopped_ flag (QuicAlarmProxy::PermanentCancel
+  // is a no-op), so the alarm remains set. What matters is that no new
+  // scheduling happens afterwards.
   detector_.StopDetection();
+  QuicTime original_deadline = alarm_->deadline();
+  clock_.AdvanceTime(QuicTime::Delta::FromSeconds(5));
   detector_.OnStreamFrameReceived(clock_.Now());
-  EXPECT_FALSE(alarm_->IsSet());
+  EXPECT_EQ(alarm_->deadline(), original_deadline);
 }
- 
+
+TEST_F(QuicStreamFrameDetectorTest, NoBrokenDetectAfterStopped) {
+  // OnAlarm must not invoke the delegate once detection is stopped.
+  detector_.StopDetection();
+  detector_.OnAlarm();
+}
+
 }  // namespace
  
 }  // namespace test
