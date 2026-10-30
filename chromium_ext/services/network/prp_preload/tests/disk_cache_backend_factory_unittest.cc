@@ -20,6 +20,8 @@
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/time/time.h"
+#include "net/disk_cache/mock/mock_backend_impl.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace ohos_prp_preload {
 
@@ -294,6 +296,81 @@ TEST_F(DiskCacheBackendFactoryTest, RemoveCacheClearsCallbackListAfterDoomAllEnt
   factory.RemoveCache(base::Time(), base::Time::Max());
 
   EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+// Inject a real Backend so RemoveCache exercises the DoomAllEntries /
+// DoomEntriesBetween paths instead of the null-backend early return.
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheWithInjectedBackendDoomAllEntriesTest) {
+  DiskCacheBackendFactory factory;
+  auto backend = std::make_unique<disk_cache::BackendMock>(net::DISK_CACHE);
+  disk_cache::BackendMock* mock_backend = backend.get();
+  factory.backend_ = std::move(backend);
+  factory.is_inited_.store(true);
+
+  EXPECT_CALL(*mock_backend, DoomAllEntries(testing::_))
+      .WillOnce(testing::Return(net::ERR_IO_PENDING));
+
+  factory.RemoveCache(base::Time(), base::Time::Max());
+
+  EXPECT_TRUE(factory.is_inited_.load());
+}
+
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheWithInjectedBackendDoomEntriesBetweenTest) {
+  DiskCacheBackendFactory factory;
+  auto backend = std::make_unique<disk_cache::BackendMock>(net::DISK_CACHE);
+  disk_cache::BackendMock* mock_backend = backend.get();
+  factory.backend_ = std::move(backend);
+  factory.is_inited_.store(true);
+
+  const base::Time start = base::Time::Now() - base::Days(10);
+  const base::Time end = base::Time::Now();
+  EXPECT_CALL(*mock_backend, DoomEntriesBetween(start, end, testing::_))
+      .WillOnce(testing::Return(net::ERR_IO_PENDING));
+
+  factory.RemoveCache(start, end);
+
+  EXPECT_TRUE(factory.is_inited_.load());
+}
+
+// A synchronous Doom result must fall through to the posted
+// ClearPreloadCacheDone task and drop the queued callbacks.
+TEST_F(DiskCacheBackendFactoryTest, RemoveCacheSyncResultClearsCallbacksTest) {
+  DiskCacheBackendFactory factory;
+  auto backend = std::make_unique<disk_cache::BackendMock>(net::DISK_CACHE);
+  disk_cache::BackendMock* mock_backend = backend.get();
+  factory.backend_ = std::move(backend);
+  factory.is_inited_.store(true);
+  factory.backend_complete_callback_list_.push_back(base::BindOnce([]() {}));
+
+  EXPECT_CALL(*mock_backend, DoomAllEntries(testing::_))
+      .WillOnce(testing::Return(net::OK));
+
+  factory.RemoveCache(base::Time(), base::Time::Max());
+  task_environment_->RunUntilIdle();
+
+  EXPECT_EQ(factory.backend_complete_callback_list_.size(), 0);
+}
+
+// CreateBackend must clear an index file older than 7 days before creating
+// the backend.
+TEST_F(DiskCacheBackendFactoryTest, CreateBackendRemovesStaleIndexTest) {
+  base::FilePath cache_root;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_CACHE, &cache_root));
+  const base::FilePath cache_dir = cache_root.AppendASCII("PreloadCache");
+  const base::FilePath index_file = cache_dir.AppendASCII("index");
+  ASSERT_TRUE(base::CreateDirectory(cache_dir));
+  {
+    base::File index(index_file, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+    ASSERT_TRUE(index.IsValid());
+  }
+  ASSERT_TRUE(base::TouchFile(index_file,
+                             base::Time::Now() - base::Days(10),
+                             base::Time::Now() - base::Days(10)));
+
+  DiskCacheBackendFactory factory;
+  factory.CreateBackend();
+
+  EXPECT_FALSE(base::PathExists(index_file));
 }
 
 } // namespace ohos_prp_preload
