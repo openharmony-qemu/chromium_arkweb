@@ -16,6 +16,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,11 +32,13 @@
 #define private public
 #include "cef_delegate/ai_page_command_dispatcher.h"
 #include "cef_delegate/nweb_delegate.h"
+#include "cef_delegate/nweb_delegate.h"
 #undef private
 
 #include "cef_delegate/file_upload_observer.h"
 #include "cef_delegate/test/mock_browser_host.h"
 #include "cef/include/cef_browser.h"
+#include "cef_delegate/nweb_preference_delegate.h"
 #include "include/cef_values.h"
 #include "nweb_errors.h"
 #include "nweb_value_callback.h"
@@ -55,12 +58,20 @@ class AIPageCommandDispatcherTest : public Test {
   void SetUp() override {
     mock_browser_ = new MockBrowserHost();
     callback_ = std::make_shared<TestStringValueCallback>();
+    pref_delegate_ = std::make_shared<NWebPreferenceDelegate>();
+    nweb_delegate_ = std::make_unique<NWebDelegate>(argc_, argv_.data());
+    nweb_delegate_->preference_delegate_ = pref_delegate_;
+    dispatcher_ = std::make_unique<AIPageCommandDispatcher>(
+        nweb_delegate_->weak_factory_.GetWeakPtr());
   }
 
   void TearDown() override {
+    dispatcher_.reset();
     callback_.reset();
     saved_observer_ = nullptr;
     mock_browser_ = nullptr;
+    pref_delegate_.reset();
+    nweb_delegate_.reset();
   }
 
   static std::string BuildCommand(const std::string& method,
@@ -75,9 +86,14 @@ class AIPageCommandDispatcherTest : public Test {
     return json;
   }
 
+  static constexpr int argc_ = 1;
+  std::array<const char*, 1> argv_ = {{"nweb_unittest"}};
   CefRefPtr<MockBrowserHost> mock_browser_;
   std::shared_ptr<TestStringValueCallback> callback_;
   CefRefPtr<CefDevToolsMessageObserver> saved_observer_;
+  std::shared_ptr<NWebPreferenceDelegate> pref_delegate_;
+  std::unique_ptr<NWebDelegate> nweb_delegate_;
+  std::unique_ptr<AIPageCommandDispatcher> dispatcher_;
 };
 
 // ===== Dispatch routing tests =====
@@ -88,7 +104,7 @@ class AIPageCommandDispatcherTest : public Test {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, Dispatch_InvalidJSON_EmptyResult_0100) {
-  AIPageCommandDispatcher::Dispatch("not json", mock_browser_, callback_);
+  dispatcher_->Dispatch("not json", mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(callback_->value_, "");
 }
@@ -99,7 +115,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_InvalidJSON_EmptyResult_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, Dispatch_MissingMethod_EmptyResult_0100) {
-  AIPageCommandDispatcher::Dispatch("{}", mock_browser_, callback_);
+  dispatcher_->Dispatch("{}", mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(callback_->value_, "");
 }
@@ -110,7 +126,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_MissingMethod_EmptyResult_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, Dispatch_EmptyMethod_EmptyResult_0100) {
-  AIPageCommandDispatcher::Dispatch(
+  dispatcher_->Dispatch(
       R"({"method":""})", mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(callback_->value_, "");
@@ -122,7 +138,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_EmptyMethod_EmptyResult_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, Dispatch_UnknownMethod_EmptyResult_0100) {
-  AIPageCommandDispatcher::Dispatch(
+  dispatcher_->Dispatch(
       R"({"method":"nonexistent"})", mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(callback_->value_, "");
@@ -140,7 +156,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_NullBrowser_ErrorCode_0100) {
   params.Set("x", 100.0);
   params.Set("y", 200.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, nullptr, callback_);
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
@@ -153,7 +169,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_NullBrowser_ErrorCode_0100) {
  */
 TEST_F(AIPageCommandDispatcherTest, Scroll_MissingParams_ErrorCode_0100) {
   std::string cmd = R"({"method":"scroll"})";
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::JSON_IS_INVALID));
@@ -168,7 +184,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_MissingXY_ErrorCode_0100) {
   base::Value::Dict params;
   params.Set("deltaX", 10.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
@@ -184,7 +200,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_InvalidParamType_ErrorCode_0100) {
   params.Set("x", "not_a_number");
   params.Set("y", 200.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -201,7 +217,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_InvalidSpeedType_ErrorCode_0100) {
   params.Set("y", 200.0);
   params.Set("speed", "fast");
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -218,7 +234,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_ZeroSpeed_ErrorCode_0100) {
   params.Set("y", 200.0);
   params.Set("speed", 0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -237,7 +253,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_CDPFailed_ErrorCode_0100) {
   params.Set("x", 100.0);
   params.Set("y", 200.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::CDP_SEND_FAILED));
@@ -260,7 +276,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_Success_0100) {
   params.Set("deltaY", -30.0);
   params.Set("speed", 800);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
@@ -276,7 +292,7 @@ TEST_F(AIPageCommandDispatcherTest, Scroll_Success_0100) {
 TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_MissingXY_ReturnsNull_0100) {
   base::Value::Dict params;
   params.Set("x", 100.0);
-  auto result = AIPageCommandDispatcher::BuildScrollParams(params);
+  auto result = dispatcher_->BuildScrollParams(params);
   EXPECT_FALSE(result);
 }
 
@@ -292,7 +308,7 @@ TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_AllFields_0100) {
   params.Set("deltaX", 5.0);
   params.Set("deltaY", -5.0);
   params.Set("speed", 500);
-  auto result = AIPageCommandDispatcher::BuildScrollParams(params);
+  auto result = dispatcher_->BuildScrollParams(params);
   ASSERT_TRUE(result);
   EXPECT_DOUBLE_EQ(result->GetDouble("x"), 10.0);
   EXPECT_DOUBLE_EQ(result->GetDouble("y"), 20.0);
@@ -310,7 +326,7 @@ TEST_F(AIPageCommandDispatcherTest, BuildScrollParams_OnlyXY_0100) {
   base::Value::Dict params;
   params.Set("x", 50.0);
   params.Set("y", 60.0);
-  auto result = AIPageCommandDispatcher::BuildScrollParams(params);
+  auto result = dispatcher_->BuildScrollParams(params);
   ASSERT_TRUE(result);
   EXPECT_DOUBLE_EQ(result->GetDouble("x"), 50.0);
   EXPECT_DOUBLE_EQ(result->GetDouble("y"), 60.0);
@@ -333,7 +349,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseIntList_ValidList_0100) {
   list.Append(2);
   list.Append(3);
   dict.Set("indexes", std::move(list));
-  auto result = AIPageCommandDispatcher::ParseIntList(dict, "indexes");
+  auto result = dispatcher_->ParseIntList(dict, "indexes");
   EXPECT_EQ(result.size(), 3u);
   EXPECT_EQ(result[0], 1);
   EXPECT_EQ(result[1], 2);
@@ -347,7 +363,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseIntList_ValidList_0100) {
  */
 TEST_F(AIPageCommandDispatcherTest, ParseIntList_MissingKey_ReturnsEmpty_0100) {
   base::Value::Dict dict;
-  auto result = AIPageCommandDispatcher::ParseIntList(dict, "nonexistent");
+  auto result = dispatcher_->ParseIntList(dict, "nonexistent");
   EXPECT_TRUE(result.empty());
 }
 
@@ -363,7 +379,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseIntList_NonIntItems_Skipped_0100) {
   list.Append("two");
   list.Append(3);
   dict.Set("indexes", std::move(list));
-  auto result = AIPageCommandDispatcher::ParseIntList(dict, "indexes");
+  auto result = dispatcher_->ParseIntList(dict, "indexes");
   EXPECT_EQ(result.size(), 2u);
   EXPECT_EQ(result[0], 1);
   EXPECT_EQ(result[1], 3);
@@ -380,7 +396,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseStringList_ValidList_0100) {
   list.Append("hello");
   list.Append("world");
   dict.Set("values", std::move(list));
-  auto result = AIPageCommandDispatcher::ParseStringList(dict, "values");
+  auto result = dispatcher_->ParseStringList(dict, "values");
   EXPECT_EQ(result.size(), 2u);
   EXPECT_EQ(result[0], "hello");
   EXPECT_EQ(result[1], "world");
@@ -393,7 +409,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseStringList_ValidList_0100) {
  */
 TEST_F(AIPageCommandDispatcherTest, ParseStringList_MissingKey_ReturnsEmpty_0100) {
   base::Value::Dict dict;
-  auto result = AIPageCommandDispatcher::ParseStringList(dict, "nonexistent");
+  auto result = dispatcher_->ParseStringList(dict, "nonexistent");
   EXPECT_TRUE(result.empty());
 }
 
@@ -409,7 +425,7 @@ TEST_F(AIPageCommandDispatcherTest, ParseStringList_NonStringItems_Skipped_0100)
   list.Append(42);
   list.Append("world");
   dict.Set("values", std::move(list));
-  auto result = AIPageCommandDispatcher::ParseStringList(dict, "values");
+  auto result = dispatcher_->ParseStringList(dict, "values");
   EXPECT_EQ(result.size(), 2u);
   EXPECT_EQ(result[0], "hello");
   EXPECT_EQ(result[1], "world");
@@ -429,7 +445,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_NullBrowser_ErrorCode_0100) {
   idx_list.Append(0);
   params.Set("indexes", std::move(idx_list));
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, nullptr, callback_);
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
   EXPECT_TRUE(callback_->called_);
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -446,7 +462,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_NullBrowser_ErrorCode_0100) {
  */
 TEST_F(AIPageCommandDispatcherTest, Select_MissingParams_ErrorCode_0100) {
   std::string cmd = R"({"method":"select"})";
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -466,7 +482,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_EmptyXpath_ErrorCode_0100) {
   idx_list.Append(0);
   params.Set("indexes", std::move(idx_list));
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -484,7 +500,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_EmptyIndexesAndValues_ErrorCode_0100)
   base::Value::Dict params;
   params.Set("xpath", "//select[@id='color']");
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
 #if BUILDFLAG(ARKWEB_INPUT_EVENTS)
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -509,7 +525,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_Success_WithIndexes_0100) {
   idx_list.Append(1);
   params.Set("indexes", std::move(idx_list));
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
@@ -531,7 +547,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_Success_WithValues_0100) {
   val_list.Append("blue");
   params.Set("values", std::move(val_list));
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
@@ -552,7 +568,7 @@ TEST_F(AIPageCommandDispatcherTest, Select_ExecuteFails_ErrorCode_0100) {
   val_list.Append("red");
   params.Set("values", std::move(val_list));
   std::string cmd = BuildCommand("select", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_NE(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
@@ -572,7 +588,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_NullBrowser_ErrorCode_0100) {
   files.Append("/tmp/test.txt");
   params.Set("files", std::move(files));
   std::string cmd = BuildCommand("uploadFile", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, nullptr, callback_);
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
@@ -585,7 +601,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_NullBrowser_ErrorCode_0100) {
  */
 TEST_F(AIPageCommandDispatcherTest, UploadFile_MissingParams_ErrorCode_0100) {
   std::string cmd = R"({"method":"uploadFile"})";
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::JSON_IS_INVALID));
@@ -601,7 +617,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_EmptyFilesList_ErrorCode_0100) {
   base::Value::List files;
   params.Set("files", std::move(files));
   std::string cmd = BuildCommand("uploadFile", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::FILE_LIST_EMPTY));
@@ -618,7 +634,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_EmptyPathInList_ErrorCode_0100) {
   files.Append("");
   params.Set("files", std::move(files));
   std::string cmd = BuildCommand("uploadFile", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::FILE_PATH_EMPTY));
@@ -637,7 +653,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_MissingXpath_ErrorCode_0100) {
   files.Append("/proc/self/exe");
   params.Set("files", std::move(files));
   std::string cmd = BuildCommand("uploadFile", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
@@ -655,7 +671,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_EmptyXpath_ErrorCode_0100) {
   params.Set("files", std::move(files));
   params.Set("xpath", "");
   std::string cmd = BuildCommand("uploadFile", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
@@ -669,7 +685,7 @@ TEST_F(AIPageCommandDispatcherTest, UploadFile_EmptyXpath_ErrorCode_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, ReplyError_NullCallback_NoCrash_0100) {
-  AIPageCommandDispatcher::ReplyError(nullptr,
+  dispatcher_->ReplyError(nullptr,
                                       WebCommandErrorCode::FAILED, "test");
 }
 
@@ -679,7 +695,7 @@ TEST_F(AIPageCommandDispatcherTest, ReplyError_NullCallback_NoCrash_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, ReplyError_ValidCallback_JsonResult_0100) {
-  AIPageCommandDispatcher::ReplyError(
+  dispatcher_->ReplyError(
       callback_, WebCommandErrorCode::CDP_SEND_FAILED, "send failed");
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -731,7 +747,7 @@ TEST_F(AIPageCommandDispatcherTest, ValidateFilePaths_EmptyPath_ReturnsFalse_010
   std::vector<std::string> files = {""};
   std::vector<std::string> warnings;
   auto cb = std::make_shared<TestStringValueCallback>();
-  bool result = AIPageCommandDispatcher::ValidateFilePaths(files, warnings, cb);
+  bool result = dispatcher_->ValidateFilePaths(files, warnings, cb);
   EXPECT_FALSE(result);
   EXPECT_TRUE(cb->called_);
   EXPECT_EQ(ExtractCodeFromJson(cb->value_),
@@ -750,7 +766,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_ScrollRoutes_0100) {
   params.Set("x", 100.0);
   params.Set("y", 200.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, nullptr, callback_);
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_NE(callback_->value_, "");
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
@@ -781,7 +797,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_UploadFileRoutes_0100) {
               ExecuteDevToolsMethod(_, StrEq("DOM.enable"), _))
       .WillOnce(Return(1));
 
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
 }
 
 // ===== Null callback safety =====
@@ -796,7 +812,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_NullCallback_NoCrash_0100) {
   params.Set("x", 100.0);
   params.Set("y", 200.0);
   std::string cmd = BuildCommand("scroll", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, nullptr, nullptr);
+  dispatcher_->Dispatch(cmd, nullptr, nullptr);
 }
 
 /**
@@ -805,7 +821,7 @@ TEST_F(AIPageCommandDispatcherTest, Dispatch_NullCallback_NoCrash_0100) {
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, ResolveEmptyResult_NullCallback_NoCrash_0100) {
-  AIPageCommandDispatcher::ResolveEmptyResult(nullptr);
+  dispatcher_->ResolveEmptyResult(nullptr);
 }
 
 /**
@@ -814,7 +830,7 @@ TEST_F(AIPageCommandDispatcherTest, ResolveEmptyResult_NullCallback_NoCrash_0100
  * @tc.type: FUNC
  */
 TEST_F(AIPageCommandDispatcherTest, ResolveEmptyResult_ValidCallback_0100) {
-  AIPageCommandDispatcher::ResolveEmptyResult(callback_);
+  dispatcher_->ResolveEmptyResult(callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(callback_->value_, "");
 }
@@ -854,7 +870,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationSuccess_0100) 
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|123");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
 
   ASSERT_TRUE(capturedCallback);
   capturedCallback->OnResult(R"({"ok":true})");
@@ -874,7 +890,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationFailed_0100) {
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|123");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
 
   ASSERT_TRUE(capturedCallback);
   capturedCallback->OnResult(R"({"ok":false,"error":"element not found"})");
@@ -896,7 +912,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdValidationInvalidJson_01
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|123");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
 
   ASSERT_TRUE(capturedCallback);
   capturedCallback->OnResult("not json at all");
@@ -919,7 +935,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_Xpath_Success_0100) {
   base::Value::Dict params;
   params.Set("xpath", "//div[@id='container']");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_FALSE(callback_->called_);
 }
 
@@ -936,7 +952,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_FullPage_Success_0100) {
 
   base::Value::Dict params;
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_FALSE(callback_->called_);
 }
 
@@ -949,7 +965,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_InvalidNodeId_ErrorCode_0100) 
   base::Value::Dict params;
   params.Set("nodeid", "not_a_valid_node_id_format");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -966,7 +982,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_ValidNodeId_TriggersValidation
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|123");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_FALSE(callback_->called_);
 }
 
@@ -979,7 +995,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdMissingDomSeparator_Erro
   base::Value::Dict params;
   params.Set("nodeid", "frame_doc_123");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -994,7 +1010,7 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdInvalidDomNodeId_ErrorCo
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|notanumber");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
@@ -1009,8 +1025,551 @@ TEST_F(AIPageCommandDispatcherTest, ScreenCapture_NodeIdZeroDomNodeId_ErrorCode_
   base::Value::Dict params;
   params.Set("nodeid", "frame|doc|0");
   std::string cmd = BuildCommand("screenCapture", std::move(params));
-  AIPageCommandDispatcher::Dispatch(cmd, mock_browser_, callback_);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
   EXPECT_TRUE(callback_->called_);
   EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
             static_cast<int32_t>(WebCommandErrorCode::PARAM_INVALID));
 }
+
+// ===== setZoomLevel / getZoomLevel command tests =====
+/**
+ * @tc.name: ValidateZoomLevelParam_DoubleValue_ReturnsTrue_0100
+ * @tc.desc: ValidateZoomLevelParam accepts double zoomLevel in [0.25, 5.0].
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_DoubleValue_ReturnsTrue_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.5);
+  double factor = 0.0;
+  EXPECT_TRUE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_NEAR(factor, 1.5, 0.001);
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_IntValue_NormalizesToDouble_0100
+ * @tc.desc: ValidateZoomLevelParam accepts int zoomLevel and widens to double.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_IntValue_NormalizesToDouble_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 2);
+  double factor = 0.0;
+  EXPECT_TRUE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_NEAR(factor, 2.0, 0.001);
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_Boundary_Low_ReturnsTrue_0100
+ * @tc.desc: ValidateZoomLevelParam accepts 0.25 (inclusive lower bound).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_Boundary_Low_ReturnsTrue_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 0.25);
+  double factor = 99.0;
+  EXPECT_TRUE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_NEAR(factor, 0.25, 0.001);
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_Boundary_High_ReturnsTrue_0100
+ * @tc.desc: ValidateZoomLevelParam accepts 5.0 (inclusive upper bound).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_Boundary_High_ReturnsTrue_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 5.0);
+  double factor = 0.0;
+  EXPECT_TRUE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_NEAR(factor, 5.0, 0.001);
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_OutOfRange_Low_ReturnsFalse_0100
+ * @tc.desc: ValidateZoomLevelParam rejects 0.1 (< 0.25) with ZOOM_LEVEL_OUT_OF_RANGE.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_OutOfRange_Low_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 0.1);
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_OUT_OF_RANGE));
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_OutOfRange_High_ReturnsFalse_0100
+ * @tc.desc: ValidateZoomLevelParam rejects 10.0 (> 5.0) with ZOOM_LEVEL_OUT_OF_RANGE.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_OutOfRange_High_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 10.0);
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_OUT_OF_RANGE));
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_Negative_ReturnsFalse_0100
+ * @tc.desc: ValidateZoomLevelParam rejects negative with ZOOM_LEVEL_INVALID.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_Negative_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", -1.0);
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_INVALID));
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_Zero_ReturnsFalse_0100
+ * @tc.desc: Zero must be rejected as INVALID, not as OUT_OF_RANGE.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_Zero_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 0.0);
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_INVALID));
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_Missing_ReturnsFalse_0100
+ * @tc.desc: ValidateZoomLevelParam rejects missing zoomLevel with PARAM_MISSING.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_Missing_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("other", 1.0);
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
+}
+
+/**
+ * @tc.name: ValidateZoomLevelParam_NonNumeric_ReturnsFalse_0100
+ * @tc.desc: ValidateZoomLevelParam rejects string zoomLevel with PARAM_MISSING.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       ValidateZoomLevelParam_NonNumeric_ReturnsFalse_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", "big");
+  double factor = 0.0;
+  EXPECT_FALSE(dispatcher_->ValidateZoomLevelParam(
+      params, factor, callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
+}
+
+// ===== CheckZoomPreconditions tests (direct) =====
+
+/**
+ * @tc.name: CheckZoomPreconditions_Allowed_ReturnsTrue_0100
+ * @tc.desc: CheckZoomPreconditions returns true when zoomControlAccess=true.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       CheckZoomPreconditions_Allowed_ReturnsTrue_0100) {
+  pref_delegate_->PutZoomControlAccess(true);
+  EXPECT_TRUE(dispatcher_->CheckZoomPreconditions(callback_));
+  EXPECT_FALSE(callback_->called_);
+}
+
+/**
+ * @tc.name: CheckZoomPreconditions_ZoomDisabled_ReturnsFalse_0100
+ * @tc.desc: CheckZoomPreconditions returns ZOOM_DISABLED when zoomControlAccess=false.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       CheckZoomPreconditions_ZoomDisabled_ReturnsFalse_0100) {
+  pref_delegate_->PutZoomControlAccess(false);
+  EXPECT_FALSE(dispatcher_->CheckZoomPreconditions(callback_));
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_DISABLED));
+}
+
+/**
+ * @tc.name: CheckZoomPreconditions_NullPref_DefaultsAllowZoom_0100
+ * @tc.desc: CheckZoomPreconditions with null pref falls back to defaults (zoom proceeds).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       CheckZoomPreconditions_NullPref_DefaultsAllowZoom_0100) {
+  auto no_pref_dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  EXPECT_TRUE(no_pref_dispatcher->CheckZoomPreconditions(callback_));
+  EXPECT_FALSE(callback_->called_);
+}
+
+// ===== ReplyZoomLevel tests (direct) =====
+
+/**
+ * @tc.name: ReplyZoomLevel_BuildsFlatJson_0100
+ * @tc.desc: ReplyZoomLevel emits {code, message, zoomLevel} with no data wrapper.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ReplyZoomLevel_BuildsFlatJson_0100) {
+  dispatcher_->ReplyZoomLevel(callback_, 1.5);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  auto val = base::JSONReader::Read(callback_->value_,
+                                    base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(val && val->is_dict());
+  EXPECT_FALSE(val->GetDict().FindDict("data"));
+  auto zoom = val->GetDict().FindDouble("zoomLevel");
+  ASSERT_TRUE(zoom.has_value());
+  EXPECT_NEAR(*zoom, 1.5, 0.001);
+}
+
+/**
+ * @tc.name: ReplyZoomLevel_NullCallback_NoOp_0100
+ * @tc.desc: ReplyZoomLevel tolerates null callback without crashing.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, ReplyZoomLevel_NullCallback_NoOp_0100) {
+  dispatcher_->ReplyZoomLevel(nullptr, 1.0);
+}
+
+// ===== setZoomLevel happy path / range (Dispatch-driven) =====
+
+/**
+ * @tc.name: SetZoomLevel_Success_Normal_0100
+ * @tc.desc: setZoomLevel(1.5) returns SUCCESS and forwards factor→level
+ *           to CEF Host (AC-1.1).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_Success_Normal_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).WillOnce(Return());
+
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.5);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+/**
+ * @tc.name: SetZoomLevel_Success_NonStandardStep_0100
+ * @tc.desc: setZoomLevel(1.3) (non-preset step) succeeds (AC-4.1).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_Success_NonStandardStep_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).WillOnce(Return());
+
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.3);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+/**
+ * @tc.name: SetZoomLevel_Success_Boundary_0100
+ * @tc.desc: setZoomLevel at boundary 0.25 and 5.0 succeeds (AC-1.2, AC-1.3).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_Success_Boundary_0100) {
+  for (double factor : {0.25, 5.0}) {
+    EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).WillOnce(Return());
+    auto cb = std::make_shared<TestStringValueCallback>();
+    base::Value::Dict params;
+    params.Set("zoomLevel", factor);
+    std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+    dispatcher_->Dispatch(cmd, mock_browser_, cb);
+    EXPECT_TRUE(cb->called_);
+    EXPECT_EQ(ExtractCodeFromJson(cb->value_),
+              static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+    testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  }
+}
+
+/**
+ * @tc.name: SetZoomLevel_OutOfRange_ErrorCode_0100
+ * @tc.desc: setZoomLevel(0.1) and setZoomLevel(10.0) return
+ *           ZOOM_LEVEL_OUT_OF_RANGE(480) without invoking host (AC-1.4).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_OutOfRange_ErrorCode_0100) {
+  for (double factor : {0.1, 10.0}) {
+    EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+    auto cb = std::make_shared<TestStringValueCallback>();
+    base::Value::Dict params;
+    params.Set("zoomLevel", factor);
+    std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+    dispatcher_->Dispatch(cmd, mock_browser_, cb);
+    EXPECT_TRUE(cb->called_);
+    EXPECT_EQ(ExtractCodeFromJson(cb->value_),
+              static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_OUT_OF_RANGE));
+    testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  }
+}
+
+/**
+ * @tc.name: SetZoomLevel_InvalidValue_ErrorCode_0100
+ * @tc.desc: setZoomLevel with negative / zero returns
+ *           ZOOM_LEVEL_INVALID(481) without invoking host (AC-1.5).
+ *           NaN/Infinity 在 ArkWeb JSON 接口层即被拒绝返回 17100024，
+ *           不会到达 dispatcher；UT 不直接覆盖（详见 spec AC-1.5 注）。
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_InvalidValue_ErrorCode_0100) {
+  for (double factor : {-1.0, 0.0}) {
+    EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+    auto cb = std::make_shared<TestStringValueCallback>();
+    base::Value::Dict params;
+    params.Set("zoomLevel", factor);
+    std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+    dispatcher_->Dispatch(cmd, mock_browser_, cb);
+    EXPECT_TRUE(cb->called_);
+    EXPECT_EQ(ExtractCodeFromJson(cb->value_),
+              static_cast<int32_t>(WebCommandErrorCode::ZOOM_LEVEL_INVALID));
+    testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  }
+}
+
+/**
+ * @tc.name: SetZoomLevel_NonNumericType_ErrorCode_0100
+ * @tc.desc: setZoomLevel with string zoomLevel returns PARAM_MISSING(391) (AC-1.5b).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_NonNumericType_ErrorCode_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+  base::Value::Dict params;
+  params.Set("zoomLevel", "big");
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
+}
+
+/**
+ * @tc.name: SetZoomLevel_MissingZoomLevel_ErrorCode_0100
+ * @tc.desc: setZoomLevel with missing zoomLevel field returns
+ *           PARAM_MISSING(391) (AC-1.6).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_MissingZoomLevel_ErrorCode_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+  base::Value::Dict params;
+  params.Set("other", 1.0);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::PARAM_MISSING));
+}
+
+/**
+ * @tc.name: SetZoomLevel_Disabled_ErrorCode_0100
+ * @tc.desc: setZoomLevel when zoomControlAccess=false returns
+ *           ZOOM_DISABLED(482) (AC-1.8). Host not invoked.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_Disabled_ErrorCode_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.5);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  pref_delegate_->PutZoomControlAccess(false);
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::ZOOM_DISABLED));
+}
+
+/**
+ * @tc.name: SetZoomLevel_NullBrowser_ErrorCode_0100
+ * @tc.desc: setZoomLevel with null browser returns WEB_NWEB_NULL(132) (AC-1.9).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_NullBrowser_ErrorCode_0100) {
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.5);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
+}
+
+/**
+ * @tc.name: SetZoomLevel_ParamsNotDict_ErrorCode_0100
+ * @tc.desc: setZoomLevel with non-dict params ("1.5" string) returns
+ *           JSON_IS_INVALID(110) (AC-1.10). Host not invoked.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, SetZoomLevel_ParamsNotDict_ErrorCode_0100) {
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).Times(0);
+  std::string cmd =
+      R"({"method":"setZoomLevel","params":"1.5"})";
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::JSON_IS_INVALID));
+}
+
+// ===== getZoomLevel happy path =====
+
+/**
+ * @tc.name: GetZoomLevel_Success_ReturnsZoomLevel_0100
+ * @tc.desc: getZoomLevel returns code=SUCCESS with top-level zoomLevel (AC-2.1).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, GetZoomLevel_Success_ReturnsZoomLevel_0100) {
+  // CEF returns a zoom level; the handler converts to factor via
+  // blink::ZoomLevelToZoomFactor. Use level 0.0 (factor 1.0) for stability.
+  EXPECT_CALL(*mock_browser_, GetZoomLevel()).WillOnce(Return(0.0));
+
+  std::string cmd = BuildCommand("getZoomLevel");
+  dispatcher_->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+
+  // zoomLevel sits at top level (no data wrapper).
+  auto val =
+      base::JSONReader::Read(callback_->value_, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(val && val->is_dict());
+  EXPECT_FALSE(val->GetDict().FindDict("data"));
+  auto zoom = val->GetDict().FindDouble("zoomLevel");
+  ASSERT_TRUE(zoom.has_value());
+  EXPECT_NEAR(*zoom, 1.0, 0.001);
+}
+
+/**
+ * @tc.name: GetZoomLevel_SetThenGet_0100
+ * @tc.desc: After set(2.0), getZoomLevel returns ~2.0 (factor↔level round-trip).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, GetZoomLevel_SetThenGet_0100) {
+  double stored_level;
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_))
+      .WillOnce(testing::SaveArg<0>(&stored_level));
+  base::Value::Dict set_params;
+  set_params.Set("zoomLevel", 2.0);
+  std::string set_cmd = BuildCommand("setZoomLevel", std::move(set_params));
+  dispatcher_->Dispatch(set_cmd, mock_browser_, callback_);
+
+  testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  auto cb2 = std::make_shared<TestStringValueCallback>();
+  EXPECT_CALL(*mock_browser_, GetZoomLevel()).WillOnce(Return(stored_level));
+  std::string get_cmd = BuildCommand("getZoomLevel");
+  dispatcher_->Dispatch(get_cmd, mock_browser_, cb2);
+
+  auto val =
+      base::JSONReader::Read(cb2->value_, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  ASSERT_TRUE(val && val->is_dict());
+  EXPECT_FALSE(val->GetDict().FindDict("data"));
+  auto zoom = val->GetDict().FindDouble("zoomLevel");
+  ASSERT_TRUE(zoom.has_value());
+  EXPECT_NEAR(*zoom, 2.0, 0.001);
+}
+
+/**
+ * @tc.name: GetZoomLevel_ParamsVariants_0100
+ * @tc.desc: getZoomLevel ignores params entirely; any shape returns SUCCESS (AC-2.4).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, GetZoomLevel_ParamsVariants_0100) {
+  const std::vector<std::string> forms = {
+      R"({"method":"getZoomLevel"})",               // no params
+      R"({"method":"getZoomLevel","params":{}})",   // empty dict
+      R"({"method":"getZoomLevel","params":null})", // null
+      R"({"method":"getZoomLevel","params":"x"})",  // string
+      R"({"method":"getZoomLevel","params":[1]})",  // list
+      R"({"method":"getZoomLevel","params":42})",   // number
+  };
+  for (const auto& raw : forms) {
+    EXPECT_CALL(*mock_browser_, GetZoomLevel()).WillOnce(Return(0.0));
+    auto cb = std::make_shared<TestStringValueCallback>();
+    dispatcher_->Dispatch(raw, mock_browser_, cb);
+    EXPECT_TRUE(cb->called_) << "raw: " << raw;
+    EXPECT_EQ(ExtractCodeFromJson(cb->value_),
+              static_cast<int32_t>(WebCommandErrorCode::SUCCESS))
+        << "raw: " << raw;
+    testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  }
+}
+
+/**
+ * @tc.name: GetZoomLevel_NullBrowser_ErrorCode_0100
+ * @tc.desc: getZoomLevel with null browser returns WEB_NWEB_NULL(132) (AC-2.5).
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest, GetZoomLevel_NullBrowser_ErrorCode_0100) {
+  std::string cmd = BuildCommand("getZoomLevel");
+  dispatcher_->Dispatch(cmd, nullptr, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
+}
+
+// ===== default-path compatibility =====
+
+/**
+ * @tc.name: Dispatch_NoProvider_DefaultsAllowZoom_0100
+ * @tc.desc: With no NWebPreferenceDelegate wired (null pref_), defaults
+ *           (zoom_control_access=true) let zoom proceed.
+ *           Existing non-zoom commands remain unaffected by the accessor wiring.
+ * @tc.type: FUNC
+ */
+TEST_F(AIPageCommandDispatcherTest,
+       Dispatch_NoProvider_DefaultsAllowZoom_0100) {
+  // Dispatcher with no pref — defaults allow zoom.
+  auto no_pref_dispatcher =
+      std::make_unique<AIPageCommandDispatcher>(base::WeakPtr<NWebDelegate>{});
+  EXPECT_CALL(*mock_browser_, SetZoomLevel(_)).WillOnce(Return());
+  base::Value::Dict params;
+  params.Set("zoomLevel", 1.5);
+  std::string cmd = BuildCommand("setZoomLevel", std::move(params));
+  no_pref_dispatcher->Dispatch(cmd, mock_browser_, callback_);
+  EXPECT_TRUE(callback_->called_);
+  EXPECT_EQ(ExtractCodeFromJson(callback_->value_),
+            static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+
+  // scroll still returns WEB_NWEB_NULL with null browser.
+  testing::Mock::VerifyAndClearExpectations(mock_browser_.get());
+  auto cb2 = std::make_shared<TestStringValueCallback>();
+  base::Value::Dict scroll_params;
+  scroll_params.Set("x", 100.0);
+  scroll_params.Set("y", 200.0);
+  std::string cmd2 = BuildCommand("scroll", std::move(scroll_params));
+  no_pref_dispatcher->Dispatch(cmd2, nullptr, cb2);
+  EXPECT_TRUE(cb2->called_);
+  EXPECT_EQ(ExtractCodeFromJson(cb2->value_),
+            static_cast<int32_t>(WebCommandErrorCode::WEB_NWEB_NULL));
+}
+
