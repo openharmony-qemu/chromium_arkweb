@@ -287,7 +287,8 @@ std::string CrashpadDfx::GetProcessBundleName() {
 void CrashpadDfx::ProcessCrashReport(const std::string process_type,
                                      const std::string happen_time,
                                      const std::string bundle_name,
-                                     const std::string error_reason) {
+                                     const std::string error_reason,
+                                     const std::string gwp_asan_crash) {
   const std::string build_id = RetrieveBuildId();
   uid_t uid = GetEffectiveProcessUID();
   uid_t user_id_t = getuid() / 200000;
@@ -296,13 +297,18 @@ void CrashpadDfx::ProcessCrashReport(const std::string process_type,
   const std::string crash_count =
       std::to_string(GetAndUpdateRenderProcessCrashCount(process_type));
 
+  std::string full_error_reason = error_reason;
+  if (!gwp_asan_crash.empty() && gwp_asan_crash != "none") {
+    full_error_reason += " [gwp_asan: " + gwp_asan_crash + "]";
+  }
+
   OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       PROCESS_CRASH,
       OHOS::NWeb::HiSysEventAdapter::EventType::FAULT,
       {
         BUNDLE_NAME, bundle_name,
         PROCESS_TYPE, process_type,
-        ERROR_REASON, error_reason,
+        ERROR_REASON, full_error_reason,
         CRASH_COUNT, crash_count,
         UID, std::to_string(uid),
         BUILDID, build_id,

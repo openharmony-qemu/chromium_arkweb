@@ -47,7 +47,8 @@ class CrashpadDfx {
   static void ProcessCrashReport(const std::string process_type,
                                  const std::string happen_time,
                                  const std::string bundle_name,
-                                 const std::string error_reason);
+                                 const std::string error_reason,
+                                 const std::string gwp_asan_crash = "none");
   static std::string GetProcessBundleName();
   static std::string GetCurrentTime();
   static int32_t GetProcessType();

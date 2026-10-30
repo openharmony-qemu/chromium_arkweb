@@ -18,7 +18,7 @@
 #include <map>
 #include <sstream>
 
-#include "arkweb/chromium_ext/content/browser/dfx/mojom/dfx_reporting.mojom.h"
+#include "arkweb/chromium_ext/content/common/dfx/mojom/dfx_reporting.mojom.h"
 #include "base/memory/weak_ptr.h"
 #include "base/logging.h"
 #include "base/synchronization/lock.h"
