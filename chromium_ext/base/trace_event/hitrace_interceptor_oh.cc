@@ -275,6 +275,12 @@ void HiTraceInterceptor::OnTracePacket(InterceptorContext context) {
     return;
   }
 
+  if (!context.packet_data.data || context.packet_data.size == 0) {
+    LOG(ERROR) << "[HiTrace-Interceptor] dropping packet with null/empty data, size="
+              << context.packet_data.size;
+    return;
+  }
+
   {
     protozero::ProtoDecoder packet_scan(context.packet_data.data,
                                         context.packet_data.size);

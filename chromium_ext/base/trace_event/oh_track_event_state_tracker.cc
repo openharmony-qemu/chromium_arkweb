@@ -19,6 +19,7 @@
 
 #include "base/check.h"
 #include "base/logging.h"
+#include "base/time/time.h"
 #include "perfetto/ext/base/fnv_hash.h"
 #include "perfetto/tracing/internal/track_event_internal.h"
 #include "protos/perfetto/trace/clock_snapshot.pbzero.h"
@@ -34,6 +35,43 @@ namespace base {
 namespace hitrace {
 
 using perfetto::internal::TrackEventIncrementalState;
+
+namespace {
+
+// Max tracks entries (~1MB at ~200 bytes each). LRU eviction
+// prevents unbounded growth from dead tracks.
+constexpr size_t kMaxSessionTracks = 4096;
+
+// Evicts the least recently used track when over the limit.
+// |protected_uuid| (the descriptor being processed) is never evicted.
+void EvictLruTrackIfNeeded(
+    OHTrackEventStateTracker::SessionState& session_state,
+    uint64_t protected_uuid) {
+  if (session_state.tracks.size() <= kMaxSessionTracks) {
+    return;
+  }
+  auto victim = session_state.tracks.end();
+  for (auto it = session_state.tracks.begin(); it != session_state.tracks.end();
+       ++it) {
+    if (it->first == protected_uuid) {
+      continue;
+    }
+    if (victim == session_state.tracks.end() ||
+        it->second.last_used < victim->second.last_used) {
+      victim = it;
+    }
+  }
+  if (victim != session_state.tracks.end()) {
+    session_state.tracks.erase(victim);
+  }
+}
+
+// Coalescing window for wave-clear of tracks. Each thread notices
+// a generation bump at its own pace, so one wave arrives staggered over the
+// period. Keep in sync with kHiTraceIncrementalStateClearPeriodMs.
+constexpr base::TimeDelta kTracksClearWaveWindow = base::Milliseconds(60000);
+
+}  // namespace
 
 OHTrackEventStateTracker::~OHTrackEventStateTracker() = default;
 OHTrackEventStateTracker::Delegate::~Delegate() = default;
@@ -69,7 +107,14 @@ void OHTrackEventStateTracker::ProcessTracePacket(
     auto* session_state = delegate.GetSessionState();
     if (!session_state)
       return;
-    track = &session_state->tracks[track_event.track_uuid()];
+    // Lookup only (never insert); misses fall back to the default
+    // track. Insertions happen only in UpdateIncrementalState via
+    // TrackDescriptor processing.
+    auto track_it = session_state->tracks.find(track_event.track_uuid());
+    if (track_it != session_state->tracks.end()) {
+      track = &track_it->second;
+      track_it->second.last_used = ++session_state->touch_counter;
+    }
   }
 
   protozero::ConstChars category{};
@@ -325,6 +370,7 @@ void OHTrackEventStateTracker::UpdateIncrementalState(
 
   if (packet.sequence_flags() &
       perfetto::protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED) {
+    auto* session_state = delegate.GetSessionState();
     for (auto& frame : sequence_state.track.stack) {
       if (frame.name_iid) {
         frame.name = sequence_state.event_names[frame.name_iid];
@@ -340,6 +386,18 @@ void OHTrackEventStateTracker::UpdateIncrementalState(
     sequence_state.debug_annotation_names.clear();
     sequence_state.track.uuid = 0u;
     sequence_state.track.index = 0u;
+
+    // Wave-clear: ride the periodic clear to drop dead tracks.
+    // Guard 1) |established| skips first-packet clears (construction default).
+    // Guard 2) |kTracksClearWaveWindow| coalesces staggered flags in one wave.
+    if (sequence_state.established) {
+      if (session_state &&
+          base::TimeTicks::Now() - session_state->last_tracks_clear >=
+              kTracksClearWaveWindow) {
+        session_state->tracks.clear();
+        session_state->last_tracks_clear = base::TimeTicks::Now();
+      }
+    }
   }
 
   if (packet.has_interned_data()) {
@@ -380,6 +438,8 @@ void OHTrackEventStateTracker::UpdateIncrementalState(
         LOG(ERROR) << "[HiTrace-Interceptor] session_state is nullptr";
         return;
     }
+    // Only insertion point for SessionState::tracks: the producer
+    // emits a TrackDescriptor before the first event referencing the uuid.
     auto& track = session_state->tracks[track_descriptor.uuid()];
     if (!track.index)
       track.index = static_cast<uint32_t>(session_state->tracks.size() + 1);
@@ -415,7 +475,15 @@ void OHTrackEventStateTracker::UpdateIncrementalState(
       sequence_state.track.tid = track.tid;
       sequence_state.track.user_data = track.user_data;
     }
+
+    // LRU stamp and evict if over limit.
+    track.last_used = ++session_state->touch_counter;
+    EvictLruTrackIfNeeded(*session_state, track.uuid);
   }
+
+  // Mark this sequence as established (first-packet clear is a
+  // construction default, not a service-side periodic clear).
+  sequence_state.established = true;
 }
 
 void OHTrackEventStateTracker::ParseDebugAnnotations(
