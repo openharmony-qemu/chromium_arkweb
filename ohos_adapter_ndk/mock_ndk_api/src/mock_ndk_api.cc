@@ -268,6 +268,15 @@ OH_NativeVSync* __wrap_OH_NativeVSync_Create(const char* name, unsigned int leng
                                       : __real_OH_NativeVSync_Create(name, length);
 }
 
+std::function<void (OH_NativeVSync* nativeVsync)> g_mock_OH_NativeVSync_Destroy;
+void __wrap_OH_NativeVSync_Destroy(OH_NativeVSync* nativeVsync) {
+  if (g_mock_OH_NativeVSync_Destroy) {
+    g_mock_OH_NativeVSync_Destroy(nativeVsync);
+  } else {
+    __real_OH_NativeVSync_Destroy(nativeVsync);
+  }
+}
+
 std::function<int (OH_NativeVSync* nativeVSync, long long* period)> g_mock_OH_NativeVSync_GetPeriod;
 int __wrap_OH_NativeVSync_GetPeriod(OH_NativeVSync* nativeVSync, long long* period) {
   return g_mock_OH_NativeVSync_GetPeriod ? g_mock_OH_NativeVSync_GetPeriod(nativeVSync, period)

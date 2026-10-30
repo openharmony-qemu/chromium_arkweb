@@ -21,12 +21,14 @@ gpu_unittests_ext = {
 import("command_buffer/service/arkweb_gpu_command_buffer_service_ext.gni")
 import("command_buffer/service/ohos/arkweb_gpu_command_buffer_service_ohos_ext.gni")
 import("config/arkweb_gpu_config_ext.gni")
+import("ipc/client/arkweb_gpu_ipc_client_ext.gni")
 import("ipc/service/arkweb_gpu_ipc_service_ext.gni")
 gpu_unittests_ext.sources += arkweb_gpu_command_buffer_service_ohos_sources
 gpu_unittests_ext.sources += arkweb_gpu_command_buffer_service_ohos_unittest
 gpu_unittests_ext.sources += arkweb_gpu_command_buffer_service_sources
 gpu_unittests_ext.sources += arkweb_gpu_command_buffer_service_unittest
 gpu_unittests_ext.sources += arkweb_gpu_config_unittest
+gpu_unittests_ext.sources += arkweb_gpu_ipc_client_unittest
 gpu_unittests_ext.sources += arkweb_gpu_ipc_service_unittest
 
 if (!is_official_build) {
