@@ -1083,6 +1083,9 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNullSamplingParams) {
 }
 
 TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNonTextExpectedInput) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      blink::features::kAIPromptAPIMultimodalInput);
   std::vector<AILanguageCodePtr> codes;
   codes.push_back(AILanguageCode::New("en"));
   std::vector<AILanguageModelExpectedPtr> expected_inputs;
@@ -1192,6 +1195,149 @@ TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithMultipleExpectedInputs) {
   EXPECT_EQ(1u, client.info_->input_types->size());
   EXPECT_EQ(AILanguageModelPromptType::kText,
             client.info_->input_types->front());
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateWriterWithNullOptions) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  CanCreateWriter(
+      nullptr,
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateRewriterWithNullOptions) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  CanCreateRewriter(
+      nullptr,
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateProofreaderWithNullOptions) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  CanCreateProofreader(
+      nullptr,
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CreateLanguageDetectorCallbackInvoked) {
+  bool callback_called = false;
+  mojo::PendingRemote<blink::mojom::AILanguageDetector> detector_remote;
+
+  CreateLanguageDetector(
+      base::BindOnce(
+          [](bool* called,
+             mojo::PendingRemote<blink::mojom::AILanguageDetector>* out,
+             mojo::PendingRemote<blink::mojom::AILanguageDetector> result) {
+            *called = true;
+            *out = std::move(result);
+          },
+          &callback_called, &detector_remote));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_TRUE(detector_remote.is_valid());
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateLanguageModelWithNullExpectedInputs) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::vector<AILanguageModelPromptPtr>(), std::nullopt,
+      std::nullopt);
+
+  CanCreateLanguageModel(
+      std::move(options),
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CreateLanguageModelWithNullExpectedInputs) {
+  auto options = AILanguageModelCreateOptions::New(
+      nullptr, std::vector<AILanguageModelPromptPtr>(), std::nullopt,
+      std::nullopt);
+
+  MockAIManagerCreateLanguageModelClient client;
+  CreateLanguageModel(client.BindRemote(), std::move(options));
+
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CanCreateProofreaderWithEmptyInputLanguages) {
+  bool callback_called = false;
+  blink::mojom::ModelAvailabilityCheckResult result;
+
+  auto options = blink::mojom::AIProofreaderCreateOptions::New(
+      true, true, AILanguageCode::New("en"),
+      std::vector<AILanguageCodePtr>());
+
+  CanCreateProofreader(
+      std::move(options),
+      base::BindOnce(
+          [](bool* called, blink::mojom::ModelAvailabilityCheckResult* out,
+             blink::mojom::ModelAvailabilityCheckResult result) {
+            *called = true;
+            *out = result;
+          },
+          &callback_called, &result));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(result, blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+}
+
+TEST_F(EchoAIManagerOHOSTest, CreateWriterWithEmptyInputLanguages) {
+  auto options = blink::mojom::AIWriterCreateOptions::New(
+      std::nullopt, blink::mojom::AIWriterTone::kNeutral,
+      blink::mojom::AIWriterFormat::kPlainText,
+      blink::mojom::AIWriterLength::kMedium,
+      std::vector<AILanguageCodePtr>(), std::vector<AILanguageCodePtr>(),
+      AILanguageCode::New("en"));
+
+  MockAIManagerCreateWriterClient client;
+  CreateWriter(client.BindRemote(), std::move(options));
+
+  EXPECT_TRUE(client.on_result_called_);
+  EXPECT_FALSE(client.on_error_called_);
 }
 
 }  // namespace content

@@ -18,11 +18,13 @@
 #include <memory>
 #include <utility>
 
+#include "base/base_paths.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
 #include "base/json/json_reader.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_path_override.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -32,6 +34,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
+#include "echo_ai_manager_ohos.h"
 
 namespace content {
 
@@ -217,6 +220,7 @@ class EchoAILanguageModelOHOSTest : public RenderViewHostTestHarness {
 
   void DestroyModel(EchoAILanguageModelOHOS& model) {
     model.Destroy();
+    task_environment()->RunUntilIdle();
   }
 
   void CallPrompt(
@@ -227,6 +231,7 @@ class EchoAILanguageModelOHOSTest : public RenderViewHostTestHarness {
           pending_responder) {
     model.Prompt(std::move(prompts), std::move(constraint),
                  std::move(pending_responder));
+    task_environment()->RunUntilIdle();
   }
 
   void CallAppend(
@@ -235,6 +240,7 @@ class EchoAILanguageModelOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
           pending_responder) {
     model.Append(std::move(prompts), std::move(pending_responder));
+    task_environment()->RunUntilIdle();
   }
 
   void CallFork(
@@ -242,6 +248,7 @@ class EchoAILanguageModelOHOSTest : public RenderViewHostTestHarness {
       mojo::PendingRemote<blink::mojom::AIManagerCreateLanguageModelClient>
           client) {
     model.Fork(std::move(client));
+    task_environment()->RunUntilIdle();
   }
 
   void CallMeasureInputUsage(
@@ -376,6 +383,7 @@ TEST_F(EchoAILanguageModelOHOSTest,
 
 TEST_F(EchoAILanguageModelOHOSTest,
        ConstructorSerializesBitmapsAndRemovesTemporaryFiles) {
+  base::ScopedPathOverride temp_dir_override(base::DIR_TEMP);
   base::FilePath first_path;
   base::FilePath second_path;
   base::FilePath image_directory;
@@ -481,7 +489,9 @@ TEST_F(EchoAILanguageModelOHOSTest, Prompt) {
         *called = true;
         *result = success;
       }, &callback_called, &callback_result),
-      nullptr, base::flat_set<AILanguageModelPromptType>(),
+      nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelPromptPtr>(), 0);
@@ -511,7 +521,9 @@ TEST_F(EchoAILanguageModelOHOSTest, PromptWithHistory) {
         *called = true;
         *result = success;
       }, &callback_called, &callback_result),
-      nullptr, base::flat_set<AILanguageModelPromptType>(),
+      nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelExpectedPtr>(), std::move(initial_prompts), 0);
 
@@ -590,7 +602,8 @@ TEST_F(EchoAILanguageModelOHOSTest, Fork) {
         *called = true;
         *result = success;
       }, &callback_called, &callback_result),
-      nullptr, base::flat_set<AILanguageModelPromptType>(),
+      AILanguageModelSamplingParams::New(1, 0.5f),
+      base::flat_set<AILanguageModelPromptType>(),
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelPromptPtr>(), 50);
@@ -612,7 +625,9 @@ TEST_F(EchoAILanguageModelOHOSTest, Destroy) {
         *called = true;
         *result = success;
       }, &callback_called, &callback_result),
-      nullptr, base::flat_set<AILanguageModelPromptType>(),
+      nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelExpectedPtr>(),
       std::vector<AILanguageModelPromptPtr>(), 0);
@@ -695,6 +710,233 @@ TEST_F(EchoAILanguageModelOHOSTest,
           &measured_usage));
 
   EXPECT_EQ(measured_usage, 103u);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_UnsupportedInputType_GenericFailure) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(CreateImagePrompt(AILanguageModelPromptRole::kUser));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_TRUE(responder.on_error_called_);
+  EXPECT_EQ(responder.error_status_,
+            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
+  EXPECT_FALSE(delegate_->on_execute_ai_action_called_);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Append_UnsupportedInputType_GenericFailure) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(CreateImagePrompt(AILanguageModelPromptRole::kUser));
+
+  MockModelStreamingResponder responder;
+  CallAppend(model, std::move(prompts), responder.BindRemote());
+
+  EXPECT_TRUE(responder.on_error_called_);
+  EXPECT_EQ(responder.error_status_,
+            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_InputTooLarge_QuotaErrorInfo) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(),
+      EchoAIManagerOHOS::kMaxContextSizeInTokens);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kUser, "Hello"));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_TRUE(responder.on_error_called_);
+  EXPECT_EQ(responder.error_status_,
+            blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Append_InputTooLarge_QuotaErrorInfo) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(),
+      EchoAIManagerOHOS::kMaxContextSizeInTokens);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kUser, "Hello"));
+
+  MockModelStreamingResponder responder;
+  CallAppend(model, std::move(prompts), responder.BindRemote());
+
+  EXPECT_TRUE(responder.on_error_called_);
+  EXPECT_EQ(responder.error_status_,
+            blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_ValidTextInput_ExecutesAction) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kUser, "Hello"));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_FALSE(responder.on_error_called_);
+  EXPECT_TRUE(delegate_->on_execute_ai_action_called_);
+  EXPECT_EQ(delegate_->execute_type_, AISessionType::PROMPT);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_AudioInput_ExecutesAction) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kAudio},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  auto audio_data = on_device_model::mojom::AudioData::New(
+      0,  // channel_count
+      16000,
+      1,  // frame_count
+      std::vector<float>{0.0f});
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewAudio(
+      std::move(audio_data)));
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(AILanguageModelPrompt::New(
+      AILanguageModelPromptRole::kUser, std::move(contents), false));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_FALSE(responder.on_error_called_);
+  EXPECT_TRUE(delegate_->on_execute_ai_action_called_);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Append_ValidTextInput_Completes) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 100);
+
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(
+      CreateTextPrompt(AILanguageModelPromptRole::kUser, "Hello"));
+
+  MockModelStreamingResponder responder;
+  CallAppend(model, std::move(prompts), responder.BindRemote());
+
+  EXPECT_FALSE(responder.on_error_called_);
+  EXPECT_TRUE(responder.on_completion_called_);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_AudioUnsupported_GenericFailure) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  auto audio_data = on_device_model::mojom::AudioData::New(
+      1, 16000, 1, std::vector<float>{0.0f});
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewAudio(
+      std::move(audio_data)));
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(AILanguageModelPrompt::New(
+      AILanguageModelPromptRole::kUser, std::move(contents), false));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_TRUE(responder.on_error_called_);
+  EXPECT_EQ(responder.error_status_,
+            blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_BitmapEncodeFailure_EmptyValue) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kImage},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  SkBitmap empty_bitmap;
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewBitmap(empty_bitmap));
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(AILanguageModelPrompt::New(
+      AILanguageModelPromptRole::kUser, std::move(contents), false));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_FALSE(responder.on_error_called_);
+  EXPECT_TRUE(delegate_->on_execute_ai_action_called_);
+}
+
+TEST_F(EchoAILanguageModelOHOSTest, Prompt_MixedTextAndImage_AccumulatesTokens) {
+  EchoAILanguageModelOHOS model(
+      web_contents(), base::BindOnce([](bool) {}), nullptr,
+      base::flat_set<AILanguageModelPromptType>{
+          AILanguageModelPromptType::kText, AILanguageModelPromptType::kImage},
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelExpectedPtr>(),
+      std::vector<AILanguageModelPromptPtr>(), 0);
+
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(1, 1);
+  bitmap.eraseARGB(255, 1, 2, 3);
+  std::vector<AILanguageModelPromptContentPtr> contents;
+  contents.push_back(AILanguageModelPromptContent::NewText("Hello"));
+  contents.push_back(AILanguageModelPromptContent::NewBitmap(bitmap));
+  std::vector<AILanguageModelPromptPtr> prompts;
+  prompts.push_back(AILanguageModelPrompt::New(
+      AILanguageModelPromptRole::kUser, std::move(contents), false));
+
+  MockModelStreamingResponder responder;
+  CallPrompt(model, std::move(prompts), nullptr, responder.BindRemote());
+
+  EXPECT_FALSE(responder.on_error_called_);
+  EXPECT_TRUE(delegate_->on_execute_ai_action_called_);
 }
 
 }  // namespace content
