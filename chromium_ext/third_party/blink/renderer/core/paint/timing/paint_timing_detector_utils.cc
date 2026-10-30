@@ -133,7 +133,7 @@ bool PaintTimingDetectorUtils::ForwardNotifyImagePaint(const LayoutObject& objec
                                                       const PropertyTreeStateOrAlias& current_paint_chunk_properties,
                                                       const gfx::Rect& image_border) {
   if (!need_supplement_for_bl_) {
-    return;
+    return false;
   }
 
   PaintTimingDetector& paint_timing_detector = ptd_supplement_for_bl_.GetPaintTimingDetector();

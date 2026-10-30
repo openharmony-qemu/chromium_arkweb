@@ -77,6 +77,7 @@ size_t EstimatePhysicalMemory()
   }
   return physical_memory_mb;
 #endif
+  return 0;
 }
 
 void SetMaxVisibleBytes(cc::ManagedMemoryPolicy& actual)

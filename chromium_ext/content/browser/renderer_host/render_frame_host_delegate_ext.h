@@ -73,7 +73,7 @@ class RenderFrameHostDelegateExt {
   virtual void OnPdfLoadEvent(int32_t result, const std::string& url) {}
 #endif  // BUILDFLAG(ARKWEB_PDF)
 #if BUILDFLAG(ARKWEB_FILE_UPLOAD)
-  virtual bool IsActiveFileChooser() {}
+  virtual bool IsActiveFileChooser() { return false; }
   virtual void SetFileChooserInActive() {}
 #endif  // BUILDFLAG(ARKWEB_FILE_UPLOAD)
 #if BUILDFLAG(ARKWEB_JS_ON_DOCUMENT_END)
