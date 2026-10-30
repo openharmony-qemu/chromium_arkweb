@@ -111,7 +111,26 @@ void ArkwebRenderProcessHostImplExt::RenderProcessChannelConnectCheck() {
     ReportRenderProcessTerminate(false, GetProcess().Handle(),
       std::string("TERMINATION_CHANNEL_CONNECT_FAILED"), 0);
 #endif
-    internal::ChildProcessLauncherHelper::TerminateProcess(GetProcess(), 0);
+    // FastShutdown() goes through ProcessDied(), which resets
+    // |child_process_launcher_| (terminating the child), sets |is_dead_| so
+    // that MayReuseHost() returns false, resets the IPC channel and notifies
+    // RenderProcessHostObserver::RenderProcessExited. Going through
+    // ProcessDied() is required: calling TerminateProcess() alone only kills
+    // the OS process without marking the host as dead, which leaves the host
+    // reusable and causes the timed-out host to be picked up again by
+    // GetExistingProcessHost() on the next navigation (see
+    // MayReuseAndIsSuitable()).
+    if (child_process_launcher_.get()) {
+      FastShutdown();
+    } else {
+      // No launcher means Init() never spawned a process; just terminate the
+      // handle we have (if any) and mark the host as dead so it is not reused.
+      internal::ChildProcessLauncherHelper::TerminateProcess(GetProcess(), 0);
+      ChildProcessTerminationInfo info;
+      info.status = base::TERMINATION_STATUS_NORMAL_TERMINATION;
+      info.exit_code = 0;
+      ProcessDied(info);
+    }
   }
 }
 
