@@ -335,6 +335,9 @@ void MouseEventManagerExt::HandleCreateOverlay(T const& targeted_event) {
 }
 
 void MouseEventManagerExt::CloseImageOverlayWhenMousePress(const MouseEventWithHitTestResults& event) {
+  if (!frame_ || !frame_->View()) {
+    return;
+  }
   if (GetHitOverlayStatusFromMouseEvent(event) == HitOverlayStatus::kNone) {
     LOG(INFO) << "HandleMousePressEvent CloseImageOverlay";
     CloseImageOverlay();
