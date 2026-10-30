@@ -34,6 +34,26 @@ namespace ui {
 using testing::Return;
 extern int scrollbar_hot_size_;
 
+namespace {
+
+SkRect PaintThumbAndGetBounds(NativeThemeAuraUtils& utils,
+                              const gfx::Rect& rect,
+                              NativeTheme::Part part,
+                              NativeTheme::State state) {
+  cc::RecordPaintCanvas canvas;
+  NativeTheme::ScrollbarThumbExtraParams extra_params;
+  utils.PaintScrollbarThumbWithColor(
+      &canvas, rect, SK_ColorLTGRAY,
+      NativeTheme::PreferredColorScheme::kNoPreference, part, state,
+      extra_params);
+  EXPECT_EQ(canvas.TotalOpCount(), 1u);
+  const auto record = canvas.ReleaseAsRecord();
+  EXPECT_EQ(record.GetFirstOp().GetType(), cc::PaintOpType::kDrawRRect);
+  return static_cast<const cc::DrawRRectOp&>(record.GetFirstOp()).rrect.rect();
+}
+
+}  // namespace
+
 class NativeThemeAuraUtilsTest : public testing::Test {
  public:
   void SetUp() override;
@@ -81,6 +101,38 @@ TEST_F(NativeThemeAuraUtilsTest, PaintOverlayScrollbarThumb_001) {
   part = NativeTheme::kScrollbarVerticalThumb;
   native_theme_aura_utils_->PaintOverlayScrollbarThumb(
       &canvas, rect, scrollbar_color, part, thumb_color, fill_flags);
+}
+
+TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbPreservesRectOrigin) {
+  constexpr int kOffsetX = 37;
+  constexpr int kOffsetY = 53;
+  const NativeTheme::Part parts[] = {
+      NativeTheme::kScrollbarVerticalThumb,
+      NativeTheme::kScrollbarHorizontalThumb,
+  };
+  const NativeTheme::State states[] = {
+      NativeTheme::kNormal,
+      NativeTheme::kHovered,
+  };
+
+  for (const auto part : parts) {
+    for (const auto state : states) {
+      const int width = part == NativeTheme::kScrollbarVerticalThumb ? 30 : 200;
+      const int height =
+          part == NativeTheme::kScrollbarVerticalThumb ? 200 : 30;
+      const SkRect origin_rect = PaintThumbAndGetBounds(
+          *native_theme_aura_utils_, gfx::Rect(0, 0, width, height), part,
+          state);
+      const SkRect offset_rect = PaintThumbAndGetBounds(
+          *native_theme_aura_utils_,
+          gfx::Rect(kOffsetX, kOffsetY, width, height), part, state);
+
+      EXPECT_FLOAT_EQ(offset_rect.x() - origin_rect.x(), kOffsetX);
+      EXPECT_FLOAT_EQ(offset_rect.y() - origin_rect.y(), kOffsetY);
+      EXPECT_FLOAT_EQ(offset_rect.width(), origin_rect.width());
+      EXPECT_FLOAT_EQ(offset_rect.height(), origin_rect.height());
+    }
+  }
 }
 
 TEST_F(NativeThemeAuraUtilsTest, PaintScrollbarThumbWithColor_001) {

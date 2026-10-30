@@ -131,17 +131,19 @@ void NativeThemeAuraUtils::PaintScrollbarThumbWithColor(
                        kForceScrollbarActiveWidth * ratio -
                        kForceScrollbarActiveOffset * ratio);
       thumb_rect.set_width(kForceScrollbarActiveWidth * ratio);
-      aroundRRect = gfx::Rect(kForceScrollbarActiveHotSize * ratio, 0,
-                              kForceScrollbarActiveWidth * ratio -
-                                  kForceScrollbarActiveHotSize * ratio,
-                              thumb_rect.height());
+      aroundRRect =
+          gfx::Rect(rect.x() + kForceScrollbarActiveHotSize * ratio, rect.y(),
+                    kForceScrollbarActiveWidth * ratio -
+                        kForceScrollbarActiveHotSize * ratio,
+                    thumb_rect.height());
     } else {
       thumb_rect.set_y(thumb_rect.y() + thumb_rect.height() -
                        kForceScrollbarActiveWidth * ratio -
                        kForceScrollbarActiveOffset * ratio);
       thumb_rect.set_height(kForceScrollbarActiveWidth * ratio);
       aroundRRect =
-          gfx::Rect(0, kForceScrollbarActiveHotSize * ratio, thumb_rect.width(),
+          gfx::Rect(rect.x(), rect.y() + kForceScrollbarActiveHotSize * ratio,
+                    thumb_rect.width(),
                     kForceScrollbarActiveWidth * ratio -
                         kForceScrollbarActiveHotSize * ratio);
     }
@@ -151,17 +153,19 @@ void NativeThemeAuraUtils::PaintScrollbarThumbWithColor(
       thumb_rect.set_x(thumb_rect.x() + thumb_rect.width() -
                        kForceScrollbarInactiveOffset * ratio);
       thumb_rect.set_width(kForceScrollbarInactiveWidth * ratio);
-      aroundRRect = gfx::Rect(kForceScrollbarInactiveHotSize * ratio, 0,
-                              kForceScrollbarInactiveWidth * ratio -
-                                  kForceScrollbarInactiveHotSize * ratio,
-                              thumb_rect.height());
+      aroundRRect =
+          gfx::Rect(rect.x() + kForceScrollbarInactiveHotSize * ratio,
+                    rect.y(),
+                    kForceScrollbarInactiveWidth * ratio -
+                        kForceScrollbarInactiveHotSize * ratio,
+                    thumb_rect.height());
     } else {
       thumb_rect.set_y(thumb_rect.y() + thumb_rect.height() -
                        kForceScrollbarInactiveOffset * ratio);
       thumb_rect.set_height(kForceScrollbarInactiveWidth * ratio);
-      aroundRRect = gfx::Rect(0, kForceScrollbarInactiveHotSize * ratio,
-                              thumb_rect.width(),
-                              kForceScrollbarInactiveWidth * ratio -
+      aroundRRect = gfx::Rect(
+          rect.x(), rect.y() + kForceScrollbarInactiveHotSize * ratio,
+          thumb_rect.width(), kForceScrollbarInactiveWidth * ratio -
                                   kForceScrollbarInactiveHotSize * ratio);
     }
   }
