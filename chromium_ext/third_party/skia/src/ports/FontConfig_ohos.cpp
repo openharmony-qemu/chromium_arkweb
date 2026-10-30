@@ -1787,6 +1787,9 @@ int FontConfig_OHOS::logErrInfo(int err,
 void FontConfig_OHOS::InvalidateThemeFont(const SkFontScanner& fontScanner,
                                           const std::vector<int>& fds) {
   themeFontTypefaceSet.clear();
+  if (base::ohos::IsPcDevice()) {
+    return;
+  }
   for (const int& fd : fds) {
   sk_sp<SkData> data(SkData::MakeFromFD(fd));
   std::unique_ptr<SkStreamAsset> stream =
