@@ -471,13 +471,19 @@ bool NWebInputMethodHandler::AttachToSystemIME(bool is_need_reset_listener, int3
   isFocusSwitchOnBlur_ = false;
 
 #if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
-  if (!fill_content_.empty()) {
-    if (fill_content_node_id_ == input_node_id_) {
-      LOG(INFO) << "send autofill cancel fill content to IMF";
-      inputmethod_adapter_->SendPrivateCommand(AUTO_FILL_CANCEL_PRIVATE_COMMAND,
-                                               fill_content_);
-    }
-    fill_content_.clear();
+  // Consume pending: stage to fill_content_ with the CURRENT input_node_id_
+  // (correct node — we're inside the attach that knows the real node).
+  // SetPendingFillContent was called from OnRequestAutofill before
+  // OnVirtualKeyboardRequested updated node_id_; here input_node_id_ is
+  // the correct value.
+  if (!pending_fill_content_.empty()) {
+    fill_content_ = pending_fill_content_;
+    fill_content_node_id_ = input_node_id_;
+    pending_fill_content_.clear();
+  }
+  if (!fill_content_.empty() && fill_content_node_id_ == input_node_id_) {
+    inputmethod_adapter_->SendPrivateCommand(AUTO_FILL_CANCEL_PRIVATE_COMMAND,
+                                             fill_content_);
   }
 #endif
   NotifyInputMethodAttached();

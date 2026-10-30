@@ -17,6 +17,7 @@
 
 #include "arkweb/build/features/features.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_util.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "content/public/renderer/render_frame.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -41,6 +42,19 @@ extern WebInputElement FindUsernameElementPrecedingPasswordElement(
 extern bool HasDocumentWithValidFrame(const WebInputElement& element);
 extern bool IsUsernameAmendable(const WebInputElement& username_element,
                                 bool is_password_field_selected);
+
+namespace {
+bool IsPrefixCompletion(const WebInputElement& username_element,
+                        const std::u16string& suggestion) {
+  if (username_element.IsNull()) {
+    return false;
+  }
+  std::u16string typed = username_element.Value().Utf16();
+  return !typed.empty() && typed.size() < suggestion.size() &&
+         base::StartsWith(suggestion, typed,
+                          base::CompareCase::INSENSITIVE_ASCII);
+}
+}  // namespace
 
 PasswordAutofillAgentExt::PasswordAutofillAgentExt(
     content::RenderFrame* render_frame,
@@ -480,8 +494,9 @@ bool PasswordAutofillAgentExt::FillAccountSuggestion(
     ;
   }
 
-  if (IsUsernameAmendable(username_element,
-                          element.IsPasswordFieldForAutofill()) &&
+  if ((IsUsernameAmendable(username_element,
+                           element.IsPasswordFieldForAutofill()) ||
+       IsPrefixCompletion(username_element, username)) &&
       !(username.empty() && element.IsPasswordFieldForAutofill()) &&
       username_element.Value().Utf16() != username) {
     DoFillField(username_element, username,

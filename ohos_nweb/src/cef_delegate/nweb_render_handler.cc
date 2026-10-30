@@ -790,6 +790,12 @@ void NWebRenderHandler::SetFillContent(const CefString& content) {
     inputmethod_client_->SetFillContent(content, node_id_);
   }
 }
+
+void NWebRenderHandler::SetPendingFillContent(const CefString& content) {
+  if (inputmethod_client_) {
+    inputmethod_client_->SetPendingFillContent(content);
+  }
+}
 #endif
 
 // #if BUILDFLAG(ARKWEB_SCREEN_ROTATION)

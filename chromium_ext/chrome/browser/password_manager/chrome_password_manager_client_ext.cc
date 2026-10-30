@@ -20,6 +20,7 @@
 #include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -218,6 +219,13 @@ void ChromePasswordManagerClientExt::ProcessAutofillCancel(
       browser->GetClient()->GetRenderHandler()) {
     browser->GetClient()->GetRenderHandler()->SetFillContent(fillContent);
   }
+  if (!account_list_query_origin_.empty()) {
+    AccountListCache& cache = account_lists_[account_list_query_origin_];
+    if (!cache.captured) {
+      ParseFillContentToAccountList(fillContent, cache.entries);
+      cache.captured = true;
+    }
+  }
   auto* pwd_manager_driver =
       password_manager::ContentPasswordManagerDriver::GetForRenderFrameHost(
           rfh);
@@ -228,6 +236,105 @@ void ChromePasswordManagerClientExt::ProcessAutofillCancel(
 
   // Will retry to pull up inputmethod soft keyboard.
   pwd_manager_driver->AutofillSurfaceClosed(true);
+}
+
+void ChromePasswordManagerClientExt::ParseFillContentToAccountList(
+    const std::string& fillContent,
+    std::vector<AccountListEntry>& out) const {
+  out.clear();
+  auto parsed = base::JSONReader::Read(
+      fillContent, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
+  if (!parsed || !parsed->is_dict()) return;
+  const base::Value::List* list =
+      parsed->GetIfDict()->FindList("accountList");
+  if (!list) return;
+  for (const auto& item : *list) {
+    AccountListEntry e;
+    if (const std::string* un = item.GetIfString()) {
+      e.user_name = *un;
+    } else if (const base::Value::Dict* d = item.GetIfDict()) {
+      if (const std::string* dict_un = d->FindString("userName"))
+        e.user_name = *dict_un;
+      if (const std::string* ha = d->FindString("hasAccount"))
+        e.has_account = *ha;
+    }
+    if (!e.user_name.empty()) out.push_back(e);
+  }
+  LOG(INFO) << "ParseFillContentToAccountList: size=" << out.size();
+}
+
+std::string ChromePasswordManagerClientExt::FindBestMatch(
+    const std::vector<AccountListEntry>& list,
+    const std::string& typed) const {
+  if (list.empty()) return std::string();
+  if (typed.size() < 2) return list.front().user_name;
+  for (const auto& e : list) {
+    if (base::EqualsCaseInsensitiveASCII(e.user_name, typed)) return e.user_name;
+  }
+  for (const auto& e : list) {
+    if (base::StartsWith(e.user_name, typed,
+                       base::CompareCase::INSENSITIVE_ASCII)) {
+      return e.user_name;
+    }
+  }
+  return list.front().user_name;
+}
+
+std::string ChromePasswordManagerClientExt::BuildFreshPayload(
+    const std::string& matched) const {
+  base::Value::Dict payload;
+  payload.Set("userName", matched);
+  payload.Set("hasAccount", "true");
+  auto out = base::WriteJson(base::Value(std::move(payload)));
+  return out.value_or(std::string());
+}
+
+void ChromePasswordManagerClientExt::HandleReplayRequest(
+    const GURL& page_url,
+    const autofill::InputFillRequestData& username_data,
+    const autofill::InputFillRequestData& password_data) {
+  // AC-8: new-password / confirm-password fields keep the extension's
+  // existing generation strategy — don't recommend saved accounts.
+  if (password_data.autocomplete_attr.find("new-password") !=
+      std::string::npos) {
+    return;
+  }
+  // AC-7/BR-3: only the focused frame's own origin may supply accounts; a
+  // list captured for another origin (e.g. a cross-origin iframe) must not
+  // leak into this frame's recommendation bar.
+  auto it = account_lists_.find(page_url.spec());
+  if (it == account_lists_.end() || !it->second.captured) return;
+
+  std::string typed_username;
+  if (!username_data.value.empty()) {
+    typed_username = base::UTF16ToUTF8(username_data.value);
+    UpdateLastRequestFilledItems(username_data, password_data);
+  } else if (username_data.type ==
+             autofill::mojom::OhosInputElementType::kInvalid) {
+    // No username field in this form (SPA replaced it after the username
+    // step) — reuse the username typed in the same login flow.
+    typed_username = base::UTF16ToUTF8(last_request_fill_username_.value);
+  }
+  // else: this form has its own (currently empty) username field — leave
+  // typed_username empty so only the default candidate applies (AC-7/EB-1),
+  // never another form's username.
+
+  std::string match = FindBestMatch(it->second.entries, typed_username);
+  LOG(INFO) << "HandleReplayRequest: typed_len=" << typed_username.length()
+            << " match_len=" << match.length();
+  if (match.empty()) return;
+
+  std::string payload = BuildFreshPayload(match);
+  if (!web_contents()) return;
+  content::RenderFrameHost* rfh = web_contents()->GetFocusedFrame();
+  if (!rfh) return;
+
+  auto browser = CefBrowserHostBase::GetBrowserForHost(rfh);
+  if (browser && browser->GetClient() &&
+      browser->GetClient()->GetRenderHandler()) {
+    browser->GetClient()->GetRenderHandler()->SetPendingFillContent(payload);
+    LOG(INFO) << "HandleReplayRequest: SetPendingFillContent len=" << payload.size();
+  }
 }
 
 void ChromePasswordManagerClientExt::AutoFillWithIMFEvent(
@@ -264,6 +371,7 @@ void ChromePasswordManagerClientExt::AutoFillWithIMFEvent(
                                                username, password, &imf_info);
   if (json_str.has_value()) {
     LOG(INFO) << "call autofill for request from IMF";
+    account_list_query_origin_ = form_to_request_url_.spec();
     auto weak_this = weak_ptr_factory_.GetWeakPtr();
     bool result = autofill_client->OnAutofillEvent(json_str.value());
     if (!weak_this) {
@@ -462,6 +570,8 @@ void ChromePasswordManagerClientExt::OnRequestAutofill(
 
   if (!base::ohos::IsPcDevice()) {
     if (state == OhosPasswordFormAutofillState::kNotRequested) {
+      account_lists_.erase(page_url.spec());
+      account_list_query_origin_ = page_url.spec();
       auto json_str = PasswordFormToJsonForRequest(
           EVENT_FILL, page_url, username_data, password_data);
       if (json_str.has_value()) {
@@ -475,6 +585,8 @@ void ChromePasswordManagerClientExt::OnRequestAutofill(
         SuppressKeyboard();
         UpdateLastRequestFilledItems(username_data, password_data);
       }
+    } else if (state == OhosPasswordFormAutofillState::kHasBeenRequested) {
+      HandleReplayRequest(page_url, username_data, password_data);
     }
   } else {
     auto event = (state == OhosPasswordFormAutofillState::kTextChanged)

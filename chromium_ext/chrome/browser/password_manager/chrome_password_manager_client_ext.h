@@ -16,6 +16,10 @@
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_CHROME_PASSWORD_MANAGER_CLIENT_EXT_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_CHROME_PASSWORD_MANAGER_CLIENT_EXT_H_
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/keyboard_suppressor_ohos.h"
 #include "arkweb/build/features/features.h"
@@ -130,6 +134,30 @@ public:
 
   bool is_need_restore_keyboard_ = false;
   std::unique_ptr<KeyboardSuppressorOhos> suppressor_;
+
+  struct AccountListEntry {
+    std::string user_name;
+    std::string has_account;
+  };
+  struct AccountListCache {
+    std::vector<AccountListEntry> entries;
+    bool captured = false;
+  };
+  // Vault account lists keyed by the frame origin whose query produced them,
+  // so forms in different origins (cross-origin iframes) never share or
+  // overwrite each other's recommendations.
+  std::map<std::string, AccountListCache> account_lists_;
+  // Origin of the most recent fill query; its cancel response is captured
+  // into account_lists_ under this key.
+  std::string account_list_query_origin_;
+  void ParseFillContentToAccountList(const std::string& fillContent,
+                                     std::vector<AccountListEntry>& out) const;
+  std::string FindBestMatch(const std::vector<AccountListEntry>& list,
+                            const std::string& typed) const;
+  std::string BuildFreshPayload(const std::string& matched) const;
+  void HandleReplayRequest(const GURL& page_url,
+                           const autofill::InputFillRequestData& username_data,
+                           const autofill::InputFillRequestData& password_data);
 
   base::WeakPtrFactory<ChromePasswordManagerClientExt> weak_ptr_factory_{this};
 #endif
