@@ -47,20 +47,23 @@ namespace {
 // Concrete implementation of AutoFillItem for testing.
 class AutoFillItemImpl : public AutoFillItem {
  public:
-  AutoFillItemImpl(const std::string& xpath, const std::string& content,
-                   int32_t index = 0, AutoFillMode mode = AutoFillMode::Overwrite)
-      : xpath_(xpath), content_(content), index_(index), mode_(mode) {}
+  AutoFillItemImpl(const std::string& xpath, int32_t node_id,
+                   const std::string& content, int32_t index = 0,
+                   AutoFillMode mode = AutoFillMode::Overwrite)
+      : xpath_(xpath), content_(content), index_(index), mode_(mode), node_id_(node_id) {}
 
   std::string GetXPath() const override { return xpath_; }
   std::string GetContent() const override { return content_; }
   int32_t GetIndex() const override { return index_; }
   AutoFillMode GetMode() const override { return mode_; }
+  int32_t GetNodeId() const override { return node_id_; }
 
  private:
   std::string xpath_;
   std::string content_;
   int32_t index_ = 0;
   AutoFillMode mode_ = AutoFillMode::Overwrite;
+  int32_t node_id_ = 0;
 };
 
 // Test implementation of NWebCommandActionInfo
@@ -422,7 +425,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_InvalidDefaultMode_ReturnsInvalidDefaultMode_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "hello", 0, AutoFillMode::Overwrite)});
   // With enum-based mode, invalid mode validation is handled at parsing layer;
   // enum values are always valid, so this test no longer triggers JSON_INVALID_DEFAULT_MODE.
   // Keep default Overwrite mode and verify it still fails on PAGE_NOT_READY.
@@ -439,10 +443,24 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_EmptyItemXPath_ReturnsInvalidItemXpath_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("", "hello", 0, AutoFillMode::Overwrite)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("", 0, "hello", 0, AutoFillMode::Overwrite)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_XPATH));
+}
+
+/**
+ * @tc.name: HandleAutoFillCommand_NodeIdOnly_NoBrowser_ReturnsPageNotReady_0100
+ * @tc.desc: A valid node id allows an autofill item without XPath.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebCommandActionManagerImplTest,
+       HandleAutoFillCommand_NodeIdOnly_NoBrowser_ReturnsPageNotReady_0100) {
+  auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "", 42, "hello", 0, AutoFillMode::Overwrite)});
+  auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
 }
 
 /**
@@ -453,7 +471,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_EmptyItemContent_ReturnsInvalidItemContent_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "", 0, AutoFillMode::Overwrite)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "", 0, AutoFillMode::Overwrite)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_CONTENT));
@@ -467,7 +486,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_InvalidItemIndex_ReturnsInvalidItemIndex_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", -1, AutoFillMode::Insert)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "hello", -1, AutoFillMode::Insert)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::JSON_INVALID_ITEM_INDEX));
@@ -483,8 +503,8 @@ TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_MultipleItems_FirstErrorReturned_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
   info->SetAutoFillItems({
-      std::make_shared<AutoFillItemImpl>("", "hello", 0, AutoFillMode::Overwrite),       // invalid: empty xpath
-      std::make_shared<AutoFillItemImpl>("//input[@id='name']", "world", 0, AutoFillMode::Overwrite),  // valid
+      std::make_shared<AutoFillItemImpl>("", 0, "hello", 0, AutoFillMode::Overwrite),       // invalid: empty xpath
+      std::make_shared<AutoFillItemImpl>("//input[@id='name']", 0, "world", 0, AutoFillMode::Overwrite),  // valid
   });
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
@@ -500,7 +520,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_OverwriteMode_NoBrowser_ReturnsPageNotReady_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "hello", 0, AutoFillMode::Overwrite)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
@@ -515,7 +536,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_InsertMode_NoBrowser_ReturnsPageNotReady_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 5, AutoFillMode::Insert)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "hello", 5, AutoFillMode::Insert)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));
@@ -530,7 +552,8 @@ TEST_F(NWebCommandActionManagerImplTest,
 TEST_F(NWebCommandActionManagerImplTest,
        HandleAutoFillCommand_DefaultModeEmpty_NoBrowser_ReturnsPageNotReady_0100) {
   auto info = std::make_shared<TestCommandActionInfo>("inputAutoFill", AutoFillMode::Overwrite);
-  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>("//input[@id='name']", "hello", 0, AutoFillMode::Overwrite)});
+  info->SetAutoFillItems({std::make_shared<AutoFillItemImpl>(
+      "//input[@id='name']", 0, "hello", 0, AutoFillMode::Overwrite)});
   auto result = valid_delegate_manager_->HandleAutoFillCommand(info);
   EXPECT_EQ(result,
             static_cast<int32_t>(WebCommandErrorCode::PAGE_NOT_READY));

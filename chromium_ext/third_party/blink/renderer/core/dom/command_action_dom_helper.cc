@@ -820,13 +820,30 @@ int32_t CommandActionDOMHelper::ExecuteInputInsert(Document* document,
 
 int32_t CommandActionDOMHelper::ExecuteAutoFill(Document* document,
                                                  const std::string& xpath,
+                                                 int32_t node_id,
                                                  const std::string& content,
                                                  int32_t index,
                                                  int32_t mode) {
-  Element* element = FindElementByXPath(document, xpath);
+  Element* element = nullptr;
+  bool resolved_by_node_id = false;
+  if (node_id > 0) {
+    element = FindElementByDomNodeId(document, node_id);
+    resolved_by_node_id = element != nullptr;
+  }
+  if (!element && !xpath.empty()) {
+    element = FindElementByXPath(document, xpath);
+  }
   if (!element) {
-    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill: element not found, xpath=" << xpath;
+    LOG(ERROR) << "[WebCommandAction] ExecuteAutoFill: element not found, node_id=" << node_id
+               << ", xpath=" << xpath;
     return static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND);
+  }
+  if (resolved_by_node_id) {
+    LOG(INFO) << "[WebCommandAction] ExecuteAutoFill: resolved_by=node_id, node_id="
+              << node_id;
+  } else {
+    LOG(INFO) << "[WebCommandAction] ExecuteAutoFill: resolved_by=xpath, xpath="
+              << xpath;
   }
 
   auto* input = DynamicTo<HTMLInputElement>(element);
