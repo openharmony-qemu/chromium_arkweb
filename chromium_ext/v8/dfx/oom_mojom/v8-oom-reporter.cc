@@ -17,23 +17,25 @@
 
 #include <mutex>
 
+#include "base/no_destructor.h"
+
 namespace v8 {
 namespace dfx {
 namespace {
 
 V8OOMReportCallbackWithData g_oom_report_callback{nullptr};
-std::mutex g_repot_mutex;
+base::NoDestructor<std::mutex> g_report_mutex;
 
 }  // namespace
 
 // static
 V8OOMReportCallbackWithData GetOOMReportCallback() {
-  std::lock_guard<std::mutex> lock(g_repot_mutex);
+  std::lock_guard<std::mutex> lock(*g_report_mutex);
   return g_oom_report_callback;
 }
 
 void SetOOMReportCallback(V8OOMReportCallbackWithData callback) {
-  std::lock_guard<std::mutex> lock(g_repot_mutex);
+  std::lock_guard<std::mutex> lock(*g_report_mutex);
   g_oom_report_callback = callback;
 }
 }  // namespace dfx

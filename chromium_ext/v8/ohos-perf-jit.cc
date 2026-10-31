@@ -173,8 +173,8 @@ void PerfJitLogger::WriteJitCodeLoadEntry(const uint8_t* code_pointer,
                                                const char* name,
                                                size_t name_length) {
   PerfJitCodeLoad code_load;
-  code_load.size_ =
-      sizeof(code_load) + name_length + sizeof(kStringTerminator);
+  code_load.size_ = static_cast<uint32_t>(
+      sizeof(code_load) + name_length + sizeof(kStringTerminator));
   code_load.process_id_ = static_cast<uint32_t>(process_id_);
   code_load.code_address_ = reinterpret_cast<uint64_t>(code_pointer);
   code_load.code_size_ = code_size;
