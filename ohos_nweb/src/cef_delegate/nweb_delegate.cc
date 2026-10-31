@@ -4111,6 +4111,18 @@ void NWebDelegate::SlideScroll(float vx, float vy) {
   GetBrowser()->GetHost()->SlideScroll(vx, vy);
 }
 
+void NWebDelegate::SetFlingSpeedLimit(float speed_limit) {
+  if (!GetBrowser().get() || !GetBrowser()->GetHost()) {
+    LOG(ERROR) << "SetFlingSpeedLimit can not get browser";
+    return;
+  }
+
+  // ≤0/NaN 表示清除 TS 覆盖（reset），由 WebViewImpl 侧恢复 viewport 控制。
+  // 设备默认值（PC 9000vp/s / 非 PC 17000vp/s）由 FlingBooster 内部的
+  // kMaxBoostFlingSpeed 在无覆盖时自然生效，无需在此处强制。
+  GetBrowser()->GetHost()->SetFlingSpeedLimit(speed_limit);
+}
+
 bool NWebDelegate::WebSendKeyEvent(int32_t keyCode,
                                    int32_t keyAction,
                                    const std::vector<int32_t>& pressedCodes) {

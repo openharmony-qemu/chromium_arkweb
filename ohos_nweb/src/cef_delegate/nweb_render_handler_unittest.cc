@@ -502,6 +502,8 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
 
   void SlideScroll(float vx, float vy) override {}
 
+  void SetFlingSpeedLimit(float speed_limit) override {}
+
   void SetFileAccess(bool falg) override {}
 
   void SetBlockNetwork(bool falg) override {}

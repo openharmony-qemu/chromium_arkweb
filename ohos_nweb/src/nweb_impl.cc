@@ -3975,6 +3975,14 @@ void NWebImpl::SlideScroll(float vx, float vy) {
   return nweb_delegate_->SlideScroll(vx, vy);
 }
 
+void NWebImpl::SetFlingSpeedLimit(float speed_limit) {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "SetFlingSpeedLimit nweb_delegate_ is nullptr";
+    return;
+  }
+  return nweb_delegate_->SetFlingSpeedLimit(speed_limit);
+}
+
 bool NWebImpl::WebSendKeyEvent(int32_t keyCode,
                                int32_t keyAction,
                                const std::vector<int32_t>& pressedCodes) {

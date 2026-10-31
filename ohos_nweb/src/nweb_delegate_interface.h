@@ -524,6 +524,7 @@ class NWebDelegateInterface
                                  float vx,
                                  float vy) = 0;
   virtual void SlideScroll(float vx, float vy) = 0;
+  virtual void SetFlingSpeedLimit(float speed_limit) = 0;
   virtual bool WebSendKeyEvent(int32_t keyCode,
                                int32_t keyAction,
                                const std::vector<int32_t>& pressedCodes) = 0;
