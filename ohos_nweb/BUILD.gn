@@ -148,6 +148,7 @@ static_library("cef_nweb") {
     "src/cef_delegate/nweb_delegate.h",
     "src/cef_delegate/nweb_devtools_message_handler_impl.cc",
     "src/cef_delegate/nweb_devtools_message_handler_impl.h",
+
     "src/cef_delegate/nweb_display_listener.cc",
     "src/cef_delegate/nweb_display_listener.h",
     "src/cef_delegate/nweb_download_handler_delegate.cc",
@@ -524,6 +525,7 @@ static_library("nweb_sources") {
     "src/capi/browser_service/nweb_extension_history_types.h",
     "src/capi/nweb_app_client_extension_callback.h",
     "src/capi/nweb_devtools_message_handler.h",
+    "src/capi/nweb_modal_dialog_handler.h",
     "src/capi/nweb_extension_javascript_item.h",
     "src/capi/nweb_extension_load_url_params.h",
     "src/capi/nweb_web_translate_item.h",

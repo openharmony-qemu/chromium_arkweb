@@ -67,7 +67,7 @@ class InfoBarCallbackImpl : public NWebBoolValueCallback {
   }
 
  private:
-  bool default_value_ = true;
+  bool default_value_ = false;
   CefRefPtr<CefInfoBarCallback> callback_;
 };
 
@@ -88,7 +88,7 @@ class InfoBarCallbackImplNativeApi : public NWebBoolValueCallbackNativeApi {
   }
 
  private:
-  bool default_value_ = true;
+  bool default_value_ = false;
   CefRefPtr<CefInfoBarCallback> callback_;
 };
 

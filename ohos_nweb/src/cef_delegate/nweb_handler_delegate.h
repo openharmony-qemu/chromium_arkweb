@@ -20,6 +20,7 @@
 #include <functional>
 #include <list>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -1104,6 +1105,7 @@ class NWebHandlerDelegate : public ArkWebClientExt,
 
 #if BUILDFLAG(ARKWEB_DEVTOOLS)
   void OnRequestOpenDevTools(const RequestOpenDevToolsParams& params) override;
+  bool OnShowDialog(NWebModalDialogHandlerPtr handler) override;
 #endif // ARKWEB_DEVTOOLS
 
   void Discard();
