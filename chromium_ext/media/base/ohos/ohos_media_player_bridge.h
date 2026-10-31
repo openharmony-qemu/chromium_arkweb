@@ -149,7 +149,6 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
   void PropagateDuration(base::TimeDelta duration);
   bool IsAudible(float volume);
   bool CheckIsPathValid(const std::string& path);
-  void SetNativeWindowFromSurfaceId();
 
   // Callback function passed to `resource_getter_`. Called when the cookies
   // are retrieved.
@@ -165,6 +164,11 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 
   // Set media player surface and register listener
   void SetPlayerSurface();
+
+  // Continuation of SetPlayerSurface: invoked asynchronously once the GPU
+  // process returns the surface id. Creates the NativeWindow, calls
+  // SetVideoSurfaceNew and PrepareAsync.
+  void OnSurfaceIdForSurface(const std::string& surface_id_string);
 
   bool ShouldUseProxyDownload() const;
 
