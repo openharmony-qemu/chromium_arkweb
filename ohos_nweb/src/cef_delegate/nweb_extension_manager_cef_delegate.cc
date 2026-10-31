@@ -26,6 +26,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
 #include "extensions/browser/extension_icon_aggregator.h"
 #include "extensions/browser/extension_icon_image.h"
@@ -518,6 +519,9 @@ void NWebExtensionManagerCefDelegate::UpdateExtensionConfiguration(
       user_script_manager->SetUserScriptPrefEnabled(
           extension_id,
           config_update.user_scripts_access.value());
+      extensions::ExtensionPrefs::Get(browser_context)
+          ->pref_service()
+          ->CommitPendingWrite();
     } else {
       LOG(ERROR) << "UpdateExtensionConfiguration: user_script_manager is null";
     }
