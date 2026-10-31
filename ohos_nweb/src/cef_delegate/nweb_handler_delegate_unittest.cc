@@ -835,6 +835,11 @@ TEST_F(NWebHandlerDelegateTest, OnInputMethodAttached_002) {
   delegate->OnInputMethodAttached();
 }
 
+TEST_F(NWebHandlerDelegateTest, OnLinkGenerationCompleted) {
+  delegate->OnLinkGenerationCompleted(true);
+  ASSERT_NE(delegate, nullptr);
+}
+
 #if BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)
 // Test SetLoadFinished with finished = true
 TEST_F(NWebHandlerDelegateTest, SetLoadFinished_TEST001) {

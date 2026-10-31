@@ -1245,6 +1245,11 @@ arkweb_browser_process_impl_sources = [
   "//arkweb/chromium_ext/chrome/browser/browser_process_impl_ext.h",
 ]
 
+arkweb_chrome_browser_renderer_context_menu_sources = [
+  "//arkweb/chromium_ext/chrome/browser/renderer_context_menu/link_to_text_menu_manager.cc",
+  "//arkweb/chromium_ext/chrome/browser/renderer_context_menu/link_to_text_menu_manager.h",
+]
+
 arkweb_ptrace_sources = [
   "//arkweb/chromium_ext/third_party/crashpad/crashpad/util/linux/ptrace_broker_utils.cc",
   "//arkweb/chromium_ext/third_party/crashpad/crashpad/util/linux/ptrace_broker_utils.h",
@@ -1345,6 +1350,7 @@ arkweb_content_browser_test_sources = [
   "//arkweb/chromium_ext/chrome/browser/chrome_content_browser_client_for_include_unittest.cc",
   "//arkweb/chromium_ext/chrome/browser/extensions/extension_uninstall_dialog_ohos_unittest.cc",
   "//arkweb/chromium_ext/chrome/browser/extensions/system_display/display_info_provider_ohos_unittest.cc",
+  "//arkweb/chromium_ext/chrome/browser/renderer_context_menu/link_to_text_menu_manager_unittest.cc",
   "//arkweb/chromium_ext/content/browser/arkweb_child_process_launcher_helper_utils_unittests.cc",
   "//arkweb/chromium_ext/content/browser/display_cutout/display_cutout_host_ohos_unittest.cc",
   "//arkweb/chromium_ext/content/browser/permissions/permission_service_impl_for_include_unittest.cc",

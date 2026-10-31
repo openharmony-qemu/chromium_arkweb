@@ -387,6 +387,19 @@ NWebContextMenuCallbackImpl::NWebContextMenuCallbackImpl(
 
 void NWebContextMenuCallbackImpl::Continue(int32_t commandId,
                                            MenuEventFlags flag) {
+  if (link_to_text_menu_manager_) {
+    LOG(INFO) << "NWebContextMenuCallbackImpl::Continue commandId=" << commandId;
+    switch (static_cast<MenuCommandId>(commandId)) {
+      case MenuCommandId::CI_COPY_LINK_TO_HIGHLIGHT:
+        link_to_text_menu_manager_->CopyLinkToText();
+        return;
+      case MenuCommandId::CI_CLEAR_HIGHLIGHT:
+        link_to_text_menu_manager_->RemoveLinkToText();
+        return;
+      default:
+        break;
+    }
+  }
   if (callback_ != nullptr) {
     int32_t event_flag =
         ConvertMenuFlags(static_cast<int32_t>(flag), KMenuEventFlagsMap);
@@ -458,5 +471,38 @@ bool NWebContextMenuParamsImpl::IsAILink() {
   return false;
 }
 #endif
+
+void NWebContextMenuCallbackImpl::SetLinkToTextMenuManager(
+    LinkToTextMenuManager* manager) {
+  link_to_text_menu_manager_ = manager;
+}
+
+bool NWebContextMenuParamsImpl::ShouldOfferLinkToText() {
+  if (!link_to_text_menu_manager_) {
+    return false;
+  }
+  return (link_to_text_menu_manager_->ShouldOfferLinkToText() &&
+          link_to_text_menu_manager_->HasGeneratedLink()) ||
+         link_to_text_menu_manager_->CanReshareLink();
+}
+
+bool NWebContextMenuParamsImpl::IsOverTextFragment() {
+  if (!link_to_text_menu_manager_) {
+    return false;
+  }
+  return link_to_text_menu_manager_->IsOnAnnotation();
+}
+
+std::string NWebContextMenuParamsImpl::GetTextFragmentGeneratedLink() {
+  if (!link_to_text_menu_manager_) {
+    return "";
+  }
+  return link_to_text_menu_manager_->GetLinkUrl();
+}
+
+void NWebContextMenuParamsImpl::SetLinkToTextMenuManager(
+    LinkToTextMenuManager* manager) {
+  link_to_text_menu_manager_ = manager;
+}
 
 }  // namespace OHOS::NWeb
