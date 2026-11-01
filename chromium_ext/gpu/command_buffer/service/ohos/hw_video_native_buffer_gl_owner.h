@@ -59,6 +59,8 @@ class GPU_GLES2_EXPORT HwVideoNativeBufferGLOwner
 
   void ReleaseNativeImage() override;
 
+  bool IsColorSpaceSupported() const override;
+
  protected:
   void ReleaseResources() override;
 
@@ -142,6 +144,8 @@ class GPU_GLES2_EXPORT HwVideoNativeBufferGLOwner
   base::OnceClosure buffer_available_cb_ GUARDED_BY(lock_);
 
   bool is_frame_available_callback_set_ = false;
+
+  std::optional<bool> is_color_space_supported_ GUARDED_BY(lock_);
 
   // This class is created on gpu main thread.
   THREAD_CHECKER(gpu_main_thread_checker_);

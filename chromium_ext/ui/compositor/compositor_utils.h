@@ -73,9 +73,12 @@ class COMPOSITOR_EXPORT CompositorUtils {
   void SetIsOfflineWebComponentInactive(bool is_inactive);
 #endif
 
-void DiscardCompositingResources();
-bool IsValidManagerUtils();
-void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+  void DiscardCompositingResources();
+  bool IsValidManagerUtils();
+  void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+  void SetCachedFocusAndScreenStatus(bool is_focused, bool is_single_screen);
+  bool IsFocused() const { return is_focused_; }
+  bool IsSingleScreen() const { return is_single_screen_; }
 
 #if BUILDFLAG(ARKWEB_VIDEO_LTPO)
   void UpdateVSyncFrequency();
@@ -100,6 +103,9 @@ void UpdateFocusAndScreenStatus(bool is_focused, bool is_single_screen);
 #endif
 
  private:
+  bool is_focused_ = false;
+  bool is_single_screen_ = false;
+
   raw_ptr<Compositor> compositor_;
 };
 } // namespace ui

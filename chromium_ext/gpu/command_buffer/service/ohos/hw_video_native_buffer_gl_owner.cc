@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -186,8 +187,15 @@ HwVideoNativeBufferGLOwner::GetNativeBuffer() {
   uint32_t seq_num = OHOS::NWeb::OhosAdapterHelper::GetInstance()
                          .GetOhosNativeBufferAdapter()
                          .GetSeqNum(buffer);
-  TRACE_EVENT1("gpu", "HwVideoNativeBufferGLOwner::GetNativeBuffer", "seqnum",
-               seq_num);
+
+  if (base::ohos::IsDelegatedCompositingEnabledOhos() &&
+      !is_color_space_supported_.has_value()) {
+    is_color_space_supported_ = OHOS::NWeb::OhosAdapterHelper::GetInstance()
+      .GetOhosNativeBufferAdapter().IsColorSpaceSupported(buffer);
+  }
+
+  TRACE_EVENT2("gpu", "HwVideoNativeBufferGLOwner::GetNativeBuffer", "seqnum",
+               seq_num, "is_color_space_supported_", is_color_space_supported_.value_or(false));
 
   return std::make_unique<ScopedNativeBufferImpl>(
       this, current_image_ref_->image(),
@@ -355,6 +363,11 @@ bool HwVideoNativeBufferGLOwner::GetCodedSizeAndVisibleRect(
              << ", height = " << rotated_visible_size.height()
              << "; coded_size width = " << width << ", height = " << height;
   return true;
+}
+
+bool HwVideoNativeBufferGLOwner::IsColorSpaceSupported() const {
+  base::AutoLock auto_lock(lock_);
+  return is_color_space_supported_.value_or(false);
 }
 
 //LCOV_EXCL_START

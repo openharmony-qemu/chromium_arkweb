@@ -262,4 +262,21 @@ int OhosNativeBufferAdapterImpl::FreeNativeBuffer(void* nativeBuffer)
     OH_NativeBuffer_Unreference(static_cast<OH_NativeBuffer*>(nativeBuffer));
     return 0;
 }
+
+bool OhosNativeBufferAdapterImpl::IsColorSpaceSupported(void* nativeBuffer)
+{
+    if (nativeBuffer == nullptr) {
+        WVLOG_E("native buffer IsColorSpaceSupported, native buffer is null.");
+        return false;
+    }
+
+    OH_NativeBuffer_ColorSpace colorSpace = OH_COLORSPACE_NONE;
+    const auto ret = OH_NativeBuffer_GetColorSpace(static_cast<OH_NativeBuffer*>(nativeBuffer), &colorSpace);
+    if (ret != 0) {
+        WVLOG_E("Could not get NativeBuffer color space. ret: %{public}d", ret);
+        return false;
+    }
+    WVLOG_D("Get native buffer color space. %{public}d", colorSpace);
+    return colorSpace != OH_COLORSPACE_NONE;
+}
 } // namespace OHOS::NWeb

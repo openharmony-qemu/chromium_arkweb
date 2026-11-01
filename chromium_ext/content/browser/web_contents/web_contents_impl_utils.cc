@@ -32,8 +32,9 @@
 #include "ui/display/screen.h"
 
 namespace content {
-
-static constexpr int kDualScreenCount = 2;
+namespace {
+  constexpr int kDualScreenCount = 2;
+}  // namespace
 
 WebContentsImplUtils::WebContentsImplUtils(WebContentsImpl* impl) {
   this->webContentsImpl = impl;
@@ -55,7 +56,7 @@ WebContentsImplUtils::WebContentsImplUtils(WebContentsImpl* impl) {
       const auto& displays = screen->GetAllDisplays();
       auto screen_count = displays.size();
       is_single_screen_ = (screen_count == 1);
-      if (is_foldable_ && screen_count == kDualScreenCount && display_mgr_) {
+      if (is_foldable_ && screen_count >= kDualScreenCount && display_mgr_) {
         is_single_screen_ = display_mgr_->IsSinglePhysicalDisplayForFold();
       }
     }
@@ -209,7 +210,7 @@ void WebContentsImplUtils::NotifyScreenCountChanged(int screen_count) {
   screen_count_ = screen_count;
 
   bool is_single_screen = (screen_count == 1);
-  if (is_foldable_ && screen_count == kDualScreenCount && display_mgr_) {
+  if (is_foldable_ && screen_count >= kDualScreenCount && display_mgr_) {
     is_single_screen = display_mgr_->IsSinglePhysicalDisplayForFold();
   }
   if (is_single_screen_ == is_single_screen) {
