@@ -620,5 +620,81 @@ TEST_F(MessagePumpForUITest, OnDelayedLooperCallback) {
   message_ui.OnDelayedLooperCallback();
   EXPECT_TRUE(message_ui.delegate_);
 }
+
+// 补充用例：覆盖 Quit() 同时存在 run_loop_ 和 on_quit_callback_ 的分支
+TEST_F(MessagePumpForUITest, Quit_Do_RunLoop_Do_Callback_End) {
+  ASSERT_NE(message_pump_for_ui_, nullptr);
+
+  RunLoop().RunUntilIdle();
+  auto delegate = std::make_unique<MockMessagePumpDelegate>();
+  message_pump_for_ui_->Attach(delegate.get());
+
+  // 通过 QuitWhenIdle 设置 on_quit_callback_，覆盖 callback 分支
+  // 使用无捕获 lambda + base::Unretained 传参（BindOnce 不支持捕获型 lambda）
+  bool callback_called = false;
+  message_pump_for_ui_->QuitWhenIdle(
+      base::BindOnce([](bool* flag) { *flag = true; },
+                     base::Unretained(&callback_called)));
+
+  EXPECT_CALL(*delegate, DoWork).Times(testing::AtLeast(0));
+  message_pump_for_ui_->Quit();
+  EXPECT_TRUE(message_pump_for_ui_->ShouldQuit());
+}
+
+// 补充用例：覆盖 Quit() 中 delayed_fd_ < 0 和 non_delayed_fd_ < 0 跳过 read 的分支
+TEST_F(MessagePumpForUITest, Quit_FdNegative_SkipRead) {
+  ASSERT_NE(message_pump_for_ui_, nullptr);
+
+  // 通过公有接口间接覆盖：构造后未 Attach，fd 状态为初始值(-1)
+  message_pump_for_ui_->Quit();
+  EXPECT_TRUE(message_pump_for_ui_->ShouldQuit());
+}
+
+// 补充用例：覆盖析构函数中 fd < 0 跳过 close 的分支
+TEST_F(MessagePumpForUITest, DeConstructor_FdNegative_SkipClose) {
+  // 构造后未启动，fd 为 -1，析构时跳过 close
+  MessagePumpForUI* pump = new MessagePumpForUI();
+  delete pump;
+  SUCCEED();
+}
+
+// 补充用例：覆盖 ScheduleDelayedWork 首次调度（delayed_scheduled_time_ 为 nullopt）的分支
+TEST_F(MessagePumpForUITest,
+       ScheduleDelayedWork_FirstSchedule_NoDelayedScheduledTime) {
+  ASSERT_NE(message_pump_for_ui_, nullptr);
+
+  auto now = TimeTicks::Now();
+  auto nextWorkInfo = MessagePump::Delegate::NextWorkInfo{now};
+  // 首次调度，delayed_scheduled_time_ 为 nullopt
+  message_pump_for_ui_->ScheduleDelayedWork(nextWorkInfo);
+  EXPECT_FALSE(message_pump_for_ui_->ShouldQuit());
+}
+
+// 补充用例：覆盖 DoNonDelayedLooperWork do-while 循环多次迭代的分支
+TEST_F(MessagePumpForUITest,
+       DoNonDelayedLooperWork_LoopContinue_ThenBreak) {
+  ASSERT_NE(message_pump_for_ui_, nullptr);
+
+  auto delegate = std::make_unique<MockMessagePumpDelegate>();
+  message_pump_for_ui_->Attach(delegate.get());
+
+  // ScheduleWork 写入 eventfd（值为 1），使 OnNonDelayedLooperCallback 的
+  // read 能读到数据，do_idle_work = false
+  message_pump_for_ui_->ScheduleWork();
+
+  int call_count = 0;
+  EXPECT_CALL(*delegate, DoWork).Times(2).WillRepeatedly(Invoke([&] {
+    call_count++;
+    if (call_count == 1) {
+      return MessagePump::Delegate::NextWorkInfo{TimeTicks()};
+    }
+    return MessagePump::Delegate::NextWorkInfo{TimeTicks::Max()};
+  }));
+  EXPECT_CALL(*delegate, DoIdleWork).Times(1).WillOnce(Invoke([] {
+    return false;
+  }));
+  message_pump_for_ui_->OnNonDelayedLooperCallback();
+  EXPECT_EQ(call_count, 2);
+}
 #endif  // ARKWEB_UNITTESTS
 }  // namespace base
