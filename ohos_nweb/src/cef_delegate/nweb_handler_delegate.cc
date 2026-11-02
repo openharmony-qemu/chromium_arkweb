@@ -2609,6 +2609,11 @@ bool NWebHandlerDelegate::OnBeforeBrowse(CefRefPtr<CefBrowser> browser,
     base::ohos::BlanklessController::GetInstance().ResetStatus(GetNWebId(), true, false);
   }
 #endif
+#if BUILDFLAG(ARKWEB_NWEB_EX)
+  if (!result && frame && frame->IsMain()) {
+    on_load_start_notified_ = false;
+  }
+#endif
   return result;
 }
 
@@ -3197,9 +3202,14 @@ void NWebHandlerDelegate::OnLoadingProgressChange(CefRefPtr<CefBrowser> browser,
   }
 
 #if BUILDFLAG(ARKWEB_NWEB_EX)
-  if (!on_load_start_notified_ && new_progress < MAX_LOADING_PROGRESS &&
+  bool should_show_loading_ui = false;
+  if (browser && browser->AsArkWebBrowser()) {
+    should_show_loading_ui = browser->AsArkWebBrowser()->ShouldShowLoadingUI();
+  }
+  if (!on_load_start_notified_ && should_show_loading_ui &&
+      new_progress < MAX_LOADING_PROGRESS &&
       nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnLoadStarted(nweb_id_,
-          (browser && browser->AsArkWebBrowser()) ? browser->AsArkWebBrowser()->ShouldShowLoadingUI() : false)) {
+          should_show_loading_ui)) {
     on_load_start_notified_ = true;
   }
 
