@@ -21,6 +21,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/sys_byteorder.h"
 #include "base/task/single_thread_task_runner.h"
@@ -51,12 +52,14 @@ class DnsConfigWatcher {
  public:
   using CallbackType = base::RepeatingCallback<void(bool succeeded)>;
 
+  DnsConfigWatcher() : weak_factory_(this) {}
+
   bool Watch(const CallbackType& callback) {
     callback_ = callback;
     return watcher_.Watch(base::FilePath(kFilePathConfig),
                           base::FilePathWatcher::Type::kNonRecursive,
                           base::BindRepeating(&DnsConfigWatcher::OnCallback,
-                                              base::Unretained(this)));
+                                              weak_factory_.GetWeakPtr()));
   }
 
  private:
@@ -66,6 +69,7 @@ class DnsConfigWatcher {
 
   base::FilePathWatcher watcher_;
   CallbackType callback_;
+  base::WeakPtrFactory<DnsConfigWatcher> weak_factory_{this};
 };
 
 absl::optional<DnsConfig> ReadDnsConfig() {
