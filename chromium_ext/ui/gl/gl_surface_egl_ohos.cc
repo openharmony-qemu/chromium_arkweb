@@ -163,7 +163,10 @@ bool NativeViewGLSurfaceEGLOhos::SetBackbufferAllocation(bool allocated) {
     if (!condition_) {
 #endif
       GLContext* context = GLContext::GetCurrent();
-      if (context) {
+      GLSurface* surface = GLSurface::GetCurrent();
+      // Check context, surface and surface handle before Recreate to avoid
+      // NULL pointer dereference in MakeCurrentImpl when surface_ has been destroyed.
+      if (context && surface && surface->GetHandle()) {
         if (NativeViewGLSurfaceEGL::Recreate()) {
           // Notify the bufferqueue associated with the OHNativeWindow to clean
           // cache
@@ -172,7 +175,9 @@ bool NativeViewGLSurfaceEGLOhos::SetBackbufferAllocation(bool allocated) {
             .NativeWindowSurfaceCleanCache(reinterpret_cast<void*>(window_));
         }
       } else {
-        LOG(WARNING) << "GLContext::GetCurrent() returned null, skipping surface recreation";
+        LOG(WARNING) << "Skip surface recreation: context=" << context
+                     << " surface=" << surface
+                     << " handle=" << (surface ? surface->GetHandle() : nullptr);
       }
 #if BUILDFLAG(ARKWEB_VSYNC_SCHEDULE)
     }
