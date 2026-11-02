@@ -35,6 +35,7 @@
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
@@ -5674,6 +5675,7 @@ NWebDelegate::PopulateAccessibilityNodeInfo(BrowserAccessibilityOHOS* node) {
         continue;
       }
     }
+    AddAccessibilityNodeInfoCssAttributes(nodeInfo, htmlAttributes);
   }
   nodeInfo->SetAccessibilityId(kRootAccessibilityId);
   nodeInfo->SetParentId(-1);
@@ -5825,6 +5827,52 @@ void NWebDelegate::AddAccessibilityNodeInfoCollection(
     nodeInfo->SetGridItemColumn(node->ColumnIndex());
     nodeInfo->SetGridItemColumnSpan(node->ColumnSpan());
     nodeInfo->SetIsHeading(node->IsTableHeader());
+  }
+}
+
+void NWebDelegate::AddAccessibilityNodeInfoCssAttributes(
+    std::shared_ptr<NWebAccessibilityNodeInfoImpl> nodeInfo,
+    const base::StringPairs& htmlAttributes) const {
+  for (const auto& pair : htmlAttributes) {
+    if (base::EqualsCaseInsensitiveASCII(pair.first, "data-css-zindex")) {
+      int32_t v = 0;
+      if (base::StringToInt(pair.second, &v)) {
+        nodeInfo->SetZIndex(v);
+      }
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-font-size")) {
+      int32_t v = 0;
+      if (base::StringToInt(pair.second, &v)) {
+        nodeInfo->SetFontSize(v);
+      }
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-image-rendering")) {
+      int32_t v = 0;
+      if (base::StringToInt(pair.second, &v)) {
+        nodeInfo->SetImageRendering(v);
+      }
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-bg-size-type")) {
+      int32_t v = 0;
+      if (base::StringToInt(pair.second, &v)) {
+        nodeInfo->SetBgSizeType(v);
+      }
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-bg-color")) {
+      uint32_t v = 0;
+      if (base::StringToUint(pair.second, &v)) {
+        nodeInfo->SetBgColor(v);
+      }
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-visible")) {
+      nodeInfo->SetCssVisible(pair.second == "true");
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-bg-img")) {
+      nodeInfo->SetBgImg(pair.second);
+    } else if (base::EqualsCaseInsensitiveASCII(
+                   pair.first, "data-css-bg-size")) {
+      nodeInfo->SetBgSize(pair.second);
+    }
   }
 }
 

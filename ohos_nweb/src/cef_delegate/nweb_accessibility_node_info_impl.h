@@ -256,6 +256,24 @@ class NWebAccessibilityNodeInfoImpl : public NWebAccessibilityNodeInfo {
 
   std::string GetRemoveText() override;
 
+  // ArkWeb CSS properties (serialized from Blink via html_attributes).
+  void SetZIndex(int32_t zindex);
+  int32_t GetZIndex() override;
+  void SetFontSize(int32_t font_size);
+  int32_t GetFontSize() override;
+  void SetImageRendering(int32_t image_rendering);
+  int32_t GetImageRendering() override;
+  void SetBgSizeType(int32_t bg_size_type);
+  int32_t GetBgSizeType() override;
+  void SetBgColor(uint32_t bg_color);
+  uint32_t GetBgColor() override;
+  void SetCssVisible(bool css_visible);
+  bool GetCssVisible() override;
+  void SetBgImg(const std::string& bg_img);
+  std::string GetBgImg() override;
+  void SetBgSize(const std::string& bg_size);
+  std::string GetBgSize() override;
+
  private:
   int64_t accessibility_id_ = -1;
   size_t item_counts_ = 0;
@@ -318,6 +336,16 @@ class NWebAccessibilityNodeInfoImpl : public NWebAccessibilityNodeInfo {
   bool accessibility_group_ : 1;
   std::string add_text_;
   std::string remove_text_;
+
+  // ArkWeb CSS properties.
+  int32_t zindex_ = 0;
+  int32_t font_size_ = 0;
+  int32_t image_rendering_ = 0;
+  int32_t bg_size_type_ = 0;
+  uint32_t bg_color_ = 0;
+  bool css_visible_ = true;
+  std::string bg_img_;
+  std::string bg_size_;
 };
 
 }  // namespace OHOS::NWeb
