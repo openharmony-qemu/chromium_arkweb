@@ -1886,6 +1886,8 @@ void NWebImpl::UploadCallback(const std::string& module,
 }
 
 void NWebImpl::OnDestroy() {
+  // Releasing lifecycle references can drop the last external owner.
+  auto keep_alive = shared_from_this();
   WVLOG_I("NWebImpl::OnDestroy, nweb_id = %{public}u", nweb_id_);
 
   ResSchedClientAdapter::ReportScene(ResSchedStatusAdapter::WEB_SCENE_ENTER,
@@ -1901,6 +1903,7 @@ void NWebImpl::OnDestroy() {
   }
 
   if (g_nweb_count == 0) {
+    ReleaseLifecycleReferences();
     return;
   }
   // TRACE_EVENT1("NWebImpl", "NWebImpl | DestoryNWeb", "nweb_id", nweb_id_);
@@ -1941,6 +1944,8 @@ void NWebImpl::OnDestroy() {
   }
 
   NWebConnectNativeManager::GetInstance()->UnRegisterNWebHandler(nweb_id_);
+
+  ReleaseLifecycleReferences();
   
 #if BUILDFLAG(ARKWEB_DFX_DUMP)
   if (base::debug::ArkWebDumpInfo::GetInstance().IsDumpEnabled()) {
@@ -1948,6 +1953,15 @@ void NWebImpl::OnDestroy() {
     base::debug::ArkWebDumpInfo::GetInstance().FormatAndWriteNWebDumpInfo(dumpNWebInfo);
   }
 #endif
+}
+
+void NWebImpl::ReleaseLifecycleReferences() {
+  ai_inputmethod_controller_.reset();
+  if (inputmethod_handler_) {
+    inputmethod_handler_->ClearBrowser();
+    inputmethod_handler_ = nullptr;
+  }
+  nweb_handle_.reset();
 }
 
 void NWebImpl::ProcessInitArgs(std::shared_ptr<NWebEngineInitArgs> init_args) {

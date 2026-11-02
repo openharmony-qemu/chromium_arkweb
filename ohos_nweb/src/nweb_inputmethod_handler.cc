@@ -184,6 +184,10 @@ NWebInputMethodHandler::NWebInputMethodHandler()
 
 NWebInputMethodHandler::~NWebInputMethodHandler() {}
 
+void NWebInputMethodHandler::ClearBrowser() {
+  browser_ = nullptr;
+}
+
 uint32_t NWebInputMethodHandler::lastAttachNWebId_ = 0;
 IMFAdapterTextInputType NWebInputMethodHandler::lastInputMode_ =
     IMFAdapterTextInputType::NONE;
