@@ -200,10 +200,14 @@ bool LinkToTextMenuManager::RemoveLinkToText() {
   if (!annotation_type_.has_value() || !web_contents_) {
     return false;
   }
+  content::RenderFrameHost* main_frame = web_contents_->GetPrimaryMainFrame();
+  if (!main_frame) {
+    return false;
+  }
   // Mirrors Chromium's RemoveHighlights().
   switch (annotation_type_.value()) {
     case blink::mojom::AnnotationType::kSharedHighlight:
-      web_contents_->GetPrimaryMainFrame()->ForEachRenderFrameHost(
+      main_frame->ForEachRenderFrameHost(
           [](content::RenderFrameHost* rfh) {
             mojo::Remote<blink::mojom::TextFragmentReceiver> remote;
             rfh->GetRemoteInterfaces()->GetInterface(
@@ -213,7 +217,7 @@ bool LinkToTextMenuManager::RemoveLinkToText() {
       return true;
     case blink::mojom::AnnotationType::kGlic: {
       mojo::Remote<blink::mojom::AnnotationAgentContainer> container;
-      web_contents_->GetPrimaryMainFrame()->GetRemoteInterfaces()->GetInterface(
+      main_frame->GetRemoteInterfaces()->GetInterface(
           container.BindNewPipeAndPassReceiver());
       container->RemoveAgentsOfType(
           blink::mojom::AnnotationType::kGlic);
