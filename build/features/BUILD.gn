@@ -112,6 +112,7 @@ if (!enable_arkweb) {
   arkweb_bfcache = true
   arkweb_bugfix_crash = true
   arkweb_ca = false
+  arkweb_caret_color = false
   arkweb_cache = false
   arkweb_clipboard = false
   arkweb_clipped_image_scaling = false
@@ -406,6 +407,7 @@ buildflag_header("features") {
     "ARKWEB_BFCACHE=$arkweb_bfcache",
     "ARKWEB_BUGFIX_CRASH=$arkweb_bugfix_crash",
     "ARKWEB_CA=$arkweb_ca",
+    "ARKWEB_CARET_COLOR=$arkweb_caret_color",
     "ARKWEB_CACHE=$arkweb_cache",
     "ARKWEB_CLIPBOARD=$arkweb_clipboard",
     "ARKWEB_CLOSE_STEPS=$arkweb_close_steps",

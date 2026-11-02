@@ -315,6 +315,9 @@ void NWebPreferenceDelegate::ComputeBrowserSettings(
 #if BUILDFLAG(ARKWEB_SCROLLBAR)
   browser_settings.scrollbar_color = GetScrollBarColor();
 #endif  // ARKWEB_SCROLLBAR
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  browser_settings.caret_color = GetCaretColor();
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
 #if BUILDFLAG(ARKWEB_VIEWPORT)
   browser_settings.viewport_meta_enabled = GetViewportEnable();
 #endif  // BUILDFLAG(ARKWEB_VIEWPORT)
@@ -1241,6 +1244,21 @@ void NWebPreferenceDelegate::PutScrollBarColor(uint32_t colorValue) {
   scrollbar_color_ = colorValue;
   WebPreferencesChanged();
 #endif  // ARKWEB_SCROLLBAR
+}
+
+uint32_t NWebPreferenceDelegate::GetCaretColor() {
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  return caret_color_;
+#else
+  return 0;
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
+}
+
+void NWebPreferenceDelegate::PutCaretColor(uint32_t colorValue) {
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+  caret_color_ = colorValue;
+  WebPreferencesChanged();
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
 }
 
 #if BUILDFLAG(IS_OHOS)

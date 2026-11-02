@@ -81,6 +81,10 @@ if (arkweb_scrollbar) {
   mojom_platform_enabled_features += [ "arkweb_scrollbar" ]
 }
 
+if (arkweb_caret_color) {
+  mojom_platform_enabled_features += [ "arkweb_caret_color" ]
+}
+
 if (arkweb_composite_render) {
   mojom_platform_enabled_features += [ "arkweb_composite_render" ]
 }

@@ -18,9 +18,12 @@
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
+#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_auto_dark_mode.h"
+#include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/dark_mode_filter.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 namespace blink {
@@ -97,6 +100,31 @@ bool CaretDisplayItemClientUtils::IsViewportScale(
   return false;
 }
 #endif  // BUILDFLAG(ARKWEB_MENU)
+
+#if BUILDFLAG(ARKWEB_CARET_COLOR)
+Color CaretDisplayItemClientUtils::ResolveCaretColor(
+    const Color& css_color,
+    LayoutBlock* layout_block) {
+  if (layout_block == nullptr) {
+    return css_color;
+  }
+
+  LocalFrameView* frame_view = layout_block->GetFrameView();
+  if (!frame_view || !frame_view->GetFrame().GetPage()) {
+    return css_color;
+  }
+
+  Settings& settings = frame_view->GetFrame().GetPage()->GetSettings();
+  uint32_t caret_color = settings.GetCaretColor();
+  // 0 means the caretColor API value is not set; keep the CSS cascade result
+  // (the built-in default color for `caret-color: auto` is resolved by CSS).
+  if (caret_color == 0) {
+    return css_color;
+  }
+  return Color::FromSkColor(static_cast<SkColor>(caret_color));
+}
+#endif  // BUILDFLAG(ARKWEB_CARET_COLOR)
+
 void CaretDisplayItemClientUtils::Trace(Visitor* visitor) const {
   visitor->Trace(caret_display_item_client_);
 }
