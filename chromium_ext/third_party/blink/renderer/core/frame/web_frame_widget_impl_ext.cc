@@ -710,7 +710,7 @@ void WebFrameWidgetImplExt::ParseLanguage() {
   std::string ans = translate::DeterminePageLanguage(
       details.content_language.Utf8(), details.html_language.Utf8(), contents,
       model_ans_ptr, &is_reliable, score);
-  LOG(INFO) << "DeterminePageLanguage html_language: "
+  LOG(DEBUG) << "DeterminePageLanguage html_language: "
             << details.html_language.Utf8()
             << ", content_language: " << details.content_language.Utf8()
             << ", cld_language: " << model_ans
