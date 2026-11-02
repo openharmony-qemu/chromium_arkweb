@@ -34,6 +34,7 @@ struct EncodeConfigData {
   uint32_t index;
   BufferInfo buffer_info;
   OhosBuffer buffer_data;
+  std::shared_ptr<uint8_t[]> owned_data;
 };
 
 struct EncodeOutputBuffer {
@@ -43,6 +44,7 @@ struct EncodeOutputBuffer {
   OhosBuffer buffer_data;
   bool is_contain_config_data = false;
   EncodeConfigData config_data;
+  std::shared_ptr<uint8_t[]> owned_data;
 };
 
 struct EncodeConfigDataCache {
@@ -81,6 +83,14 @@ class CodecEncodeBridgeCallback
 
  private:
   void InitEncodeOuputBuffer(EncodeOutputBuffer& output_buffer);
+  void HandleCodecConfigData(uint32_t index,
+                             std::shared_ptr<BufferInfoAdapter> info,
+                             BufferFlag flag,
+                             std::shared_ptr<OhosBufferAdapter> buffer);
+  void HandleOutputFrame(uint32_t index,
+                         std::shared_ptr<BufferInfoAdapter> info,
+                         BufferFlag flag,
+                         std::shared_ptr<OhosBufferAdapter> buffer);
   void ClearConfigCache();
   void ClearBufferInfoCache(BufferInfo& buffer_info);
   void ClearBufferDataCache(OhosBuffer& buffer_data);
