@@ -541,6 +541,7 @@ void CodecEncodeBridgeCallback::ClearBufferDataCache(OhosBuffer& buffer_data) {
 void CodecEncodeBridgeCallback::ClearConfigCache() {
   ClearBufferInfoCache(config_data_.buffer_info);
   ClearBufferDataCache(config_data_.buffer_data);
+  config_data_.owned_data.reset();
 }
 
 void CodecEncodeBridgeCallback::InitEncodeOuputBuffer(
@@ -551,6 +552,7 @@ void CodecEncodeBridgeCallback::InitEncodeOuputBuffer(
   output_buffer.config_data.buffer_info.offset = 0;
   output_buffer.config_data.buffer_data.addr = nullptr;
   output_buffer.config_data.buffer_data.bufferSize = 0;
+  output_buffer.config_data.owned_data.reset();
 
   output_buffer.buffer_info.presentationTimeUs = 0;
   output_buffer.buffer_info.size = 0;
@@ -558,6 +560,7 @@ void CodecEncodeBridgeCallback::InitEncodeOuputBuffer(
 
   output_buffer.buffer_data.addr = nullptr;
   output_buffer.buffer_data.bufferSize = 0;
+  output_buffer.owned_data.reset();
 
   output_buffer.flag = BufferFlag::CODEC_BUFFER_FLAG_NONE;
 }
@@ -594,15 +597,45 @@ void CodecEncodeBridgeCallback::OnNeedOutputData(
              << ", buffersize. " << buffer->GetBufferSize();
 
   if (flag == BufferFlag::CODEC_BUFFER_FLAG_CODEC_DATA) {
-    LOG(DEBUG) << "flag is codec_data, handle with keyframe later";
-    config_data_.index = index;
-    config_data_.buffer_info.presentationTimeUs = info->GetPresentationTimeUs();
-    config_data_.buffer_info.size = info->GetSize();
-    config_data_.buffer_info.offset = info->GetOffset();
-    config_data_.buffer_data.addr = buffer->GetAddr();
-    config_data_.buffer_data.bufferSize = buffer->GetBufferSize();
+    HandleCodecConfigData(index, std::move(info), flag, std::move(buffer));
     return;
   }
+  HandleOutputFrame(index, std::move(info), flag, std::move(buffer));
+}
+
+void CodecEncodeBridgeCallback::HandleCodecConfigData(
+    uint32_t index,
+    std::shared_ptr<BufferInfoAdapter> info,
+    BufferFlag flag,
+    std::shared_ptr<OhosBufferAdapter> buffer) {
+  LOG(DEBUG) << "flag is codec_data, handle with keyframe later";
+  config_data_.index = index;
+  config_data_.buffer_info.presentationTimeUs = info->GetPresentationTimeUs();
+  config_data_.buffer_info.size = info->GetSize();
+  config_data_.buffer_info.offset = info->GetOffset();
+  uint32_t cfg_size = buffer->GetBufferSize();
+  if (cfg_size == 0 || buffer->GetAddr() == nullptr) {
+    LOG(ERROR) << "codec_data buffer is empty, drop it";
+    ClearConfigCache();
+    return;
+  }
+  config_data_.owned_data = std::make_shared<uint8_t[]>(cfg_size);
+  if (memcpy_s(config_data_.owned_data.get(), cfg_size, buffer->GetAddr(),
+               cfg_size) != EOK) {
+    LOG(ERROR) << "codec_data deep-copy failed";
+    config_data_.owned_data.reset();
+    ClearConfigCache();
+    return;
+  }
+  config_data_.buffer_data.addr = config_data_.owned_data.get();
+  config_data_.buffer_data.bufferSize = cfg_size;
+}
+
+void CodecEncodeBridgeCallback::HandleOutputFrame(
+    uint32_t index,
+    std::shared_ptr<BufferInfoAdapter> info,
+    BufferFlag flag,
+    std::shared_ptr<OhosBufferAdapter> buffer) {
   EncodeOutputBuffer output_buffer;
   InitEncodeOuputBuffer(output_buffer);
   bool is_key_frame = (flag == BufferFlag::CODEC_BUFFER_FLAG_SYNC_FRAME);
@@ -616,8 +649,19 @@ void CodecEncodeBridgeCallback::OnNeedOutputData(
   output_buffer.buffer_info.presentationTimeUs = info->GetPresentationTimeUs();
   output_buffer.buffer_info.size = info->GetSize();
   output_buffer.buffer_info.offset = info->GetOffset();
-  output_buffer.buffer_data.addr = buffer->GetAddr();
-  output_buffer.buffer_data.bufferSize = buffer->GetBufferSize();
+  uint32_t frame_size = buffer->GetBufferSize();
+  if (frame_size == 0 || buffer->GetAddr() == nullptr) {
+    LOG(ERROR) << "output buffer is empty, drop it";
+    return;
+  }
+  output_buffer.owned_data = std::make_shared<uint8_t[]>(frame_size);
+  if (memcpy_s(output_buffer.owned_data.get(), frame_size, buffer->GetAddr(),
+               frame_size) != EOK) {
+    LOG(ERROR) << "output buffer deep-copy failed";
+    return;
+  }
+  output_buffer.buffer_data.addr = output_buffer.owned_data.get();
+  output_buffer.buffer_data.bufferSize = frame_size;
   output_buffer.flag = flag;
   signal_->out_buffer_queue_.push(output_buffer);
   ClearConfigCache();
