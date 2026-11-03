@@ -102,11 +102,17 @@ scoped_refptr<GLContext> CreateGLContext(GLShareGroup* share_group,
   TRACE_EVENT0("gpu", "gl::init::CreateGLContext");
   switch (GetGLImplementation()) {
     case kGLImplementationMockGL:
-      return scoped_refptr<GLContext>(new GLContextStub(share_group));
     case kGLImplementationStubGL: {
       scoped_refptr<GLContextStub> stub_context =
           new GLContextStub(share_group);
-      stub_context->SetUseStubApi(true);
+      if (GetGLImplementation() == kGLImplementationStubGL) {
+        stub_context->SetUseStubApi(true);
+      }
+      // The stub ctx needs to be initialized so that the gl::GLContext can
+      // store the |compatible_surface| (kept in parity with the upstream
+      // ozone factory; without this GLContext::default_surface() stays
+      // null and host-side GL tests crash).
+      stub_context->Initialize(compatible_surface, attribs);
       return stub_context;
     }
     case kGLImplementationDisabled:
@@ -140,6 +146,11 @@ scoped_refptr<GLSurface> CreateViewGLSurface(GLDisplay* display,
       } else {
         return InitializeGLSurface(new GLSurfaceStub());
       }
+    case kGLImplementationMockGL:
+    case kGLImplementationStubGL:
+      // Parity with the upstream ozone factory: host-side GL tests use
+      // stub bindings and expect a stub view surface here.
+      return InitializeGLSurface(new GLSurfaceStub());
     default:
       NOTREACHED();
   }
