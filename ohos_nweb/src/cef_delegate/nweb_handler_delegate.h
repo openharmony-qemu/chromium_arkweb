@@ -600,6 +600,10 @@ class NWebHandlerDelegate : public ArkWebClientExt,
                      bool isRealTitle) override;
   void OnLoadingProgressChange(CefRefPtr<CefBrowser> browser,
                                double progress) override;
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW) && BUILDFLAG(ARKWEB_NWEB_EX)
+  bool OnContentsBoundsChange(CefRefPtr<CefBrowser> browser,
+                              const CefRect& new_bounds) override;
+#endif
 #if BUILDFLAG(ARKWEB_NWEB_EX)
   bool OnAutoResize(CefRefPtr<CefBrowser> browser,
                     const CefSize& new_size) override;
@@ -898,6 +902,8 @@ class NWebHandlerDelegate : public ArkWebClientExt,
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   void NotifyPopupWindowResult(bool result);
+  void SetPopupWindowDisposition(
+      CefLifeSpanHandler::WindowOpenDisposition disposition);
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 
 #if BUILDFLAG(ARKWEB_ADBLOCK)
@@ -1390,6 +1396,9 @@ void OnMediaCastEnter() override;
   uint32_t access_fail_count_ = 0;
 #endif
   uint32_t window_id_ = 0;
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+  CefLifeSpanHandler::WindowOpenDisposition disposition_ = CEF_WOD_UNKNOWN;
+#endif
   bool focusState_ = false;
   static int32_t popIndex_;
 #if BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)

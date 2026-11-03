@@ -28,6 +28,9 @@
 #include "cef_delegate/nweb_inputmethod_client.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/display_manager_adapter.h"
 #include "include/arkweb_client_ext.h"
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+#include "include/cef_life_span_handler.h"
+#endif
 #include "nweb.h"
 #if BUILDFLAG(ARKWEB_ACCESSIBILITY)
 #include "nweb_accessibility_node_info.h"
@@ -592,6 +595,8 @@ class NWebDelegateInterface
 
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   virtual void NotifyPopupWindowResult(bool result) = 0;
+  virtual void SetPopupWindowDisposition(
+      CefLifeSpanHandler::WindowOpenDisposition disposition) = 0;
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #if BUILDFLAG(ARKWEB_CA)
   virtual bool GetCertChainDerData(std::vector<std::string>& certChainData,

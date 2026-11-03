@@ -2883,6 +2883,11 @@ void NWebImpl::NotifyPopupWindowDisposition(
   if (disposition == CEF_WOD_NEW_BACKGROUND_TAB) {
     is_pause_ = true;
   }
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+  if (nweb_delegate_) {
+    nweb_delegate_->SetPopupWindowDisposition(disposition);
+  }
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 }
 
 void NWebImpl::OnPause() {
