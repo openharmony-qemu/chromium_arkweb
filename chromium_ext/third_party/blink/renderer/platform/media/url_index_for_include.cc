@@ -46,7 +46,7 @@ std::unique_ptr<MultiBuffer::DataProvider> ResourceMultiBuffer::CreateWriter(
  
   LOG(INFO) << "VideoOpt: CreateWriter pos=" << pos
             << url_data_->CreateWriterInfo();
-  if (url_data_->IsCreateSegmentationProvider()) {
+  if (url_data_->IsCreateSegmentationProvider() && !is_client_audio_element) {
     LOG(INFO) << "VideoOpt: CreateWriter SegmentationMultiBufferDataProvider"
               << ", pos:" << pos << ", preload_size:" << preload_size
               << ", request_size:" << request_size << ", byte_rate:" << byte_rate;

@@ -673,35 +673,35 @@ uint16_t HTMLMediaElement::hbsMediaPreloadTime() {
   if (auto* video_element = DynamicTo<HTMLVideoElement>(this)) {
     return video_element->hbsPreloadTime();
   }
-  return UINT16_MAX;
+  return HTMLVideoElement::kVideoPreloadTimeDefault;
 }
 
 uint16_t HTMLMediaElement::hbsMediaMaxCacheTime() {
   if (auto* video_element = DynamicTo<HTMLVideoElement>(this)) {
     return video_element->hbsMaxCacheTime();
   }
-  return UINT16_MAX;
+  return HTMLVideoElement::kVideoMaxCacheTimeDefault;
 }
 
 uint16_t HTMLMediaElement::hbsMediaMinCacheTime() {
   if (auto* video_element = DynamicTo<HTMLVideoElement>(this)) {
     return video_element->hbsMinCacheTime();
   }
-  return UINT16_MAX;
+  return HTMLVideoElement::kVideoMinCacheTimeDefault;
 }
 
 uint16_t HTMLMediaElement::hbsMediaBitrate() {
   if (auto* video_element = DynamicTo<HTMLVideoElement>(this)) {
     return video_element->hbsBitrate();
   }
-  return UINT16_MAX;
+  return HTMLVideoElement::kVideoBitrateDefault;
 }
 
 uint16_t HTMLMediaElement::hbsMediaMoovSize() {
   if (auto* video_element = DynamicTo<HTMLVideoElement>(this)) {
     return video_element->hbsMoovSize();
   }
-  return UINT16_MAX;
+  return HTMLVideoElement::kVideoMoovSizeDefault;
 }
 
 bool HTMLMediaElement::IsUseVideoLoadOptimization() const {
