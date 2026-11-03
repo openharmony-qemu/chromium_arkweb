@@ -13,6 +13,13 @@ arkweb_gpu_command_buffer_service_unittest = [
     "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/gl_texture_ohos_image_representation_unittests.cc",
     "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/ohos_native_buffer_image_backing_factory_unittest.cc",
     "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/ohos_native_buffer_image_backing_unittests.cc",
+    "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/ozone_image_backing_factory_ext_unittest.cc",
+    "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/shared_image_factory_ext_unittest.cc",
     "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/skia_vk_representation_unittests.cc",
     "//arkweb/chromium_ext/gpu/command_buffer/service/shared_image/gl_texture_passthrough_ohos_image_representation_unittests.cc",
+    # SharedImageTestBase and test_utils are needed by the ext unittests
+    # above; they are only compiled into //gpu:gl_tests upstream, so
+    # include them here for //gpu:gpu_unittests.
+    "//gpu/command_buffer/service/shared_image/shared_image_test_base.cc",
+    "//gpu/command_buffer/service/shared_image/test_utils.cc",
 ]
