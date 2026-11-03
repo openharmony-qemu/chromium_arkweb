@@ -60,6 +60,12 @@ void ChromeClientImplExt::CreateOverlay(
     OnTextSelectedCallback callback,
     OnDestroyImageAnalyzerOverlayCallback destroy_callback) {
   WebLocalFrameImpl* web_frame = WebLocalFrameImpl::FromFrame(frame);
+  if (!web_frame || !web_frame->LocalRootFrameWidget()) {
+    if (destroy_callback) {
+      destroy_callback.Run();
+    }
+    return;
+  }
   web_frame->LocalRootFrameWidget()->AsWebFrameWidgetImplExt()->CreateOverlay(
       image, touch_point, std::move(get_rect_callback), std::move(callback),
       std::move(destroy_callback));
@@ -79,7 +85,13 @@ Vector<int8_t> ChromeClientImplExt::GetWordSelection(
     LocalFrame* frame,
     const String& text,
     int8_t offset) {
+  if (text.IsNull()) {
+    return {-1, -1};
+  }
   WebLocalFrameImpl* web_frame = WebLocalFrameImpl::FromFrame(frame);
+  if (!web_frame || !web_frame->LocalRootFrameWidget()) {
+    return {-1, -1};
+  }
   return web_frame->LocalRootFrameWidget()
       ->AsWebFrameWidgetImplExt()
       ->GetWordSelection(text, offset);
