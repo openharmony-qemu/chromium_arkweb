@@ -236,7 +236,7 @@ source_set("mock_ndk") {
   sources = [
     "src/mock_ndk_api.cc",
     "src/mock_ndk_api_new.cc",
-    "src/mock_codec_decoder_adapter.cpp"
+    "src/mock_codec_decoder_adapter.cpp",
   ]
 
   deps = ["//arkweb/ohos_adapter_ndk:adapter_ndk_gen"]
