@@ -312,6 +312,7 @@ if (!enable_arkweb) {
   arkweb_rotate_resize = false
   arkweb_swap_buffer_trace = false
   arkweb_safebrowsing = false
+  arkweb_bigdata_metrics = false
   arkweb_heif_support = false
   arkweb_advanced_security_mode = true
   arkweb_drag_resize = false
@@ -610,6 +611,7 @@ buildflag_header("features") {
     "ARKWEB_SLIDE_LTPO=$arkweb_slide_ltpo",
     "ARKWEB_SWAP_BUFFER_TRACE=$arkweb_swap_buffer_trace",
     "ARKWEB_SAFEBROWSING=$arkweb_safebrowsing",
+    "ARKWEB_BIGDATA_METRICS=$arkweb_bigdata_metrics",
     "ARKWEB_PERMISSION=$arkweb_permission",
     "ARKWEB_GPU_IMAGE_PERSISTENT_CACHE_LIMIT=$arkweb_gpu_image_persistent_cache_limit",
     "ARKWEB_HEIF_SUPPORT=$arkweb_heif_support",

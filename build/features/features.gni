@@ -240,6 +240,7 @@ declare_args() {
   arkweb_slide_ltpo = !is_component_build
   arkweb_swap_buffer_trace = true
   arkweb_safebrowsing = true
+  arkweb_bigdata_metrics = true
   arkweb_heif_support = !is_component_build
   arkweb_advanced_security_mode = !is_component_build
   arkweb_permission = true
@@ -415,3 +416,8 @@ if (defined(arkweb_ai_hdr) && arkweb_ai_hdr) {
 if (defined(arkweb_cert_authentication) && arkweb_cert_authentication && !is_component_build) {
   arkweb_mojo_features += [ "arkweb_cert_authentication" ]
 }  #endif  // BUILDFLAG(ARKWEB_CERT_AUTHENTICATION)
+
+#if BUILDFLAG(ARKWEB_BIGDATA_METRICS)
+if (defined(arkweb_bigdata_metrics) && arkweb_bigdata_metrics) {
+  arkweb_mojo_features += [ "arkweb_bigdata_metrics" ]
+}  #endif  // BUILDFLAG(ARKWEB_BIGDATA_METRICS)
