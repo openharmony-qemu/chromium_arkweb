@@ -1,0 +1,142 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "arkweb/build/features/features.h"
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+#include "third_party/blink/renderer/core/editing/selection_controller.h"
+#endif
+#if BUILDFLAG(ARKWEB_AI)
+#include "third_party/blink/renderer/core/editing/selection_controller.h"
+#endif
+#if BUILDFLAG(ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION)
+#include "arkweb/chromium_ext/third_party/blink/renderer/platform/media/video_url_loader_impl.h"
+#endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+
+namespace blink {
+
+#if BUILDFLAG(ARKWEB_MENU)
+void WebLocalFrameImpl::SelectRangeV2(const gfx::Point& position,
+                                      bool is_base) {
+  TRACE_EVENT0("blink", "WebLocalFrameImpl::SelectRangeV2");
+
+  // TODO(editing-dev): The use of UpdateStyleAndLayout
+  // needs to be audited.  See http://crbug.com/590369 for more details.
+  GetFrame()->GetDocument()->UpdateStyleAndLayout(
+      DocumentUpdateReason::kSelection);
+
+  GetFrame()->Selection().AsFrameSelectionExt()->MoveRangeSelection(
+      GetFrame()->View()->ViewportToFrame(position), is_base,
+      blink::TextGranularity::kCharacter);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_ADBLOCK)
+void WebLocalFrameImpl::DidSubresourceFiltered() {
+  if (!Client()) {
+    return;
+  }
+
+  Client()->AsWebLocalFrameClientExt()->DidSubresourceFiltered();
+}
+
+bool WebLocalFrameImpl::GetGlobalAdblockEnabled() {
+  if (!Client()) {
+    return false;
+  }
+
+  return Client()->AsWebLocalFrameClientExt()->GetGlobalAdblockEnabled();
+}
+
+bool WebLocalFrameImpl::GetAdBlockEnabled() {
+  LocalFrame* frame = GetFrame();
+  if (!frame) {
+    LOG(DEBUG) << "[Adblock] GetAdBlockEnabled: frame is null, return false";
+    return false;
+  }
+  // In strict site isolation mode, the adblock state is stored in the
+  // LocalFrameRoot. Read from there instead of the current frame, so that
+  // cross-site subframes (which may live in a different process) share the
+  // same site-level switch as the main frame.
+  LocalFrame& root_frame = frame->LocalFrameRoot();
+  LOG(DEBUG) << "[Adblock] GetAdBlockEnabledByFrame: " << root_frame.GetAdBlockEnableForSite()
+              << ", is LocalFrameRoot: " << (frame == &root_frame);
+  return root_frame.GetAdBlockEnableForSite();
+}
+
+void WebLocalFrameImpl::SetHasElemHideTypeOption(
+    bool has_elemhide_type_option) {
+  frame_->SetHasElemHideTypeOption(has_elemhide_type_option);
+}
+
+void WebLocalFrameImpl::SetHasDocumentTypeOption(
+    bool has_document_type_option) {
+  frame_->SetHasDocumentTypeOption(has_document_type_option);
+}
+
+void WebLocalFrameImpl::SetHasGenericHideTypeOption(
+    bool has_generichide_type_option) {
+  frame_->SetHasGenericHideTypeOption(has_generichide_type_option);
+}
+
+void WebLocalFrameImpl::UpdateAdBlockEnabledToRender(
+    bool site_adblock_enabled) {
+  LocalFrame* frame = GetFrame();
+  if (!frame) {
+    return;
+  }
+  // In strict site isolation mode, set adblock state on the LocalFrameRoot
+  LocalFrame& root_frame = frame->LocalFrameRoot();
+  LOG(DEBUG) << "[Adblock] web local frame update adblock:" << site_adblock_enabled
+            << ", is LocalFrameRoot: " << (frame == &root_frame);
+  root_frame.SetAdBlockEnableForSite(site_adblock_enabled);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+void WebLocalFrameImpl::SelectClosetWordAndShowSelectionMenu() {
+  if (!ViewImpl() || !ViewImpl()->GetPage()) {
+    return;
+  }
+
+  SelectionController& selection_controller =
+      GetFrame()->GetEventHandler().GetSelectionController();
+  if (selection_controller.ShowSelectionByLastLongPressHitTestResult()) {
+    selection_controller.FocusDocumentView();
+  }
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_AI)
+void WebLocalFrameImpl::OnDataDetectorSelectText() {
+  LOG(DEBUG) << "WebLocalFrameImpl::OnDataDetectorSelectText";
+  if (!ViewImpl() || !ViewImpl()->GetPage()) {
+    return;
+  }
+  SelectionController& selection_controller =
+      GetFrame()->GetEventHandler().GetSelectionController();
+  if (selection_controller.ShowSelectionByLastLinkHitTestResult()) {
+    selection_controller.FocusDocumentView();
+  }
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION)
+std::unique_ptr<WebAssociatedURLLoader> WebLocalFrameImpl::CreateVideoURLLoader(
+    const WebAssociatedURLLoaderOptions& options) {
+  return std::make_unique<VideoURLLoaderImpl>(GetFrame()->DomWindow(), options,
+                                           GetFrame());
+}
+#endif // ARKWEB_EXT_VIDEO_LOAD_OPTIMIZATION
+}  // namespace blink

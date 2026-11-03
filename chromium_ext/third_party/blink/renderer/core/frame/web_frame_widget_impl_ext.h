@@ -1,0 +1,198 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_WEB_FRAME_WIDGET_IMPL_EXT_H_
+#define THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_WEB_FRAME_WIDGET_IMPL_EXT_H_
+
+#include "arkweb/build/features/features.h"
+#include "base/types/pass_key.h"
+#include "services/viz/public/mojom/hit_test/input_target_client.mojom-blink.h"
+#include "third_party/blink/public/platform/cross_variant_mojo_util.h"
+#include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
+#include "ui/gfx/geometry/rect.h"
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+#include "components/viz/common/surfaces/frame_sink_id.h"
+#endif
+
+namespace gfx {
+class Point;
+class PointF;
+}  // namespace gfx
+
+namespace blink {
+class WebFrameWidgetImpl;
+
+class WebFrameWidgetImplExt : public WebFrameWidgetImpl {
+ public:
+  WebFrameWidgetImplExt(
+      base::PassKey<WebLocalFrame>,
+      CrossVariantMojoAssociatedRemote<
+          mojom::blink::FrameWidgetHostInterfaceBase> frame_widget_host,
+      CrossVariantMojoAssociatedReceiver<mojom::blink::FrameWidgetInterfaceBase>
+          frame_widget,
+      CrossVariantMojoAssociatedRemote<mojom::blink::WidgetHostInterfaceBase>
+          widget_host,
+      CrossVariantMojoAssociatedReceiver<mojom::blink::WidgetInterfaceBase>
+          widget,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+      const viz::FrameSinkId& frame_sink_id,
+      bool hidden,
+      bool never_composited,
+      bool is_for_child_local_root,
+      bool is_for_nested_main_frame,
+      bool is_for_scalable_page);
+
+  WebFrameWidgetImplExt* AsWebFrameWidgetImplExt() override { return this; }
+
+#if BUILDFLAG(ARKWEB_MENU)
+  void RegisterClippedVisualViewportSelectionBounds(
+      gfx::Rect clipped_selection_bounds) override;
+  void CleanFocusCache() override;
+  void SelectRangeV2(const gfx::Point& position, bool is_base) override;
+  void NotifySelectionRangeEmpty(blink::WebRange range, WebLocalFrame* focused_frame);
+#endif
+
+#if BUILDFLAG(ARKWEB_BLANK_SCREEN_MONITOR)
+  void SetArkWebFrameSinkId(const viz::FrameSinkId& frame_sink_id) override;
+#endif
+
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+  void SetZoomLevel(float magnify_delta, const gfx::Point& anchor) override;
+  void SetOverscrollMode(int mode) override;
+  void GetInputElementAttributes(
+      HashMap<String, String>& attributes) const override;
+  bool IsElementExist(std::string xPath) override;
+  int32_t ExecuteInputCommand(const std::string& xpath,
+                              const std::string& value,
+                              const std::string& event_type) override;
+  int32_t ExecuteAIPageInputCommandByXPath(const std::string& xpath,
+                              const std::string& value,
+                              const std::string& input_type) override;
+  int32_t ExecuteAIPageInputCommandById(const std::string& id,
+                                  const std::string& value,
+                                  const std::string& input_type) override;
+  int32_t ExecuteSelectCommand(const std::string& xpath,
+                               const std::vector<int32_t>& indexes,
+                               const std::vector<std::string>& values) override;
+  int32_t ExecuteSelectCommandById(const std::string& id,
+                                   const std::vector<int32_t>& indexes,
+                                   const std::vector<std::string>& values) override;
+  int32_t ExecuteFocusCommand(const std::string& xpath,
+                              bool suppress_keyboard) override;
+  int32_t ExecuteInputModifyCommand(const std::string& content) override;
+  int32_t ExecuteInputInsertCommand(const std::string& content,
+                                    int32_t index) override;
+  int32_t ExecuteAutoFillCommand(const std::string& xpath,
+                                 const std::string& content,
+                                 int32_t index, int32_t mode) override;
+  int32_t ExecuteClickCommand(const std::string& xpath) override;
+  int32_t ExecuteScrollCommand(const std::string& xpath,
+                               const std::string& align,
+                               int32_t offset) override;
+  int32_t ExecuteInputSelectCommand(int32_t start_index,
+                                    int32_t finish_index) override;
+  int32_t ExecuteInputSetCursorCommand(int32_t index) override;
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
+  void ArkWebHandleTouchEvent(const WebInputEvent& input_event);
+
+#if BUILDFLAG(ARKWEB_GET_SCROLL_OFFSET)
+  gfx::Vector2dF GetOverScrollOffset() override;
+  void OnOverScrollOffsetChanged(float offset_x, float offset_y) override;
+#endif
+
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+  void ShowFreeCopyMenu() override;
+#endif
+
+#if BUILDFLAG(ARKWEB_DRAG_DROP)
+  gfx::Rect GetVisibleRectToWeb();
+#endif
+
+#if BUILDFLAG(ARKWEB_MEDIA_INTERACTION)
+  void DisableBoost();
+#endif
+
+#if BUILDFLAG(ARKWEB_PINCH_SMOOTH)
+  void SetPinchSmoothMode(bool enable);
+#endif
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+  void TouchHitTest(const WebPointerEvent& event, size_t i) override;
+  void MouseHitTest(const WebMouseEvent& event, int32_t button) override;
+#endif
+
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+  void ParseLanguage();
+#endif
+
+#if BUILDFLAG(ARKWEB_AI)
+  using OnTextRecognizedCallback = base::RepeatingCallback<
+      void(std::vector<String>, std::vector<gfx::PointF>, float scale)>;
+  using GetAbsImageRectCallback = base::RepeatingCallback<void(gfx::RectF&)>;
+  using OnTextSelectedCallback = base::RepeatingCallback<void(bool)>;
+  using OnDestroyImageAnalyzerOverlayCallback = base::RepeatingCallback<void()>;
+  virtual void CreateOverlay(
+      const SkBitmap& image,
+      const gfx::Point& touch_point,
+      GetAbsImageRectCallback get_rect_callback,
+      OnTextSelectedCallback callback,
+      OnDestroyImageAnalyzerOverlayCallback destroy_callback);
+  void OnTextRecognized(Vector<mojom::blink::TextRecognizeResultPtr> res,
+                        float scale) override;
+  Vector<int8_t> GetWordSelection(const String& text, int8_t offset);
+  void OnTextSelected(bool flag) override;
+  using GetImageRectCallback = base::OnceCallback<void(const gfx::Rect&)>;
+  void GetImageRect(GetImageRectCallback callback) override;
+  gfx::Rect GetImageRectInner();
+  void OnDestroyImageAnalyzerOverlay() override;
+  virtual uint32_t GetFoldStatus();
+  void OnFoldStatusChanged(uint32_t foldstatus) override;
+  void NotifyOverlayStateChanged() override;
+  void OnDataDetectorSelectText() override;
+  OnTextRecognizedCallback on_text_recognize_callback_;
+  GetAbsImageRectCallback get_rect_callback_;
+  OnTextSelectedCallback on_text_selected_callback_;
+  OnDestroyImageAnalyzerOverlayCallback on_destroy_image_overlay_callback_;
+  uint32_t fold_status_ = 0;
+#endif
+#if BUILDFLAG(ARKWEB_DFX_TRACING)
+  int64_t GetCurrentTimestampMS();
+  void ReportBlank(int64_t startTime, int64_t endTime);
+  static constexpr int64_t kMicrosecondsPerMillisecond = 1000;
+#endif
+
+#if BUILDFLAG(ARKWEB_MEDIA_INTERACTION)
+  int64_t rawKeyDownTime_ = 0;
+#endif
+#if BUILDFLAG(ARKWEB_TEST)
+  void SelectRangeV2ForTest(const gfx::Point& position, bool is_base) {
+    WebFrameWidgetImplExt::SelectRangeV2(position, is_base);
+  }
+  void OnTextRecognizedForTest(Vector<mojom::blink::TextRecognizeResultPtr> res, float scale);
+  void OnTextSelectedForTest(bool flag) { WebFrameWidgetImplExt::OnTextSelected(flag); }
+  void ShowFreeCopyMenuForTest() {
+#if BUILDFLAG(ARKWEB_EXT_FREE_COPY)
+    WebFrameWidgetImplExt::ShowFreeCopyMenu();
+#endif
+  }
+  void OnDestroyImageAnalyzerOverlayForTest() { WebFrameWidgetImplExt::OnDestroyImageAnalyzerOverlay(); }
+  void OnDataDetectorSelectTextForTest() { WebFrameWidgetImplExt::OnDataDetectorSelectText(); }
+  gfx::Vector2dF GetOverScrollOffsetForTest() { return WebFrameWidgetImplExt::GetOverScrollOffset(); }
+#endif
+};
+}  // namespace blink
+
+#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_FRAME_WEB_FRAME_WIDGET_IMPL_EXT_H_

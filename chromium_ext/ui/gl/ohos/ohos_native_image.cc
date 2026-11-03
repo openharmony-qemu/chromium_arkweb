@@ -1,0 +1,297 @@
+// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "ohos_native_image.h"
+
+#include <mutex>
+#include <utility>
+
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#include "base/check.h"
+#include "base/command_line.h"
+#include "base/debug/crash_logging.h"
+#include "base/no_destructor.h"
+#include "gpu/ipc/common/nweb_native_window_tracker.h"
+#include "ui/gl/gl_bindings.h"
+#include "base/logging.h"
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
+#include "base/trace_event/trace_event.h"
+#endif
+
+#ifndef GL_ANGLE_texture_storage_external
+#define GL_ANGLE_texture_storage_external 1
+#define GL_TEXTURE_NATIVE_ID_ANGLE 0x3481
+#endif /* GL_ANGLE_texture_storage_external */
+
+namespace {
+constexpr char kProcessType[] = "type";
+constexpr char kGpuProcess[] = "gpu-process";
+}  // namespace
+
+namespace gl {
+
+std::mutex& GetNativeImageMutex() {
+  static base::NoDestructor<std::mutex> native_image_mutex;
+  return *native_image_mutex;
+}
+
+scoped_refptr<OhosNativeImage> OhosNativeImage::Create(int texture_id) {
+  int native_id = texture_id;
+
+  if (texture_id != 0 &&
+      gl::g_current_gl_driver->ext.b_GL_ANGLE_texture_external_update) {
+    GLint prev_texture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_EXTERNAL_OES, &prev_texture);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture_id);
+    glGetTexParameteriv(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_NATIVE_ID_ANGLE,
+                        &native_id);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, prev_texture);
+  }
+
+  auto nativeImageAdapter =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateNativeImageAdapter();
+  if (nativeImageAdapter == nullptr) {
+    return nullptr;
+  }
+  nativeImageAdapter->CreateNativeImage(native_id, GL_TEXTURE_EXTERNAL_OES);
+  return new OhosNativeImage(std::move(nativeImageAdapter));
+}
+
+//LCOV_EXCL_START
+OhosNativeImage::OhosNativeImage(
+    std::unique_ptr<OHOS::NWeb::NativeImageAdapter> native_image_adapter)
+    : native_image_adapter_(std::move(native_image_adapter)) {
+  task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
+}
+
+namespace {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+OHOS::NWeb::VpeVideoAdapter* GetVpeAdapter() {
+  if (!base::ohos::IsAiHdrEnabledOhos()) {
+    return nullptr;
+  }
+  static auto vpeAdapter =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateVpeVideoAdapter();
+  return vpeAdapter.get();
+}
+#endif
+}  // namespace
+
+OhosNativeImage::~OhosNativeImage() {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (rawSurfaceId_ != 0) {
+    TRACE_EVENT1("viz", "OhosNativeImage::~OhosNativeImage VPE release",
+                 "raw_surface_id", rawSurfaceId_);
+    auto* vpeAdapter = GetVpeAdapter();
+    if (vpeAdapter) {
+      vpeAdapter->ReleaseVpeSurface(rawSurfaceId_);
+    }
+    rawSurfaceId_ = 0;
+  }
+#endif
+  if (native_image_adapter_ != nullptr) {
+    native_image_adapter_->DestroyNativeImage();
+  }
+}
+//LCOV_EXCL_STOP
+
+void OhosNativeImage::SetFrameAvailableCallback(
+    base::RepeatingClosure callback) {
+  DCHECK(!frame_available_cb_);
+  std::lock_guard<std::mutex> lock(GetNativeImageMutex());
+  frame_available_cb_ = std::move(callback);
+  if (native_image_adapter_ != nullptr && listener_ == nullptr) {
+    // Pass the callback directly to listener for immediate signal on callback thread
+    listener_ = std::make_shared<OHOS::NWeb::FrameAvailableListenerImpl>(frame_available_cb_);
+    native_image_adapter_->SetOnFrameAvailableListener(listener_);
+  }
+}
+
+//LCOV_EXCL_START
+void OhosNativeImage::UpdateNativeImage() {
+  static auto* kCrashKey = base::debug::AllocateCrashKeyString(
+      "inside_surface_texture_update_tex_image",
+      base::debug::CrashKeySize::Size256);
+  base::debug::ScopedCrashKeyString scoped_crash_key(kCrashKey, "1");
+
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  native_image_adapter_->UpdateSurfaceImage();
+  
+  if (gl::g_current_gl_driver->ext.b_GL_ANGLE_texture_external_update) {
+    glInvalidateTextureANGLE(GL_TEXTURE_EXTERNAL_OES);
+  }
+}
+//LCOV_EXCL_STOP
+
+void OhosNativeImage::GetSurfaceId(uint64_t* surface_id) {
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  native_image_adapter_->GetSurfaceId(surface_id);
+  auto type =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(kProcessType);
+  if (type == kGpuProcess) {
+    LOG(INFO) << "dxlog GetSurfaceId : " << *surface_id;
+    NWebNativeWindowTracker::GetInstance()->PassSurface(
+        *surface_id);
+  }
+}
+
+//LCOV_EXCL_START
+void OhosNativeImage::GetTransformMatrix(float mtx[16]) {
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  native_image_adapter_->GetTransformMatrix(mtx);
+}
+
+void OhosNativeImage::AttachToGLContext() {
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+
+  int texture_id = 0;
+  if (gl::g_current_gl_driver->ext.b_GL_ANGLE_texture_external_update) {
+    glGetTexParameteriv(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_NATIVE_ID_ANGLE,
+                        &texture_id);
+  } else {
+    glGetIntegerv(GL_TEXTURE_BINDING_EXTERNAL_OES, &texture_id);
+  }
+  
+  DCHECK(texture_id);
+  native_image_adapter_->AttachContext(texture_id);
+  
+  if (gl::g_current_gl_driver->ext.b_GL_ANGLE_texture_external_update) {
+    glInvalidateTextureANGLE(GL_TEXTURE_EXTERNAL_OES);
+  }
+}
+
+void OhosNativeImage::DetachFromGLContext() {
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  native_image_adapter_->DetachContext();
+}
+
+void OhosNativeImage::ReleaseNativeImage() {
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (rawSurfaceId_ != 0) {
+    TRACE_EVENT1("viz", "OhosNativeImage::ReleaseNativeImage VPE release",
+                 "raw_surface_id", rawSurfaceId_);
+    auto* vpeAdapter = GetVpeAdapter();
+    if (vpeAdapter) {
+      vpeAdapter->ReleaseVpeSurface(rawSurfaceId_);
+    }
+    rawSurfaceId_ = 0;
+  }
+#endif
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  native_image_adapter_->DestroyNativeImage();
+}
+
+void* OhosNativeImage::AquireOhosNativeWindow() {
+  if (native_image_adapter_ == nullptr) {
+    return nullptr;
+  }
+  // Lifecycle: managed by native_image_adapter_, released on DestroyNativeImage.
+  auto window = native_image_adapter_->AquireNativeWindowFromNativeImage();
+#if BUILDFLAG(ARKWEB_AI_HDR)
+  if (enable_vpe_) {
+    auto* vpeAdapter = GetVpeAdapter();
+    if (!vpeAdapter) {
+      return window;
+    }
+    uint64_t surfaceId = 0;
+    int32_t ret = native_image_adapter_->GetSurfaceId(&surfaceId);
+    if (ret != 0) {
+      return window;
+    }
+    // Lifecycle: managed by VPE adapter, released on ReleaseVpeSurface(rawSurfaceId_).
+    auto vpeWindow = vpeAdapter->CreateVpeSurface(surfaceId, window);
+    is_ai_hdr_active_ = (vpeWindow != window);
+    rawSurfaceId_ = is_ai_hdr_active_ ? surfaceId : 0;
+    TRACE_EVENT2("viz", "OhosNativeImage::AquireOhosNativeWindow",
+                 "raw_surface_id", surfaceId,
+                 "vpe_active", is_ai_hdr_active_);
+    return vpeWindow;
+  }
+#endif
+  return window;
+}
+
+void OhosNativeImage::OnFrameAvailableListener() {
+  frame_available_cb_.Run();
+}
+
+scoped_refptr<OhosNativeImage> OhosNativeImage::Create() {
+  auto nativeImageAdapter =
+      OHOS::NWeb::OhosAdapterHelper::GetInstance().CreateNativeImageAdapter();
+  if (nativeImageAdapter == nullptr) {
+    return nullptr;
+  }
+  nativeImageAdapter->NewNativeImage();
+  return new OhosNativeImage(std::move(nativeImageAdapter));
+}
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+scoped_refptr<OhosNativeImage> OhosNativeImage::CreateWithVpe() {
+  auto instance = Create();
+  if (instance) {
+    instance->enable_vpe_ = true;
+  }
+  return instance;
+}
+#endif
+
+const int32_t IMAGE_READ_ERR = 1;
+int32_t OhosNativeImage::AcquireNativeWindowBuffer(void** windowBuffer,
+                                                   int* acquireFenceFd) {
+  if (native_image_adapter_ == nullptr) {
+    return IMAGE_READ_ERR;
+  }
+  return native_image_adapter_->AcquireNativeWindowBuffer(windowBuffer,
+                                                          acquireFenceFd);
+}
+
+int32_t OhosNativeImage::GetNativeBuffer(void* windowBuffer,
+                                         void** nativeBuffer) {
+  if (native_image_adapter_ == nullptr) {
+    return IMAGE_READ_ERR;
+  }
+  return native_image_adapter_->GetNativeBuffer(windowBuffer, nativeBuffer);
+}
+
+int32_t OhosNativeImage::ReleaseNativeWindowBuffer(void* windowBuffer,
+                                                   int fenceFd) {
+  if (native_image_adapter_ == nullptr) {
+    return IMAGE_READ_ERR;
+  }
+  return native_image_adapter_->ReleaseNativeWindowBuffer(windowBuffer,
+                                                          fenceFd);
+}
+
+void OhosNativeImage::GetNativeWindowBufferSize(void* windowBuffer,
+                                                uint32_t* width,
+                                                uint32_t* height) {
+  if (native_image_adapter_ == nullptr) {
+    return;
+  }
+  return native_image_adapter_->GetNativeWindowBufferSize(windowBuffer, width,
+                                                          height);
+}
+
+void OhosNativeImage::GetTransformMatrixV1(float mtx[16], size_t mtx_size) {
+  if (native_image_adapter_ == nullptr || mtx_size != 16u) {
+    return;
+  }
+  native_image_adapter_->GetTransformMatrix(mtx);
+}
+//LCOV_EXCL_STOP
+}  // namespace gl

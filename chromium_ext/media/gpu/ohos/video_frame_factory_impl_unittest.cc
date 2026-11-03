@@ -1,0 +1,659 @@
+// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <cstdint>
+#include <memory>
+#include <utility>
+
+#include "gtest/gtest.h"
+#include "third_party/libc++/src/include/__ranges/lazy_split_view.h"
+#define private public
+#include "base/memory/scoped_refptr.h"
+#include "media/base/video_frame.h"
+#include "media/gpu/ohos/frame_info_helper.h"
+#include "media/gpu/ohos/video_frame_factory.h"
+#include "media/gpu/ohos/video_frame_factory_impl.cc"
+#include "ui/gfx/color_space.h"
+#undef private
+#include "arkweb/chromium_ext/gpu/config/gpu_finch_features_ext.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_system_properties_adapter.h"
+#include "arkweb/ohos_adapter_ndk/interfaces/ohos_adapter_helper.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/test/gmock_callback_support.h"
+#include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
+#include "gpu/command_buffer/service/shared_context_state.h"
+#include "gpu/config/gpu_finch_features.h"
+#include "gpu/config/gpu_preferences.h"
+#include "media/base/limits.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+#define private public
+#include "media/base/media_log.h"
+#include "media/gpu/ohos/codec_buffer_wait_coordinator.h"
+#include "media/gpu/ohos/codec_image.h"
+#include "media/gpu/ohos/codec_wrapper.cc"
+#include "media/gpu/ohos/codec_wrapper.h"
+#include "media/gpu/ohos/ohos_video_decoder.h"
+#include "media/gpu/ohos/shared_image_video_provider.h"
+#include "media/gpu/ohos/video_frame_factory_impl.h"
+#undef private
+
+using base::test::RunOnceCallback;
+using testing::_;
+using ::testing::_;
+using ::testing::AnyNumber;
+using ::testing::AtMost;
+using ::testing::Invoke;
+using ::testing::Return;
+using testing::SaveArg;
+
+namespace media {
+
+class MockSharedImageVideoProvider : public SharedImageVideoProvider {
+ public:
+  MockSharedImageVideoProvider() = default;
+  MockSharedImageVideoProvider(ImageReadyCB cb, ImageSpec spec)
+      : cb_(std::move(cb)), spec_(std::move(spec)) {}
+
+  void Initialize(GpuInitCB gpu_init_cb) override {
+    Initialize_(gpu_init_cb);
+    gpu_init_cb_ = std::move(gpu_init_cb);
+  }
+
+  void RequestImage(ImageReadyCB cb, const ImageSpec& spec) override {
+    MockRequestImage();
+  }
+  MOCK_METHOD1(Initialize_, void(GpuInitCB& gpu_init_cb));
+  MOCK_METHOD0(MockRequestImage, void());
+  ImageReadyCB cb_;
+  ImageSpec spec_;
+  GpuInitCB gpu_init_cb_;
+};
+
+class MockFrameInfoHelper : public FrameInfoHelper {
+ public:
+  void GetFrameInfo(std::unique_ptr<CodecOutputBufferRenderer> buffer_renderer,
+                    FrameInfoReadyCB cb) override {
+    FrameInfo info;
+    if (buffer_renderer) {
+      info.coded_size = buffer_renderer->size();
+      info.visible_rect = gfx::Rect(info.coded_size);
+    }
+
+    std::move(cb).Run(std::move(buffer_renderer), info);
+  }
+};
+
+class MockVideoFrameFactory : public VideoFrameFactory {
+ public:
+  MockVideoFrameFactory() = default;
+  ~MockVideoFrameFactory() override {}
+
+  MockVideoFrameFactory(const MockVideoFrameFactory&) = delete;
+  MockVideoFrameFactory& operator=(const MockVideoFrameFactory&) = delete;
+
+  MOCK_METHOD(void, Initialize, (InitCB init_cb), (override));
+  MOCK_METHOD(void,
+              SetSurfaceBundle,
+              (scoped_refptr<CodecSurfaceBundle> surface_bundle),
+              (override));
+  MOCK_METHOD(void,
+              CreateVideoFrame,
+              (std::unique_ptr<CodecOutputBuffer> output_buffer,
+               base::TimeDelta timestamp,
+               gfx::Size natural_size,
+               OnceOutputCB output_cb),
+              (override));
+  MOCK_METHOD(void,
+              RunAfterPendingVideoFrames,
+              (base::OnceClosure closure),
+              (override));
+};
+
+class VideoFrameFactoryImplTest : public testing::Test {
+ public:
+  VideoFrameFactoryImplTest()
+      : task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
+    auto image_provider = std::make_unique<MockSharedImageVideoProvider>();
+    image_provider_raw_ = image_provider.get();
+
+    auto info_helper = std::make_unique<MockFrameInfoHelper>();
+    impl_ = std::make_unique<VideoFrameFactoryImpl>(
+        task_runner_, gpu_preferences_, std::move(image_provider),
+        std::move(info_helper), nullptr);
+  }
+
+  ~VideoFrameFactoryImplTest() override = default;
+
+  struct {
+    gfx::Size coded_size{100, 100};
+    gfx::Rect visible_rect{coded_size};
+    gfx::Size natural_size{coded_size};
+    gfx::ColorSpace color_space{gfx::ColorSpace::CreateSRGBLinear()};
+  } video_frame_params_;
+
+  void RequestVideoFrame() {
+    scoped_refptr<CodecWrapperImpl> codec = nullptr;
+    auto output_buffer = std::make_unique<CodecOutputBuffer>(
+        std::move(codec), 0, video_frame_params_.coded_size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+        false,
+#endif  // ARKWEB_VIDEO_ASSISTANT
+        video_frame_params_.color_space);
+    ASSERT_TRUE(VideoFrame::IsValidConfig(
+        PIXEL_FORMAT_ARGB, VideoFrame::STORAGE_OPAQUE,
+        video_frame_params_.coded_size, video_frame_params_.visible_rect,
+        video_frame_params_.natural_size));
+
+    output_buffer_raw_ = output_buffer.get();
+    EXPECT_CALL(*image_provider_raw_, MockRequestImage());
+    impl_->CreateVideoFrame(std::move(output_buffer), base::TimeDelta(),
+                            video_frame_params_.natural_size, output_cb_.Get());
+  }
+
+ protected:
+  void SetUp() override {
+    image_provider_ = std::make_unique<MockSharedImageVideoProvider>();
+    frame_info_helper_ = std::make_unique<MockFrameInfoHelper>();
+    drdc_lock_ = base::MakeRefCounted<gpu::RefCountedLock>();
+    video_frame_factory_ = std::make_unique<VideoFrameFactoryImpl>(
+        gpu_task_runner_, gpu_preferences_, std::move(image_provider_),
+        std::move(frame_info_helper_), std::move(drdc_lock_));
+  }
+
+  base::test::TaskEnvironment task_environment_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  std::unique_ptr<VideoFrameFactoryImpl> impl_;
+
+  raw_ptr<MockSharedImageVideoProvider> image_provider_raw_ = nullptr;
+  raw_ptr<CodecOutputBuffer> output_buffer_raw_ = nullptr;
+
+  base::MockCallback<VideoFrameFactory::OnceOutputCB> output_cb_;
+  gpu::GpuPreferences gpu_preferences_;
+
+  scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner_;
+  std::unique_ptr<MockSharedImageVideoProvider> image_provider_;
+  std::unique_ptr<MockFrameInfoHelper> frame_info_helper_;
+  scoped_refptr<gpu::RefCountedLock> drdc_lock_;
+  std::unique_ptr<VideoFrameFactoryImpl> video_frame_factory_;
+};
+
+TEST_F(VideoFrameFactoryImplTest, TestSetSurfaceBundle001) {
+  scoped_refptr<CodecSurfaceBundle> surface_bundle = nullptr;
+  impl_->SetSurfaceBundle(nullptr);
+  EXPECT_EQ(impl_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, TestSetSurfaceBundle002) {
+  scoped_refptr<CodecSurfaceBundle> surface_bundle;
+  video_frame_factory_->SetSurfaceBundle(surface_bundle);
+  EXPECT_EQ(video_frame_factory_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame) {
+  gfx::Size coded_size(limits::kMaxDimension + 1, limits::kMaxDimension + 1);
+  gfx::Rect visible_rect(coded_size);
+  gfx::Size natural_size(0, 0);
+  scoped_refptr<CodecWrapperImpl> codec = nullptr;
+  auto output_buffer =
+      std::make_unique<CodecOutputBuffer>(std::move(codec), 0, coded_size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+                                          false,
+#endif  // ARKWEB_VIDEO_ASSISTANT
+                                          gfx::ColorSpace());
+  ASSERT_FALSE(VideoFrame::IsValidConfig(PIXEL_FORMAT_ARGB,
+                                         VideoFrame::STORAGE_OPAQUE, coded_size,
+                                         visible_rect, natural_size));
+
+  base::MockCallback<VideoFrameFactory::OnceOutputCB> output_cb;
+  EXPECT_CALL(output_cb, Run(scoped_refptr<VideoFrame>(nullptr)));
+  EXPECT_CALL(*image_provider_raw_, MockRequestImage()).Times(0);
+  testing::internal::CaptureStderr();
+  impl_->CreateVideoFrame(std::move(output_buffer), base::TimeDelta(),
+                          natural_size, output_cb.Get());
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("unsupported video frame format"),
+            std::string::npos);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnFrameInfoReady001) {
+  base::MockCallback<VideoFrameFactoryImpl::ImageWithInfoReadyCB>
+      image_ready_cb;
+  std::unique_ptr<CodecOutputBufferRenderer> output_buffer_renderer;
+  FrameInfoHelper::FrameInfo frame_info;
+  impl_->CreateVideoFrame_OnFrameInfoReady(
+      image_ready_cb.Get(), std::move(output_buffer_renderer), frame_info);
+  EXPECT_TRUE(image_ready_cb.Get());
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnFrameInfoReady002) {
+  base::MockCallback<VideoFrameFactoryImpl::ImageWithInfoReadyCB>
+      image_ready_cb;
+  FrameInfoHelper::FrameInfo frame_info;
+  frame_info.coded_size = gfx::Size(0, 0);
+  testing::internal::CaptureStderr();
+  impl_->CreateVideoFrame_OnFrameInfoReady(image_ready_cb.Get(),
+                                           std::move(nullptr), frame_info);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("CreateVideoFrame_OnFrameInfoReady"),
+            std::string::npos);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnFrameInfoReady003) {
+  base::MockCallback<VideoFrameFactoryImpl::ImageWithInfoReadyCB>
+      image_ready_cb;
+  FrameInfoHelper::FrameInfo frame_info;
+  frame_info.coded_size = gfx::Size();
+  impl_->image_spec_.coded_size = gfx::Size(1, 1);
+  testing::internal::CaptureStderr();
+  impl_->CreateVideoFrame_OnFrameInfoReady(image_ready_cb.Get(),
+                                           std::move(nullptr), frame_info);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_EQ(log_output.find("CreateVideoFrame_OnFrameInfoReady"),
+            std::string::npos);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnImageReady) {
+  RequestVideoFrame();
+  base::WeakPtr<VideoFrameFactoryImpl> thiz;
+  FrameInfoHelper::FrameInfo frame_info;
+  gfx::Size natural_size(0, 0);
+  VideoPixelFormat pixel_format = VideoPixelFormat::PIXEL_FORMAT_MAX;
+  scoped_refptr<base::SequencedTaskRunner> gpu_task_runner;
+  std::unique_ptr<CodecOutputBufferRenderer> output_buffer_renderer;
+  SharedImageVideoProvider::ImageRecord record;
+  testing::internal::CaptureStderr();
+  impl_->CreateVideoFrame_OnImageReady(
+      thiz, output_cb_.Get(), base::TimeDelta(), natural_size, false,
+      pixel_format, false, gpu_task_runner, std::move(output_buffer_renderer),
+      frame_info, std::move(record));
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_EQ(log_output.find("failed to create video frame"), std::string::npos);
+}
+
+TEST_F(VideoFrameFactoryImplTest,
+       AllocateTextureOwnerOnGpuThread_NullSharedContextState) {
+  scoped_refptr<gpu::SharedContextState> shared_context_state = nullptr;
+  bool init_cb_called = false;
+  VideoFrameFactory::InitCB init_cb = base::BindRepeating(
+      [](bool* called,
+         scoped_refptr<gpu::NativeImageTextureOwner> texture_owner) {
+        *called = true;
+        EXPECT_EQ(texture_owner, nullptr);
+      },
+      &init_cb_called);
+  AllocateTextureOwnerOnGpuThread(std::move(init_cb), nullptr,
+                                  shared_context_state);
+  task_environment_.RunUntilIdle();
+  EXPECT_TRUE(init_cb_called);
+  EXPECT_TRUE(init_cb.is_null());
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_InvalidConfig) {
+  int64_t id = 123;
+  scoped_refptr<CodecWrapperImpl> codec;
+  gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGB();
+  gfx::Size natural_size(-1, -1);
+  gfx::Size coded_size(-1, -1);
+  gfx::Rect visible_rect(coded_size);
+  gfx::Size size(1920, 1080);
+  base::TimeDelta timestamp;
+  auto output_buffer = std::make_unique<CodecOutputBuffer>(codec, id, size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+                                                           false,
+#endif  // ARKWEB_VIDEO_ASSISTANT
+                                                           color_space);
+  scoped_refptr<VideoFrame> result_frame;
+  VideoFrameFactoryImpl::OnceOutputCB output_cb = base::BindOnce(
+      [](scoped_refptr<VideoFrame>* frame_dest,
+         scoped_refptr<VideoFrame> frame) { *frame_dest = frame; },
+      &result_frame);
+  video_frame_factory_->CreateVideoFrame(std::move(output_buffer), timestamp,
+                                         natural_size, std::move(output_cb));
+  EXPECT_EQ(result_frame, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, IsDelegatedEnabled_Default) {
+  // IsDelegatedCompositingEnabledOhos() returns false in unit test environment
+  EXPECT_FALSE(video_frame_factory_->is_delegated_enabled_);
+}
+
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_AllowOverlayMetadata) {
+  gfx::Size coded_size(100, 100);
+  gfx::Rect visible_rect(coded_size);
+  gfx::Size natural_size(coded_size);
+  gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGBLinear();
+  scoped_refptr<CodecWrapperImpl> codec;
+  auto output_buffer =
+      std::make_unique<CodecOutputBuffer>(std::move(codec), 0, coded_size,
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+                                          false,
+#endif  // ARKWEB_VIDEO_ASSISTANT
+                                          color_space);
+  ASSERT_TRUE(VideoFrame::IsValidConfig(PIXEL_FORMAT_ARGB,
+                                        VideoFrame::STORAGE_OPAQUE, coded_size,
+                                        visible_rect, natural_size));
+
+  scoped_refptr<VideoFrame> result_frame;
+  VideoFrameFactoryImpl::OnceOutputCB output_cb = base::BindOnce(
+      [](scoped_refptr<VideoFrame>* frame_dest,
+         scoped_refptr<VideoFrame> frame) { *frame_dest = frame; },
+      &result_frame);
+
+  EXPECT_CALL(*image_provider_raw_, MockRequestImage());
+  impl_->CreateVideoFrame(std::move(output_buffer), base::TimeDelta(),
+                          natural_size, std::move(output_cb));
+  task_environment_.RunUntilIdle();
+
+  // With is_delegated_enabled_ = false, allow_overlay should be false
+  if (result_frame) {
+    EXPECT_FALSE(result_frame->metadata().allow_overlay);
+  }
+}
+
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_nonnull) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(base::MakeRefCounted<CodecSurfaceBundle>());
+  auto after = impl_->image_spec_.generation_id;
+  EXPECT_EQ(after, before + 1);
+  EXPECT_EQ(impl_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_pip_shortcircuit) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_vulkan_disabled) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndDisableFeature(features::kVulkanVideoZeroCopy);
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_copy_required_shortcircuit) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_zerocopy) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kZeroCopy)));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+// kOneCopy: switch arm ~112 forces copy_required=true.
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_onecopy) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kOneCopy)));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+// default fallthrough: a value not in {kZeroCopy,kOneCopy,kDefault} (e.g. 3)
+// hits switch default (~122) and leaves copy_required unchanged (false here).
+TEST_F(VideoFrameFactoryImplTest, GetVideoFrameCopyStatus_default_fallthrough) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(3));
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+// ---- Phase 2 — Additional branch-coverage tests ----
+
+// PipEnable public method: verify it sets pip_enable_ to true (L274-277).
+TEST_F(VideoFrameFactoryImplTest, PipEnable_true) {
+  impl_->PipEnable(true);
+  EXPECT_TRUE(impl_->pip_enable_);
+}
+
+// PipEnable public method: verify it sets pip_enable_ to false (L274-277).
+TEST_F(VideoFrameFactoryImplTest, PipEnable_false) {
+  impl_->PipEnable(true);
+  impl_->PipEnable(false);
+  EXPECT_FALSE(impl_->pip_enable_);
+}
+
+// GetVideoFrameCopyStatus kDefault arm with copy_required=false,
+// kVulkanVideoZeroCopy enabled, delegatedValue=false → result is true
+// (line 125: copy_required || !delegatedValue → false || true = true).
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_kdefault_delegated_false) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  EXPECT_CALL(adapter, GetBoolParameter("web.delegatedCompositing.enable", _))
+      .WillRepeatedly(testing::Return(false));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_TRUE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+// GetVideoFrameCopyStatus kDefault arm with copy_required=false,
+// kVulkanVideoZeroCopy enabled, delegatedValue=true → result is false
+// (line 125: copy_required || !delegatedValue → false || false = false).
+// Note: is_delegated_enabled_ is set at construction time based on
+// IsDelegatedCompositingEnabledOhos() and is false in the test environment,
+// so we manually set it to true to exercise this branch.
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_kdefault_delegated_true) {
+  OHOS::NWeb::MockOhosAdapterHelper* instance =
+      new OHOS::NWeb::MockOhosAdapterHelper();
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(instance);
+  OHOS::NWeb::MockSystemPropertiesAdapter adapter;
+  EXPECT_CALL(*instance, GetSystemPropertiesInstance())
+      .WillRepeatedly(testing::ReturnRef(adapter));
+  EXPECT_CALL(adapter, GetIntParameter("web.gpu.videocopy", testing::_))
+      .WillRepeatedly(testing::Return(
+          static_cast<int32_t>(VideoFrameCopyStatus::kDefault)));
+  EXPECT_CALL(adapter, GetBoolParameter("web.delegatedCompositing.enable", _))
+      .WillRepeatedly(testing::Return(true));
+  base::test::ScopedFeatureList fl;
+  fl.InitAndEnableFeature(features::kVulkanVideoZeroCopy);
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  impl_->is_delegated_enabled_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  EXPECT_FALSE(r);
+  OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+  delete instance;
+}
+
+TEST_F(VideoFrameFactoryImplTest,
+       CreateVideoFrame_OnFrameInfoReady_with_renderer) {
+  base::MockCallback<VideoFrameFactoryImpl::ImageWithInfoReadyCB>
+      image_ready_cb;
+  scoped_refptr<CodecWrapperImpl> codec;
+  auto output_buffer = std::make_unique<CodecOutputBuffer>(
+      std::move(codec), 0, gfx::Size(100, 100),
+#if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
+      false,
+#endif
+      gfx::ColorSpace::CreateSRGB());
+  auto renderer = std::make_unique<CodecOutputBufferRenderer>(
+      std::move(output_buffer), nullptr, nullptr);
+  FrameInfoHelper::FrameInfo frame_info;
+  frame_info.coded_size = gfx::Size(100, 100);
+  impl_->CreateVideoFrame_OnFrameInfoReady(image_ready_cb.Get(),
+                                           std::move(renderer), frame_info);
+  EXPECT_EQ(impl_->image_spec_.coded_size, gfx::Size(100, 100));
+}
+
+// ---- Phase 3 — Additional branch-coverage tests ----
+
+// Initialize forwards to image_provider_->Initialize.
+TEST_F(VideoFrameFactoryImplTest, Initialize_ForwardsToImageProvider) {
+  EXPECT_CALL(*image_provider_raw_, Initialize_(testing::_));
+  impl_->Initialize(base::BindRepeating(
+      [](scoped_refptr<gpu::NativeImageTextureOwner> owner) {}));
+  task_environment_.RunUntilIdle();
+}
+
+// RunAfterPendingVideoFrames calls RequestImage with nullptr buffer_renderer.
+// Pre-set image_spec_.coded_size so CreateVideoFrame_OnFrameInfoReady does not
+// short-circuit (it returns early if coded_size is empty when
+// buffer_renderer is null).
+TEST_F(VideoFrameFactoryImplTest,
+       RunAfterPendingVideoFrames_CallsRequestImage) {
+  impl_->image_spec_.coded_size = gfx::Size(100, 100);
+  EXPECT_CALL(*image_provider_raw_, MockRequestImage());
+  bool closure_called = false;
+  impl_->RunAfterPendingVideoFrames(
+      base::BindOnce([](bool* flag) { *flag = true; }, &closure_called));
+  task_environment_.RunUntilIdle();
+}
+
+// SetSurfaceBundle with null increments generation_id.
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_null_increments_generation) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(nullptr);
+  EXPECT_EQ(impl_->image_spec_.generation_id, before + 1);
+  EXPECT_EQ(impl_->codec_buffer_wait_coordinator_, nullptr);
+}
+
+// SetSurfaceBundle called multiple times increments generation_id each time.
+TEST_F(VideoFrameFactoryImplTest, SetSurfaceBundle_multiple_increments) {
+  auto before = impl_->image_spec_.generation_id;
+  impl_->SetSurfaceBundle(nullptr);
+  impl_->SetSurfaceBundle(nullptr);
+  impl_->SetSurfaceBundle(nullptr);
+  EXPECT_EQ(impl_->image_spec_.generation_id, before + 3);
+}
+
+// GetVideoFrameCopyStatus with IsUsingVulkan false returns copy_required
+// directly (no adapter interaction needed).
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_vulkan_not_using_returns_copy_required) {
+  // When features::IsUsingVulkan() is false, the function returns
+  // copy_required directly. In test environment, Vulkan is typically not
+  // enabled, so this exercises the early return path.
+  impl_->video_frame_copy_required_ = true;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  // copy_required includes video_frame_copy_required_ and possibly pip_enable_.
+  EXPECT_TRUE(r);
+}
+
+// GetVideoFrameCopyStatus with copy_required false and vulkan not using.
+TEST_F(VideoFrameFactoryImplTest,
+       GetVideoFrameCopyStatus_vulkan_not_using_false) {
+  impl_->pip_enable_ = false;
+  impl_->video_frame_copy_required_ = false;
+  bool r = impl_->GetVideoFrameCopyStatus();
+  // Without vulkan, returns copy_required directly (false here).
+  EXPECT_FALSE(r);
+}
+
+// CreateVideoFrame_OnImageReady with null thiz should return early without
+// crashing.
+TEST_F(VideoFrameFactoryImplTest, CreateVideoFrame_OnImageReady_null_thiz) {
+  base::WeakPtr<VideoFrameFactoryImpl> thiz;
+  FrameInfoHelper::FrameInfo frame_info;
+  gfx::Size natural_size(100, 100);
+  VideoPixelFormat pixel_format = PIXEL_FORMAT_ABGR;
+  scoped_refptr<base::SequencedTaskRunner> gpu_task_runner = task_runner_;
+  std::unique_ptr<CodecOutputBufferRenderer> output_buffer_renderer;
+  SharedImageVideoProvider::ImageRecord record;
+  // Should not crash even with null thiz.
+  impl_->CreateVideoFrame_OnImageReady(
+      thiz, output_cb_.Get(), base::TimeDelta(), natural_size, false,
+      pixel_format, false, gpu_task_runner, std::move(output_buffer_renderer),
+      frame_info, std::move(record));
+  // No assertion needed; not crashing is the success criterion.
+  SUCCEED() << "CreateVideoFrame_OnImageReady with null thiz did not crash";
+}
+}  // namespace media

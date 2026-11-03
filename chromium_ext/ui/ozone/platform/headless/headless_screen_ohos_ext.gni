@@ -1,0 +1,26 @@
+# Copyright 2014 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Extending //headless:headless_unittests target
+#
+headless_unittests_ext = {
+  sources = ["//arkweb/chromium_ext/ui/ozone/platform/headless/headless_screen_ohos_unittest.cc"]
+  deps = [
+    "//arkweb/ohos_adapter_ndk:adapter_ndk",
+    "//base",
+    "//base/test:test_support",
+    "//mojo/core/embedder",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/base:features",
+    "//ui/base/dragdrop:types",
+    "//ui/display:test_support",
+    "//ui/events:test_support",
+    "//ui/gfx:test_support",
+    "//ui/ozone:platform",
+    "//ui/ozone:test_support",
+  ]
+}

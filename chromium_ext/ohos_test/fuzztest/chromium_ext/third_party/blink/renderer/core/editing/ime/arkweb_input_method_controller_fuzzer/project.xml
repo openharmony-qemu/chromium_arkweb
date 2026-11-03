@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <name>arkweb_input_method_controller_fuzzer</name>
+    <description>Fuzzer for ArkwebInputMethodControllerUtils</description>
+    <target>
+        <type>fuzz</type>
+        <file>arkweb_input_method_controller_fuzzer.cpp</file>
+        <language>C++</language>
+    </target>
+    <dependencies>
+        <dep>base</dep>
+        <dep>blink_core</dep>
+        <dep>content_public_test</dep>
+    </dependencies>
+    <corpus>
+        <path>corpus</path>
+    </corpus>
+</project>

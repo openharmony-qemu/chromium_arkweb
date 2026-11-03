@@ -1,0 +1,200 @@
+// Copyright (c) 2023 Huawei Device Co., Ltd.
+// Copyright 2018 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "base/memory/platform_shared_memory_region.h"
+
+#include <sys/mman.h>
+
+#include "base/bits.h"
+#include "base/logging.h"
+#include "base/memory/page_size.h"
+#include "base/memory/shared_memory_tracker.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/posix/eintr_wrapper.h"
+#include "base/android/linker/ashmem.h"
+#include "arkweb/build/features/features.h"
+
+namespace base {
+namespace subtle {
+
+// For OHOS, we use ashmem the same way Android does to implement SharedMemory.
+
+namespace {
+
+int GetAshmemRegionProtectionMask(int fd) {
+  int prot = SharedMemoryRegionGetProtectionFlags(fd);
+  if (prot < 0) {
+    PLOG(ERROR) << "SharedMemoryRegionGetProtectionFlags failed";
+    return -1;
+  }
+  return prot;
+}
+
+}  // namespace
+
+
+int PlatformSharedMemoryRegion::GetPlatformHandle() const {
+  return handle_.get();
+}
+
+bool PlatformSharedMemoryRegion::IsValid() const {
+  return handle_.is_valid();
+}
+
+PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Duplicate() const {
+  if (!IsValid())
+    return {};
+
+  CHECK_NE(mode_, Mode::kWritable)
+      << "Duplicating a writable shared memory region is prohibited";
+
+  ScopedFD duped_fd(HANDLE_EINTR(dup(handle_.get())));
+  if (!duped_fd.is_valid()) {
+    DPLOG(ERROR) << "dup(" << handle_.get() << ") failed";
+    return {};
+  }
+
+  return PlatformSharedMemoryRegion(std::move(duped_fd), mode_, size_, guid_);
+}
+
+bool PlatformSharedMemoryRegion::ConvertToReadOnly() {
+  if (!IsValid())
+    return false;
+
+  CHECK_EQ(mode_, Mode::kWritable)
+      << "Only writable shared memory region can be converted to read-only";
+
+  ScopedFD handle_copy(handle_.release());
+
+  int prot = GetAshmemRegionProtectionMask(handle_copy.get());
+  if (prot < 0)
+    return false;
+
+  prot &= ~PROT_WRITE;
+  int ret = SharedMemoryRegionSetProtectionFlags(handle_copy.get(), prot);
+  if (ret != 0) {
+    DPLOG(ERROR) << "SharedMemoryRegionSetProtectionFlags failed";
+    return false;
+  }
+
+  handle_ = std::move(handle_copy);
+  mode_ = Mode::kReadOnly;
+  return true;
+}
+
+bool PlatformSharedMemoryRegion::ConvertToUnsafe() {
+  if (!IsValid())
+    return false;
+
+  CHECK_EQ(mode_, Mode::kWritable)
+      << "Only writable shared memory region can be converted to unsafe";
+
+  mode_ = Mode::kUnsafe;
+  return true;
+}
+
+// static
+PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Create(Mode mode,
+                                                              size_t size) {
+  if (size == 0) {
+    return {};
+  }
+
+  // Align size as required by ashmem_create_region() API documentation. This
+  // operation may overflow so check that the result doesn't decrease.
+  size_t rounded_size = bits::AlignUp(size, GetPageSize());
+  if (rounded_size < size ||
+      rounded_size > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return {};
+  }
+
+  CHECK_NE(mode, Mode::kReadOnly) << "Creating a region in read-only mode will "
+                                     "lead to this region being non-modifiable";
+
+  UnguessableToken guid = UnguessableToken::Create();
+
+  int fd = SharedMemoryRegionCreate(
+      SharedMemoryTracker::GetDumpNameForTracing(guid).c_str(), rounded_size);
+  if (fd < 0) {
+    DPLOG(ERROR) << "SharedMemoryRegionCreate failed";
+    return {};
+  }
+
+  ScopedFD scoped_fd(fd);
+  int err = SharedMemoryRegionSetProtectionFlags(scoped_fd.get(), PROT_READ | PROT_WRITE);
+  if (err < 0) {
+    DPLOG(ERROR) << "SharedMemoryRegionSetProtectionFlags failed";
+    return {};
+  }
+
+  return PlatformSharedMemoryRegion(std::move(scoped_fd), mode, size, guid);
+}
+
+expected<void, PlatformSharedMemoryRegion::TakeError>
+PlatformSharedMemoryRegion::CheckPlatformHandlePermissionsCorrespondToMode(
+    PlatformSharedMemoryHandle handle,
+    Mode mode,
+    size_t size) {
+  int prot = GetAshmemRegionProtectionMask(handle);
+  if (prot < 0)
+    return unexpected(TakeError::kFailedToGetAshmemRegionProtectionMask);
+
+  bool is_read_only = (prot & PROT_WRITE) == 0;
+  bool expected_read_only = mode == Mode::kReadOnly;
+
+  if (is_read_only != expected_read_only) {
+    LOG(ERROR) << "Ashmem region has a wrong protection mask: it is"
+               << (is_read_only ? " " : " not ") << "read-only but it should"
+               << (expected_read_only ? " " : " not ") << "be";
+    return unexpected(TakeError::kExpectedReadOnlyButNot);
+  }
+
+  return expected<void, PlatformSharedMemoryRegion::TakeError>();
+}
+
+PlatformSharedMemoryRegion::PlatformSharedMemoryRegion(
+    ScopedFD fd,
+    Mode mode,
+    size_t size,
+    const UnguessableToken& guid)
+    : handle_(std::move(fd)), mode_(mode), size_(size), guid_(guid) {}
+
+// static
+expected<PlatformSharedMemoryRegion, PlatformSharedMemoryRegion::TakeError>
+PlatformSharedMemoryRegion::TakeOrFail(ScopedFD fd,
+                                       Mode mode,
+                                       size_t size,
+                                       const UnguessableToken& guid) {
+  // TODO(arkweb): Chromium 141 compatibility - implement proper TakeOrFail for OHOS
+  // For now, provide basic validation and create region
+  if (!fd.is_valid()) {
+    return {};
+  }
+
+  if (size == 0) {
+    return {};
+  }
+
+  if (size > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return {};
+  }
+
+  // Check ashmem permissions match expected mode
+  expected<void, TakeError> result =
+      CheckPlatformHandlePermissionsCorrespondToMode(fd.get(), mode, size);
+  if (!result.has_value()) {
+#if BUILDFLAG(ARKWEB_BUGFIX_CRASH)
+    LOG(ERROR) << "check platform handle permission failed, fd = " << fd.get() << ", mode" \
+      << static_cast<int>(mode) << ", size = " << size;
+#endif
+    return unexpected(result.error());
+  }
+
+  // Create and return the shared memory region
+  return PlatformSharedMemoryRegion(std::move(fd), mode, size, guid);
+}
+
+}  // namespace subtle
+}  // namespace base

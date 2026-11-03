@@ -1,0 +1,134 @@
+/*
+ * Copyright (c) 2022-2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef BASE_OHOS_SYS_INFO_UTILS_H_
+#define BASE_OHOS_SYS_INFO_UTILS_H_
+
+#define APP_API_LEVEL_20 20
+
+#include "arkweb/build/features/features.h"
+
+#include <stdint.h>
+
+#include <string>
+
+#include "base/base_export.h"
+
+#include "build/buildflag.h"
+
+namespace base {
+namespace ohos {
+BASE_EXPORT float GetPixelRatio();
+
+BASE_EXPORT void SetPixelRatio(float ratio);
+
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+extern "C" {
+#endif
+#endif
+BASE_EXPORT bool IsMobileDevice();
+
+BASE_EXPORT bool IsTabletDevice();
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+BASE_EXPORT bool IsPcDevice();
+
+#ifdef __cplusplus
+}
+#endif
+
+BASE_EXPORT bool IsEmulator();
+
+BASE_EXPORT bool IsWearableDevice();
+
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+extern "C" {
+#endif
+#endif
+BASE_EXPORT int32_t MajorVersion();
+
+BASE_EXPORT int32_t SeniorVersion();
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+BASE_EXPORT std::string OsName();
+
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+extern "C" {
+#endif
+#endif
+BASE_EXPORT std::string OsVersion();
+
+BASE_EXPORT std::string BaseOsName();
+
+BASE_EXPORT std::string CompatibleDeviceType();
+#if BUILDFLAG(ARKWEB_TEST)
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+BASE_EXPORT bool IsCompatibleMode();
+
+BASE_EXPORT int32_t ApplicationApiVersion();
+
+BASE_EXPORT void SetPageScale(bool status);
+
+BASE_EXPORT bool IsPageScale();
+
+BASE_EXPORT std::string ProductModel();
+
+BASE_EXPORT std::string ComponentName();
+
+BASE_EXPORT bool IsPcMode();
+
+#if BUILDFLAG(ARKWEB_USERAGENT)
+BASE_EXPORT extern const char kPlatformName[];
+BASE_EXPORT extern const char kWebName[];
+BASE_EXPORT extern const char kBitness64[];
+BASE_EXPORT const std::string GetDeviceTypeString();
+BASE_EXPORT const std::string GetProductModel();
+BASE_EXPORT const std::string GetOSDistVersion();
+
+#endif
+
+BASE_EXPORT bool IsDelegatedCompositingEnabledOhos();
+// Returns true if AI HDR is enabled via system property "web.aihdr.enable".
+// Result is cached on first call and will not change during the process lifetime.
+// Requires delegated compositing to be enabled.
+BASE_EXPORT bool IsAiHdrEnabledOhos();
+
+// Check if current device is a low-end device. The result is cached after
+// first call and will not change during the process lifetime.
+BASE_EXPORT bool IsOhosLowEndDevice();
+
+}  // namespace ohos
+}  // namespace base
+
+#endif  // BASE_OHOS_SYS_INFO_UTILS_H_
