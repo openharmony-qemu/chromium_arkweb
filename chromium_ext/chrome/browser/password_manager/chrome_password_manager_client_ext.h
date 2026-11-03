@@ -85,6 +85,7 @@ public:
       const autofill::mojom::OhosPasswordFormAutofillState state,
       const autofill::InputFillRequestData& username_data,
       const autofill::InputFillRequestData& password_data) override;
+  void PrimaryPageChanged(content::Page& page) override;
   void PreSuppressKeyboardIfNeed(
       password_manager::PasswordManagerDriver* driver,
       const GURL& page_url,
@@ -150,6 +151,10 @@ public:
   // Origin of the most recent fill query; its cancel response is captured
   // into account_lists_ under this key.
   std::string account_list_query_origin_;
+  // True when the current kNotRequested cycle is for a new-password form;
+  // suppresses SetFillContent (IME recommendation) while still capturing
+  // accountList for same-origin login-field replay.
+  bool is_new_password_form_ = false;
   void ParseFillContentToAccountList(const std::string& fillContent,
                                      std::vector<AccountListEntry>& out) const;
   std::string FindBestMatch(const std::vector<AccountListEntry>& list,

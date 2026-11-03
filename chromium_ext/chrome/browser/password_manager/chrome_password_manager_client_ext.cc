@@ -215,10 +215,17 @@ void ChromePasswordManagerClientExt::ProcessAutofillCancel(
     return;
   }
   auto browser = CefBrowserHostBase::GetBrowserForHost(rfh);
+  // for new-password forms, pass an empty string instead of the vault's
+  // fillContent. This avoids staging a recommendation payload (the vault's
+  // generate-password popup still works via OnAutofillEvent) while still
+  // clearing any stale pending_fill_content_ from HandleReplayRequest — a
+  // side effect of SetFillContent. accountList capture below is unaffected.
   if (browser && browser->GetClient() &&
       browser->GetClient()->GetRenderHandler()) {
-    browser->GetClient()->GetRenderHandler()->SetFillContent(fillContent);
+    browser->GetClient()->GetRenderHandler()->SetFillContent(
+      is_new_password_form_ ? "" : fillContent);
   }
+  is_new_password_form_ = false;
   if (!account_list_query_origin_.empty()) {
     AccountListCache& cache = account_lists_[account_list_query_origin_];
     if (!cache.captured) {
@@ -267,7 +274,7 @@ std::string ChromePasswordManagerClientExt::FindBestMatch(
     const std::vector<AccountListEntry>& list,
     const std::string& typed) const {
   if (list.empty()) return std::string();
-  if (typed.size() < 2) return list.front().user_name;
+  if (typed.empty()) return list.front().user_name;
   for (const auto& e : list) {
     if (base::EqualsCaseInsensitiveASCII(e.user_name, typed)) return e.user_name;
   }
@@ -572,6 +579,8 @@ void ChromePasswordManagerClientExt::OnRequestAutofill(
     if (state == OhosPasswordFormAutofillState::kNotRequested) {
       account_lists_.erase(page_url.spec());
       account_list_query_origin_ = page_url.spec();
+      is_new_password_form_ = (password_data.autocomplete_attr.find("new-password") !=
+                               std::string::npos);
       auto json_str = PasswordFormToJsonForRequest(
           EVENT_FILL, page_url, username_data, password_data);
       if (json_str.has_value()) {
@@ -607,6 +616,29 @@ void ChromePasswordManagerClientExt::OnRequestAutofill(
     }
   }
 }
+
+#if BUILDFLAG(ARKWEB_PASSWORD_AUTOFILL)
+void ChromePasswordManagerClientExt::PrimaryPageChanged(
+    content::Page& page) {
+  ChromePasswordManagerClient::PrimaryPageChanged(page);
+  // Vault account lists are session hints scoped to the current page: a
+  // primary-page navigation invalidates them all (the new document re-runs
+  // the full kNotRequested cycle anyway). SPA soft navigations never reach
+  // this hook, so the replay fallback for password-only transitions keeps
+  // working. Keeps account_lists_ bounded across a long-lived WebContents.
+  if (!account_lists_.empty()) {
+    LOG(INFO) << "ChromePasswordManagerClientExt::PrimaryPageChanged:"
+              << " clearing account_lists, size="
+              << account_lists_.size();
+  }
+  account_lists_.clear();
+  account_list_query_origin_.clear();
+  // Reset the new-password flag so a prior registration page does not leak
+  // into subsequent normal login forms (the flag is only re-evaluated in the
+  // kNotRequested branch; without this reset it would stay true forever).
+  is_new_password_form_ = false;
+}
+#endif
 
 void ChromePasswordManagerClientExt::PreSuppressKeyboardIfNeed(
     PasswordManagerDriver* driver,
