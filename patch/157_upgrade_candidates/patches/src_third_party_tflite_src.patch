@@ -1,0 +1,50 @@
+diff --git a/tensorflow/lite/core/subgraph.cc b/tensorflow/lite/core/subgraph.cc
+index 996d36b7e9725f4f9faada1a3d4c46d8c10f621c..49e492fdd1c590c018106d9ca2c18a103fe70230 100644
+--- a/tensorflow/lite/core/subgraph.cc
++++ b/tensorflow/lite/core/subgraph.cc
+@@ -31,6 +31,10 @@ limitations under the License.
+ #include <utility>
+ #include <vector>
+ 
++#include "build/build_config.h"
++#if BUILDFLAG(IS_ARKWEB)
++#include "arkweb/build/features/features.h"
++#endif
+ #include "tensorflow/compiler/mlir/lite/allocation.h"
+ #include "tensorflow/lite/array.h"
+ #include "tensorflow/lite/builtin_ops.h"
+@@ -1374,7 +1378,11 @@ TfLiteStatus Subgraph::OpPrepare(const TfLiteRegistration& op_reg,
+         if (IsUnresolvedCustomOp(op_reg)) {
+           ReportError(
+               "Encountered unresolved custom op: %s.\nSee instructions: "
++#if BUILDFLAG(ARKWEB_PRIVACY_COMPLIANCE)
++              "https://*** ",
++#else
+               "https://www.tensorflow.org/lite/guide/ops_custom ",
++#endif
+               op_reg.custom_name ? op_reg.custom_name : "UnknownOp");
+           return kTfLiteUnresolvedOps;
+         } else {
+@@ -1408,11 +1416,19 @@ TfLiteStatus Subgraph::OpPrepare(const TfLiteRegistration& op_reg,
+             "delegate before inference. For the Android, it can be resolved by "
+             "adding \"org.tensorflow:tensorflow-lite-select-tf-ops\" "
+             "dependency. See instructions: "
++#if BUILDFLAG(ARKWEB_PRIVACY_COMPLIANCE)
++            "https://***");
++#else
+             "https://www.tensorflow.org/lite/guide/ops_select");
++#endif
+       } else {
+         ReportError(
+             "Encountered unresolved custom op: %s.\nSee instructions: "
++#if BUILDFLAG(ARKWEB_PRIVACY_COMPLIANCE)
++            "https://*** ",
++#else
+             "https://www.tensorflow.org/lite/guide/ops_custom ",
++#endif
+             op_reg.custom_name ? op_reg.custom_name : "UnknownOp");
+       }
+       return kTfLiteUnresolvedOps;
+diff --git a/third_party/xla/third_party/__init__.py b/third_party/xla/third_party/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391

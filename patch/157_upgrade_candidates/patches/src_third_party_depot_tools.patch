@@ -1,0 +1,10 @@
+diff --git a/gn b/gn
+index 9abc58ac4a562c885a1f02e2a41663d2fbd680c3..df56bd0e54eacccf99c3a437ad229b058659299d 100755
+--- a/gn
++++ b/gn
+@@ -11,4 +11,4 @@ if [ "$(expr "$(uname -s)" : "^MINGW64_NT")" == "10" ]; then
+     exit
+ fi
+ 
+-PYTHONDONTWRITEBYTECODE=1 "$base_dir/python-bin/python3" "$base_dir/gn.py" "$@"
++PYTHONDONTWRITEBYTECODE=1 exec python3 "$base_dir/gn.py" "$@"

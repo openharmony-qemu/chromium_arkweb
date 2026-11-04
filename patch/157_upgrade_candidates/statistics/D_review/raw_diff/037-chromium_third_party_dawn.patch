@@ -1,0 +1,301 @@
+diff --git a/src/dawn/native/Blob.cpp b/src/dawn/native/Blob.cpp
+index 7fb1fcccf6ffb834346826bee82fdb0b27742af8..54096dcb7b721c4c2ce8d556ca40425195e0a5a9 100644
+--- a/src/dawn/native/Blob.cpp
++++ b/src/dawn/native/Blob.cpp
+@@ -48,6 +48,20 @@ Blob Blob::UnsafeCreateWithDeleter(uint8_t* data, size_t size, std::function<voi
+     return Blob(data, size, deleter);
+ }
+ 
++// static
++Blob Blob::Create(Blob&& original, size_t offset, size_t extent) {
++    Blob result;
++    if (original.mData) {
++        size_t effective_extent = (extent == 0) ? (original.mSize - offset) : extent;
++        uint8_t* new_data = original.mData.get() + offset;
++        result = Blob(new_data, effective_extent, std::move(original.mDeleter));
++    }
++    original.mData = nullptr;
++    original.mSize = 0;
++    original.mDeleter = nullptr;
++    return result;
++}
++
+ Blob::Blob() : mData(nullptr), mSize(0), mDeleter({}) {}
+ 
+ Blob::Blob(uint8_t* data, size_t size, std::function<void()> deleter)
+diff --git a/src/dawn/native/Blob.h b/src/dawn/native/Blob.h
+index cddcb2661bdb65c644ee26bcd52febf65d5c3170..04b20b19c717e7bfd8093ccd2840cce41b9f2904 100644
+--- a/src/dawn/native/Blob.h
++++ b/src/dawn/native/Blob.h
+@@ -47,6 +47,10 @@ class Blob {
+     // Make sure the creation and deleter handles the data ownership and lifetime correctly.
+     static Blob UnsafeCreateWithDeleter(uint8_t* data, size_t size, std::function<void()> deleter);
+ 
++    // Takes ownership of the original blob, creating a new one with subspan of the original using
++    // `offset` and optionally `extent`.
++    static Blob Create(Blob&& original, size_t offset, size_t extent = 0);
++
+     Blob();
+     ~Blob();
+ 
+diff --git a/src/dawn/native/IndirectDrawMetadata.cpp b/src/dawn/native/IndirectDrawMetadata.cpp
+index 72fa797e9fedfbf3bffc204388c73a7943906031..eb2ee1e4216b309bad4709d0593db0870425592e 100644
+--- a/src/dawn/native/IndirectDrawMetadata.cpp
++++ b/src/dawn/native/IndirectDrawMetadata.cpp
+@@ -160,11 +160,6 @@ IndirectDrawMetadata::GetIndirectMultiDraws() const {
+ }
+ 
+ void IndirectDrawMetadata::AddBundle(RenderBundleBase* bundle) {
+-    auto [_, inserted] = mAddedBundles.insert(bundle);
+-    if (!inserted) {
+-        return;
+-    }
+-
+     for (const auto& [config, validationInfo] :
+          bundle->GetIndirectDrawMetadata().mIndexedIndirectBufferValidationInfo) {
+         auto it = mIndexedIndirectBufferValidationInfo.lower_bound(config);
+diff --git a/src/dawn/native/IndirectDrawMetadata.h b/src/dawn/native/IndirectDrawMetadata.h
+index e58813b36729003dbb2708b2c71c5bf23dc0b010..15772ebffe26f14aca7f541561fe51211c966834 100644
+--- a/src/dawn/native/IndirectDrawMetadata.h
++++ b/src/dawn/native/IndirectDrawMetadata.h
+@@ -188,7 +188,6 @@ class IndirectDrawMetadata : public NonCopyable {
+ 
+   private:
+     IndexedIndirectBufferValidationInfoMap mIndexedIndirectBufferValidationInfo;
+-    absl::flat_hash_set<RenderBundleBase*> mAddedBundles;
+ 
+     std::vector<IndirectMultiDraw> mMultiDraws;
+ 
+diff --git a/src/dawn/native/RenderPassEncoder.cpp b/src/dawn/native/RenderPassEncoder.cpp
+index a0cae8e28672ce6e99612875da829337594eff92..8080194931e2f39ceab2eea9fcd317c7bd472046 100644
+--- a/src/dawn/native/RenderPassEncoder.cpp
++++ b/src/dawn/native/RenderPassEncoder.cpp
+@@ -364,22 +364,26 @@ void RenderPassEncoder::APIExecuteBundles(uint32_t count, RenderBundleBase* cons
+                 }
+             }
+ 
++            // Always reset state, even when no render bundles are supplied.
+             mCommandBufferState = CommandBufferStateTracker{};
+ 
+-            ExecuteBundlesCmd* cmd =
+-                allocator->Allocate<ExecuteBundlesCmd>(Command::ExecuteBundles);
+-            cmd->count = count;
++            if (count) {
++                ExecuteBundlesCmd* cmd =
++                    allocator->Allocate<ExecuteBundlesCmd>(Command::ExecuteBundles);
++                cmd->count = count;
+ 
+-            Ref<RenderBundleBase>* bundles = allocator->AllocateData<Ref<RenderBundleBase>>(count);
+-            for (uint32_t i = 0; i < count; ++i) {
+-                bundles[i] = renderBundles[i];
++                Ref<RenderBundleBase>* bundles =
++                    allocator->AllocateData<Ref<RenderBundleBase>>(count);
++                for (uint32_t i = 0; i < count; ++i) {
++                    bundles[i] = renderBundles[i];
+ 
+-                mUsageTracker.MergeResourceUsages(bundles[i]->GetResourceUsage());
+-                if (IsValidationEnabled()) {
+-                    mIndirectDrawMetadata.AddBundle(renderBundles[i]);
+-                }
++                    mUsageTracker.MergeResourceUsages(bundles[i]->GetResourceUsage());
++                    if (IsValidationEnabled()) {
++                        mIndirectDrawMetadata.AddBundle(renderBundles[i]);
++                    }
+ 
+-                mDrawCount += bundles[i]->GetDrawCount();
++                    mDrawCount += bundles[i]->GetDrawCount();
++                }
+             }
+ 
+             return {};
+diff --git a/src/dawn/native/Sampler.cpp b/src/dawn/native/Sampler.cpp
+index 0f4eedc5907d645a5a55ed3726182aeb0d73a7e9..6435b9c1e1f90a753aacee2cbaf62934c734ed9b 100644
+--- a/src/dawn/native/Sampler.cpp
++++ b/src/dawn/native/Sampler.cpp
+@@ -77,6 +77,17 @@ MaybeError ValidateSamplerDescriptor(DeviceBase* device, const SamplerDescriptor
+     }
+ 
+     return {};
++
++        DAWN_INVALID_IF(descriptor->addressModeU != wgpu::AddressMode::ClampToEdge,
++                        "addressModeU must be ClampToEdge for YCbCr samplers.");
++        DAWN_INVALID_IF(descriptor->addressModeV != wgpu::AddressMode::ClampToEdge,
++                        "addressModeV must be ClampToEdge for YCbCr samplers.");
++        DAWN_INVALID_IF(descriptor->addressModeW != wgpu::AddressMode::ClampToEdge,
++                        "addressModeW must be ClampToEdge for YCbCr samplers.");
++
++        DAWN_INVALID_IF(descriptor->maxAnisotropy > 1,
++                        "maxAnisotropy (%d) must be 1 for YCbCr samplers.",
++                        descriptor->maxAnisotropy);
+ }
+ 
+ // SamplerBase
+diff --git a/src/dawn/native/opengl/ShaderModuleGL.cpp b/src/dawn/native/opengl/ShaderModuleGL.cpp
+index 642b4a8c5d8327a052a65526cb45048297a255f3..f495d271282fab5ae8ffe28082925a37c822bf58 100644
+--- a/src/dawn/native/opengl/ShaderModuleGL.cpp
++++ b/src/dawn/native/opengl/ShaderModuleGL.cpp
+@@ -264,6 +264,7 @@ void GenerateTextureBuiltinFromUniformData(
+ bool GenerateArrayLengthFromuniformData(
+     const BindingInfoArray& moduleBindingInfo,
+     const PipelineLayout* layout,
++    SingleShaderStage stage,
+     tint::glsl::writer::ArrayLengthFromUniformOptions& options) {
+     const PipelineLayout::BindingIndexInfo& indexInfo = layout->GetBindingIndexInfo();
+ 
+@@ -273,6 +274,11 @@ bool GenerateArrayLengthFromuniformData(
+         for (BindingIndex binding : bgl->GetBufferIndices()) {
+             const BindingInfo& bindingInfo = bgl->GetBindingInfo(binding);
+ 
++            // Skip bindings that aren't visible to this stage.
++            if (!(bindingInfo.visibility & StageBit(stage))) {
++                continue;
++            }
++
+             switch (std::get<BufferBindingInfo>(bindingInfo.bindingLayout).type) {
+                 case wgpu::BufferBindingType::Storage:
+                 case kInternalStorageBufferBinding:
+@@ -408,7 +414,7 @@ ResultOrError<GLuint> ShaderModule::CompileShader(
+ 
+     if (GetDevice()->IsToggleEnabled(Toggle::GLUseArrayLengthFromUniform)) {
+         *needsSSBOLengthUniformBuffer = GenerateArrayLengthFromuniformData(
+-            moduleBindingInfo, layout, req.tintOptions.array_length_from_uniform);
++            moduleBindingInfo, layout, stage, req.tintOptions.array_length_from_uniform);
+         if (*needsSSBOLengthUniformBuffer) {
+             req.tintOptions.use_array_length_from_uniform = true;
+             req.tintOptions.array_length_from_uniform.ubo_binding = {
+diff --git a/src/dawn/native/vulkan/PipelineCacheVk.cpp b/src/dawn/native/vulkan/PipelineCacheVk.cpp
+index 78d4ec9cfdb61e1a4adbcf69ae7ca1be11008694..db492b5b8f83145b23c4eeb244c7a27cd365227e 100644
+--- a/src/dawn/native/vulkan/PipelineCacheVk.cpp
++++ b/src/dawn/native/vulkan/PipelineCacheVk.cpp
+@@ -102,10 +102,18 @@ MaybeError PipelineCache::SerializeToBlobImpl(Blob* blob) {
+         // store it to the blob cache and don't call vkGetPipelineCacheData() since it will return
+         // corrupted data in future calls.
+         mSkipSerialize = true;
++        *blob = {};
+         return {};
+     }
+ 
+     DAWN_TRY(CheckVkSuccess(result, "GetPipelineCacheData"));
++
++    if (bufferSize < blob->Size()) {
++        // vkGetPipelineCacheData() returned less data than expected. Shrink the blob so
++        // uninitialized data isn't stored in cache.
++        *blob = Blob::Create(std::move(*blob), 0, bufferSize);
++    }
++
+     mStoredDataSize = bufferSize;
+ 
+     return {};
+diff --git a/src/dawn/native/vulkan/SamplerVk.cpp b/src/dawn/native/vulkan/SamplerVk.cpp
+index 03b38f53287677c5e4a3ff74aa554732f76b4d99..7764a4482eb4e0e8cbdb62cd87aaaffeaf829d54 100644
+--- a/src/dawn/native/vulkan/SamplerVk.cpp
++++ b/src/dawn/native/vulkan/SamplerVk.cpp
+@@ -119,6 +119,13 @@ MaybeError Sampler::Initialize(const SamplerDescriptor* descriptor) {
+         samplerYCbCrInfo.conversion = mSamplerYCbCrConversion;
+ 
+         createInfo.pNext = &samplerYCbCrInfo;
++
++        // VUID-VkSamplerCreateInfo-addressModeU-01646 requires CLAMP_TO_EDGE on every axis and
++        // anisotropy disabled when VkSamplerYcbcrConversionInfo is provided.
++        createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
++        createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
++        createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
++        createInfo.anisotropyEnable = VK_FALSE;
+     }
+ 
+     DAWN_TRY(CheckVkSuccess(
+diff --git a/src/dawn/tests/end2end/OpArrayLengthTests.cpp b/src/dawn/tests/end2end/OpArrayLengthTests.cpp
+index 18062db3a95b922ccb26aeeb370a33938c22d15f..b41185ff11a9ffee9691ddc91f34ca14ea9f7942 100644
+--- a/src/dawn/tests/end2end/OpArrayLengthTests.cpp
++++ b/src/dawn/tests/end2end/OpArrayLengthTests.cpp
+@@ -302,3 +302,90 @@ DAWN_INSTANTIATE_TEST(OpArrayLengthTest,
+ 
+ }  // anonymous namespace
+ }  // namespace dawn
++// Regression test for stage-visibility filtering in
++// GenerateArrayLengthFromuniformData (ShaderModuleGL.cpp). A storage
++// buffer in the layout that is *not* visible to the stage being
++// compiled should not be given an entry in Tint's
++// bindpoint_to_size_index nor in the remapper_data. Otherwise,
++// ArrayLengthFromUniform loads the wrong UBO slot for arrayLength(),
++// defeating Robustness clamping.
++class OpArrayLengthVisibilityCollisionTest : public DawnTest {
++  protected:
++    void GetRequiredLimits(const dawn::utils::ComboLimits& supported,
++                           dawn::utils::ComboLimits& required) override {
++        supported.UnlinkedCopyTo(&required);
++    }
++};
++
++TEST_P(OpArrayLengthVisibilityCollisionTest, ComputeWithFragmentOnlyBufferInLayout) {
++    DAWN_TEST_UNSUPPORTED_IF(GetSupportedLimits().maxStorageBuffersInFragmentStage < 1);
++
++    // Buffer A: large, bound at full size to a FRAGMENT-only storage slot.
++    constexpr uint32_t kBufASize = 1u << 20;  // 1 MiB → arrayLength<u32> = 262144
++    wgpu::BufferDescriptor descA;
++    descA.size = kBufASize;
++    descA.usage = wgpu::BufferUsage::Storage;
++    wgpu::Buffer bufA = device.CreateBuffer(&descA);
++
++    // Buffer B: large allocation, but only a 64-byte sub-range will be bound to
++    // the COMPUTE-visible storage slot. With the collision the shader receives
++    // A's bound size as B's arrayLength, so the Robustness clamp on B[idx]
++    // permits writes far past the 64-byte bound range.
++    constexpr uint32_t kBufBSize = 16384;  // 16 KiB underlying allocation
++    constexpr uint32_t kBufBBound = 64;    // 64 bytes bound → arrayLength = 16
++    constexpr uint32_t kOobIndex = 1000;   // Target B[1000] (byte 4000) – OOB
++    constexpr uint32_t kOobMarker = 0xDEAD4A11u;
++    std::vector<uint32_t> initialData(kBufBSize / 4, 0u);
++    wgpu::Buffer bufB = utils::CreateBufferFromData(
++        device, initialData.data(), initialData.size() * sizeof(uint32_t),
++        wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst);
++
++    // PipelineLayoutGL assigns ssboIndex by iterating groups in order, so:
++    //   group 0 (A, FRAGMENT-only) → ssboIndex 0
++    //   group 1 (B, COMPUTE)       → ssboIndex 1  → glIndex_B = 1
++    // Choose A's WGSL @binding == glIndex_B (= 1) so that A's pre-remap key
++    // {0,1} equals B's post-remap key {0, glIndex_B}.
++    wgpu::BindGroupLayout bglA = utils::MakeBindGroupLayout(
++        device, {{1, wgpu::ShaderStage::Fragment, wgpu::BufferBindingType::ReadOnlyStorage}});
++    wgpu::BindGroupLayout bglB = utils::MakeBindGroupLayout(
++        device, {{0, wgpu::ShaderStage::Compute, wgpu::BufferBindingType::Storage}});
++
++    std::string shaderSource = R"(
++        @group(1) @binding(0) var<storage, read_write> B : array<u32>;
++        @compute @workgroup_size(1) fn main() {
++            B[0] = arrayLength(&B);
++            // Robustness wraps this as B[min(idx, arrayLength(&B)-1)].
++            // With the bug arrayLength(&B) is huge, so the write lands at
++            // index 1000 – past the 64-byte bound range.
++            B[)" + std::to_string(kOobIndex) +
++                               R"(u] = )" + std::to_string(kOobMarker) + R"(u;
++        })";
++
++    wgpu::ComputePipelineDescriptor pipelineDesc;
++    pipelineDesc.layout = utils::MakePipelineLayout(device, {bglA, bglB});
++    pipelineDesc.compute.module = utils::CreateShaderModule(device, shaderSource);
++    pipelineDesc.compute.entryPoint = "main";
++    wgpu::ComputePipeline pipeline = device.CreateComputePipeline(&pipelineDesc);
++
++    wgpu::BindGroup bgA = utils::MakeBindGroup(device, bglA, {{1, bufA, 0, kBufASize}});
++    wgpu::BindGroup bgB = utils::MakeBindGroup(device, bglB, {{0, bufB, 0, kBufBBound}});
++
++    wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
++    wgpu::ComputePassEncoder pass = encoder.BeginComputePass();
++    pass.SetPipeline(pipeline);
++    pass.SetBindGroup(0, bgA);
++    pass.SetBindGroup(1, bgB);
++    pass.DispatchWorkgroups(1);
++    pass.End();
++    wgpu::CommandBuffer commands = encoder.Finish();
++    queue.Submit(1, &commands);
++
++    EXPECT_BUFFER_U32_EQ(kBufBBound / 4, bufB, 0);
++    EXPECT_BUFFER_U32_EQ(0u, bufB, kOobIndex * sizeof(uint32_t));
++}
++
++DAWN_INSTANTIATE_TEST(OpArrayLengthVisibilityCollisionTest,
++                      OpenGLESBackend(),
++                      OpenGLESBackend({"gl_use_array_length_from_uniform"}),
++                      VulkanBackend());
++

@@ -1,0 +1,169 @@
+repo_path	named_folder	named_file_count	baseline_historical_present	baseline_latest_present	arkweb_historical_present	earliest_missing_root
+src	.claude/commands/arkweb	2	False	False	True	.claude
+src	base/ohos	3	False	False	True	base/ohos
+src	build/config/ohos	3	False	False	True	build/config/ohos
+src	build/linux/debian_bullseye_amd64-sysroot/usr/include/c++/10/ext	286	True	True	True	
+src	build/linux/debian_bullseye_amd64-sysroot/usr/include/x86_64-linux-gnu/c++/10/ext	1	True	True	True	
+src	build/linux/debian_bullseye_amd64-sysroot/usr/lib/python3/dist-packages/mako/ext	9	True	True	True	
+src	build/linux/debian_bullseye_amd64-sysroot/usr/lib/x86_64-linux-gnu/perl-base/unicore/lib/Ext	1	True	True	True	
+src	build/linux/debian_bullseye_i386-sysroot/usr/include/c++/10/ext	286	False	False	True	build/linux/debian_bullseye_i386-sysroot
+src	build/linux/debian_bullseye_i386-sysroot/usr/include/i386-linux-gnu/c++/10/ext	1	False	False	True	build/linux/debian_bullseye_i386-sysroot
+src	build/linux/debian_bullseye_i386-sysroot/usr/lib/i386-linux-gnu/perl-base/unicore/lib/Ext	1	False	False	True	build/linux/debian_bullseye_i386-sysroot
+src	build/linux/debian_bullseye_i386-sysroot/usr/lib/python3/dist-packages/mako/ext	9	False	False	True	build/linux/debian_bullseye_i386-sysroot
+src	build/ohos	3	False	False	True	build/ohos
+src	build/pgo/ohos	1	False	False	True	build/pgo
+src	build/toolchain/ohos	1	False	False	True	build/toolchain/ohos
+src	chrome/test/data/chromedriver/ext_bg_page	2	True	True	True	
+src	chrome/test/data/extensions/platform_apps/launch_allowlisted_ext_with_file	2	True	True	True	
+src	chrome/test/ext_auto	5	True	True	True	
+src	components/security_interstitials/ohos_ui_resources	22	False	False	True	components/security_interstitials/ohos_ui_resources
+src	ohos	2	False	False	True	ohos
+src	ohos_arkweb_playground	34	False	False	True	ohos_arkweb_playground
+src	ohos_resources	121	False	False	True	ohos_resources
+src	ohos_sdk	20	False	False	True	ohos_sdk
+src	skia/ext	172	True	True	True	
+src	third_party/aki/benchmark/ohos	41	False	False	True	third_party/aki
+src	third_party/aki/example/hmos/15_aki_value/entry/src/ohosTest	9	False	False	True	third_party/aki
+src	third_party/aki/example/ohos	840	False	False	True	third_party/aki
+src	third_party/aki/platform/hmos/publish/entry/src/ohosTest	10	False	False	True	third_party/aki
+src	third_party/aki/platform/ohos	39	False	False	True	third_party/aki
+src	third_party/aki/test/platform/hmos/unittest/entry/src/ohosTest	29	False	False	True	third_party/aki
+src	third_party/aki/test/platform/ohos	61	False	False	True	third_party/aki
+src	third_party/androidx/committed/libs/androidx_test_ext_junit	3	True	True	True	
+src	third_party/blink/web_tests/virtual/xml-no-ext-entities	7	True	True	True	
+src	third_party/google-closure-library/closure/goog/graphics/ext	16	True	True	True	
+src	third_party/grpc/source/include/grpc++/ext	2	True	True	True	
+src	third_party/grpc/source/include/grpcpp/ext	11	True	True	True	
+src	third_party/grpc/source/src/core/ext	952	True	True	True	
+src	third_party/grpc/source/src/cpp/ext	37	True	True	True	
+src	third_party/grpc/source/src/php/ext	22	True	True	True	
+src	third_party/grpc/source/src/ruby/ext	33	True	True	True	
+src	third_party/mako/mako/mako/ext	9	True	True	True	
+src	third_party/mako/mako/test/ext	3	True	True	True	
+src	third_party/ohos_ndk	9	False	False	True	third_party/ohos_ndk
+src	third_party/ohos_nweb_hap	44	False	False	True	third_party/ohos_nweb_hap
+src	third_party/protobuf/php/ext	27	True	True	True	
+src	third_party/protobuf/ruby/ext	22	True	True	True	
+src	third_party/rust-toolchain/lib/rustlib/src/rust/library/std/src/os/net/linux_ext	5	True	True	True	
+src	third_party/rust-toolchain/lib/rustlib/src/rust/library/vendor/wasi-0.14.4+wasi-0.2.4/src/ext	2	True	True	True	
+src	tools/android/ps_ext	2	True	True	True	
+src	tools/chrome_extensions/open_my_editor/ext	6	True	True	True	
+src/cef	libcef/browser/devtools/arkweb	2	False	False	True	libcef/browser/devtools/arkweb
+src/cef	ohos_cef_ext	484	False	False	True	ohos_cef_ext
+src/third_party/angle	third_party/OpenCL-CTS/gn/extensions/cl_ext_cxx_for_opencl	1	True	True	True	
+src/third_party/catapult	telemetry/telemetry/internal/testing/autotest_ext	2	True	True	True	
+src/third_party/catapult	third_party/gsutil/third_party/requests/ext	12	True	True	True	
+src/third_party/crossbench	crossbench/probes/trace_processor/modules/ext	17	True	True	True	
+src/third_party/dav1d/libdav1d	src/ext	1	True	True	True	
+src/third_party/dawn/third_party/khronos/EGL-Registry	extensions/EXT	43	True	True	True	
+src/third_party/dawn/third_party/khronos/OpenGL-Registry	ABI/ext	7	True	True	True	
+src/third_party/dawn/third_party/khronos/OpenGL-Registry	extensions/EXT	224	True	True	True	
+src/third_party/flatbuffers/src	tests/monster_test_suffix/ext_only	3	True	True	True	
+src/third_party/flatbuffers/src	tests/ts/no_import_ext	12	True	True	True	
+src/third_party/libc++/src	include/__cxx03/ext	3	True	True	True	
+src/third_party/libc++/src	include/ext	3	True	True	True	
+src/third_party/openscreen/src	third_party/protobuf/php/ext	27	True	True	True	
+src/third_party/openscreen/src	third_party/protobuf/ruby/ext	22	True	True	True	
+src/third_party/pdfium	skia/ext	2	True	True	True	
+src/third_party/perfetto	include/perfetto/ext	116	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_convert_to_initialized_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_convert_to_initialized_fastpath	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_handle_uninitialized_extents	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_load_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_map_blocks_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_map_blocks_exit	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_put_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_remove_space	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_remove_space_done	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_rm_idx	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_rm_leaf	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_flounder_lte_LRX16F_3.10.40/events/ext4/ext4_ext_show_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_convert_to_initialized_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_convert_to_initialized_fastpath	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_handle_uninitialized_extents	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_load_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_map_blocks_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_map_blocks_exit	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_put_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_remove_space	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_remove_space_done	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_rm_idx	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_rm_leaf	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_hammerhead_MRA59G_3.4.0/events/ext4/ext4_ext_show_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_convert_to_initialized_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_convert_to_initialized_fastpath	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_handle_unwritten_extents	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_load_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_map_blocks_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_map_blocks_exit	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_put_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_remove_space	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_remove_space_done	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_rm_idx	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_rm_leaf	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_raven_AOSP.MASTER_5.10.43/events/ext4/ext4_ext_show_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_convert_to_initialized_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_convert_to_initialized_fastpath	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_handle_uninitialized_extents	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_load_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_map_blocks_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_map_blocks_exit	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_put_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_remove_space	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_remove_space_done	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_rm_idx	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_rm_leaf	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_seed_N2F62_3.10.49/events/ext4/ext4_ext_show_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_convert_to_initialized_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_convert_to_initialized_fastpath	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_handle_unwritten_extents	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_load_extent	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_map_blocks_enter	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_map_blocks_exit	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_put_in_cache	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_remove_space	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_remove_space_done	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_rm_idx	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_rm_leaf	1	True	True	True	
+src/third_party/perfetto	src/traced/probes/ftrace/test/data/android_walleye_OPM5.171019.017.A1_4.4.88/events/ext4/ext4_ext_show_extent	1	True	True	True	
+src/third_party/sqlite/src	ext	639	True	True	True	
+src/third_party/tflite/src	third_party/xla/xla/mlir_hlo/stablehlo_ext	27	True	True	True	
+src/third_party/tflite/src	third_party/xla/xla/mlir_hlo/tests/stablehlo_ext	12	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-background-effect	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-data-control	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-foreign-toplevel-list	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-idle-notify	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-image-capture-source	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-image-copy-capture	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-session-lock	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-transient-seat	2	True	True	True	
+src/third_party/wayland-protocols/src	staging/ext-workspace	2	True	True	True	
+src/third_party/webgl/src	extensions/EXT_blend_minmax	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_clip_control	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_color_buffer_float	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_color_buffer_half_float	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_conservative_depth	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_depth_clamp	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_disjoint_timer_query	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_disjoint_timer_query_webgl2	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_float_blend	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_frag_depth	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_polygon_offset_clamp	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_render_snorm	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_sRGB	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_shader_texture_lod	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_texture_compression_bptc	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_texture_compression_rgtc	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_texture_filter_anisotropic	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_texture_mirror_clamp_to_edge	1	True	True	True	
+src/third_party/webgl/src	extensions/EXT_texture_norm16	1	True	True	True	
+src/third_party/webgl/src	extensions/proposals/EXT_texture_norm16_dom_source	1	True	True	True	
+src/third_party/webgl/src	extensions/rejected/EXT_shader_framebuffer_fetch	1	True	True	True	
+src/third_party/webgl/src	extensions/rejected/EXT_texture_storage	1	True	True	True	
+src/third_party/webrtc	docs/native-code/sdp-ext	1	True	True	True	
+src/third_party/webrtc	modules/desktop_capture/ohos	7	False	False	True	modules/desktop_capture/ohos

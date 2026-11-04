@@ -1,0 +1,292 @@
+diff --git a/libavcodec/adxdec.c b/libavcodec/adxdec.c
+index 49c2e25182b8a8279bbdcdcb0f0dcc825cddc66f..09efb978e9392c39e02ed05f5f56a83f0fd85657 100644
+--- a/libavcodec/adxdec.c
++++ b/libavcodec/adxdec.c
+@@ -173,6 +173,7 @@ static int adx_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+     new_extradata = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA,
+                                             &new_extradata_size);
+     if (new_extradata && new_extradata_size > 0) {
++        int old_channels = c->channels;
+         int header_size;
+         if ((ret = adx_decode_header(avctx, new_extradata,
+                                      new_extradata_size, &header_size,
+@@ -181,6 +182,10 @@ static int adx_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+             return AVERROR_INVALIDDATA;
+         }
+ 
++        c->channels      = avctx->ch_layout.nb_channels;
++        c->header_parsed = 1;
++        if (old_channels != c->channels)
++            memset(c->prev, 0, sizeof(c->prev));
+         c->eof = 0;
+     }
+ 
+diff --git a/libavcodec/h264_direct.c b/libavcodec/h264_direct.c
+index 587274aa6dee93eeeb483a917b086c50897284bc..09e38ccc8ea9962e8d1baf6634521db0a5bdb266 100644
+--- a/libavcodec/h264_direct.c
++++ b/libavcodec/h264_direct.c
+@@ -121,26 +121,30 @@ void ff_h264_direct_ref_list_init(const H264Context *const h, H264SliceContext *
+ {
+     H264Ref *const ref1 = &sl->ref_list[1][0];
+     H264Picture *const cur = h->cur_pic_ptr;
+-    int list, j, field;
++    int list, field;
+     int sidx     = (h->picture_structure & 1) ^ 1;
+     int ref1sidx = (ref1->reference      & 1) ^ 1;
+ 
+-    for (list = 0; list < sl->list_count; list++) {
+-        cur->ref_count[sidx][list] = sl->ref_count[list];
+-        for (j = 0; j < sl->ref_count[list]; j++)
+-            cur->ref_poc[sidx][list][j] = 4 * sl->ref_list[list][j].parent->frame_num +
+-                                          (sl->ref_list[list][j].reference & 3);
+-    }
++    /* Updates to cur_pic are not safe once ff_thread_finish_setup() has been
++     * called (other threads may already be reading these fields). */
++    if (!h->setup_finished) {
++        for (list = 0; list < sl->list_count; list++) {
++            cur->ref_count[sidx][list] = sl->ref_count[list];
++            for (int j = 0; j < sl->ref_count[list]; j++)
++                cur->ref_poc[sidx][list][j] = 4 * sl->ref_list[list][j].parent->frame_num +
++                                                 (sl->ref_list[list][j].reference & 3);
++        }
+ 
+-    if (h->picture_structure == PICT_FRAME) {
+-        memcpy(cur->ref_count[1], cur->ref_count[0], sizeof(cur->ref_count[0]));
+-        memcpy(cur->ref_poc[1],   cur->ref_poc[0],   sizeof(cur->ref_poc[0]));
+-    }
++        if (h->picture_structure == PICT_FRAME) {
++            memcpy(cur->ref_count[1], cur->ref_count[0], sizeof(cur->ref_count[0]));
++            memcpy(cur->ref_poc[1],   cur->ref_poc[0],   sizeof(cur->ref_poc[0]));
++        }
+ 
+-    if (h->current_slice == 0) {
+-        cur->mbaff = FRAME_MBAFF(h);
+-    } else {
+-        av_assert0(cur->mbaff == FRAME_MBAFF(h));
++        if (h->current_slice == 0) {
++            cur->mbaff = FRAME_MBAFF(h);
++        } else {
++            av_assert0(cur->mbaff == FRAME_MBAFF(h));
++        }
+     }
+ 
+     sl->col_fieldoff = 0;
+diff --git a/libavcodec/h264_refs.c b/libavcodec/h264_refs.c
+index 608e13d7d566b98f288542f60562f20536b47577..b743858cdc3cf8de465cc8511a40c8eb5ffc996a 100644
+--- a/libavcodec/h264_refs.c
++++ b/libavcodec/h264_refs.c
+@@ -156,8 +156,7 @@ static void h264_initialise_ref_list(H264Context *h, H264SliceContext *sl)
+                                   h->long_ref, 16, 1, h->picture_structure);
+             av_assert0(len <= 32);
+ 
+-            if (len < sl->ref_count[list])
+-                memset(&sl->ref_list[list][len], 0, sizeof(H264Ref) * (sl->ref_count[list] - len));
++            memset(&sl->ref_list[list][len], 0, sizeof(H264Ref) * (32 - len));
+             lens[list] = len;
+         }
+ 
+@@ -178,8 +177,7 @@ static void h264_initialise_ref_list(H264Context *h, H264SliceContext *sl)
+                               h-> long_ref, 16, 1, h->picture_structure);
+         av_assert0(len <= 32);
+ 
+-        if (len < sl->ref_count[0])
+-            memset(&sl->ref_list[0][len], 0, sizeof(H264Ref) * (sl->ref_count[0] - len));
++        memset(&sl->ref_list[0][len], 0, sizeof(H264Ref) * (32 - len));
+     }
+ #ifdef TRACE
+     for (int i = 0; i < sl->ref_count[0]; i++) {
+diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
+index 7e53e38cca2ff5a99d6cc5e213d0721ab320f60e..81e7f1f166beac492a8a51c2c13320adf577f180 100644
+--- a/libavcodec/h264_slice.c
++++ b/libavcodec/h264_slice.c
+@@ -1949,8 +1949,7 @@ static int h264_slice_init(H264Context *h, H264SliceContext *sl,
+ 
+     if (sl->slice_type_nos == AV_PICTURE_TYPE_B && !sl->direct_spatial_mv_pred)
+         ff_h264_direct_dist_scale_factor(h, sl);
+-    if (!h->setup_finished)
+-        ff_h264_direct_ref_list_init(h, sl);
++    ff_h264_direct_ref_list_init(h, sl);
+ 
+     if (h->avctx->skip_loop_filter >= AVDISCARD_ALL ||
+         (h->avctx->skip_loop_filter >= AVDISCARD_NONKEY &&
+diff --git a/libavcodec/nvdec.c b/libavcodec/nvdec.c
+index 7c29f25718dfa0090c380d9c7440dc98c5c487ab..787a9d7c28139d424c457e62629b7c64df0d9263 100644
+--- a/libavcodec/nvdec.c
++++ b/libavcodec/nvdec.c
+@@ -628,8 +628,7 @@ int ff_nvdec_start_frame_sep_ref(AVCodecContext *avctx, AVFrame *frame, int has_
+             cf->ref_idx_ref = av_refstruct_pool_get(ctx->decoder_pool);
+             if (!cf->ref_idx_ref) {
+                 av_log(avctx, AV_LOG_ERROR, "No decoder surfaces left\n");
+-                ret = AVERROR(ENOMEM);
+-                goto fail;
++                return AVERROR(ENOMEM);
+             }
+         }
+         cf->ref_idx = *cf->ref_idx_ref;
+@@ -639,9 +638,6 @@ int ff_nvdec_start_frame_sep_ref(AVCodecContext *avctx, AVFrame *frame, int has_
+     }
+ 
+     return 0;
+-fail:
+-    nvdec_fdd_priv_free(cf);
+-    return ret;
+ }
+ 
+ int ff_nvdec_end_frame(AVCodecContext *avctx)
+diff --git a/libavcodec/rasc.c b/libavcodec/rasc.c
+index a8e00a41a6fda9fefc09cb3373ed5089b0438d27..5f956a9b2c77726c87e697b9324ce12d9d190ecb 100644
+--- a/libavcodec/rasc.c
++++ b/libavcodec/rasc.c
+@@ -51,6 +51,8 @@ typedef struct RASCContext {
+     GetByteContext  gb;
+     uint8_t        *delta;
+     int             delta_size;
++    uint8_t        *mv_scratch;
++    unsigned int    mv_scratch_size;
+     uint8_t        *cursor;
+     int             cursor_size;
+     unsigned        cursor_w;
+@@ -294,10 +296,8 @@ static int decode_move(AVCodecContext *avctx,
+                 b2 -= s->frame2->linesize[0];
+             }
+         } else if (type == 0) {
+-            uint8_t *buffer;
+-
+-            av_fast_padded_malloc(&s->delta, &s->delta_size, w * h * s->bpp);
+-            buffer = s->delta;
++            av_fast_padded_malloc(&s->mv_scratch, &s->mv_scratch_size, w * h * s->bpp);
++            uint8_t *buffer = s->mv_scratch;
+             if (!buffer)
+                 return AVERROR(ENOMEM);
+ 
+@@ -772,6 +772,8 @@ static av_cold int decode_close(AVCodecContext *avctx)
+     s->cursor_size = 0;
+     av_freep(&s->delta);
+     s->delta_size = 0;
++    av_freep(&s->mv_scratch);
++    s->mv_scratch_size = 0;
+     av_frame_free(&s->frame1);
+     av_frame_free(&s->frame2);
+     ff_inflate_end(&s->zstream);
+diff --git a/libavformat/mov.c b/libavformat/mov.c
+index 3a055bee7f326c88dd0ccc3d6dc03dd7e90a0764..b329dff907c2effd6ce6e49ec3a353a721fd1bfa 100644
+--- a/libavformat/mov.c
++++ b/libavformat/mov.c
+@@ -3231,6 +3231,7 @@ fail:
+             av_freep(&sc->extradata[j]);
+     }
+ 
++    sc->stsd_count = 0;
+     av_freep(&sc->extradata);
+     av_freep(&sc->extradata_size);
+     return ret;
+@@ -8007,7 +8008,7 @@ static int mov_read_tenc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+ {
+     AVStream *st;
+     MOVStreamContext *sc;
+-    unsigned int version, pattern, is_protected, iv_size;
++    unsigned int version, pattern, is_protected, iv_size, per_sample_iv_size;
+ 
+     if (c->fc->nb_streams < 1)
+         return 0;
+@@ -8047,12 +8048,12 @@ static int mov_read_tenc(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+         if (!sc->cenc.encryption_index)
+             return AVERROR(ENOMEM);
+     }
+-    sc->cenc.per_sample_iv_size = avio_r8(pb);
+-    if (sc->cenc.per_sample_iv_size != 0 && sc->cenc.per_sample_iv_size != 8 &&
+-        sc->cenc.per_sample_iv_size != 16) {
++    per_sample_iv_size = avio_r8(pb);
++    if (per_sample_iv_size != 0 && per_sample_iv_size != 8 && per_sample_iv_size != 16) {
+         av_log(c->fc, AV_LOG_ERROR, "invalid per-sample IV size value\n");
+         return AVERROR_INVALIDDATA;
+     }
++    sc->cenc.per_sample_iv_size = per_sample_iv_size;
+     if (avio_read(pb, sc->cenc.default_encrypted_sample->key_id, 16) != 16) {
+         av_log(c->fc, AV_LOG_ERROR, "failed to read the default key ID\n");
+         return AVERROR_INVALIDDATA;
+@@ -11429,6 +11430,7 @@ static int can_seek_to_key_sample(AVStream *st, int sample, int64_t requested_pt
+     if (sample >= sc->sample_offsets_count)
+         return 1;
+ 
++    av_assert0(sample >= 0);
+     key_sample_dts = sti->index_entries[sample].timestamp;
+     key_sample_pts = key_sample_dts + sc->sample_offsets[sample] + sc->dts_shift;
+ 
+@@ -11472,6 +11474,8 @@ static int mov_seek_stream(AVFormatContext *s, AVStream *st, int64_t timestamp,
+ 
+         next_ts = timestamp - FFMAX(sc->min_sample_duration, 1);
+         requested_sample = av_index_search_timestamp(st, next_ts, flags);
++        if (requested_sample < 0)
++            return AVERROR_INVALIDDATA;
+ 
+         // If we've reached a different sample trying to find a good pts to
+         // seek to, give up searching because we'll end up seeking back to
+diff --git a/libavformat/mpeg.c b/libavformat/mpeg.c
+index a7a2ef78e65bf270daeef967991103ef52732ace..1ce4bf9d46dfa193efd0e3b12e0d6e410b0df52b 100644
+--- a/libavformat/mpeg.c
++++ b/libavformat/mpeg.c
+@@ -841,6 +841,20 @@ static int vobsub_read_header(AVFormatContext *s)
+             }
+ 
+             if (!st || st->id != stream_id) {
++                st = NULL;
++                for (i = 0; i < s->nb_streams; i++) {
++                    if (s->streams[i]->id == stream_id) {
++                        st = s->streams[i];
++                        break;
++                    }
++                }
++            }
++            if (!st) {
++                if (s->nb_streams >= FF_ARRAY_ELEMS(vobsub->q)) {
++                    av_log(s, AV_LOG_ERROR, "Maximum number of subtitle streams reached\n");
++                    ret = AVERROR_INVALIDDATA;
++                    goto end;
++                }
+                 st = avformat_new_stream(s, NULL);
+                 if (!st) {
+                     ret = AVERROR(ENOMEM);
+@@ -865,14 +879,14 @@ static int vobsub_read_header(AVFormatContext *s)
+             timestamp = (hh*3600LL + mm*60LL + ss) * 1000LL + ms + delay;
+             timestamp = av_rescale_q(timestamp, av_make_q(1, 1000), st->time_base);
+ 
+-            sub = ff_subtitles_queue_insert(&vobsub->q[s->nb_streams - 1], "", 0, 0);
++            sub = ff_subtitles_queue_insert(&vobsub->q[st->index], "", 0, 0);
+             if (!sub) {
+                 ret = AVERROR(ENOMEM);
+                 goto end;
+             }
+             sub->pos = pos;
+             sub->pts = timestamp;
+-            sub->stream_index = s->nb_streams - 1;
++            sub->stream_index = st->index;
+ 
+         } else if (!strncmp(line, "alt:", 4)) {
+             const char *p = line + 4;
+diff --git a/libavformat/rtpdec_asf.c b/libavformat/rtpdec_asf.c
+index b3b346f3cc594105492caeb6ddcedc0f8dbf2ac3..f7fa69e27fb43eeaafc673499a8b9633d54f0da3 100644
+--- a/libavformat/rtpdec_asf.c
++++ b/libavformat/rtpdec_asf.c
+@@ -56,6 +56,8 @@ static int rtp_asf_fix_header(uint8_t *buf, int len)
+         uint64_t chunksize = AV_RL64(p + sizeof(ff_asf_guid));
+         int skip = 6 * 8 + 3 * 4 + sizeof(ff_asf_guid) * 2;
+         if (memcmp(p, ff_asf_file_header, sizeof(ff_asf_guid))) {
++            if (chunksize < sizeof(ff_asf_guid) + 8)
++                return -1;
+             if (chunksize > end - p)
+                 return -1;
+             p += chunksize;
+diff --git a/libavformat/spdifenc.c b/libavformat/spdifenc.c
+index ab3f73da0decc9f723ad557d5ef98ec5d670f200..16eebda01cef1edefeb41af91f8ffca8ee401fff 100644
+--- a/libavformat/spdifenc.c
++++ b/libavformat/spdifenc.c
+@@ -225,7 +225,7 @@ static int spdif_header_dts4(AVFormatContext *s, AVPacket *pkt, int core_size,
+              * (dtshd_fallback == 0) */
+             ctx->dtshd_skip = 1;
+     }
+-    if (ctx->dtshd_skip && core_size) {
++    if (ctx->dtshd_skip && core_size && core_size <= pkt->size) {
+         pkt_size = core_size;
+         if (ctx->dtshd_fallback >= 0)
+             --ctx->dtshd_skip;
