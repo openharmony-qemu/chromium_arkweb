@@ -73,9 +73,7 @@ class NavigationEntrySafeBrowsingData : public base::SupportsUserData::Data {
     return ohos_sb_blocking_page_info_cache_;
   }
   void SetSbBlockingPageInfoCache(
-      base::flat_map<GURL, OhosSbBlockingPageInfo> ohos_sb_blocking_page_info_cache) {
-    ohos_sb_blocking_page_info_cache_ = ohos_sb_blocking_page_info_cache;
-  }
+      base::flat_map<GURL, OhosSbBlockingPageInfo> ohos_sb_blocking_page_info_cache);
  
   OhosSbBlockingPageInfo GetBlockingPageInfo(const GURL& url) const;
  

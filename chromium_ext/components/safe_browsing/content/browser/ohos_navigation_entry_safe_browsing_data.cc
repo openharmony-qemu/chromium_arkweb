@@ -77,4 +77,15 @@ OhosSbBlockingPageInfo NavigationEntrySafeBrowsingData::GetBlockingPageInfo(cons
   }
   return OhosSbBlockingPageInfo();
 }
+
+void NavigationEntrySafeBrowsingData::SetSbBlockingPageInfoCache(
+    base::flat_map<GURL, OhosSbBlockingPageInfo> ohos_sb_blocking_page_info_cache) {
+  ohos_sb_blocking_page_info_cache_ = ohos_sb_blocking_page_info_cache;
+  highest_blocking_page_info_ = OhosSbBlockingPageInfo();
+  for (const auto& [url, info] : ohos_sb_blocking_page_info_cache_) {
+    if (info.info_policy_level > highest_blocking_page_info_.info_policy_level) {
+      highest_blocking_page_info_ = info;
+    }
+  }
+}
 } // ohos_safe_browsing
