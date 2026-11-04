@@ -859,6 +859,7 @@ arkweb_third_party_blink_renderer_core_paint_night_mode_sources = [
 arkweb_base_unittest_sources = [
   "//arkweb/chromium_ext/base/base_paths_ohos_unittest.cc",
   "//arkweb/chromium_ext/base/datashare_uri_utils_unittest.cc",
+  "//arkweb/chromium_ext/base/feature_list_utils_unittest.cc",
   "//arkweb/chromium_ext/base/debug/arkweb_dump_info_unittest.cc",
   "//arkweb/chromium_ext/base/debug/stack_trace_ohos_unittest.cc",
   "//arkweb/chromium_ext/base/files/file_path_sta_ext_unittest.cc",
