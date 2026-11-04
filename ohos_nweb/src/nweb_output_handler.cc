@@ -99,6 +99,7 @@ void NWebOutputHandler::GetWindowInfo(uint32_t& width, uint32_t& height) {
 }
 
 void NWebOutputHandler::Resize(uint32_t width, uint32_t height) {
+  std::unique_lock<std::mutex> lock(dump_mtx_);
   if (width_ != width || height_ != height) {
     WVLOG_I(
         "NWeb size change from %{public}u*%{public}u to "
@@ -117,12 +118,14 @@ void NWebOutputHandler::Resize(uint32_t width, uint32_t height) {
       WVLOG_E("frame_size_ is Invalid");
       return;
     }
-    if (!dump_path_.empty() || dump_buf_ == nullptr) {
+    if (!dump_path_.empty() && frame_size_ > 0) {
       auto buf = new char[frame_size_];
       if (!buf) {
         return;
       }
       dump_buf_.reset(buf);
+    } else {
+      dump_buf_.reset();
     }
 
     if (!is_initialized_resize_) {
@@ -217,7 +220,16 @@ void NWebOutputHandler::SetFrameInfoDump(bool flag) {
 }
 
 void NWebOutputHandler::SetDumpPath(const std::string& path) {
+  std::unique_lock<std::mutex> lock(dump_mtx_);
   dump_path_ = path;
+  if (dump_path_.empty()) {
+    dump_buf_.reset();
+    return;
+  }
+  // Init/Resize runs before the dump path is configured.
+  if (!dump_buf_ && frame_size_ > 0) {
+    dump_buf_.reset(new char[frame_size_]);
+  }
 }
 
 void NWebOutputHandler::BmpDumpHelper::DumpToBmp(const std::string& filename,
