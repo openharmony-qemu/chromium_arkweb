@@ -85,6 +85,7 @@ CONTENT_EXPORT extern const char kEnableNwebExGetZoomLevel[];
 CONTENT_EXPORT extern const char kEnableNwebExPullToRefresh[];
 CONTENT_EXPORT extern const char kEnableNwebExDelegateCompositing[];
 CONTENT_EXPORT extern const char kNwebExContentRenderingDelay[];
+CONTENT_EXPORT extern const char kEnableNwebExStandardCompliantNonSpecialSchemeUrlParsing[];
 #endif
 
 #if BUILDFLAG(ARKWEB_BFCACHE)

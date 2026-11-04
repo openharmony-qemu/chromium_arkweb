@@ -385,8 +385,9 @@ if (!enable_arkweb) {
   arkweb_evict_unlock_frames = false
   arkweb_v8_oom_monitor = false
   arkweb_web_app = false
- arkweb_warmup_spare_render_process = false
+  arkweb_warmup_spare_render_process = false
   arkweb_ext_actor = false
+  arkweb_ext_standard_compliant_non_special_scheme_url_parsing = false
 }
 
 buildflag_header("features") {
@@ -701,7 +702,8 @@ buildflag_header("features") {
       "ARKWEB_EXT_EXTENSIONS_HEADER_CLIENT=false",
       "ARKWEB_WEB_APP=false",
       "ARKWEB_EXT_SAFEBROWSING=false",
-      "ARKWEB_EXT_ACTOR=$arkweb_ext_actor"
+      "ARKWEB_EXT_ACTOR=$arkweb_ext_actor",
+      "ARKWEB_EXT_STANDARD_COMPLIANT_NON_SPECIAL_SCHEME_URL_PARSING=false"
     ]
   }
 
