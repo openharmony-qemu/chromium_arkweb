@@ -14,6 +14,9 @@
  */
 
 #include "appfreeze_monitor_render_impl.h"
+
+#include <atomic>
+
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/platform.h"
 
@@ -22,7 +25,7 @@
 #endif
 
 namespace render_js_freeze {
-bool reported_from_browser = false;
+std::atomic<bool> reported_from_browser{false};
 }
 
 void ReportRenderFreeze(int32_t pid, const std::string& processName, const std::string& freezeMsg, int32_t uid) {
@@ -38,11 +41,11 @@ void ReportRenderFreeze(int32_t pid, const std::string& processName, const std::
 }
 
 bool AppfreezeMonitorImpl::IsReportedFromBrowser() {
-  return render_js_freeze::reported_from_browser;
+  return render_js_freeze::reported_from_browser.load(std::memory_order_acquire);
 }
 
 void OnFreezeReportedFromBrowser() {
-  render_js_freeze::reported_from_browser = true;
+  render_js_freeze::reported_from_browser.store(true, std::memory_order_release);
 }
 
 AppfreezeMonitorImpl::AppfreezeMonitorImpl() {
@@ -72,6 +75,6 @@ void AppfreezeMonitorImpl::GetRemoteAndSend(int32_t pid, const std::string& proc
                                             int32_t uid) {
   if (remote_.is_bound()) {
     remote_->ReportRenderFreeze(pid, processName, freezeMsg, uid);
-    reported_ = true;
+    reported_.store(true, std::memory_order_release);
   }
 }
