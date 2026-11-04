@@ -1,0 +1,191 @@
+/*
+ * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef EVENT_REPORT_H
+#define EVENT_REPORT_H
+
+#include <string>
+#include <vector>
+
+#include "base/functional/callback.h"
+#include "base/values.h"
+#include "url/gurl.h"
+#include "oh_web_performance_timing.h"
+
+enum class CrashType {
+    TIMEOUT,
+    MAILBOX_NONEXISTENT
+};
+
+enum RenderError {
+    RENDER_START_TIMEOUT = 0x11223301,
+};
+
+// Exit code used by renderer/gpu process when WaitForBrowserFd times out.
+// The browser side detects this exit code to actively report
+// CHILD_PROCESS_INIT_FAIL instead of the renderer reporting directly
+// (the Mojo IPC channel is not yet established during early startup).
+// 254 is chosen to minimise collision with common exit codes: Chromium child
+// processes normally exit with 0 (success) or low-valued signal-based codes.
+// Values 200-250 are occasionally used by libraries; 254 is in the rarely-used
+// high range and avoids 255 (which some systems map to -1 / signal death).
+constexpr int kRenderStartTimeoutExitCode = 254;
+
+void ReportChildProcessInitFail(bool is_gpu, int err);
+void ReportBlankScreen(int32_t reason, int32_t count);
+void ReportRenderJsFreeze(int32_t pid, const std::string& packageName, const std::string& processName,
+                          const std::string& freezeMsg, int32_t uid);
+
+void ReportRenderProcessTerminate(bool is_gpu, int32_t pid, const std::string& reason, int32_t error);
+
+void ReportPageLoadStats(int instanceId,
+                         int accessSumCount,
+                         int accessSuccCount,
+                         int accessFailCount);
+
+void ReportMultiInstanceStats(int instanceId, int nwebCount, int nwebMaxCount);
+
+void ReportPageLoadErrorInfo(int instanceId,
+                             const std::string errorType,
+                             int errorCode,
+                             uint32_t errorCount,
+                             const std::string errorDesc);
+
+void ReportJankStats(int64_t startTime,
+                     int duration,
+                     std::vector<uint16_t> jankStats,
+                     int jankStatsVer,
+                     const GURL& url = GURL());
+
+void ReportLockdownModeStatus(void);
+
+void ReportPageLoadTimeStats(OhWebPerformanceTiming loadPageTime, const GURL& url = GURL());
+
+void ReportAudioPlayErrorInfo(const std::string errorType,
+                              int errorCode,
+                              const std::string errorDesc);
+
+void ReportVideoPlayErrorInfo(const std::string errorType,
+                              int errorCode,
+                              const std::string errorDesc);
+
+void ReportAudioFrameDropStats(int frameCount);
+
+void ReportVideoFrameDropStats(uint32_t frameCount, uint64_t frameDuration);
+
+void ReportDuplicateFileUpload(const std::string errorDesc);
+
+void ReportDragDropStatus(const std::string& eventName, int32_t id);
+
+void ReportDragDropInfo(const std::string& eventName,
+                        int32_t id,
+                        const std::string& fragment,
+                        const std::string& linkUrl,
+                        const std::string& linkHtml);
+
+void ReportForceZoomEnable(void);
+
+void ReportOpenPrivateMode(void);
+
+void ReportPageDownLoadErrorInfo(long downloadId, int errorCode);
+
+void ReportSlideJankStats(int64_t startTime,
+                          int64_t duration,
+                          int32_t totalAppFrames,
+                          int32_t totalAppMissedFrames,
+                          int64_t maxAppFrametime,
+                          int32_t maxAppSeqMissedFrames);
+
+void ReportSiteIsolationMode(const std::string site_isolation_status);
+
+void ReportWebMediaPlayErrorInfo(const std::string& errorType,
+                              int errorCode,
+                              const std::string& errorDesc);
+ 
+void ReportAvSessionStatus(const std::string& disable_web_av_session_status);
+
+void ReportDrmEncryptedPlayback(const std::string& mediaType,
+                                const std::string& drmSystem,
+                                const std::string& encryptedAlgo);
+
+void ReportVideoEncodeFormat(const std::string& encodeFormat);
+
+void ReportFfmpegCodecOperation(const std::string& codecType, const std::string& format);
+
+void ReportAudioHardwareDecode(const std::string& codecFormat);
+
+void ReportPictureDecode(const std::string& pictureType);
+
+void ReportRendererMem(const std::string& type,
+                       const std::string& pid,
+                       const std::string& rss,
+                       const std::string& pss,
+                       const std::string& js_heap_total,
+                       const std::string& js_heap_used,
+                       const std::string& gpu_mem,
+                       const std::string& url);
+
+void ReportGpuProcessEvent(CrashType type, std::string eventContent);
+
+void ReportBasicRendererMem(const std::string& pid,
+                       const std::string& rss,
+                       const std::string& pss,
+                       const std::string& swap_pss,
+                       const std::string& fd_num,
+                       const std::string& oom_score_adj,
+                       const std::string& js_heap_total,
+                       const std::string& js_heap_used,
+                       const std::string& pa,
+                       const std::string& gpu_mem);
+
+void ReportBasicBrowserMem(const std::string& pid,
+                       const std::string& rss,
+                       const std::string& pss,
+                       const std::string& swap_pss,
+                       const std::string& fd_num,
+                       const std::string& oom_score_adj,
+                       const std::string& pa);
+
+void ReportDragBlank(int64_t duration);
+
+void ReportFirstMeaningfulPaintDone(OhWebPerformanceTiming loadPageTime);
+
+void ReportAppfreeze(int32_t pid, const std::string& packageName, const std::string& processName,
+                     const std::string& freezeMsg, int32_t uid);
+
+void ReportSkiaOOMError(const std::string errorDesc);
+
+void ReportGetAllImage(const std::string& error_code);
+
+void ReportRenderProcessNotResponding(const std::string& pid, const std::string& reason, const GURL& url = GURL());
+
+void ReportRenderProcessResponding();
+
+void ReportMetricsLogData(const std::string& compressed_log_data, const std::string& url);
+
+bool ReportUniversalAccessBlocked();
+
+void ReportCacheDataSeparateMigrate(bool isSeparation,
+                                bool isMigration,
+                                bool isSeparationSuccess,
+                                bool isMigrationSuccess);
+
+using HiSysEventForwarder =
+    base::RepeatingCallback<void(const std::string& event_name,
+                                 base::Value::Dict info)>;
+
+void SetHiSysEventForwarder(HiSysEventForwarder forwarder);
+
+#endif

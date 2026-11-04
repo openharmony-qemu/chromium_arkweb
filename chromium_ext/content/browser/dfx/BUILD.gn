@@ -1,0 +1,56 @@
+source_set("collect_memory_utils") {
+  sources = [
+    "collect_memory_utils.cc",
+    "collect_memory_utils.h",
+  ]
+  deps = [ "//base" ]
+}
+
+source_set("dfx_monitor_browser") {
+  sources = [
+    "dfx_reporter_browser_impl.cc",
+    "dfx_reporter_browser_impl.h",
+  ]
+  deps = [
+    "//base",
+    "//mojo/public/cpp/bindings",
+    ":collect_memory_utils",
+    "mojom",
+  ]
+}
+source_set("memory_monitor_render") {
+  sources = [
+    "memory_monitor_render_impl.cc",
+    "memory_monitor_render_impl.h",
+  ]
+  deps = [
+    "//base",
+    ":collect_memory_utils",
+    "mojom",
+    "//v8",
+  ]
+}
+source_set("dfx_event_sender") {
+  # Sources live in content/renderer/ but are registered here for cohesion
+  # with the rest of the DFX build targets.
+  sources = [
+    "//arkweb/chromium_ext/content/renderer/dfx_event_sender.cc",
+    "//arkweb/chromium_ext/content/renderer/dfx_event_sender.h",
+  ]
+  public_deps = [
+    "//base",
+    "mojom",
+    "//mojo/public/cpp/bindings",
+  ]
+}
+source_set("appfreeze_monitor") {
+  sources = [
+    "appfreeze_monitor_render_impl.cc",
+    "appfreeze_monitor_render_impl.h",
+  ]
+  deps = [
+    "mojom",
+    "//third_party/blink/public:blink_headers",
+    "//arkweb/chromium_ext/content/common/hicollie_freeze_reporter:hicollie_freeze_reporter",
+  ]
+}

@@ -1,0 +1,31 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+import("//arkweb/build/features/features.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+fuzzer_test("arkweb_content_settings_agent_impl_ext_fuzzer") {
+  sources = [
+    "arkweb_content_settings_agent_impl_ext_fuzzer.cc",
+  ]
+  include_dirs = [
+    "//cef",
+    "//cef/include",
+    "//ohos_nweb/include",
+    "//ohos_nweb/src",
+    "//arkweb/chromium_ext/components/content_settings/renderer",
+    "//v8/include",
+  ]
+  deps = [
+    "//base:i18n",
+    "//components/content_settings/renderer:renderer",
+    "//arkweb/ohos_adapter_ndk:adapter_ndk_stub",
+    "//cef:libcef_static",
+    "//ohos_nweb:cef_nweb",
+    "//ohos_nweb:nweb_sources",
+  ]
+}

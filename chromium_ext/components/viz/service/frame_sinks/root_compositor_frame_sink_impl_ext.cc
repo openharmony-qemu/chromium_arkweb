@@ -1,0 +1,225 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "arkweb/chromium_ext/components/viz/service/frame_sinks/root_compositor_frame_sink_impl_ext.h"
+#include "arkweb/chromium_ext/components/viz/service/display/arkweb_display_utils.h"
+
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+#include "arkweb/chromium_ext/components/viz/service/frame_sinks/external_begin_frame_source_ohos.h"
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+
+#include "base/trace_event/trace_event.h"
+
+namespace viz {
+
+RootCompositorFrameSinkImplExt::RootCompositorFrameSinkImplExt(
+    FrameSinkManagerImpl* frame_sink_manager,
+    const FrameSinkId& frame_sink_id,
+    mojo::PendingAssociatedReceiver<mojom::CompositorFrameSink>
+        frame_sink_receiver,
+    mojo::PendingRemote<mojom::CompositorFrameSinkClient> frame_sink_client,
+    mojo::PendingAssociatedReceiver<mojom::DisplayPrivate> display_receiver,
+    mojo::Remote<mojom::DisplayClient> display_client,
+    std::unique_ptr<SyntheticBeginFrameSource> synthetic_begin_frame_source,
+    std::unique_ptr<ExternalBeginFrameSource> external_begin_frame_source,
+    std::unique_ptr<Display> display,
+    bool hw_support_for_multiple_refresh_rates)
+    : RootCompositorFrameSinkImpl(frame_sink_manager,
+                                  frame_sink_id,
+                                  std::move(frame_sink_receiver),
+                                  std::move(frame_sink_client),
+                                  std::move(display_receiver),
+                                  std::move(display_client),
+                                  std::move(synthetic_begin_frame_source),
+                                  std::move(external_begin_frame_source),
+                                  std::move(display),
+                                  hw_support_for_multiple_refresh_rates) {
+#if BUILDFLAG(ARKWEB_BLANK_OPTIMIZE)
+  if (display_ && display_->display_utils() && managerImplUtils.get()) {
+    display_->display_utils()->SetGpuServiceImpl(managerImplUtils->gpu_service());
+  }
+#endif
+}
+
+#if BUILDFLAG(ARKWEB_SYNC_RENDER)
+void RootCompositorFrameSinkImplExt::SetDrawRect(const gfx::Rect& new_rect) {
+  external_begin_frame_source_->SetDrawRect(new_rect);
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->SetDrawRect(new_rect);
+#endif
+}
+
+void RootCompositorFrameSinkImplExt::SetDrawMode(int32_t mode) {
+  LOG(INFO) << "rootCompositorFrameSinkImpl::SetDrawMode";
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->SetDrawMode(mode);
+#endif
+}
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+
+#if BUILDFLAG(ARKWEB_SAME_LAYER)
+void RootCompositorFrameSinkImplExt::SetNativeInnerWeb(bool isInnerWeb) {
+#if !defined(COMPONENT_BUILD) // FIXME
+   display_->display_utils()->SetNativeInnerWeb(isInnerWeb);
+#endif
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_VSYNC_SCHEDULE)
+void RootCompositorFrameSinkImplExt::SetBypassVsyncCondition(int32_t condition) {
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->SetBypassVsyncCondition(condition);
+#endif
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+void RootCompositorFrameSinkImplExt::SetShouldFrameSubmissionBeforeDraw(
+    bool should,
+    SetShouldFrameSubmissionBeforeDrawCallback callback) {
+  TRACE_EVENT1(
+      "viz", "RootCompositorFrameSinkImpl::SetShouldFrameSubmissionBeforeDraw",
+      "should", should);
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->SetShouldFrameSubmissionBeforeDraw(should);
+#endif
+  if (callback) {
+    std::move(callback).Run();
+  }
+}
+#endif  // BUILDFLAG(ARKWEB_COMPOSITE_RENDER)
+
+#if BUILDFLAG(ARKWEB_OCCLUDED_OPT)
+void RootCompositorFrameSinkImplExt::SetEnableLowerFrameRate(bool enabled) {
+  external_begin_frame_source_->SetEnableLowerFrameRate(enabled);
+}
+
+void RootCompositorFrameSinkImplExt::SetEnableHalfFrameRate(bool enabled) {
+  external_begin_frame_source_->SetEnableHalfFrameRate(enabled);
+}
+
+void RootCompositorFrameSinkImplExt::EvictFrameBackBuffers() {
+  TRACE_EVENT0("viz", "RootCompositorFrameSinkImpl::EvictFrameBackBuffers");
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->DiscardBackbuffer();
+#endif
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_CLEAN_BUFFERS_WHEN_INVISIBLE)
+void RootCompositorFrameSinkImplExt::SetIfNeedCleanBuffers(bool need_clean_buffers)
+{
+  TRACE_EVENT1("viz", "RootCompositorFrameSinkImplExt::SetIfNeedCleanBuffers ",
+               "need_clean_buffers: ", need_clean_buffers);
+#if !defined(COMPONENT_BUILD) // FIXME
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->SetIfNeedCleanBuffers(need_clean_buffers);
+  }
+#endif
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_OFFLINE_WEB_EVICT_BACK_BUFFERS)
+void RootCompositorFrameSinkImplExt::SetIsOfflineWebComponentInactive(bool is_inactive) {
+#if !defined(COMPONENT_BUILD) // FIXME
+  display_->display_utils()->CleanBufferAfterSwapBuffer(is_inactive);
+#endif
+}
+#endif
+
+void RootCompositorFrameSinkImplExt::DiscardCompositingResources() {
+#if !defined(COMPONENT_BUILD)
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->DiscardCompositingResources();
+  }
+#endif
+}
+
+void RootCompositorFrameSinkImplExt::UpdateFocusAndScreenStatus(
+    bool is_focused,
+    bool is_single_screen) {
+#if !defined(COMPONENT_BUILD)
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->UpdateFocusAndScreenStatus(is_focused,
+                                                          is_single_screen);
+  }
+#endif
+}
+
+#if BUILDFLAG(ARKWEB_VIDEO_LTPO)
+void RootCompositorFrameSinkImplExt::UpdateVSyncFrequency(int frame_rate) {
+  external_begin_frame_source_->UpdateVSyncFrequency(frame_rate);
+}
+
+void RootCompositorFrameSinkImplExt::ResetVSyncFrequency() {
+  external_begin_frame_source_->ResetVSyncFrequency();
+}
+#endif
+#if BUILDFLAG(ARKWEB_INPUT_EVENTS)
+void RootCompositorFrameSinkImplExt::SendInternalBeginFrame() {
+  external_begin_frame_source_->SendInternalBeginFrame();
+}
+#endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
+
+#if BUILDFLAG(IS_ARKWEB) && BUILDFLAG(ARKWEB_PERFORMANCE_JITTER)
+void RootCompositorFrameSinkImplExt::SetCurrentFrameSinkId(
+    const FrameSinkId& frame_sink_id) {
+  external_begin_frame_source_->SetCurrentFrameSinkId(frame_sink_id);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_MAXIMIZE_RESIZE)
+void RootCompositorFrameSinkImplExt::DisableSwapUntilMaximized() {
+  if (display_) {
+#if !defined(COMPONENT_BUILD) // FIXME
+    display_->display_utils()->DisableSwapUntilMaximized();
+#endif
+  }
+}
+
+void RootCompositorFrameSinkImplExt::RestoreRenderFit(
+    const FrameSinkId& frame_sink_id) {
+  if (managerImplUtils) {
+    managerImplUtils->RestoreRenderFit(frame_sink_id);
+  }
+}
+#endif  // ARKWEB_MAXIMIZE_RESIZE
+
+#if BUILDFLAG(ARKWEB_ROTATE_RESIZE)
+void RootCompositorFrameSinkImplExt::ModifyRenderFit(int32_t fitType,
+                                                     const FrameSinkId& frame_sink_id) {
+  if (managerImplUtils) {
+    managerImplUtils->ModifyRenderFit(fitType, frame_sink_id);
+  }
+}
+#endif  // ARKWEB_ROTATE_RESIZE
+
+#if BUILDFLAG(ARKWEB_PIP)
+void RootCompositorFrameSinkImplExt::SetPipActive(bool active) {
+  external_begin_frame_source_->SetPipActive(active);
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_DFX_DUMP)
+void RootCompositorFrameSinkImplExt::SetAsyncStackId(uint64_t stackId) {
+#if !defined(COMPONENT_BUILD) // FIXME
+  if (display_ && display_->display_utils()) {
+    display_->display_utils()->SetAsyncStackId(stackId);
+  }
+#endif
+}
+#endif
+
+}  // namespace viz

@@ -1,0 +1,15 @@
+source_set("network_service") {
+  sources = [
+    "//arkweb/chromium_ext/services/network/url_loader_utils.h",
+    "//arkweb/chromium_ext/services/network/url_loader_utils.cc",
+    "//arkweb/chromium_ext/services/network/url_loader_ext.h",
+    "//arkweb/chromium_ext/services/network/url_loader_ext.cc",
+  ]
+
+  deps = [
+    "//net",
+    "//base",
+    "//components/privacy_sandbox/masked_domain_list:masked_domain_list_proto",
+    "//services/network/public/mojom:mojom_content_security_policy",
+  ]
+}

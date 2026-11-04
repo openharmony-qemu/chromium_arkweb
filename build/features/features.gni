@@ -1,0 +1,415 @@
+# Copyright (c) 2022 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+import("//arkweb/build/config/sanitizers/sanitizers.gni")
+import("//build/config/sanitizers/sanitizers.gni")
+import("//build/config/compiler/pgo/pgo.gni")
+
+if (is_arkweb_ext) {
+  import("//ohos_nweb_ex/config.gni")
+} else {
+  import("//ohos_nweb/config.gni")
+}
+declare_args() {
+  if (is_hwasan || is_asan) {
+    ohos_package_name = arkweb_package_name + "_asan"
+  } else {
+    ohos_package_name = arkweb_package_name
+  }
+
+  arkweb_accessibility = true
+  arkweb_invisible_render_throttle = true
+  arkweb_ai = true
+  arkweb_ai_write = true
+  arkweb_api_init_web_engine = true
+  arkweb_api_per = true
+  arkweb_adblock = !is_component_build
+  arkweb_arkweb_extensions = true
+  arkweb_notification = true
+  arkweb_asan = false
+  arkweb_autofill = true
+  arkweb_background_color = true
+  arkweb_bfcache = true
+  arkweb_bugfix_crash = true
+  arkweb_ca = true
+  arkweb_cache = true
+  arkweb_clipboard = true
+  arkweb_close_steps = true
+  arkweb_cloud_control = true
+  arkweb_composite_render = true
+  arkweb_copy_option = true
+  arkweb_cookie = true
+  arkweb_cookie_ndk = true
+  arkweb_cors = true
+  arkweb_crashpad = true
+  arkweb_css_font = true
+  arkweb_css_input_time = true
+  arkweb_custom_dns = !is_component_build
+  arkweb_custom_video_player = true
+  arkweb_darkmode = true
+  arkweb_datalist = true
+  arkweb_devtools = true
+  arkweb_dfx_dump = !is_component_build
+  arkweb_dfx_logging = true
+  arkweb_dfx_tracing = true
+  arkweb_disable_services = true
+  arkweb_dispatch_before_unload = true
+  arkweb_display_cutout = true
+  arkweb_download = true
+  arkweb_drag_drop = true
+  arkweb_drdc = true
+  arkweb_edm_policy = !is_component_build
+  arkweb_enable_cdm = !is_component_build
+  arkweb_enable_pointer_hardened = true
+  arkweb_enable_random = true
+  arkweb_enable_wiseplay = true
+  arkweb_encrypt = true
+  arkweb_ex_download = true
+  arkweb_ex_network_connection = false
+  arkweb_favicon = true
+  arkweb_fcp = true
+  arkweb_fido = !is_component_build
+  arkweb_file_upload = true
+  arkweb_focus = true
+  arkweb_fullscreen = true
+  arkweb_find_in_page = true
+  arkweb_geolocation = true
+  arkweb_hap_decompressed = true
+  arkweb_html_select = true
+  arkweb_http_dns = true
+  arkweb_i18n = true
+  arkweb_incognito_mode = true
+  arkweb_init_callback = true
+  arkweb_input_events = true
+  arkweb_ion_buffer = true
+  arkweb_itp = true
+  arkweb_jsproxy = true
+  arkweb_keyboard_appearance = true
+  arkweb_load_per = true
+  arkweb_media = true
+  arkweb_media_avsession = true
+  arkweb_media_capabilities_enhance = true
+  arkweb_media_dmabuf = true
+  arkweb_media_mute_audio = true
+  arkweb_media_memory_pressure = false
+  arkweb_media_network_traffic_prompt = false
+  arkweb_media_per = true
+  arkweb_media_policy = true
+  arkweb_media_capture = true
+  arkweb_media_hls = true
+  arkweb_media_interaction = true
+  arkweb_mem = true
+  arkweb_menu = true
+  arkweb_menu_handle = true
+  arkweb_mixed_content = true
+  arkweb_msgport = true
+  arkweb_multi_ip_connect = !is_component_build
+  arkweb_multi_window = true
+  arkweb_mojo_connector_teardown_guard = true
+  arkweb_navigation = true
+  arkweb_network_conninfo = true
+  arkweb_network_load = true
+  arkweb_network_proxy = true
+  arkweb_network_proxy_auth_retry = true
+  arkweb_network_base = true
+  arkweb_network_service = true
+  arkweb_network_dfx = true
+  arkweb_night_mode = true
+  arkweb_no_state_prefetch = true
+  arkweb_page_up_down = true
+  arkweb_password_autofill = true
+  arkweb_pdf = true
+  arkweb_performance_discard_bg_webpage = true
+  arkweb_performance_inc_freq = !is_component_build
+  arkweb_performance_jitter = true
+  arkweb_performance_memory_threshold = true
+  arkweb_trim_render_process_memory = true
+  arkweb_performance_persistent_task = true
+  arkweb_performance_scheduling = !is_component_build
+  arkweb_per_dfx = true
+  arkweb_post_url = true
+  arkweb_prefs = true
+  arkweb_print = true
+  arkweb_prp_preload = true
+  arkweb_render_remove_binder = true
+  arkweb_renderer_anr_dump = true
+  arkweb_render_process_mode = true
+  arkweb_render_process_share = true
+  arkweb_render_process_startup = true
+  arkweb_recource_scheme = true
+  arkweb_save_page = true
+  arkweb_scheme_handler = true
+  arkweb_screen_lock = true
+  arkweb_screen_rotation = true
+  arkweb_scrollbar = true
+  arkweb_scrollbar_avoid_area = true
+  arkweb_scrollbar_avoid_corner = true
+  arkweb_softkeyboard_avoid = true
+  arkweb_scroll_performance = true
+  arkweb_secure_javascript_proxy = true
+  arkweb_security_state = true
+  arkweb_sensor = true
+  arkweb_site_isolation = true
+  arkweb_slide = true
+  arkweb_software_compositor = true
+  arkweb_ssl_auth_algo = true
+  arkweb_suspend_all_timers = true
+  arkweb_theme_font = true
+  arkweb_unittests = true
+  arkweb_url_trust_list = true
+  arkweb_useragent = true
+  arkweb_video_ltpo = !is_component_build
+  arkweb_video_assistant = !is_component_build
+  arkweb_viewport = true
+  arkweb_warmup_serviceworker = false
+  arkweb_watch_optimize_sc = true
+  arkweb_webrtc = true
+  arkweb_webstorage = true
+  arkweb_wpt = true
+  arkweb_custom_fonts = true
+  arkweb_use_fuzzing_engine = use_fuzzing_engine
+  arkweb_zoom = true
+  arkweb_report_sys_event = !is_component_build
+  arkweb_get_scroll_offset = true
+  arkweb_web_ltpo = true
+  arkweb_ndk = true
+  arkweb_cert_authentication = true
+  arkweb_fling = !is_component_build
+  arkweb_skia_cache = true
+  arkweb_occluded_opt = true
+  arkweb_delegate_compositing = true
+  arkweb_optimize_parser_budget = true
+  arkweb_performance_trace = true
+  arkweb_report_loss_frame = !is_component_build
+  arkweb_singleprocess_prefetch = true
+  arkweb_report_render_state = true
+  arkweb_async_jsbridge = true
+  arkweb_nptr_protection = true
+  arkweb_inject_offline_resource = !is_component_build
+  arkweb_prefetch_post = true
+  arkweb_max_cache_size = true
+  arkweb_resource_interception = !is_component_build
+  arkweb_gl_init = true
+  arkweb_discard = true
+  arkweb_activity_state = true
+  arkweb_time_zone = true
+  arkweb_supports_damage_region = true
+  arkweb_webgl = true
+  arkweb_pinch_smooth = true
+  arkweb_fit_content = true
+  arkweb_sync_render = true
+  arkweb_throttle_frame = !is_component_build
+  arkweb_terminate_render = true
+  arkweb_oop_gpu_process = true
+  arkweb_ex_topcontrols = true
+  arkweb_dss = true
+  arkweb_gpu_service = true
+  arkweb_same_layer = true
+  arkweb_partial_draw = true
+  arkweb_js_on_document_end = true
+  arkweb_touchpad_fling = true
+  arkweb_media_codec = true
+  arkweb_media_audio = true
+  arkweb_performance_network_trace = true
+  arkweb_custom_scheme_codecache = true
+  arkweb_performance_lcp = true
+  arkweb_safe_function = true
+  arkweb_crashpad_frok = true
+  arkweb_fuzz_compile_error_fix = true
+  arkweb_precompile = true
+  arkweb_use_unique_renderer_process_id = true
+  arkweb_enable_compile_trace = true
+  akrweb_content_renderer_media = true
+  arkweb_javascript_bridge = !is_component_build
+  arkweb_active_policy = true
+  arkweb_vibrate = true
+  arkweb_resource_intercept = true
+  arkweb_disable_mojo_js = true
+  arkweb_logger_report = true
+  arkweb_slide_ltpo = !is_component_build
+  arkweb_swap_buffer_trace = true
+  arkweb_safebrowsing = true
+  arkweb_heif_support = !is_component_build
+  arkweb_advanced_security_mode = !is_component_build
+  arkweb_permission = true
+  arkweb_maximize_resize = true
+  arkweb_rotate_resize = true
+  arkweb_drag_resize = true
+  arkweb_ex_screen_capture = true
+  arkweb_ex_refresh_iframe = true
+  arkweb_notification = true
+  arkweb_vulkan = true
+  arkweb_vulkan_inc_present = true
+  arkweb_angle = !is_component_build
+  arkweb_gpu = !is_component_build
+  arkweb_pull_to_refresh = true
+  arkweb_ex_http_dns_fallback = true
+  arkweb_d_vsync = true
+  arkweb_screen_offset = true
+  arkweb_screen_size = true
+  arkweb_canvas_commit = true
+  arkweb_clipped_image_scaling = !is_component_build
+  arkweb_vsync_schedule = true
+  arkweb_gpu_image_persistent_cache_limit = true
+  arkweb_pip = !is_component_build
+  arkweb_fullscreen_video_overlay = true
+  arkweb_immediate_destory = false
+  arkweb_cwnd = true
+  arkweb_blank_optimize = !is_component_build
+  arkweb_blank_screen_detection = true
+  arkweb_blank_screen_monitor = true
+  arkweb_first_screen_paint = true
+  arkweb_bgtask = false
+  arkweb_privacy_compliance = true
+  arkweb_v8_compile = true
+  arkweb_viewport_avoid = true
+  arkweb_gwp_asan = true
+  arkweb_error_page = true
+  arkweb_blank_prop_config = true
+  arkweb_autolayout = true
+  arkweb_enable_prebuild = false
+  arkweb_ex_fallback_proxy = true
+  arkweb_console_logging = true
+  arkweb_offline_web_evict_back_buffers = true
+  arkweb_ohos_mem_usage_report = true
+  arkweb_media_cast = true
+  arkweb_custom_viewport_width = true
+  arkweb_jsheap_dump = false
+  arkweb_enable_jsdump = !is_component_build
+  arkweb_v8_oom_monitor = true
+  arkweb_clean_buffers_when_invisible = !is_component_build
+  arkweb_not_load_iframe = true
+  arkweb_font_settings = true
+  arkweb_evict_unlock_frames = !is_component_build
+  arkweb_web_app = true
+  arkweb_warmup_spare_render_process = true
+  arkweb_histogram_dfx = true
+  arkweb_network_ipv6_slaac_filter = true
+
+  if (!enable_arkweb_ext) {
+    arkweb_ext_download = true
+    arkweb_ext_file_access=false
+    arkweb_ext_network_connection=true
+    arkweb_ext_http_dns_fallback=false
+    arkweb_ext_http_dns_fallback_on_dns_hijacking=false
+    arkweb_ext_password=false
+    arkweb_ext_https_upgrades=false
+    arkweb_web_app = false
+    arkweb_ext_safebrowsing = false
+  }
+}
+
+# AI HDR depends on delegated compositing at compile time.
+declare_args() {
+  arkweb_ai_hdr = arkweb_delegate_compositing
+}
+
+# Features enabled in mojom bindings.
+arkweb_mojo_features = []
+
+#if BUILDFLAG(IS_ARKWEB)
+if (defined(is_arkweb) && is_arkweb) {
+  arkweb_mojo_features += [ "is_arkweb" ]
+}  #endif  // BUILDFLAG(IS_ARKWEB)
+
+#if BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
+if (defined(arkweb_network_conninfo) && arkweb_network_conninfo) {
+  arkweb_mojo_features += [ "arkweb_network_conninfo" ]
+}  #endif  // BUILDFLAG(ARKWEB_NETWORK_CONNINFO)
+
+#if BUILDFLAG(ARKWEB_PRP_PRELOAD)
+if (defined(arkweb_prp_preload) && arkweb_prp_preload) {
+  arkweb_mojo_features += [ "arkweb_prp_preload" ]
+}  #endif  // BUILDFLAG(ARKWEB_PRP_PRELOAD)
+
+#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
+if (defined(arkweb_logger_report) && arkweb_logger_report) {
+  arkweb_mojo_features += [ "arkweb_logger_report" ]
+}  #endif  // BUILDFLAG(ARKWEB_LOGGER_REPORT)
+
+#if BUILDFLAG(ARKWEB_EX_DOWNLOAD)
+if (defined(arkweb_ex_download) && arkweb_ex_download) {
+  arkweb_mojo_features += [ "arkweb_ex_download" ]
+}  #endif  // BUILDFLAG(ARKWEB_EX_DOWNLOAD)
+
+#if BUILDFLAG(ARKWEB_RESOURCE_INTERCEPTION)
+if (defined(arkweb_resource_interception) && arkweb_resource_interception) {
+  arkweb_mojo_features += [ "arkweb_resource_interception" ]
+}  #endif // BUILDFLAG(ARKWEB_RESOURCE_INTERCEPTION)
+
+#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
+if (defined(arkweb_network_load) && arkweb_network_load) {
+  arkweb_mojo_features += [ "arkweb_network_load" ]
+}  #endif // BUILDFLAG(ARKWEB_NETWORK_LOAD)
+
+#if BUILDFLAG(ARKWEB_COOKIE)
+if (is_android || (defined(arkweb_cookie) && arkweb_cookie)) {
+  arkweb_mojo_features += [ "is_android_or_arkweb_cookie" ]
+}  #endif  // BUILDFLAG(ARKWEB_COOKIE)
+
+if (defined(arkweb_ex_fallback_proxy) && arkweb_ex_fallback_proxy) {
+  arkweb_mojo_features += [ "arkweb_ex_fallback_proxy" ]
+}
+
+#if BUILDFLAG(ARKWEB_CUSTOM_DNS)
+if (defined(arkweb_custom_dns) && arkweb_custom_dns) {
+  arkweb_mojo_features += [ "arkweb_custom_dns" ]
+}  #endif  // BUILDFLAG(ARKWEB_CUSTOM_DNS)
+
+if (defined(arkweb_ext_network_connection) && arkweb_ext_network_connection) {
+  arkweb_mojo_features += [ "arkweb_ext_network_connection" ]
+}
+if (defined(arkweb_ext_http_dns_fallback) && arkweb_ext_http_dns_fallback) {
+  arkweb_mojo_features += [ "arkweb_ext_http_dns_fallback" ]
+}
+if (defined(arkweb_ext_http_dns_fallback_on_dns_hijacking) && arkweb_ext_http_dns_fallback_on_dns_hijacking) {
+  arkweb_mojo_features += [ "arkweb_ext_http_dns_fallback_on_dns_hijacking" ]
+}
+if (defined(arkweb_reader_mode) && arkweb_reader_mode) {
+  arkweb_mojo_features += [ "arkweb_reader_mode" ]
+}
+if (defined(arkweb_blank_screen_monitor) && arkweb_blank_screen_monitor) {
+  arkweb_mojo_features += [ "arkweb_blank_screen_monitor" ]
+}
+if (defined(arkweb_ext_video_load_optimization) &&
+    arkweb_ext_video_load_optimization) {
+  arkweb_mojo_features += [ "arkweb_ext_video_load_optimization" ]
+}
+
+#if BUILDFLAG(ARKWEB_FIDO)
+if (defined(arkweb_fido) && arkweb_fido) {
+  arkweb_mojo_features += [ "arkweb_fido" ]
+}
+
+#endif // BUILDFLAG(ARKWEB_FIDO)
+
+#if BUILDFLAG(ARKWEB_NETWORK_SERVICE)
+if (defined(arkweb_network_service) && arkweb_network_service) {
+  arkweb_mojo_features += [ "arkweb_network_service" ]
+}
+#endif // BUILDFLAG(ARKWEB_NETWORK_SERVICE)
+
+#if BUILDFLAG(ARKWEB_CUSTOM_VIEWPORT_WIDTH)
+if (defined(arkweb_custom_viewport_width) && arkweb_custom_viewport_width) {
+  arkweb_mojo_features += [ "arkweb_custom_viewport_width" ]
+}
+#endif // BUILDFLAG(ARKWEB_CUSTOM_VIEWPORT_WIDTH)
+
+#if BUILDFLAG(ARKWEB_AI_HDR)
+if (defined(arkweb_ai_hdr) && arkweb_ai_hdr) {
+  arkweb_mojo_features += [ "arkweb_ai_hdr" ]
+}  #endif  // BUILDFLAG(ARKWEB_AI_HDR)
+
+#if BUILDFLAG(ARKWEB_CERT_AUTHENTICATION)
+if (defined(arkweb_cert_authentication) && arkweb_cert_authentication && !is_component_build) {
+  arkweb_mojo_features += [ "arkweb_cert_authentication" ]
+}  #endif  // BUILDFLAG(ARKWEB_CERT_AUTHENTICATION)

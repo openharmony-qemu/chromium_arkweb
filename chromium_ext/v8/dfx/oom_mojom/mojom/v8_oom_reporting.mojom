@@ -1,0 +1,5 @@
+module v8_oom.mojom;
+
+interface V8OOMReporter {
+  ReportV8OOM(string eventName, string oomInfoJson);
+};
