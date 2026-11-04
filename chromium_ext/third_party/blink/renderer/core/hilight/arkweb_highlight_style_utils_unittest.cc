@@ -28,7 +28,12 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_utils.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
+#include "third_party/blink/renderer/core/page/drag_actions.h"
+#include "third_party/blink/renderer/core/page/drag_controller_ext.h"
+#include "third_party/blink/renderer/core/page/drag_state.h"
+#include "third_party/blink/renderer/core/clipboard/data_transfer.h"
 #include "third_party/blink/renderer/core/testing/dummy_page_holder.h"
+#include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 
@@ -111,7 +116,7 @@ TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextForegroundColorNoSettings) {
   document_->GetSettings()->SetArkwebAgentEnabled(false);
   EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextForegroundColor(
                 *document_, mojom::blink::ColorScheme::kDark),
-            Color::kWhite);
+            Color::kBlack);
 }
 
 TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextBackgroundColorNoSettings) {
@@ -119,5 +124,60 @@ TEST_F(ArkWebHighlightStyleUtilsTest, GetTargetTextBackgroundColorNoSettings) {
   EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextBackgroundColor(
                 *document_, mojom::blink::ColorScheme::kLight),
             Color::FromRGBA32(shared_highlighting::kFragmentTextBackgroundColorARGB));
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest,
+       InSelectionDragging_TextDragging_ReturnsTrue) {
+  DragControllerExt& drag_controller =
+      page_holder_->GetPage().GetDragController();
+  auto& drag_state = drag_controller.GetDragState();
+  drag_state.drag_type_ = kDragSourceActionSelection;
+  drag_controller.SetDragInitState(true);
+
+  EXPECT_TRUE(ArkWebHighlightStyleUtils::InSelectionDragging(*document_));
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest,
+       InSelectionDragging_TextDraggingWhilePrinting_ReturnsFalse) {
+  DragControllerExt& drag_controller =
+      page_holder_->GetPage().GetDragController();
+  auto& drag_state = drag_controller.GetDragState();
+  drag_state.drag_type_ = kDragSourceActionSelection;
+  drag_controller.SetDragInitState(true);
+
+  document_->SetPrinting(Document::PrintingState::kPrinting);
+  EXPECT_FALSE(ArkWebHighlightStyleUtils::InSelectionDragging(*document_));
+  document_->SetPrinting(Document::PrintingState::kNotPrinting);
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest, InSelectionDragging_NoPage_ReturnsFalse) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      Document::CreateForTest(execution_context.GetExecutionContext());
+
+  EXPECT_FALSE(ArkWebHighlightStyleUtils::InSelectionDragging(*document));
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest,
+       GetTargetTextForegroundColor_NoSettings_FallsBack) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      Document::CreateForTest(execution_context.GetExecutionContext());
+
+  EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextForegroundColor(
+                *document, mojom::blink::ColorScheme::kLight),
+            Color::kBlack);
+}
+
+TEST_F(ArkWebHighlightStyleUtilsTest,
+       GetTargetTextBackgroundColor_NoSettings_FallsBack) {
+  ScopedNullExecutionContext execution_context;
+  auto* document =
+      Document::CreateForTest(execution_context.GetExecutionContext());
+
+  EXPECT_EQ(ArkWebHighlightStyleUtils::GetTargetTextBackgroundColor(
+                *document, mojom::blink::ColorScheme::kLight),
+            Color::FromRGBA32(
+                shared_highlighting::kFragmentTextBackgroundColorARGB));
 }
 }  // namespace blink
