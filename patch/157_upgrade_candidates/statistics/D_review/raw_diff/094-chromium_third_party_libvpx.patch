@@ -1,0 +1,583 @@
+diff --git a/test/acm_random.h b/test/acm_random.h
+index 6ebb60028e9e2cf2e3993b535dba36c93fbc485a..7500cb8266c1cc6c76a3924660894fa9b1801a8a 100644
+--- a/test/acm_random.h
++++ b/test/acm_random.h
+@@ -52,6 +52,13 @@ class ACMRandom {
+     return (value >> 19) & 0xfff;
+   }
+ 
++  uint16_t Rand10() {
++    const uint32_t value =
++        random_.Generate(testing::internal::Random::kMaxRange);
++    // There's a bit more entropy in the upper bits of this implementation.
++    return (value >> 21) & 0x3ff;
++  }
++
+   uint8_t Rand8() {
+     const uint32_t value =
+         random_.Generate(testing::internal::Random::kMaxRange);
+diff --git a/test/decode_api_test.cc b/test/decode_api_test.cc
+index d7436ca3c21d0f1e8f40fe725359593fd78299aa..b7d2408bbfc93071edb7f5e993e51c456f24f249 100644
+--- a/test/decode_api_test.cc
++++ b/test/decode_api_test.cc
+@@ -8,12 +8,19 @@
+  *  be found in the AUTHORS file in the root of the source tree.
+  */
+ 
++#include <vector>
++
+ #include "gtest/gtest.h"
+ 
+ #include "./vpx_config.h"
+ #include "test/ivf_video_source.h"
++#include "test/video_source.h"
++#if CONFIG_VP8_ENCODER || CONFIG_VP9_ENCODER
++#include "vpx/vp8cx.h"
++#endif
+ #include "vpx/vp8dx.h"
+ #include "vpx/vpx_decoder.h"
++#include "vpx/vpx_encoder.h"
+ 
+ namespace {
+ 
+@@ -77,6 +84,96 @@ TEST(DecodeAPI, OptionalParams) {
+                                VPX_CODEC_USE_ERROR_CONCEALMENT));
+ #endif  // CONFIG_ERROR_CONCEALMENT
+ }
++
++#if CONFIG_VP8_ENCODER && CONFIG_MULTITHREAD
++// Encodes a sequence of key frames using two token partitions, truncates the
++// second token partition of one frame so that the worker thread's bool decoder
++// runs past the end of its partition, and then verifies that the
++// multi-threaded decoder still reports subsequent well-formed key frames as
++// not corrupted.
++TEST(DecodeAPI, Vp8MultiThreadedCorruptedStateResetAcrossFrames) {
++  constexpr int kWidth = 16;
++  constexpr int kHeight = 32;
++  constexpr int kFrames = 4;
++
++  std::vector<std::vector<uint8_t>> frames;
++  {
++    vpx_codec_ctx_t enc;
++    vpx_codec_enc_cfg_t cfg;
++    ASSERT_EQ(vpx_codec_enc_config_default(&vpx_codec_vp8_cx_algo, &cfg, 0),
++              VPX_CODEC_OK);
++    cfg.g_w = kWidth;
++    cfg.g_h = kHeight;
++    cfg.g_lag_in_frames = 0;
++    ASSERT_EQ(vpx_codec_enc_init(&enc, &vpx_codec_vp8_cx_algo, &cfg, 0),
++              VPX_CODEC_OK);
++    ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_TOKEN_PARTITIONS,
++                                VP8_TWO_TOKENPARTITION),
++              VPX_CODEC_OK);
++
++    libvpx_test::RandomVideoSource video;
++    video.SetSize(kWidth, kHeight);
++    video.set_limit(kFrames);
++    for (video.Begin(); video.img() != nullptr; video.Next()) {
++      ASSERT_EQ(
++          vpx_codec_encode(&enc, video.img(), video.pts(), video.duration(),
++                           VPX_EFLAG_FORCE_KF, VPX_DL_REALTIME),
++          VPX_CODEC_OK);
++      vpx_codec_iter_t iter = nullptr;
++      const vpx_codec_cx_pkt_t *pkt;
++      while ((pkt = vpx_codec_get_cx_data(&enc, &iter)) != nullptr) {
++        if (pkt->kind != VPX_CODEC_CX_FRAME_PKT) continue;
++        ASSERT_NE(pkt->data.frame.flags & VPX_FRAME_IS_KEY, 0u);
++        const uint8_t *buf = static_cast<const uint8_t *>(pkt->data.frame.buf);
++        frames.emplace_back(buf, buf + pkt->data.frame.sz);
++      }
++    }
++    ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
++  }
++  ASSERT_EQ(frames.size(), static_cast<size_t>(kFrames));
++
++  // Truncate frame 1 so that only a single byte of the second token partition
++  // remains. The first token partition (used by the main thread) is left
++  // intact.
++  {
++    std::vector<uint8_t> &f = frames[1];
++    ASSERT_GT(f.size(), 10u);
++    const size_t first_part_sz =
++        (static_cast<size_t>(f[0]) | (static_cast<size_t>(f[1]) << 8) |
++         (static_cast<size_t>(f[2]) << 16)) >>
++        5;
++    const size_t part_sizes = 10 + first_part_sz;
++    ASSERT_LT(part_sizes + 3, f.size());
++    const size_t part0_sz = static_cast<size_t>(f[part_sizes]) |
++                            (static_cast<size_t>(f[part_sizes + 1]) << 8) |
++                            (static_cast<size_t>(f[part_sizes + 2]) << 16);
++    const size_t part1_start = part_sizes + 3 + part0_sz;
++    ASSERT_LT(part1_start, f.size());
++    f.resize(part1_start + 1);
++  }
++
++  vpx_codec_ctx_t dec;
++  vpx_codec_dec_cfg_t dec_cfg = { /*threads=*/4, /*w=*/0, /*h=*/0 };
++  ASSERT_EQ(vpx_codec_dec_init(&dec, &vpx_codec_vp8_dx_algo, &dec_cfg, 0),
++            VPX_CODEC_OK);
++  for (int i = 0; i < kFrames; ++i) {
++    const vpx_codec_err_t res = vpx_codec_decode(
++        &dec, frames[i].data(), static_cast<unsigned int>(frames[i].size()),
++        /*user_priv=*/nullptr, /*deadline=*/0);
++    vpx_codec_iter_t iter = nullptr;
++    while (vpx_codec_get_frame(&dec, &iter)) {
++    }
++    if (i == 1) continue;
++    EXPECT_EQ(res, VPX_CODEC_OK)
++        << "frame " << i << ": " << vpx_codec_error_detail(&dec);
++    int corrupted = -1;
++    EXPECT_EQ(vpx_codec_control(&dec, VP8D_GET_FRAME_CORRUPTED, &corrupted),
++              VPX_CODEC_OK);
++    EXPECT_EQ(corrupted, 0) << "frame " << i;
++  }
++  EXPECT_EQ(vpx_codec_destroy(&dec), VPX_CODEC_OK);
++}
++#endif  // CONFIG_VP8_ENCODER && CONFIG_MULTITHREAD
+ #endif  // CONFIG_VP8_DECODER
+ 
+ #if CONFIG_VP9_DECODER
+diff --git a/test/encode_api_test.cc b/test/encode_api_test.cc
+index 554b9e7fa9188e299b934cc1d7e1eb9f3983ee55..94b25c065b5c7ea12189e1a6abe21d01ff0e35aa 100644
+--- a/test/encode_api_test.cc
++++ b/test/encode_api_test.cc
+@@ -54,7 +54,8 @@ void *Memset16(void *dest, int val, size_t length) {
+ }
+ 
+ vpx_image_t *CreateImage(vpx_bit_depth_t bit_depth, vpx_img_fmt_t fmt,
+-                         unsigned int width, unsigned int height) {
++                         unsigned int width, unsigned int height,
++                         libvpx_test::ACMRandom *rng = nullptr) {
+   assert(fmt != VPX_IMG_FMT_NV12);
+   if (bit_depth > VPX_BITS_8) {
+     fmt = static_cast<vpx_img_fmt_t>(fmt | VPX_IMG_FMT_HIGHBITDEPTH);
+@@ -62,26 +63,38 @@ vpx_image_t *CreateImage(vpx_bit_depth_t bit_depth, vpx_img_fmt_t fmt,
+   vpx_image_t *image = vpx_img_alloc(nullptr, fmt, width, height, 1);
+   if (!image) return image;
+ 
+-  const int val = 1 << (bit_depth - 1);
++  auto get_val = [bit_depth, &rng]() {
++    if (rng != nullptr) {
++      switch (bit_depth) {
++        case VPX_BITS_8: return static_cast<int>(rng->Rand8());
++        case VPX_BITS_10: return static_cast<int>(rng->Rand10());
++        case VPX_BITS_12: return static_cast<int>(rng->Rand12());
++      }
++    }
++    return 1 << (bit_depth - 1);
++  };
++  const int val_y = get_val();
++  const int val_u = get_val();
++  const int val_v = get_val();
+   const unsigned int uv_h =
+       (image->d_h + image->y_chroma_shift) >> image->y_chroma_shift;
+   const unsigned int uv_w =
+       (image->d_w + image->x_chroma_shift) >> image->x_chroma_shift;
+   if (bit_depth > VPX_BITS_8) {
+     for (unsigned int i = 0; i < image->d_h; ++i) {
+-      Memset16(image->planes[0] + i * image->stride[0], val, image->d_w);
++      Memset16(image->planes[0] + i * image->stride[0], val_y, image->d_w);
+     }
+     for (unsigned int i = 0; i < uv_h; ++i) {
+-      Memset16(image->planes[1] + i * image->stride[1], val, uv_w);
+-      Memset16(image->planes[2] + i * image->stride[2], val, uv_w);
++      Memset16(image->planes[1] + i * image->stride[1], val_u, uv_w);
++      Memset16(image->planes[2] + i * image->stride[2], val_v, uv_w);
+     }
+   } else {
+     for (unsigned int i = 0; i < image->d_h; ++i) {
+-      memset(image->planes[0] + i * image->stride[0], val, image->d_w);
++      memset(image->planes[0] + i * image->stride[0], val_y, image->d_w);
+     }
+     for (unsigned int i = 0; i < uv_h; ++i) {
+-      memset(image->planes[1] + i * image->stride[1], val, uv_w);
+-      memset(image->planes[2] + i * image->stride[2], val, uv_w);
++      memset(image->planes[1] + i * image->stride[1], val_u, uv_w);
++      memset(image->planes[2] + i * image->stride[2], val_v, uv_w);
+     }
+   }
+ 
+@@ -1197,7 +1210,9 @@ class VP9Encoder {
+ 
+   void Configure(unsigned int threads, unsigned int width, unsigned int height,
+                  vpx_rc_mode end_usage, vpx_enc_deadline_t deadline);
+-  void Encode(bool key_frame);
++  // If `rng` is non-null, use it to generate the image values for encoding.
++  // Otherwise the midpoint of the configured bitdepth is used.
++  void Encode(bool key_frame, libvpx_test::ACMRandom *rng = nullptr);
+ 
+  private:
+   const int speed_;
+@@ -1264,10 +1279,10 @@ void VP9Encoder::Configure(unsigned int threads, unsigned int width,
+       << vpx_codec_error_detail(&enc_);
+ }
+ 
+-void VP9Encoder::Encode(bool key_frame) {
++void VP9Encoder::Encode(bool key_frame, libvpx_test::ACMRandom *rng) {
+   assert(initialized_);
+   const vpx_codec_cx_pkt_t *pkt;
+-  vpx_image_t *image = CreateImage(bit_depth_, fmt_, cfg_.g_w, cfg_.g_h);
++  vpx_image_t *image = CreateImage(bit_depth_, fmt_, cfg_.g_w, cfg_.g_h, rng);
+   ASSERT_NE(image, nullptr);
+   const vpx_enc_frame_flags_t frame_flags = key_frame ? VPX_EFLAG_FORCE_KF : 0;
+   ASSERT_EQ(
+@@ -2278,6 +2293,25 @@ TEST(EncodeAPI, PerFramePsnrNotSupportedWithLagInFrames) {
+   vpx_img_free(image);
+   ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+ }
++
++TEST(EncodeAPI, Buganizer487259772ScaledRefs) {
++  libvpx_test::ACMRandom rng;
++  VP9Encoder encoder(/*speed=*/7, /*row_mt=*/0, VPX_BITS_8, VPX_IMG_FMT_I420);
++  encoder.Configure(/*threads=*/1, /*width=*/478, /*height=*/755, VPX_VBR,
++                    VPX_DL_REALTIME);
++  encoder.Configure(/*threads=*/1, /*width=*/387, /*height=*/438, VPX_VBR,
++                    VPX_DL_REALTIME);
++  encoder.Encode(/*key_frame=*/false, &rng);
++  encoder.Encode(/*key_frame=*/true, &rng);
++  encoder.Encode(/*key_frame=*/false, &rng);
++  encoder.Encode(/*key_frame=*/false, &rng);
++
++  encoder.Configure(/*threads=*/1, /*width=*/341, /*height=*/655, VPX_VBR,
++                    VPX_DL_REALTIME);
++  encoder.Encode(/*key_frame=*/false, &rng);
++  encoder.Encode(/*key_frame=*/false, &rng);
++}
++
+ #endif  // CONFIG_VP9_ENCODER
+ 
+ }  // namespace
+diff --git a/test/predict_test.cc b/test/predict_test.cc
+index cc290bf50ca786982a90f2c1d891716f69aea0f3..24a3d214e2f3f41169804296696024c7a0c65598 100644
+--- a/test/predict_test.cc
++++ b/test/predict_test.cc
+@@ -22,6 +22,8 @@
+ #include "test/clear_system_state.h"
+ #include "test/register_state_check.h"
+ #include "test/util.h"
++#include "vp8/common/blockd.h"
++#include "vp8/common/reconinter.h"
+ #include "vpx/vpx_integer.h"
+ #include "vpx_mem/vpx_mem.h"
+ 
+@@ -411,4 +413,110 @@ INSTANTIATE_TEST_SUITE_P(
+                       make_tuple(8, 4, &vp8_bilinear_predict8x4_msa),
+                       make_tuple(4, 4, &vp8_bilinear_predict4x4_msa)));
+ #endif
++class BuildInterPredictorTest : public ::testing::Test {
++ protected:
++  enum {
++    kYStride = 64,
++    kYSize = kYStride * kYStride,
++    kUVStride = kYStride >> 1,
++    kUVSize = kUVStride * kUVStride,
++    kRef = 0x80,
++    kFill = 0xcd
++  };
++
++  void SetUp() override {
++    xd_ =
++        reinterpret_cast<MACROBLOCKD *>(vpx_memalign(32, sizeof(MACROBLOCKD)));
++    ASSERT_NE(xd_, nullptr);
++    memset(xd_, 0, sizeof(*xd_));
++
++    pre_y_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kYSize));
++    pre_u_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kUVSize));
++    pre_v_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kUVSize));
++    dst_y_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kYSize));
++    dst_u_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kUVSize));
++    dst_v_ = reinterpret_cast<uint8_t *>(vpx_memalign(32, kUVSize));
++    ASSERT_NE(pre_y_, nullptr);
++    ASSERT_NE(pre_u_, nullptr);
++    ASSERT_NE(pre_v_, nullptr);
++    ASSERT_NE(dst_y_, nullptr);
++    ASSERT_NE(dst_u_, nullptr);
++    ASSERT_NE(dst_v_, nullptr);
++    memset(pre_y_, kRef, kYSize);
++    memset(pre_u_, kRef, kUVSize);
++    memset(pre_v_, kRef, kUVSize);
++
++    memset(&mi_, 0, sizeof(mi_));
++    xd_->mode_info_context = &mi_;
++    xd_->pre.y_buffer = pre_y_ + (kYStride >> 1) * kYStride + (kYStride >> 1);
++    xd_->pre.u_buffer =
++        pre_u_ + (kUVStride >> 1) * kUVStride + (kUVStride >> 1);
++    xd_->pre.v_buffer =
++        pre_v_ + (kUVStride >> 1) * kUVStride + (kUVStride >> 1);
++    xd_->pre.y_stride = kYStride;
++  }
++
++  void TearDown() override {
++    vpx_free(xd_);
++    vpx_free(pre_y_);
++    vpx_free(pre_u_);
++    vpx_free(pre_v_);
++    vpx_free(dst_y_);
++    vpx_free(dst_u_);
++    vpx_free(dst_v_);
++    libvpx_test::ClearSystemState();
++  }
++
++  void RunAndCheck(int row, int col) {
++    memset(dst_y_, kFill, kYSize);
++    memset(dst_u_, kFill, kUVSize);
++    memset(dst_v_, kFill, kUVSize);
++
++    mi_.mbmi.mv.as_mv.row = static_cast<short>(row);
++    mi_.mbmi.mv.as_mv.col = static_cast<short>(col);
++    mi_.mbmi.need_to_clamp_mvs = 1;
++
++    uint8_t *const dst_y =
++        dst_y_ + (kYStride >> 1) * kYStride + (kYStride >> 1);
++    uint8_t *const dst_u =
++        dst_u_ + (kUVStride >> 1) * kUVStride + (kUVStride >> 1);
++    uint8_t *const dst_v =
++        dst_v_ + (kUVStride >> 1) * kUVStride + (kUVStride >> 1);
++
++    vp8_build_inter16x16_predictors_mb(xd_, dst_y, dst_u, dst_v, kYStride,
++                                       kUVStride);
++
++    for (int r = 0; r < 8; ++r) {
++      for (int c = 0; c < 8; ++c) {
++        ASSERT_EQ(kRef, dst_u[r * kUVStride + c])
++            << "U[" << r << "][" << c << "] mv=(" << row << "," << col << ")";
++        ASSERT_EQ(kRef, dst_v[r * kUVStride + c])
++            << "V[" << r << "][" << c << "] mv=(" << row << "," << col << ")";
++      }
++    }
++  }
++
++  MACROBLOCKD *xd_;
++  MODE_INFO mi_;
++  uint8_t *pre_y_;
++  uint8_t *pre_u_;
++  uint8_t *pre_v_;
++  uint8_t *dst_y_;
++  uint8_t *dst_u_;
++  uint8_t *dst_v_;
++};
++
++// With full-pixel-only chroma motion (fullpixel_mask == ~7), rounding the
++// derived chroma MV down can move it just past the border tap window. The
++// chroma destination must still be written from a clamped reference position.
++TEST_F(BuildInterPredictorTest, FullPixelChromaMVAlwaysWritesUV) {
++  xd_->mb_to_left_edge = 0;
++  xd_->mb_to_right_edge = 0;
++  xd_->mb_to_top_edge = 0;
++  xd_->mb_to_bottom_edge = 0;
++  xd_->fullpixel_mask = ~7;
++
++  RunAndCheck(0, -152);
++  RunAndCheck(-152, 0);
++}
+ }  // namespace
+diff --git a/vp8/common/alloccommon.c b/vp8/common/alloccommon.c
+index 722b158c3a0254a1a7f54e78b798ae56d89f9180..035f1e8767918bf7f70ed80731b6a4eddb89e143 100644
+--- a/vp8/common/alloccommon.c
++++ b/vp8/common/alloccommon.c
+@@ -17,10 +17,13 @@
+ #include "entropymode.h"
+ #include "systemdependent.h"
+ 
++// This function frees all frame and post processing buffers, as well as
++// indirect references to them via context and mode info allocations.
+ void vp8_de_alloc_frame_buffers(VP8_COMMON *oci) {
+   int i;
+   for (i = 0; i < NUM_YV12_BUFFERS; ++i) {
+     vp8_yv12_de_alloc_frame_buffer(&oci->yv12_fb[i]);
++    oci->fb_idx_ref_cnt[i] = 0;
+   }
+ 
+   vp8_yv12_de_alloc_frame_buffer(&oci->temp_scale_frame);
+@@ -28,13 +31,14 @@ void vp8_de_alloc_frame_buffers(VP8_COMMON *oci) {
+   vp8_yv12_de_alloc_frame_buffer(&oci->post_proc_buffer);
+   if (oci->post_proc_buffer_int_used) {
+     vp8_yv12_de_alloc_frame_buffer(&oci->post_proc_buffer_int);
++    oci->post_proc_buffer_int_used = 0;
+   }
+ 
+   vpx_free(oci->pp_limits_buffer);
+   oci->pp_limits_buffer = NULL;
+ 
+   vpx_free(oci->postproc_state.generated_noise);
+-  oci->postproc_state.generated_noise = NULL;
++  memset(&oci->postproc_state, 0, sizeof(oci->postproc_state));
+ #endif
+ 
+   vpx_free(oci->above_context);
+@@ -42,10 +46,14 @@ void vp8_de_alloc_frame_buffers(VP8_COMMON *oci) {
+ #if CONFIG_ERROR_CONCEALMENT
+   vpx_free(oci->prev_mip);
+   oci->prev_mip = NULL;
++  oci->prev_mi = NULL;
+ #endif
+ 
+   oci->above_context = NULL;
+   oci->mip = NULL;
++  oci->mi = NULL;
++  oci->show_frame_mi = NULL;
++  oci->frame_to_show = NULL;
+ }
+ 
+ int vp8_alloc_frame_buffers(VP8_COMMON *oci, int width, int height) {
+@@ -59,8 +67,6 @@ int vp8_alloc_frame_buffers(VP8_COMMON *oci, int width, int height) {
+   if ((height & 0xf) != 0) height += 16 - (height & 0xf);
+ 
+   for (i = 0; i < NUM_YV12_BUFFERS; ++i) {
+-    oci->fb_idx_ref_cnt[i] = 0;
+-    oci->yv12_fb[i].flags = 0;
+     if (vp8_yv12_alloc_frame_buffer(&oci->yv12_fb[i], width, height,
+                                     VP8BORDERINPIXELS) < 0) {
+       goto allocation_fail;
+@@ -107,8 +113,6 @@ int vp8_alloc_frame_buffers(VP8_COMMON *oci, int width, int height) {
+     goto allocation_fail;
+   }
+ 
+-  oci->post_proc_buffer_int_used = 0;
+-  memset(&oci->postproc_state, 0, sizeof(oci->postproc_state));
+   memset(oci->post_proc_buffer.buffer_alloc, 128,
+          oci->post_proc_buffer.frame_size);
+ 
+diff --git a/vp8/common/reconinter.c b/vp8/common/reconinter.c
+index 2cb0709318b5d1235fc93406323ddafd45061627..143d6852ab97e8b6ce2fc5cf288df2d10045d0ec 100644
+--- a/vp8/common/reconinter.c
++++ b/vp8/common/reconinter.c
+@@ -333,12 +333,10 @@ void vp8_build_inter16x16_predictors_mb(MACROBLOCKD *x, unsigned char *dst_y,
+   _16x16mv.as_mv.row &= x->fullpixel_mask;
+   _16x16mv.as_mv.col &= x->fullpixel_mask;
+ 
+-  if (2 * _16x16mv.as_mv.col < (x->mb_to_left_edge - (19 << 3)) ||
+-      2 * _16x16mv.as_mv.col > x->mb_to_right_edge + (18 << 3) ||
+-      2 * _16x16mv.as_mv.row < (x->mb_to_top_edge - (19 << 3)) ||
+-      2 * _16x16mv.as_mv.row > x->mb_to_bottom_edge + (18 << 3)) {
+-    return;
+-  }
++  /* Rounding to full-pel can move the chroma MV outside the border tap
++   * window even though the luma MV was already clamped, so clamp again to
++   * keep the reference read in bounds and ensure dst_u/dst_v are written. */
++  clamp_uvmv_to_umv_border(&_16x16mv.as_mv, x);
+ 
+   pre_stride >>= 1;
+   offset = (_16x16mv.as_mv.row >> 3) * pre_stride + (_16x16mv.as_mv.col >> 3);
+diff --git a/vp8/decoder/threading.c b/vp8/decoder/threading.c
+index d16284d1343ad3b2e445abf93b2688c603ab8337..d9182dd94c46b5d78e6d0a3e803c84373a769e6e 100644
+--- a/vp8/decoder/threading.c
++++ b/vp8/decoder/threading.c
+@@ -47,6 +47,15 @@ static void setup_decoding_thread_data(VP8D_COMP *pbi, MACROBLOCKD *xd,
+ 
+   for (i = 0; i < count; ++i) {
+     MACROBLOCKD *mbd = &mbrd[i].mbd;
++
++    // The worker MACROBLOCKDs persist across frames, so reset the per-frame
++    // error state in line with the main thread (see vp8_decode_frame()).
++    // This should only be done for keyframes or when error concealment
++    // is active.
++    if (pc->frame_type == KEY_FRAME || pbi->ec_active) {
++      mbd->corrupted = 0;
++    }
++
+     mbd->subpixel_predict = xd->subpixel_predict;
+     mbd->subpixel_predict8x4 = xd->subpixel_predict8x4;
+     mbd->subpixel_predict8x8 = xd->subpixel_predict8x8;
+diff --git a/vp8/vp8_dx_iface.c b/vp8/vp8_dx_iface.c
+index 65a86e2dc7b698b44cf98cd26237aebd251a6df2..55e55213a8aebd2cf8874f3580394e475f6ed559 100644
+--- a/vp8/vp8_dx_iface.c
++++ b/vp8/vp8_dx_iface.c
+@@ -422,6 +422,7 @@ static vpx_codec_err_t vp8_decode(vpx_codec_alg_priv_t *ctx,
+         }
+ #endif
+ 
++        pbi->decoded_key_frame = 0;
+         if (vp8_alloc_frame_buffers(pc, pc->Width, pc->Height)) {
+           vpx_internal_error(&pc->error, VPX_CODEC_MEM_ERROR,
+                              "Failed to allocate frame buffers");
+diff --git a/vp9/encoder/vp9_encoder.c b/vp9/encoder/vp9_encoder.c
+index 3f426555274593b097f2798ec4bea36fc383ede3..2d6c26c104db609032e83a96e0ed09e4d18eec76 100644
+--- a/vp9/encoder/vp9_encoder.c
++++ b/vp9/encoder/vp9_encoder.c
+@@ -3494,9 +3494,13 @@ void vp9_scale_references(VP9_COMP *cpi) {
+         int new_fb = cpi->scaled_ref_idx[ref_frame - 1];
+         if (new_fb == INVALID_IDX) {
+           new_fb = get_free_fb(cm);
++          if (new_fb == INVALID_IDX) {
++            assert(cm->error.setjmp);
++            vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
++                               "Unable to find free frame buffer");
++          }
+           force_scaling = 1;
+         }
+-        if (new_fb == INVALID_IDX) return;
+         new_fb_ptr = &pool->frame_bufs[new_fb];
+         if (force_scaling || new_fb_ptr->buf.y_crop_width != cm->width ||
+             new_fb_ptr->buf.y_crop_height != cm->height) {
+diff --git a/vp9/encoder/vp9_mcomp.c b/vp9/encoder/vp9_mcomp.c
+index 1f7f17410542709866c4f05b4eb0967ee7419f01..5576fab587a959f9879eb074b8d265d942e6561b 100644
+--- a/vp9/encoder/vp9_mcomp.c
++++ b/vp9/encoder/vp9_mcomp.c
+@@ -2277,7 +2277,6 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
+   const int search_width = bw << 1;
+   const int search_height = bh << 1;
+   const int src_stride = x->plane[0].src.stride;
+-  const int ref_stride = xd->plane[0].pre[0].stride;
+   uint8_t const *ref_buf, *src_buf;
+   MV *tmp_mv = &xd->mi[0]->mv[0].as_mv;
+   unsigned int best_sad, tmp_sad, this_sad[4];
+@@ -2288,6 +2287,8 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
+   MvLimits subpel_mv_limits;
+ 
+   if (scaled_ref_frame) {
++    assert(scaled_ref_frame->y_width == cpi->Source->y_width &&
++           scaled_ref_frame->y_height == cpi->Source->y_height);
+     int i;
+     // Swap out the reference frame for a version that's been scaled to
+     // match the resolution of the current frame, allowing the existing
+@@ -2295,6 +2296,7 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
+     for (i = 0; i < MAX_MB_PLANE; i++) backup_yv12[i] = xd->plane[i].pre[0];
+     vp9_setup_pre_planes(xd, 0, scaled_ref_frame, mi_row, mi_col, NULL);
+   }
++  const int ref_stride = xd->plane[0].pre[0].stride;
+ 
+ #if CONFIG_VP9_HIGHBITDEPTH
+   // TODO(jingning): Implement integral projection functions for high bit-depth
+diff --git a/vp9/encoder/vp9_pickmode.c b/vp9/encoder/vp9_pickmode.c
+index b841385baa897f82cc1c564cc698ae0071061e68..25601d9a22718fb11337d5bc93961a2c0b569944 100644
+--- a/vp9/encoder/vp9_pickmode.c
++++ b/vp9/encoder/vp9_pickmode.c
+@@ -183,6 +183,8 @@ static int combined_motion_search(VP9_COMP *cpi, MACROBLOCK *x,
+   const YV12_BUFFER_CONFIG *scaled_ref_frame =
+       vp9_get_scaled_ref_frame(cpi, ref);
+   if (scaled_ref_frame) {
++    assert(scaled_ref_frame->y_width == cpi->Source->y_width &&
++           scaled_ref_frame->y_height == cpi->Source->y_height);
+     int i;
+     // Swap out the reference frame for a version that's been scaled to
+     // match the resolution of the current frame, allowing the existing
+@@ -2283,6 +2285,18 @@ void vp9_pick_inter_mode(VP9_COMP *cpi, MACROBLOCK *x, TileDataEnc *tile_data,
+     // need to compute best_pred_sad which is only used to skip golden NEWMV.
+     if (use_golden_nonzeromv && this_mode == NEWMV && ref_frame == LAST_FRAME &&
+         frame_mv[NEWMV][LAST_FRAME].as_int != INVALID_MV) {
++      struct buf_2d backup_yv12[MAX_MB_PLANE] = { { 0, 0 } };
++      const YV12_BUFFER_CONFIG *scaled_ref_frame =
++          vp9_get_scaled_ref_frame(cpi, ref_frame);
++      if (scaled_ref_frame) {
++        assert(scaled_ref_frame->y_width == cpi->Source->y_width &&
++               scaled_ref_frame->y_height == cpi->Source->y_height);
++        // Swap out the reference frame for a version that's been scaled to
++        // match the resolution of the current frame, allowing the existing
++        // motion search code to be used without additional modifications.
++        for (i = 0; i < MAX_MB_PLANE; i++) backup_yv12[i] = xd->plane[i].pre[0];
++        vp9_setup_pre_planes(xd, 0, scaled_ref_frame, mi_row, mi_col, NULL);
++      }
+       const int pre_stride = xd->plane[0].pre[0].stride;
+       const uint8_t *const pre_buf =
+           xd->plane[0].pre[0].buf +
+@@ -2291,6 +2305,9 @@ void vp9_pick_inter_mode(VP9_COMP *cpi, MACROBLOCK *x, TileDataEnc *tile_data,
+       best_pred_sad = cpi->fn_ptr[bsize].sdf(
+           x->plane[0].src.buf, x->plane[0].src.stride, pre_buf, pre_stride);
+       x->pred_mv_sad[LAST_FRAME] = best_pred_sad;
++      if (scaled_ref_frame) {
++        for (i = 0; i < MAX_MB_PLANE; i++) xd->plane[i].pre[0] = backup_yv12[i];
++      }
+     }
+ 
+     if (this_mode != NEARESTMV && !comp_pred &&

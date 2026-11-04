@@ -1,0 +1,224 @@
+diff --git a/av1/encoder/encodeframe.c b/av1/encoder/encodeframe.c
+index 4bb5c0d6178a8c795efa4b8c6ab9892eb7bf7eb5..9f234288aa71a4d4ba186f8d4c9170ba69716fe4 100644
+--- a/av1/encoder/encodeframe.c
++++ b/av1/encoder/encodeframe.c
+@@ -1357,7 +1357,6 @@ static inline void init_encode_frame_mb_context(AV1_COMP *cpi) {
+ 
+ void av1_alloc_tile_data(AV1_COMP *cpi) {
+   AV1_COMMON *const cm = &cpi->common;
+-  AV1EncRowMultiThreadInfo *const enc_row_mt = &cpi->mt_info.enc_row_mt;
+   const int tile_cols = cm->tiles.cols;
+   const int tile_rows = cm->tiles.rows;
+ 
+@@ -1365,16 +1364,12 @@ void av1_alloc_tile_data(AV1_COMP *cpi) {
+ 
+   aom_free(cpi->tile_data);
+   cpi->allocated_tiles = 0;
+-  enc_row_mt->allocated_tile_cols = 0;
+-  enc_row_mt->allocated_tile_rows = 0;
+ 
+   CHECK_MEM_ERROR(
+       cm, cpi->tile_data,
+       aom_memalign(32, tile_cols * tile_rows * sizeof(*cpi->tile_data)));
+ 
+   cpi->allocated_tiles = tile_cols * tile_rows;
+-  enc_row_mt->allocated_tile_cols = tile_cols;
+-  enc_row_mt->allocated_tile_rows = tile_rows;
+   for (int tile_row = 0; tile_row < tile_rows; ++tile_row) {
+     for (int tile_col = 0; tile_col < tile_cols; ++tile_col) {
+       const int tile_index = tile_row * tile_cols + tile_col;
+@@ -1561,9 +1556,8 @@ static inline void encode_tiles(AV1_COMP *cpi) {
+   int tile_col, tile_row;
+ 
+   MACROBLOCK *const mb = &cpi->td.mb;
+-  assert(IMPLIES(cpi->tile_data == NULL,
+-                 cpi->allocated_tiles < tile_cols * tile_rows));
+-  if (cpi->allocated_tiles < tile_cols * tile_rows) av1_alloc_tile_data(cpi);
++  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
++  if (cpi->allocated_tiles != tile_cols * tile_rows) av1_alloc_tile_data(cpi);
+ 
+   av1_init_tile_data(cpi);
+   av1_alloc_mb_data(cpi, mb);
+diff --git a/av1/encoder/encoder_alloc.h b/av1/encoder/encoder_alloc.h
+index 52b2a376066266a289356cff220a213ba9316c24..2206e175b9a3310bac40d68a298025471e217229 100644
+--- a/av1/encoder/encoder_alloc.h
++++ b/av1/encoder/encoder_alloc.h
+@@ -185,15 +185,12 @@ static inline void release_compound_type_rd_buffers(
+ static inline void dealloc_compressor_data(AV1_COMP *cpi) {
+   AV1_COMMON *const cm = &cpi->common;
+   TokenInfo *token_info = &cpi->token_info;
+-  AV1EncRowMultiThreadInfo *const enc_row_mt = &cpi->mt_info.enc_row_mt;
+   const int num_planes = av1_num_planes(cm);
+   dealloc_context_buffers_ext(&cpi->mbmi_ext_info);
+ 
+   aom_free(cpi->tile_data);
+   cpi->tile_data = NULL;
+   cpi->allocated_tiles = 0;
+-  enc_row_mt->allocated_tile_cols = 0;
+-  enc_row_mt->allocated_tile_rows = 0;
+ 
+   // Delete sementation map
+   aom_free(cpi->enc_seg.map);
+diff --git a/av1/encoder/ethread.c b/av1/encoder/ethread.c
+index fad4f5119e9b35e1237a379805e534fd543cb011..fb6a13a70c07b2c3eb3769efc7374e63a3bb8a1c 100644
+--- a/av1/encoder/ethread.c
++++ b/av1/encoder/ethread.c
+@@ -249,6 +249,7 @@ static void row_mt_mem_alloc(AV1_COMP *cpi, int max_rows, int max_cols,
+   av1_row_mt_mem_dealloc(cpi);
+ 
+   // Allocate memory for row based multi-threading
++  assert(cpi->allocated_tiles == tile_cols * tile_rows);
+   for (tile_row = 0; tile_row < tile_rows; tile_row++) {
+     for (tile_col = 0; tile_col < tile_cols; tile_col++) {
+       int tile_index = tile_row * tile_cols + tile_col;
+@@ -265,6 +266,8 @@ static void row_mt_mem_alloc(AV1_COMP *cpi, int max_rows, int max_cols,
+       }
+     }
+   }
++  enc_row_mt->allocated_tile_cols = tile_cols;
++  enc_row_mt->allocated_tile_rows = tile_rows;
+   const int sb_rows = get_sb_rows_in_frame(cm);
+   CHECK_MEM_ERROR(
+       cm, enc_row_mt->num_tile_cols_done,
+@@ -295,6 +298,8 @@ void av1_row_mt_mem_dealloc(AV1_COMP *cpi) {
+       }
+     }
+   }
++  enc_row_mt->allocated_tile_cols = 0;
++  enc_row_mt->allocated_tile_rows = 0;
+   aom_free(enc_row_mt->num_tile_cols_done);
+   enc_row_mt->num_tile_cols_done = NULL;
+   enc_row_mt->allocated_rows = 0;
+@@ -1732,9 +1737,8 @@ void av1_encode_tiles_mt(AV1_COMP *cpi) {
+   const int tile_rows = cm->tiles.rows;
+   int num_workers = mt_info->num_mod_workers[MOD_ENC];
+ 
+-  assert(IMPLIES(cpi->tile_data == NULL,
+-                 cpi->allocated_tiles < tile_cols * tile_rows));
+-  if (cpi->allocated_tiles < tile_cols * tile_rows) av1_alloc_tile_data(cpi);
++  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
++  if (cpi->allocated_tiles != tile_cols * tile_rows) av1_alloc_tile_data(cpi);
+ 
+   av1_init_tile_data(cpi);
+   num_workers = AOMMIN(num_workers, mt_info->num_workers);
+@@ -1922,9 +1926,10 @@ void av1_encode_tiles_row_mt(AV1_COMP *cpi) {
+        enc_row_mt->allocated_rows != max_sb_rows_in_tile ||
+        enc_row_mt->allocated_cols != (max_sb_cols_in_tile - 1) ||
+        enc_row_mt->allocated_sb_rows != sb_rows_in_frame);
+-  const bool alloc_tile_data = cpi->allocated_tiles < tile_cols * tile_rows;
++  const bool alloc_tile_data = cpi->allocated_tiles != tile_cols * tile_rows;
+ 
+   assert(IMPLIES(cpi->tile_data == NULL, alloc_tile_data));
++  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
+   if (alloc_tile_data) {
+     av1_alloc_tile_data(cpi);
+   }
+@@ -2000,9 +2005,10 @@ void av1_fp_encode_tiles_row_mt(AV1_COMP *cpi) {
+   const bool alloc_row_mt_mem = enc_row_mt->allocated_tile_cols != tile_cols ||
+                                 enc_row_mt->allocated_tile_rows != tile_rows ||
+                                 enc_row_mt->allocated_rows != max_mb_rows;
+-  const bool alloc_tile_data = cpi->allocated_tiles < tile_cols * tile_rows;
++  const bool alloc_tile_data = cpi->allocated_tiles != tile_cols * tile_rows;
+ 
+   assert(IMPLIES(cpi->tile_data == NULL, alloc_tile_data));
++  assert(IMPLIES(cpi->tile_data == NULL, cpi->allocated_tiles == 0));
+   if (alloc_tile_data) {
+     av1_alloc_tile_data(cpi);
+   }
+diff --git a/av1/encoder/firstpass.c b/av1/encoder/firstpass.c
+index a49db4aac8bca0015115b7a39d514adebad12987..48ee06ed22d59a4b869bc7eb90735878ffe45e02 100644
+--- a/av1/encoder/firstpass.c
++++ b/av1/encoder/firstpass.c
+@@ -1360,7 +1360,7 @@ void av1_first_pass(AV1_COMP *cpi, const int64_t ts_duration) {
+ 
+   const int tile_cols = cm->tiles.cols;
+   const int tile_rows = cm->tiles.rows;
+-  if (cpi->allocated_tiles < tile_cols * tile_rows) {
++  if (cpi->allocated_tiles != tile_cols * tile_rows) {
+     av1_alloc_tile_data(cpi);
+   }
+ 
+diff --git a/av1/encoder/nonrd_pickmode.c b/av1/encoder/nonrd_pickmode.c
+index d7d26369bef6143ce85bf6880f042f2d72e269b5..092eb07be2b8921ae20813f800efed60e0de362b 100644
+--- a/av1/encoder/nonrd_pickmode.c
++++ b/av1/encoder/nonrd_pickmode.c
+@@ -195,7 +195,7 @@ static int combined_motion_search(AV1_COMP *cpi, MACROBLOCK *x,
+                                   int *rate_mv, int64_t best_rd_sofar,
+                                   int use_base_mv) {
+   MACROBLOCKD *xd = &x->e_mbd;
+-  const AV1_COMMON *cm = &cpi->common;
++  AV1_COMMON *cm = &cpi->common;
+   const SPEED_FEATURES *sf = &cpi->sf;
+   MB_MODE_INFO *mi = xd->mi[0];
+   int step_param = (sf->rt_sf.fullpel_search_step_param)
+@@ -210,6 +210,14 @@ static int combined_motion_search(AV1_COMP *cpi, MACROBLOCK *x,
+   int cost_list[5];
+   int search_subpel = 1;
+ 
++  if (av1_is_scaled(get_ref_scale_factors(cm, ref))) {
++    const YV12_BUFFER_CONFIG *scaled_ref = av1_get_scaled_ref_frame(cpi, ref);
++    (void)scaled_ref;
++    assert(scaled_ref != NULL);
++    assert(scaled_ref->y_crop_width == cm->width &&
++           scaled_ref->y_crop_height == cm->height);
++  }
++
+   start_mv = get_fullmv_from_mv(&ref_mv);
+ 
+   if (!use_base_mv)
+@@ -2473,6 +2481,23 @@ static AOM_FORCE_INLINE bool skip_inter_mode_nonrd(
+       (*this_mode != GLOBALMV || *ref_frame != LAST_FRAME))
+     return true;
+ 
++  *force_mv_inter_layer = 0;
++  if (cpi->ppi->use_svc && svc->spatial_layer_id > 0 &&
++      ((*ref_frame == LAST_FRAME && svc->skip_mvsearch_last) ||
++       (*ref_frame == GOLDEN_FRAME && svc->skip_mvsearch_gf) ||
++       (*ref_frame == ALTREF_FRAME && svc->skip_mvsearch_altref))) {
++    // Only test mode if NEARESTMV/NEARMV is (svc_mv.mv.col, svc_mv.mv.row),
++    // otherwise set NEWMV to (svc_mv.mv.col, svc_mv.mv.row).
++    // Skip newmv and filter search.
++    *force_mv_inter_layer = 1;
++    if (*this_mode == NEWMV) {
++      search_state->frame_mv[*this_mode][*ref_frame] = svc_mv;
++    } else if (search_state->frame_mv[*this_mode][*ref_frame].as_int !=
++               svc_mv.as_int) {
++      return true;
++    }
++  }
++
+   // If the segment reference frame feature is enabled then do nothing if the
+   // current ref frame is not allowed.
+   if (segfeature_active(seg, segment_id, SEG_LVL_REF_FRAME)) {
+@@ -2547,23 +2572,6 @@ static AOM_FORCE_INLINE bool skip_inter_mode_nonrd(
+     return true;
+   }
+ 
+-  *force_mv_inter_layer = 0;
+-  if (cpi->ppi->use_svc && svc->spatial_layer_id > 0 &&
+-      ((*ref_frame == LAST_FRAME && svc->skip_mvsearch_last) ||
+-       (*ref_frame == GOLDEN_FRAME && svc->skip_mvsearch_gf) ||
+-       (*ref_frame == ALTREF_FRAME && svc->skip_mvsearch_altref))) {
+-    // Only test mode if NEARESTMV/NEARMV is (svc_mv.mv.col, svc_mv.mv.row),
+-    // otherwise set NEWMV to (svc_mv.mv.col, svc_mv.mv.row).
+-    // Skip newmv and filter search.
+-    *force_mv_inter_layer = 1;
+-    if (*this_mode == NEWMV) {
+-      search_state->frame_mv[*this_mode][*ref_frame] = svc_mv;
+-    } else if (search_state->frame_mv[*this_mode][*ref_frame].as_int !=
+-               svc_mv.as_int) {
+-      return true;
+-    }
+-  }
+-
+   // For screen content: skip mode testing based on source_sad.
+   if (cpi->oxcf.tune_cfg.content == AOM_CONTENT_SCREEN &&
+       !x->force_zeromv_skip_for_blk) {
+@@ -3418,6 +3426,7 @@ void av1_nonrd_pick_inter_mode_sb(AV1_COMP *cpi, TileDataEnc *tile_data,
+       !x->force_zeromv_skip_for_blk &&
+       x->content_state_sb.source_sad_nonrd != kZeroSad &&
+       x->source_variance == 0 && bsize < cm->seq_params->sb_size &&
++      (cpi->ref_frame_flags & AOM_LAST_FLAG) &&
+       search_state.yv12_mb[LAST_FRAME][0].width == cm->width &&
+       search_state.yv12_mb[LAST_FRAME][0].height == cm->height) {
+     set_block_source_sad(cpi, x, bsize, &search_state.yv12_mb[LAST_FRAME][0]);

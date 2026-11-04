@@ -1,0 +1,358 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index fecd76cb5147f2c2973a77ff12b44d184758144e..332ccdc222ffbcdcad4146344957321ea916e3e3 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -228,6 +228,10 @@ target(link_target_type, "ffmpeg_internal") {
+     "FFMPEG_CONFIGURATION=NULL",
+   ]
+ 
++  if (is_ohos) {
++    defines += [ "CONFIG_ARKWEB_MEDIA" ]
++  }
++
+   if (is_component_ffmpeg) {
+     configs += [ "//build/config/sanitizers:cfi_icall_disable" ]
+   }
+@@ -432,6 +436,25 @@ target(link_target_type, "ffmpeg_internal") {
+   }
+ }
+ 
++if (is_ohos && is_component_ffmpeg && current_cpu == "x64") {
++  # On x86_64, so package of ffmpeg fails to be compiled because the symbol cannot be found.
++  # Use static_library to compile the symbol definition file into the target file to avoid this error.
++  static_library("mpegvideodata") {
++    sources = [
++      "libavcodec/mpegvideodata.c",
++      "libavcodec/mpegvideodata.h",
++    ]
++  }
++ 
++  static_library("h263dsp") {
++    sources = [
++      "libavcodec/h263dsp.c",
++      "libavcodec/h263dsp.h",
++    ]
++    configs += [ ":ffmpeg_dependent_config" ]
++  }
++}
++
+ if (is_component_ffmpeg) {
+   shared_library("ffmpeg") {
+     if (is_android) {
+@@ -439,6 +462,12 @@ if (is_component_ffmpeg) {
+     }
+     public_configs = [ ":ffmpeg_dependent_config" ]
+     deps = [ ":ffmpeg_internal" ]
++    if (is_ohos && current_cpu == "x64") {
++      deps += [
++        ":mpegvideodata",
++        ":h263dsp",
++      ]
++    }
+ 
+     # So we can append below and assume they're defined.
+     ldflags = []
+diff --git a/chromium/config/Chrome/linux/arm/libavformat/demuxer_list.c b/chromium/config/Chrome/linux/arm/libavformat/demuxer_list.c
+index 29f1f5938185eb39ecb89b8d75da5004c274f075..8ab2306b66285be040a98fdbc64f8767072691bb 100644
+--- a/chromium/config/Chrome/linux/arm/libavformat/demuxer_list.c
++++ b/chromium/config/Chrome/linux/arm/libavformat/demuxer_list.c
+@@ -6,4 +6,10 @@ static const FFInputFormat * const demuxer_list[] = {
+     &ff_mp3_demuxer,
+     &ff_ogg_demuxer,
+     &ff_wav_demuxer,
++#if CONFIG_ARKWEB_MEDIA
++    &ff_avi_demuxer,
++    &ff_flv_demuxer,
++    &ff_live_flv_demuxer,
++    &ff_mpegts_demuxer,
++#endif
+     NULL };
+diff --git a/chromium/config/Chrome/linux/arm64/libavformat/demuxer_list.c b/chromium/config/Chrome/linux/arm64/libavformat/demuxer_list.c
+index 29f1f5938185eb39ecb89b8d75da5004c274f075..8ab2306b66285be040a98fdbc64f8767072691bb 100644
+--- a/chromium/config/Chrome/linux/arm64/libavformat/demuxer_list.c
++++ b/chromium/config/Chrome/linux/arm64/libavformat/demuxer_list.c
+@@ -6,4 +6,10 @@ static const FFInputFormat * const demuxer_list[] = {
+     &ff_mp3_demuxer,
+     &ff_ogg_demuxer,
+     &ff_wav_demuxer,
++#if CONFIG_ARKWEB_MEDIA
++    &ff_avi_demuxer,
++    &ff_flv_demuxer,
++    &ff_live_flv_demuxer,
++    &ff_mpegts_demuxer,
++#endif
+     NULL };
+diff --git a/ffmpeg_generated.gni b/ffmpeg_generated.gni
+index a9d7ad8fadc10ef3f0f2a3befd5b9d5fff218a7a..ed1478d4365699cef1a326fd2b8e5d47bd754eb8 100644
+--- a/ffmpeg_generated.gni
++++ b/ffmpeg_generated.gni
+@@ -12,7 +12,7 @@ ffmpeg_c_sources = []
+ ffmpeg_gas_sources = []
+ ffmpeg_asm_sources = []
+ 
+-use_linux_config = is_linux || is_chromeos || is_fuchsia
++use_linux_config = is_linux || is_chromeos || is_fuchsia || is_ohos
+ 
+ if (current_cpu == "arm64" || current_cpu == "arm64e" || current_cpu == "x64" ||
+     (is_android && current_cpu == "arm" && arm_use_neon) ||
+@@ -293,29 +293,6 @@ if (((current_cpu == "arm64" || current_cpu == "arm64e") &&
+   ]
+ }
+ 
+-if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") ||
+-    (is_win && current_cpu == "x86" && ffmpeg_branding == "Chrome") ||
+-    (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "Chrome")) {
+-  ffmpeg_asm_sources += [
+-    "libavcodec/x86/aacpsdsp.asm",
+-    "libavcodec/x86/autorename_libavcodec_x86_videodsp.asm",
+-    "libavcodec/x86/fpel.asm",
+-    "libavcodec/x86/h264_chromamc.asm",
+-    "libavcodec/x86/h264_chromamc_10bit.asm",
+-    "libavcodec/x86/h264_deblock.asm",
+-    "libavcodec/x86/h264_deblock_10bit.asm",
+-    "libavcodec/x86/h264_idct.asm",
+-    "libavcodec/x86/h264_idct_10bit.asm",
+-    "libavcodec/x86/h264_intrapred.asm",
+-    "libavcodec/x86/h264_intrapred_10bit.asm",
+-    "libavcodec/x86/h264_qpel_10bit.asm",
+-    "libavcodec/x86/h264_qpel_8bit.asm",
+-    "libavcodec/x86/h264_weight.asm",
+-    "libavcodec/x86/h264_weight_10bit.asm",
+-    "libavcodec/x86/qpel.asm",
+-    "libavcodec/x86/sbrdsp.asm",
+-  ]
+-}
+ 
+ if (use_linux_config && current_cpu == "riscv64" &&
+     ffmpeg_branding == "Chrome") {
+@@ -472,21 +449,6 @@ if ((use_linux_config && current_cpu == "arm" && arm_use_neon &&
+   ]
+ }
+ 
+-if ((current_cpu == "x64" && ffmpeg_branding == "Chrome") ||
+-    (is_android && current_cpu == "x86" && ffmpeg_branding == "Chrome") ||
+-    (is_win && current_cpu == "x86" && ffmpeg_branding == "Chrome") ||
+-    (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "Chrome")) {
+-  ffmpeg_c_sources += [
+-    "libavcodec/x86/aacpsdsp_init.c",
+-    "libavcodec/x86/h264_intrapred_init.c",
+-    "libavcodec/x86/h264_qpel.c",
+-    "libavcodec/x86/h264chroma_init.c",
+-    "libavcodec/x86/h264dsp_init.c",
+-    "libavcodec/x86/sbrdsp_init.c",
+-    "libavcodec/x86/videodsp_init.c",
+-  ]
+-}
+-
+ if (use_linux_config && current_cpu == "arm" && arm_use_neon &&
+     ffmpeg_branding == "Chrome") {
+   ffmpeg_gas_sources += [
+@@ -535,3 +497,85 @@ if ((is_android && (current_cpu == "arm64" || current_cpu == "arm64e")) ||
+     (is_android && current_cpu == "x86")) {
+   ffmpeg_c_sources += [ "compat/strtod.c" ]
+ }
++
++
++is_x64_x86_chrome = (current_cpu == "x64" && ffmpeg_branding == "Chrome") ||
++    (is_android && current_cpu == "x86" && ffmpeg_branding == "Chrome") ||
++    (is_win && current_cpu == "x86" && ffmpeg_branding == "Chrome") ||
++    (use_linux_config && current_cpu == "x86" && ffmpeg_branding == "Chrome")
++is_use_linux_x64 = use_linux_config && current_cpu == "x64"
++
++if (is_x64_x86_chrome || is_use_linux_x64) {
++  ffmpeg_asm_sources += [
++    "libavcodec/x86/aacpsdsp.asm",
++    "libavcodec/x86/autorename_libavcodec_x86_videodsp.asm",
++    "libavcodec/x86/fpel.asm",
++    "libavcodec/x86/h264_chromamc.asm",
++    "libavcodec/x86/h264_chromamc_10bit.asm",
++    "libavcodec/x86/h264_deblock.asm",
++    "libavcodec/x86/h264_deblock_10bit.asm",
++    "libavcodec/x86/h264_idct.asm",
++    "libavcodec/x86/h264_idct_10bit.asm",
++    "libavcodec/x86/h264_intrapred.asm",
++    "libavcodec/x86/h264_intrapred_10bit.asm",
++    "libavcodec/x86/h264_qpel_10bit.asm",
++    "libavcodec/x86/h264_qpel_8bit.asm",
++    "libavcodec/x86/h264_weight.asm",
++    "libavcodec/x86/h264_weight_10bit.asm",
++    "libavcodec/x86/qpel.asm",
++    "libavcodec/x86/sbrdsp.asm",
++  ]
++
++  ffmpeg_c_sources += [
++    "libavcodec/x86/aacpsdsp_init.c",
++    "libavcodec/x86/h264_intrapred_init.c",
++    "libavcodec/x86/h264_qpel.c",
++    "libavcodec/x86/h264chroma_init.c",
++    "libavcodec/x86/h264dsp_init.c",
++    "libavcodec/x86/sbrdsp_init.c",
++    "libavcodec/x86/videodsp_init.c",
++  ]
++}
++
++if (is_use_linux_x64) {
++  ffmpeg_c_sources += [
++    "libavcodec/x86/blockdsp_init.c",
++    "libavcodec/x86/fdct.c",
++    "libavcodec/x86/fdctdsp_init.c",
++    "libavcodec/x86/h263dsp_init.c",
++    "libavcodec/x86/hpeldsp_init.c",
++    "libavcodec/x86/idctdsp_init.c",
++    "libavcodec/x86/me_cmp_init.c",
++    "libavcodec/x86/mpegvideo.c",
++    "libavcodec/x86/pixblockdsp_init.c",
++    "libavcodec/x86/qpeldsp_init.c",
++    "libavcodec/x86/vp3dsp_init.c",
++    "libavcodec/x86/vp8dsp_init.c",
++    "libavcodec/x86/xvididct_init.c",
++  ]
++ 
++  ffmpeg_asm_sources += [
++    "libavcodec/x86/hpeldsp.asm",
++    "libavcodec/x86/h263_loopfilter.asm",
++    "libavcodec/x86/blockdsp.asm",
++    "libavcodec/x86/idctdsp.asm",
++    "libavcodec/x86/me_cmp.asm",
++    "libavcodec/x86/pixblockdsp.asm",
++    "libavcodec/x86/qpeldsp.asm",
++    "libavcodec/x86/simple_idct.asm",
++    "libavcodec/x86/simple_idct10.asm",
++    "libavcodec/x86/vp3dsp.asm",
++    "libavcodec/x86/vp8dsp.asm",
++    "libavcodec/x86/vp8dsp_loopfilter.asm",
++    "libavcodec/x86/xvididct.asm",
++  ]
++}
++
++if (is_ohos && (current_cpu == "arm64" || current_cpu == "arm") && ffmpeg_branding == "Chrome") {
++  ffmpeg_c_sources += [
++    "libavcodec/h263_parser.c",
++    "libavformat/avidec.c",
++    "libavformat/flvdec.c",
++    "libavformat/mpegts.c",
++  ]
++}
+\ No newline at end of file
+diff --git a/ffmpeg_options.gni b/ffmpeg_options.gni
+index a6a012e5b94ea04b3df807a1e97c7f594b789e62..73bffd87f5c9eab7667613f9ed6869ffb75c1dc0 100644
+--- a/ffmpeg_options.gni
++++ b/ffmpeg_options.gni
+@@ -28,7 +28,7 @@ declare_args() {
+   # ffmpeg targets. This helps linux chromium packagers that swap out our
+   # ffmpeg.so with their own. See discussion here
+   # https://groups.google.com/a/chromium.org/forum/#!msg/chromium-packagers/R5rcZXWxBEQ/B6k0zzmJbvcJ
+-  is_component_ffmpeg = is_component_build
++  is_component_ffmpeg = true || is_component_build
+ 
+   # Set to true to force the use of ffmpeg's stdatomic fallback code. This code
+   # is unsafe and does not implement atomics properly. https://crbug.com/161723.
+@@ -63,8 +63,10 @@ if (current_cpu == "x86") {
+ os_config = current_os
+ if ((is_linux || is_chromeos) && is_msan) {
+   os_config = "linux-noasm"
+-} else if (is_chromeos || is_fuchsia) {
++} else if (is_chromeos || is_fuchsia || is_ohos) {
+   os_config = "linux"
+ } else if (is_win && !is_clang) {
+   os_config = "win-msvc"
++} else if (is_arkweb && !use_musl) {
++  os_config = "linux"
+ }
+diff --git a/libavcodec/dvdsub_parser.c b/libavcodec/dvdsub_parser.c
+index e728c8120d4f270e2865877a319132874f128161..6ac218315fc5ad196bb3af2e4417ef63ee53448f 100644
+--- a/libavcodec/dvdsub_parser.c
++++ b/libavcodec/dvdsub_parser.c
+@@ -60,7 +60,7 @@ static int dvdsub_parse(AVCodecParserContext *s,
+         pc->packet = av_malloc(pc->packet_len + AV_INPUT_BUFFER_PADDING_SIZE);
+     }
+     if (pc->packet) {
+-        if (pc->packet_index + buf_size <= pc->packet_len) {
++        if (buf_size <= pc->packet_len - pc->packet_index) {
+             memcpy(pc->packet + pc->packet_index, buf, buf_size);
+             pc->packet_index += buf_size;
+             if (pc->packet_index >= pc->packet_len) {
+diff --git a/libavcodec/mpeg4videoenc.h b/libavcodec/mpeg4videoenc.h
+index 4e20b8aaa0d8916c9d9d45ae4eb59fefb264ecc3..290f5a8c64c6eebfc3c11e4574f410371415e81b 100644
+--- a/libavcodec/mpeg4videoenc.h
++++ b/libavcodec/mpeg4videoenc.h
+@@ -27,7 +27,7 @@
+ 
+ #include "put_bits.h"
+ 
+-enum {
++enum {More actions
+     MAX_PB2_INTRA_SIZE = 1 /* ac_pred */ + 5 /* max cbpy len */ +
+                          2 /* dquant */ + 1 /* interlaced dct */
+                          + 4 * (8 /* longest luma dct_dc_size */ +
+diff --git a/libavformat/mov.c b/libavformat/mov.c
+index 7b3cb05feba3a9fa07150c7ac1babf1f228406a8..3a055bee7f326c88dd0ccc3d6dc03dd7e90a0764 100644
+--- a/libavformat/mov.c
++++ b/libavformat/mov.c
+@@ -8141,7 +8141,7 @@ static int cenc_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
+     }
+ 
+     for (i = 0; i < sample->subsample_count; i++) {
+-        if (sample->subsamples[i].bytes_of_clear_data + sample->subsamples[i].bytes_of_protected_data > size) {
++        if (sample->subsamples[i].bytes_of_clear_data + (int64_t)sample->subsamples[i].bytes_of_protected_data > size) {
+             av_log(c->fc, AV_LOG_ERROR, "subsample size exceeds the packet size left\n");
+             return AVERROR_INVALIDDATA;
+         }
+@@ -8196,7 +8196,7 @@ static int cbc1_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
+     }
+ 
+     for (i = 0; i < sample->subsample_count; i++) {
+-        if (sample->subsamples[i].bytes_of_clear_data + sample->subsamples[i].bytes_of_protected_data > size) {
++        if (sample->subsamples[i].bytes_of_clear_data + (int64_t)sample->subsamples[i].bytes_of_protected_data > size) {
+             av_log(c->fc, AV_LOG_ERROR, "subsample size exceeds the packet size left\n");
+             return AVERROR_INVALIDDATA;
+         }
+@@ -8258,7 +8258,7 @@ static int cens_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
+     }
+ 
+     for (i = 0; i < sample->subsample_count; i++) {
+-        if (sample->subsamples[i].bytes_of_clear_data + sample->subsamples[i].bytes_of_protected_data > size) {
++        if (sample->subsamples[i].bytes_of_clear_data + (int64_t)sample->subsamples[i].bytes_of_protected_data > size) {
+             av_log(c->fc, AV_LOG_ERROR, "subsample size exceeds the packet size left\n");
+             return AVERROR_INVALIDDATA;
+         }
+@@ -8323,7 +8323,7 @@ static int cbcs_scheme_decrypt(MOVContext *c, MOVStreamContext *sc, AVEncryption
+     }
+ 
+     for (i = 0; i < sample->subsample_count; i++) {
+-        if (sample->subsamples[i].bytes_of_clear_data + sample->subsamples[i].bytes_of_protected_data > size) {
++        if (sample->subsamples[i].bytes_of_clear_data + (int64_t)sample->subsamples[i].bytes_of_protected_data > size) {
+             av_log(c->fc, AV_LOG_ERROR, "subsample size exceeds the packet size left\n");
+             return AVERROR_INVALIDDATA;
+         }
+diff --git a/libavformat/oggparsevorbis.c b/libavformat/oggparsevorbis.c
+index 8d83bd2fa99691ff2e385086244a0fb405d5dcad..75fcc71a237cc5eaf976082a799f10598000f84b 100644
+--- a/libavformat/oggparsevorbis.c
++++ b/libavformat/oggparsevorbis.c
+@@ -230,8 +230,11 @@ static int fixup_vorbis_headers(AVFormatContext *as,
+     int i, offset, len, err;
+     int buf_len;
+     unsigned char *ptr;
++    uint64_t total_len = (uint64_t)priv->len[0] + priv->len[1] + priv->len[2];
++    if (total_len + total_len / 255 + 64 > INT_MAX)
++        return AVERROR_INVALIDDATA;
+ 
+-    len = priv->len[0] + priv->len[1] + priv->len[2];
++    len = total_len;
+     buf_len = len + len / 255 + 64;
+ 
+     if (*buf)
+@@ -607,6 +610,13 @@ static int vorbis_packet(AVFormatContext *s, int idx)
+         priv->comment_size = 0;
+         av_freep(&priv->setup);
+         priv->setup_size = 0;
++
++        av_vorbis_parse_free(&priv->vp);
++        priv->vp = av_vorbis_parse_init(os->new_extradata, os->new_extradata_size);
++        if (!priv->vp) {
++            av_log(s, AV_LOG_ERROR, "Failed to re-initialize Vorbis parser\n");
++            return AVERROR_INVALIDDATA;
++        }
+     }
+ 
+     return skip_packet;

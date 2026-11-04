@@ -1,0 +1,11 @@
+{
+  "excluded_PR_file_associations": 4344,
+  "aggregation_security_child_associations": 27,
+  "unique_D_files": 3132,
+  "priority": {
+    "upstream_exclusion_trace": 4312,
+    "possible_platform_adaptation": 27,
+    "changed_platform_text_review": 5
+  },
+  "warning": "An exclusion trace is not a self-code finding; PR-specific diff command preserves exact content"
+}

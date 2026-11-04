@@ -1,0 +1,26 @@
+diff --git a/source/common/unicode/uversion.h b/source/common/unicode/uversion.h
+index 971301b5784b61e875df6f6ae4bcfd6108cbaedb..a64d603f2d1c21e6167550cc0cd26914272366dd 100644
+--- a/source/common/unicode/uversion.h
++++ b/source/common/unicode/uversion.h
+@@ -30,7 +30,7 @@
+ #include "unicode/umachine.h"
+ 
+ /* Actual version info lives in uvernum.h */
+-#include "unicode/uvernum.h"
++#include "third_party/icu/source/common/unicode/uvernum.h"
+ 
+ /** Maximum length of the copyright string.
+  *  @stable ICU 2.4
+diff --git a/source/tools/genrb/parse.cpp b/source/tools/genrb/parse.cpp
+index eb85d5157a6f9aab47d5447fc65eff3b1d272d1a..3a53e999ff15e85b37700621c69df3ce5ed41b8b 100644
+--- a/source/tools/genrb/parse.cpp
++++ b/source/tools/genrb/parse.cpp
+@@ -297,7 +297,7 @@ static char *getInvariantString(ParseState* state, uint32_t *line, struct UStrin
+ 
+     if(!uprv_isInvariantUString(tokenValue->fChars, tokenValue->fLength)) {
+         *status = U_INVALID_FORMAT_ERROR;
+-        error(*line, "invariant characters required for table keys, binary data, etc.");
++        error((line == nullptr) ? 0 : *line, "invariant characters required for table keys, binary data, etc.");
+         return nullptr;
+     }
+ 

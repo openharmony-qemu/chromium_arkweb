@@ -1,0 +1,88 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index f62c1d80ae17bbb8bfec53d212582aa5002536e6..b1a667519584bad70a0c994247e35ada3fbb14e6 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -162,7 +162,7 @@ if (current_cpu == "x86" || current_cpu == "x64") {
+       }
+     } else if (is_mac || is_ios) {
+       defines += [ "MACHO" ]
+-    } else if (is_linux || is_android || is_fuchsia || is_chromeos) {
++    } else if (is_linux || is_android || is_fuchsia || is_chromeos || is_ohos) {
+       defines += [ "ELF" ]
+     }
+   }
+@@ -489,6 +489,12 @@ if (build_with_chromium) {
+       "//testing/gtest:gtest_main",
+     ]
+ 
++    if (is_ohos) {
++      deps += [
++        "//base/test:test_support",
++      ]
++    }
++
+     data = [ "testimages/" ]
+ 
+     defines = [
+diff --git a/gtest/gtest-utils.cpp b/gtest/gtest-utils.cpp
+index 1bc75f60a1dc89545e7ece335b9581b6c5a7e683..33c21edf2fd1d1119d5dcdf1ba442539577a2bb0 100644
+--- a/gtest/gtest-utils.cpp
++++ b/gtest/gtest-utils.cpp
+@@ -25,6 +25,10 @@
+ #include "crypto/obsolete/md5.h"
+ #include "gtest-utils.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "base/test/test_support_ohos.h"
++#endif
++
+ #if defined(OS_WIN)
+ std::wstring GetTargetDirectory() {
+   base::FilePath path;
+@@ -44,6 +48,10 @@ std::string GetTargetDirectory() {
+ #endif
+ 
+ void GetTestFilePath(base::FilePath* path, const std::string filename) {
++#if BUILDFLAG(IS_OHOS)
++  base::RegisterPathProviderForOhosTest();
++#endif
++ 
+   ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, path));
+   *path = path->AppendASCII("third_party");
+   *path = path->AppendASCII("libjpeg_turbo");
+diff --git a/gtest/tjbench-gtest-wrapper.cpp b/gtest/tjbench-gtest-wrapper.cpp
+index d3c211afa3414169f35cd1716fb0f6ba8ef28b1c..854b9af855f4fec939585388e2cf37824f562094 100644
+--- a/gtest/tjbench-gtest-wrapper.cpp
++++ b/gtest/tjbench-gtest-wrapper.cpp
+@@ -25,6 +25,9 @@
+ 
+ #include <gtest/gtest.h>
+ #include <string>
++#if BUILDFLAG(IS_OHOS)
++#include "base/test/test_support_ohos.h"
++#endif
+ 
+ extern "C" int tjbench(int argc, char *argv[]);
+ 
+@@ -60,6 +63,10 @@ class TJBenchTest : public
+ 
+   static void SetUpTestSuite() {
+     base::FilePath resource_path;
++    #if BUILDFLAG(IS_OHOS)
++    base::RegisterPathProviderForOhosTest();
++    #endif
++    
+     ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &resource_path));
+     resource_path = resource_path.AppendASCII("third_party");
+     resource_path = resource_path.AppendASCII("libjpeg_turbo");
+@@ -130,6 +137,10 @@ class TJBenchTestMerged : public
+ 
+   static void SetUpTestSuite() {
+     base::FilePath resource_path;
++    #if BUILDFLAG(IS_OHOS)
++    base::RegisterPathProviderForOhosTest();
++    #endif
++ 
+     ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &resource_path));
+     resource_path = resource_path.AppendASCII("third_party");
+     resource_path = resource_path.AppendASCII("libjpeg_turbo");

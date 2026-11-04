@@ -1,0 +1,3255 @@
+diff --git a/README.OpenSource b/README.OpenSource
+new file mode 100644
+index 0000000000000000000000000000000000000000..c01cde340c447c82035792c4d269a374559c5ec3
+--- /dev/null
++++ b/README.OpenSource
+@@ -0,0 +1,11 @@
++[
++    {
++        "Name": "devtools-frontend",
++        "License": "BSD-3-Clause",
++        "License File": "LICENSE",
++        "Version Number": "d5efa4236f8676254c9f39ccfef18bd633de5fd3",
++        "Owner": "huamengzheng@huawei.com",
++        "Upstream URL": "https://chromium.googlesource.com/devtools/devtools-frontend@d5efa4236f8676254c9f39ccfef18bd633de5fd3",
++        "Description": "Chrome DevTools前端"
++    }
++]
+\ No newline at end of file
+diff --git a/config/gni/devtools_grd_files.gni b/config/gni/devtools_grd_files.gni
+index 5547ef23d87bf78a9c71a1eec8d329f26fbeac9b..00cdd19b701201c5b4b7c7d4418258a20929155e 100644
+--- a/config/gni/devtools_grd_files.gni
++++ b/config/gni/devtools_grd_files.gni
+@@ -867,6 +867,15 @@ grd_files_bundled_sources = [
+   "front_end/worker_app.html",
+ ]
+ 
++#if ARKWEB_DEVTOOLS
++grd_files_bundled_sources -= [
++  "front_end/Images/cssoverview_icons_2x.avif",
++]
++grd_files_bundled_sources += [
++  "front_end/Images/cssoverview_icons_2x.png",
++]
++#endif ARKWEB_DEVTOOLS
++
+ grd_files_unbundled_sources = [
+   "front_end/core/common/App.js",
+   "front_end/core/common/AppProvider.js",
+diff --git a/config/gni/devtools_image_files.gni b/config/gni/devtools_image_files.gni
+index 5c8f89ef6b1c850d98396e454d66228a8b039f7c..4602503b9178892d12788221730d58370176bd29 100644
+--- a/config/gni/devtools_image_files.gni
++++ b/config/gni/devtools_image_files.gni
+@@ -22,6 +22,15 @@ devtools_image_files = [
+   "gdp-logo-dark.png",
+ ]
+ 
++#if ARKWEB_DEVTOOLS
++devtools_image_files -= [
++  "cssoverview_icons_2x.avif",
++]
++devtools_image_files += [
++  "cssoverview_icons_2x.png",
++]
++#endif ARKWEB_DEVTOOLS
++
+ devtools_svg_sources = [
+   "3d-center.svg",
+   "3d-pan.svg",
+diff --git a/front_end/Images/cssoverview_icons_2x.png b/front_end/Images/cssoverview_icons_2x.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..30b02c8505abde0d258a3edf807aafafec06ccec
+GIT binary patch
+literal 6815
+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
+N002ovPDHLkV1j%u7<vEz
+
+literal 0
+HcmV?d00001
+
+diff --git a/front_end/Tests.js b/front_end/Tests.js
+index 7688a872a28aada9d8eeab4c3385f8b371b32954..6a13544584d1fedae33ce011b0e551189391c13f 100644
+--- a/front_end/Tests.js
++++ b/front_end/Tests.js
+@@ -1086,20 +1086,36 @@
+     this.takeControl({slownessFactor: 10});
+   };
+ 
+-  TestSuite.prototype.waitForTestResultsAsMessage = function() {
+-    const onMessage = event => {
+-      if (!event.data.testOutput) {
+-        return;
+-      }
+-      top.removeEventListener('message', onMessage);
++  const earlyTestResults = [];
++  let testResultsWaiter = null;
++
++  top.addEventListener('message', event => {
++    if (event.data && event.data.testOutput) {
+       const text = event.data.testOutput;
++      if (testResultsWaiter) {
++        testResultsWaiter(text);
++      } else {
++        earlyTestResults.push(text);
++      }
++    }
++  });
++
++  TestSuite.prototype.waitForTestResultsAsMessage = function() {
++    const handleMessage = text => {
++      testResultsWaiter = null;
+       if (text === 'PASS') {
+         this.releaseControl();
+       } else {
+         this.fail(text);
+       }
+     };
+-    top.addEventListener('message', onMessage);
++
++    if (earlyTestResults.length) {
++      handleMessage(earlyTestResults.shift());
++      return;
++    }
++
++    testResultsWaiter = handleMessage;
+     this.takeControl();
+   };
+ 
+diff --git a/front_end/core/sdk/ConsoleModel.ts b/front_end/core/sdk/ConsoleModel.ts
+index f662d99731bb0a831a974add717d4d3c47bc452c..ba9600bbd39dc3105bcb14ba44b89cbe97e8bf29 100644
+--- a/front_end/core/sdk/ConsoleModel.ts
++++ b/front_end/core/sdk/ConsoleModel.ts
+@@ -142,7 +142,7 @@ export class ConsoleModel extends SDKModel<EventTypes> {
+   async evaluateCommandInConsole(
+       executionContext: ExecutionContext, originatingMessage: ConsoleMessage, expression: string,
+       useCommandLineAPI: boolean): Promise<void> {
+-    const result = await executionContext.evaluate(
++    const result = await executionContext.evaluateWithSelectedFrameFallback(
+         {
+           expression,
+           objectGroup: 'console',
+diff --git a/front_end/core/sdk/RuntimeModel.ts b/front_end/core/sdk/RuntimeModel.ts
+index beae1ab3b9d58e2370f48068d377a0beea107053..89e608a22069fd97fb9b8402920d0c82dbf773e9 100644
+--- a/front_end/core/sdk/RuntimeModel.ts
++++ b/front_end/core/sdk/RuntimeModel.ts
+@@ -586,12 +586,13 @@ export class ExecutionContext {
+     return a.name.localeCompare(b.name);
+   }
+ 
+-  async evaluate(options: EvaluationOptions, userGesture: boolean, awaitPromise: boolean): Promise<EvaluationResult> {
++  async evaluateWithSelectedFrameFallback(options: EvaluationOptions, userGesture: boolean,
++                                          awaitPromise: boolean): Promise<EvaluationResult> {
+     // FIXME: It will be moved to separate ExecutionContext.
+     if (this.debuggerModel.selectedCallFrame()) {
+       return await this.debuggerModel.evaluateOnSelectedCallFrame(options);
+     }
+-    return await this.evaluateGlobal(options, userGesture, awaitPromise);
++    return await this.evaluate(options, userGesture, awaitPromise);
+   }
+ 
+   globalObject(objectGroup: string, generatePreview: boolean): Promise<EvaluationResult> {
+@@ -603,7 +604,7 @@ export class ExecutionContext {
+       returnByValue: false,
+       generatePreview,
+     };
+-    return this.evaluateGlobal((evaluationOptions as EvaluationOptions), false, false);
++    return this.evaluate((evaluationOptions as EvaluationOptions), false, false);
+   }
+ 
+   async callFunctionOn(options: CallFunctionOptions): Promise<EvaluationResult> {
+@@ -626,8 +627,7 @@ export class ExecutionContext {
+     return {object: this.runtimeModel.createRemoteObject(response.result), exceptionDetails: response.exceptionDetails};
+   }
+ 
+-  private async evaluateGlobal(options: EvaluationOptions, userGesture: boolean, awaitPromise: boolean):
+-      Promise<EvaluationResult> {
++  async evaluate(options: EvaluationOptions, userGesture: boolean, awaitPromise: boolean): Promise<EvaluationResult> {
+     if (!options.expression) {
+       // There is no expression, so the completion should happen against global properties.
+       options.expression = 'this';
+diff --git a/front_end/core/sdk/sdk-meta.ts b/front_end/core/sdk/sdk-meta.ts
+index 2f0da2f230f651e1b8501b815a67be760fd697a5..ae1a95c1bf6ba540cb8780ba058da25ee7470a59 100644
+--- a/front_end/core/sdk/sdk-meta.ts
++++ b/front_end/core/sdk/sdk-meta.ts
+@@ -5,6 +5,10 @@
+ import * as Common from '../common/common.js';
+ import * as i18n from '../i18n/i18n.js';
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ const UIStrings = {
+   /**
+    * @description Title of a setting under the Console category that can be invoked through the Command Menu
+@@ -448,7 +452,12 @@ Common.Settings.registerSettingExtension({
+   title: i18nLazyString(UIStrings.disableJavascript),
+   settingName: 'java-script-disabled',
+   settingType: Common.Settings.SettingType.BOOLEAN,
++  // 作用：将"停用 JavaScript"设置的存储类型由 SESSION 改为 GLOBAL
++  // #ifdef ARKWEB_DEVTOOLS
++  // storageType: adaptForOhos ? Common.Settings.SettingStorageType.GLOBAL :
++  //                             Common.Settings.SettingStorageType.SESSION,
+   storageType: Common.Settings.SettingStorageType.SESSION,
++  // #endif ARKWEB_DEVTOOLS
+   order: 1,
+   defaultValue: false,
+   options: [
+diff --git a/front_end/entrypoints/devtools_app/devtools_app.ts b/front_end/entrypoints/devtools_app/devtools_app.ts
+index 97857651b2300595825a5cecabe407e29fa51afd..1eddee3f66fffb64ba1b483ab63148804d8ca6f8 100644
+--- a/front_end/entrypoints/devtools_app/devtools_app.ts
++++ b/front_end/entrypoints/devtools_app/devtools_app.ts
+@@ -2,41 +2,35 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ import '../shell/shell.js';
+-// #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/css_overview/css_overview-meta.js';
+-// #endif ARKWEB_DEVTOOLS
++import '../../panels/css_overview/css_overview-meta.js';
+ import '../../panels/elements/elements-meta.js';
+ import '../../panels/browser_debugger/browser_debugger-meta.js';
+ import '../../panels/network/network-meta.js';
+-// #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/security/security-meta.js';
+-// #endif ARKWEB_DEVTOOLS
++import '../../panels/security/security-meta.js';
+ import '../../panels/emulation/emulation-meta.js';
+ import '../../panels/sensors/sensors-meta.js';
+ import '../../panels/accessibility/accessibility-meta.js';
+ import '../../panels/animation/animation-meta.js';
++import '../../panels/developer_resources/developer_resources-meta.js';
+ // #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/developer_resources/developer_resources-meta.js';
+ //import '../../panels/autofill/autofill-meta.js';
+ // #endif ARKWEB_DEVTOOLS
+ import '../inspector_main/inspector_main-meta.js';
+ import '../../panels/application/application-meta.js';
+ import '../../panels/issues/issues-meta.js';
++import '../../panels/layers/layers-meta.js';
+ // #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/layers/layers-meta.js';
+ //import '../../panels/lighthouse/lighthouse-meta.js';
+ //import '../../panels/media/media-meta.js';
+ // #endif ARKWEB_DEVTOOLS
+ import '../../panels/mobile_throttling/mobile_throttling-meta.js';
+ import '../../panels/performance_monitor/performance_monitor-meta.js';
+ import '../../panels/timeline/timeline-meta.js';
+-// #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/web_audio/web_audio-meta.js';
+-//import '../../panels/webauthn/webauthn-meta.js';
+-// #endif ARKWEB_DEVTOOLS
++import '../../panels/web_audio/web_audio-meta.js';
++import '../../panels/webauthn/webauthn-meta.js';
+ import '../../panels/layer_viewer/layer_viewer-meta.js';
++import '../../panels/recorder/recorder-meta.js';
+ // #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/recorder/recorder-meta.js';
+ //import '../../panels/whats_new/whats_new-meta.js';
+ // #endif ARKWEB_DEVTOOLS
+ 
+diff --git a/front_end/entrypoints/inspector_main/InspectorMain.ts b/front_end/entrypoints/inspector_main/InspectorMain.ts
+index 0db4ffbfdfce8c3b1a202832b28977e5a0ab5eb6..d33f4fe41fd56d60194d24ec834cc7336a20e042 100644
+--- a/front_end/entrypoints/inspector_main/InspectorMain.ts
++++ b/front_end/entrypoints/inspector_main/InspectorMain.ts
+@@ -299,8 +299,18 @@ export class BackendSettingsSync implements SDK.TargetManager.Observer {
+     this.#autoAttachSetting.addChangeListener(this.#updateAutoAttach, this);
+     this.#updateAutoAttach();
+ 
+-    this.#adBlockEnabledSetting = Common.Settings.Settings.instance().moduleSetting('network.ad-blocking-enabled');
+-    this.#adBlockEnabledSetting.addChangeListener(this.#update, this);
++    // 作用：OH上跳过广告拦截设置注册，置空引用
++    // #ifdef ARKWEB_DEVTOOLS
++    const adaptForOhos = true;
++    // #endif ARKWEB_DEVTOOLS
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
++      this.#adBlockEnabledSetting = Common.Settings.Settings.instance().moduleSetting('network.ad-blocking-enabled');
++      this.#adBlockEnabledSetting.addChangeListener(this.#update, this);
++    } else {
++      this.#adBlockEnabledSetting = null as unknown as Common.Settings.Setting<boolean>;
++    }
++    // #endif ARKWEB_DEVTOOLS
+ 
+     this.#emulatePageFocusSetting = Common.Settings.Settings.instance().moduleSetting('emulate-page-focus');
+     this.#emulatePageFocusSetting.addChangeListener(this.#update, this);
+@@ -315,7 +325,12 @@ export class BackendSettingsSync implements SDK.TargetManager.Observer {
+     if (target.type() !== SDK.Target.Type.FRAME || target.parentTarget()?.type() === SDK.Target.Type.FRAME) {
+       return;
+     }
+-    void target.pageAgent().invoke_setAdBlockingEnabled({enabled: this.#adBlockEnabledSetting.get()});
++    // 作用：调用广告拦截 CDP 前检查设置对象是否存在
++    // #ifdef ARKWEB_DEVTOOLS
++    if (this.#adBlockEnabledSetting) {
++      void target.pageAgent().invoke_setAdBlockingEnabled({enabled: this.#adBlockEnabledSetting.get()});
++    }
++    // #endif ARKWEB_DEVTOOLS
+     void target.emulationAgent().invoke_setFocusEmulationEnabled({enabled: this.#emulatePageFocusSetting.get()});
+   }
+ 
+diff --git a/front_end/entrypoints/inspector_main/inspector_main-meta.ts b/front_end/entrypoints/inspector_main/inspector_main-meta.ts
+index 5d8747e3017b24c3d53843262a10a321978e99b8..8c7d263112c0bf7ea095eb9f9e02a1752e010d79 100644
+--- a/front_end/entrypoints/inspector_main/inspector_main-meta.ts
++++ b/front_end/entrypoints/inspector_main/inspector_main-meta.ts
+@@ -7,7 +7,10 @@ import * as i18n from '../../core/i18n/i18n.js';
+ import * as UI from '../../ui/legacy/legacy.js';
+ 
+ import type * as InspectorMain from './inspector_main.js';
+-
++// 作用：ArkWeb OH 平台适配开关，控制广告拦截设置扩展的注册
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
+ const UIStrings = {
+   /**
+    * @description Title of the Rendering tool. The rendering tool is a collection of settings that
+@@ -205,7 +208,9 @@ UI.ActionRegistration.registerActionExtension({
+     return new InspectorMain.RenderingOptions.ReloadActionDelegate();
+   },
+ });
+-
++// 作用：OH 平台跳过 forceAdBlocking（强制广告拦截）设置扩展注册
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.NETWORK,
+   title: i18nLazyString(UIStrings.forceAdBlocking),
+@@ -224,7 +229,8 @@ Common.Settings.registerSettingExtension({
+     },
+   ],
+ });
+-
++}
++// #endif ARKWEB_DEVTOOLS
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.GLOBAL,
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+diff --git a/front_end/entrypoints/main/MainImpl.ts b/front_end/entrypoints/main/MainImpl.ts
+index a31b10b56e4c50241f2f415b527fe14381b2df52..58c84445ced6c408fc7584ac06498d088f34043e 100644
+--- a/front_end/entrypoints/main/MainImpl.ts
++++ b/front_end/entrypoints/main/MainImpl.ts
+@@ -66,6 +66,11 @@ import * as VisualLogging from '../../ui/visual_logging/visual_logging.js';
+ 
+ import {ExecutionContextSelector} from './ExecutionContextSelector.js';
+ 
++// 作用：OH 平台适配开关
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ const UIStrings = {
+   /**
+    * @description Title of item in main
+@@ -185,7 +190,12 @@ export class MainImpl {
+ 
+     await this.requestAndRegisterLocaleData();
+ 
+-    Host.userMetrics.syncSetting(Common.Settings.Settings.instance().moduleSetting<boolean>('sync-preferences').get());
++    // 作用：OH上跳过 sync-preferences 设置项的 userMetrics 上报
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
++      Host.userMetrics.syncSetting(Common.Settings.Settings.instance().moduleSetting<boolean>('sync-preferences').get());
++    }
++    // #endif ARKWEB_DEVTOOLS
+     const veLogging = config.devToolsVeLogging;
+ 
+     // Used by e2e to put VE Logs into "test mode".
+@@ -314,8 +324,6 @@ export class MainImpl {
+ 
+   #initializeExperiments(): void {
+     // #ifdef ARKWEB_DEVTOOLS
+-    const adaptForOhos = true;
+-    // #endif ARKWEB_DEVTOOLS
+     Root.Runtime.experiments.register('capture-node-creation-stacks', 'Capture node creation stacks');
+     Root.Runtime.experiments.register('live-heap-profile', 'Live heap profile', true);
+     // #ifdef ARKWEB_DEVTOOLS
+@@ -394,9 +402,16 @@ export class MainImpl {
+     Root.Runtime.experiments.register('experimental-cookie-features', 'Enable experimental cookie features');
+ 
+     // Change grouping of sources panel to use Authored/Deployed trees
+-    Root.Runtime.experiments.register(
+-        Root.Runtime.ExperimentName.AUTHORED_DEPLOYED_GROUPING, 'Group sources into authored and deployed trees',
+-        undefined, 'https://goo.gle/authored-deployed', 'https://goo.gle/authored-deployed-feedback');
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      Root.Runtime.experiments.register(
++        Root.Runtime.ExperimentName.AUTHORED_DEPLOYED_GROUPING, 'Group sources into authored and deployed trees');
++    } else {
++      Root.Runtime.experiments.register(
++          Root.Runtime.ExperimentName.AUTHORED_DEPLOYED_GROUPING, 'Group sources into authored and deployed trees',
++          undefined, 'https://goo.gle/authored-deployed', 'https://goo.gle/authored-deployed-feedback');
++    }
++    // #endif ARKWEB_DEVTOOLS
+ 
+     // Hide third party code (as determined by ignore lists or source maps)
+     Root.Runtime.experiments.register(
+@@ -412,6 +427,12 @@ export class MainImpl {
+       ...(Root.Runtime.Runtime.queryParam('isChromeForTesting') ? ['protocol-monitor'] : []),
+     ]);
+ 
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      Root.Runtime.experiments.enableExperimentsByDefault(['protocol-monitor']);
++    }
++    // #endif ARKWEB_DEVTOOLS
++
+     Root.Runtime.experiments.cleanUpStaleExperiments();
+     const enabledExperiments = Root.Runtime.Runtime.queryParam('enabledExperiments');
+     if (enabledExperiments) {
+@@ -666,16 +687,15 @@ export class MainImpl {
+           if (event.data.payload === 'true' || event.data.payload === 'false') {
+             VisualLogging.setVeDebuggingEnabled(event.data.payload === 'true', (query: string) => {
+               VisualLogging.setVeDebuggingEnabled(false);
+-              void runtimeModel?.defaultExecutionContext()?.evaluate(
+-                  {
+-                    expression: `window.inspect(${JSON.stringify(query)})`,
+-                    includeCommandLineAPI: false,
+-                    silent: true,
+-                    returnByValue: false,
+-                    generatePreview: false,
+-                  },
+-                  /* userGesture */ false,
+-                  /* awaitPromise */ false);
++              void runtimeModel?.defaultExecutionContext()?.evaluateWithSelectedFrameFallback({
++                expression: `window.inspect(${JSON.stringify(query)})`,
++                includeCommandLineAPI: false,
++                silent: true,
++                returnByValue: false,
++                generatePreview: false,
++              },
++                                                                                              /* userGesture */ false,
++                                                                                              /* awaitPromise */ false);
+             });
+           } else {
+             VisualLogging.setHighlightedVe(event.data.payload === 'null' ? null : event.data.payload);
+@@ -1021,8 +1041,7 @@ export class MainMenuItem implements UI.Toolbar.Provider {
+       }, {additionalElement, isPreviewFeature: viewExtension.isPreviewFeature(), jslogContext: id});
+     }
+ 
+-    // #if BUILDFLAG(ARKWEB_DEVTOOLS)
+-    const adaptForOhos = true;
++    // #ifdef ARKWEB_DEVTOOLS
+     if (adaptForOhos) {
+       // ohos doesn't support this
+     } else {
+diff --git a/front_end/entrypoints/main/main-meta.ts b/front_end/entrypoints/main/main-meta.ts
+index f4c7e07be48061e91684ef265e288f95cadc7ff3..686c5318e2cd10d7f106e90d53b16bbc3d10e330 100644
+--- a/front_end/entrypoints/main/main-meta.ts
++++ b/front_end/entrypoints/main/main-meta.ts
+@@ -220,11 +220,17 @@ const UIStrings = {
+    * @description Label of a checkbox under the Appearance category in Settings. Allows developers
+    * to opt-in / opt-out of syncing DevTools' color theme with Chrome's color theme.
+    */
+-  matchChromeColorScheme: 'Match Chrome color scheme',
++  // #ifdef ARKWEB_DEVTOOLS
++  // matchChromeColorScheme: 'Match Chrome color scheme',
++  matchChromeColorScheme: 'Match color scheme',
++  // #endif ARKWEB_DEVTOOLS
+   /**
+    * @description Tooltip for the learn more link of the Match Chrome color scheme Setting.
+    */
+-  matchChromeColorSchemeDocumentation: 'Match DevTools colors to your customized Chrome theme (when enabled)',
++  // #ifdef ARKWEB_DEVTOOLS
++  //matchChromeColorSchemeDocumentation: 'Match DevTools colors to your customized Chrome theme (when enabled)',
++  matchChromeColorSchemeDocumentation: 'Match DevTools colors to your customized theme (when enabled)',
++  // #endif ARKWEB_DEVTOOLS
+   /**
+    * @description Command to turn the browser color scheme matching on through the command menu.
+    */
+@@ -650,6 +656,9 @@ Common.Settings.registerSettingExtension({
+   ],
+ });
+ 
++// 作用：OH 平台跳过"与 Chrome 配色方案匹配"设置项（chrome-theme-colors）注册
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.APPEARANCE,
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+@@ -669,10 +678,14 @@ Common.Settings.registerSettingExtension({
+   ],
+   reloadRequired: true,
+   learnMore: {
+-    url: 'https://goo.gle/devtools-customize-theme' as Platform.DevToolsPath.UrlString,
++    // #ifdef ARKWEB_DEVTOOLS
++    // url: 'https://goo.gle/devtools-customize-theme' as Platform.DevToolsPath.UrlString,
++    // #endif ARKWEB_DEVTOOLS
+     tooltip: i18nLazyString(UIStrings.matchChromeColorSchemeDocumentation),
+   },
+ });
++}
++// #endif ARKWEB_DEVTOOLS
+ 
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.APPEARANCE,
+@@ -793,6 +806,9 @@ function createOptionForLocale(localeString: string): Common.Settings.SettingExt
+   };
+ }
+ 
++// #ifdef ARKWEB_DEVTOOLS
++// 作用：OH 平台跳过 Chrome Sync 偏好同步设置项（sync-preferences）注册
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.ACCOUNT,
+   // This name must be kept in sync with DevToolsSettings::kSyncDevToolsPreferencesFrontendName.
+@@ -802,7 +818,10 @@ Common.Settings.registerSettingExtension({
+   defaultValue: false,
+   reloadRequired: true,
+ });
++}
+ 
++// 作用：OH 平台跳过 Google Developer Program 徽章接收设置项（receive-gdp-badges）注册
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.ACCOUNT,
+   settingName: 'receive-gdp-badges',
+@@ -812,6 +831,8 @@ Common.Settings.registerSettingExtension({
+   defaultValue: false,
+   reloadRequired: true,
+ });
++}
++// #endif ARKWEB_DEVTOOLS
+ 
+ Common.Settings.registerSettingExtension({
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+@@ -930,10 +951,6 @@ UI.Toolbar.registerToolbarItem({
+   location: UI.Toolbar.ToolbarItemLocation.MAIN_TOOLBAR_RIGHT,
+ });
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-if (adaptForOhos) {
+-  // arkweb does't support settings.
+-} else {
+ UI.Toolbar.registerToolbarItem({
+   async loadItem() {
+     const Main = await loadMainModule();
+@@ -942,9 +959,6 @@ UI.Toolbar.registerToolbarItem({
+   order: 99,
+   location: UI.Toolbar.ToolbarItemLocation.MAIN_TOOLBAR_RIGHT,
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+-
+ UI.Toolbar.registerToolbarItem({
+   condition: () => !Root.Runtime.Runtime.isTraceApp(),
+   async loadItem() {
+diff --git a/front_end/entrypoints/shell/shell.ts b/front_end/entrypoints/shell/shell.ts
+index 5772ad22251b22bdb631904a751fb1497d123e57..5733ee27cb3b8766eb34fbccdca1ea986456b6f9 100644
+--- a/front_end/entrypoints/shell/shell.ts
++++ b/front_end/entrypoints/shell/shell.ts
+@@ -8,14 +8,10 @@ import '../../panels/sources/sources-meta.js';
+ import '../../panels/profiler/profiler-meta.js';
+ import '../../panels/console/console-meta.js';
+ import '../../panels/coverage/coverage-meta.js';
+-// #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/changes/changes-meta.js';
+-//import '../../panels/linear_memory_inspector/linear_memory_inspector-meta.js';
+-// #endif ARKWEB_DEVTOOLS
++import '../../panels/changes/changes-meta.js';
++import '../../panels/linear_memory_inspector/linear_memory_inspector-meta.js';
+ import '../../panels/settings/settings-meta.js';
+-// #ifdef ARKWEB_DEVTOOLS
+-//import '../../panels/protocol_monitor/protocol_monitor-meta.js';
+-// #endif ARKWEB_DEVTOOLS
++import '../../panels/protocol_monitor/protocol_monitor-meta.js';
+ import '../../models/persistence/persistence-meta.js';
+ import '../../models/logs/logs-meta.js';
+ import '../main/main-meta.js';
+diff --git a/front_end/models/ai_assistance/ExtensionScope.ts b/front_end/models/ai_assistance/ExtensionScope.ts
+index dffc18270916f2de71875cb5d527bbf547c1c628..8ff214a94cecb3f41eb99ad174b95717284b6a3c 100644
+--- a/front_end/models/ai_assistance/ExtensionScope.ts
++++ b/front_end/models/ai_assistance/ExtensionScope.ts
+@@ -113,18 +113,17 @@ export class ExtensionScope {
+       ): Promise<{
+     object: SDK.RemoteObject.RemoteObject,
+   }> {
+-    const response = await context.evaluate(
+-        {
+-          expression,
+-          replMode: true,
+-          includeCommandLineAPI: false,
+-          returnByValue,
+-          silent: false,
+-          generatePreview: false,
+-          allowUnsafeEvalBlockedByCSP: true,
+-          throwOnSideEffect: false,
+-        },
+-        /* userGesture */ false, /* awaitPromise */ true);
++    const response = await context.evaluateWithSelectedFrameFallback({
++      expression,
++      replMode: true,
++      includeCommandLineAPI: false,
++      returnByValue,
++      silent: false,
++      generatePreview: false,
++      allowUnsafeEvalBlockedByCSP: true,
++      throwOnSideEffect: false,
++    },
++                                                                     /* userGesture */ false, /* awaitPromise */ true);
+ 
+     if (!response) {
+       throw new Error('Response is not found');
+diff --git a/front_end/models/badges/UserBadges.ts b/front_end/models/badges/UserBadges.ts
+index 6914a238d4d91e70487ec5dd1b1b8a6a4f156b99..33b760c76697b3066e8e096cdb71d0382e5a531b 100644
+--- a/front_end/models/badges/UserBadges.ts
++++ b/front_end/models/badges/UserBadges.ts
+@@ -30,7 +30,12 @@ let userBadgesInstance: UserBadges|undefined = undefined;
+ export class UserBadges extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+   readonly #badgeActionEventTarget = new Common.ObjectWrapper.ObjectWrapper<BadgeActionEvents>();
+ 
+-  #receiveBadgesSetting: Common.Settings.Setting<Boolean>;
++  // #ifdef ARKWEB_DEVTOOLS
++  // 作用：OH 上该 setting 无对应注册项，置为 null
++  // 合理性：main-meta.ts 跳过了 receive-gdp-badges 的注册
++  // 必要性：不置空则 moduleSetting 抛 No setting registered 异常
++  #receiveBadgesSetting: Common.Settings.Setting<Boolean>|null;
++  // #endif ARKWEB_DEVTOOLS
+   #allBadges: Badge[];
+ 
+   #starterBadgeSnoozeCount: Common.Settings.Setting<number>;
+@@ -48,11 +53,21 @@ export class UserBadges extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+   private constructor() {
+     super();
+ 
+-    this.#receiveBadgesSetting = Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges');
+-    if (!Host.GdpClient.isBadgesEnabled()) {
+-      this.#receiveBadgesSetting.set(false);
++    // 作用：OH上将 receiveBadgesSetting 置空并跳过 changeListener 注册
++    // #ifdef ARKWEB_DEVTOOLS
++    const adaptForOhos = true;
++    // #endif ARKWEB_DEVTOOLS
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
++      this.#receiveBadgesSetting = Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges');
++      if (!Host.GdpClient.isBadgesEnabled()) {
++        this.#receiveBadgesSetting.set(false);
++      }
++      this.#receiveBadgesSetting.addChangeListener(this.#reconcileBadges, this);
++    } else {
++      this.#receiveBadgesSetting = null;
+     }
+-    this.#receiveBadgesSetting.addChangeListener(this.#reconcileBadges, this);
++    // #endif ARKWEB_DEVTOOLS
+ 
+     this.#starterBadgeSnoozeCount = Common.Settings.Settings.instance().createSetting(
+         'starter-badge-snooze-count', 0, Common.Settings.SettingStorageType.SYNCED);
+@@ -105,7 +120,10 @@ export class UserBadges extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+       shouldAwardBadge = true;
+     } else {
+       const getProfileResponse = await Host.GdpClient.GdpClient.instance().getProfile();
+-      const receiveBadgesSettingEnabled = Boolean(this.#receiveBadgesSetting.get());
++      // #ifdef ARKWEB_DEVTOOLS
++      // 作用：安全读取 receiveBadgesSetting；合理性：OH 上该 setting 为 null，需可选链防崩；必要性：null.get() 抛 TypeError
++      const receiveBadgesSettingEnabled = Boolean(this.#receiveBadgesSetting?.get());
++      // #endif ARKWEB_DEVTOOLS
+       // If there is a GDP profile and the user has enabled receiving badges, we award the starter badge as well.
+       if (getProfileResponse?.profile && receiveBadgesSettingEnabled && !this.#isStarterBadgeDismissed() &&
+           !this.#isStarterBadgeSnoozed()) {
+@@ -193,7 +211,10 @@ export class UserBadges extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+       }
+     }
+ 
+-    const receiveBadgesSettingEnabled = Boolean(this.#receiveBadgesSetting.get());
++    // #ifdef ARKWEB_DEVTOOLS
++    // 作用：安全读取 receiveBadgesSetting；合理性：OH 上该 setting 为 null，需可选链防崩；必要性：null.get() 抛 TypeError
++    const receiveBadgesSettingEnabled = Boolean(this.#receiveBadgesSetting?.get());
++    // #endif ARKWEB_DEVTOOLS
+     for (const badge of this.#allBadges) {
+       if (awardedBadgeNames?.has(badge.name)) {
+         badge.deactivate();
+@@ -217,6 +238,9 @@ export class UserBadges extends Common.ObjectWrapper.ObjectWrapper<EventTypes> {
+   }
+ 
+   isReceiveBadgesSettingEnabled(): boolean {
+-    return Boolean(this.#receiveBadgesSetting.get());
++    // #ifdef ARKWEB_DEVTOOLS
++    // 作用：安全读取 receiveBadgesSetting；合理性：OH 上该 setting 为 null，需可选链防崩；必要性：null.get() 抛 TypeError
++    return Boolean(this.#receiveBadgesSetting?.get());
++    // #endif ARKWEB_DEVTOOLS
+   }
+ }
+diff --git a/front_end/models/emulation/EmulatedDevices.ts b/front_end/models/emulation/EmulatedDevices.ts
+index 759946e96301dc83a1c16d0b31a21f5845897ce2..b2b92ebb2e01db3f53e824693573ca0bb01d44b7 100644
+--- a/front_end/models/emulation/EmulatedDevices.ts
++++ b/front_end/models/emulation/EmulatedDevices.ts
+@@ -2019,4 +2019,5 @@ const emulatedDevices = [
+   },
+   // DEVICE-LIST-END
+ ];
+-/* eslint-enable @stylistic/quote-props */
++
++/* eslint-enable @stylistic/quote-props */
+\ No newline at end of file
+diff --git a/front_end/models/extensions/ExtensionAPI.ts b/front_end/models/extensions/ExtensionAPI.ts
+index adcda8a7a5a3845cf9c15ae0683dba23ebe3c5fe..a7d105279b424d4b757fabfb0a6bdefe9075938f 100644
+--- a/front_end/models/extensions/ExtensionAPI.ts
++++ b/front_end/models/extensions/ExtensionAPI.ts
+@@ -247,9 +247,20 @@ export namespace PrivateAPI {
+     scriptUrl: string;
+     ranges: PublicAPI.Chrome.DevTools.NamedFunctionRange[];
+   }
++  export interface ForwardKeyboardEventRequestEntry {
++    eventType: string;
++    ctrlKey: boolean;
++    altKey: boolean;
++    metaKey: boolean;
++    shiftKey: boolean;
++    key: string;
++    code: string;
++    keyCode: number;
++    location: number;
++  }
+   interface ForwardKeyboardEventRequest {
+     command: Commands.ForwardKeyboardEvent;
+-    entries: Array<KeyboardEventInit&{eventType: string}>;
++    entries: ForwardKeyboardEventRequestEntry[];
+   }
+   interface GetHARRequest {
+     command: Commands.GetHAR;
+@@ -1372,52 +1383,52 @@ self.injectedExtensionAPI = function(
+     return inspectedTabId;
+   }
+ 
+-  let keyboardEventRequestQueue: KeyboardEventInit&Array<{eventType: string}> = [];
++  let keyboardEventRequestQueue: PrivateAPI.ForwardKeyboardEventRequestEntry[] = [];
+   let forwardTimer: number|null = null;
+   function forwardKeyboardEvent(event: KeyboardEvent): void {
++    const requestPayload: Readonly<PrivateAPI.ForwardKeyboardEventRequestEntry> = Object.freeze({
++      eventType: event.type,
++      ctrlKey: event.ctrlKey,
++      altKey: event.altKey,
++      metaKey: event.metaKey,
++      shiftKey: event.shiftKey,
++      key: event.key,
++      code: event.code,
++      keyCode: event.keyCode,
++      location: event.location,
++    });
++
+     // Check if the event should be forwarded.
+     // This is a workaround for crbug.com/923338.
+-    const focused = document.activeElement;
++    const targetDocument = targetWindowForTest?.document ?? document;
++    const focused = targetDocument.activeElement;
+     if (focused) {
+       const isInput =
+           focused.nodeName === 'INPUT' || focused.nodeName === 'TEXTAREA' || (focused as HTMLElement).isContentEditable;
+-      if (isInput && !(event.ctrlKey || event.altKey || event.metaKey)) {
++      if (isInput && !(requestPayload.ctrlKey || requestPayload.altKey || requestPayload.metaKey)) {
+         return;
+       }
+     }
+ 
+     let modifiers = 0;
+-    if (event.shiftKey) {
++    if (requestPayload.shiftKey) {
+       modifiers |= 1;
+     }
+-    if (event.ctrlKey) {
++    if (requestPayload.ctrlKey) {
+       modifiers |= 2;
+     }
+-    if (event.altKey) {
++    if (requestPayload.altKey) {
+       modifiers |= 4;
+     }
+-    if (event.metaKey) {
++    if (requestPayload.metaKey) {
+       modifiers |= 8;
+     }
+-    const num = (event.keyCode & 255) | (modifiers << 8);
++    const num = (requestPayload.keyCode & 255) | (modifiers << 8);
+     // We only care about global hotkeys, not about random text
+     if (!keysToForwardSet.has(num)) {
+       return;
+     }
+     event.preventDefault();
+-    const requestPayload = {
+-      eventType: event.type,
+-      ctrlKey: event.ctrlKey,
+-      altKey: event.altKey,
+-      metaKey: event.metaKey,
+-      shiftKey: event.shiftKey,
+-      // @ts-expect-error keyIdentifier is a deprecated non-standard property that typescript doesn't know about.
+-      keyIdentifier: event.keyIdentifier,
+-      key: event.key,
+-      code: event.code,
+-      location: event.location,
+-      keyCode: event.keyCode,
+-    };
+     keyboardEventRequestQueue.push(requestPayload);
+     if (!forwardTimer) {
+       forwardTimer = window.setTimeout(forwardEventQueue, 0);
+@@ -1431,7 +1442,7 @@ self.injectedExtensionAPI = function(
+     keyboardEventRequestQueue = [];
+   }
+ 
+-  document.addEventListener('keydown', forwardKeyboardEvent, false);
++  (targetWindowForTest?.document ?? document).addEventListener('keydown', forwardKeyboardEvent, false);
+ 
+   function ExtensionServerClient(this: APIImpl.ExtensionServerClient, targetWindow: Window): void {
+     this._callbacks = {};
+diff --git a/front_end/models/trace/handlers/FramesHandler.ts b/front_end/models/trace/handlers/FramesHandler.ts
+index d14834955663b3d5839843fe900dd011c2d61166..181b4ed08c0fb4a84f7fd0a86610f761554a05ab 100644
+--- a/front_end/models/trace/handlers/FramesHandler.ts
++++ b/front_end/models/trace/handlers/FramesHandler.ts
+@@ -507,26 +507,28 @@ export class TimelineFrameBeginFrameQueue {
+   private queueFrames: number[] = [];
+ 
+   // Maps frameSeqId to BeginFrameInfo.
+-  private mapFrames: Record<number, BeginFrameInfo> = {};
++  private mapFrames = new Map<number, BeginFrameInfo>();
+ 
+   // Add a BeginFrame to the queue, if it does not already exit.
+   addFrameIfNotExists(seqId: number, startTime: Types.Timing.Micro, isDropped: boolean, isPartial: boolean): void {
+-    if (!(seqId in this.mapFrames)) {
+-      this.mapFrames[seqId] = new BeginFrameInfo(seqId, startTime, isDropped, isPartial);
++    if (!this.mapFrames.has(seqId)) {
++      this.mapFrames.set(seqId, new BeginFrameInfo(seqId, startTime, isDropped, isPartial));
+       this.queueFrames.push(seqId);
+     }
+   }
+ 
+   // Set a BeginFrame in queue as dropped.
+   setDropped(seqId: number, isDropped: boolean): void {
+-    if (seqId in this.mapFrames) {
+-      this.mapFrames[seqId].isDropped = isDropped;
++    const frame = this.mapFrames.get(seqId);
++    if (frame) {
++      frame.isDropped = isDropped;
+     }
+   }
+ 
+   setPartial(seqId: number, isPartial: boolean): void {
+-    if (seqId in this.mapFrames) {
+-      this.mapFrames[seqId].isPartial = isPartial;
++    const frame = this.mapFrames.get(seqId);
++    if (frame) {
++      frame.isPartial = isPartial;
+     }
+   }
+ 
+@@ -535,7 +537,7 @@ export class TimelineFrameBeginFrameQueue {
+ 
+     // Do not visualize this frame in the rare case where the current DrawFrame
+     // does not have a corresponding BeginFrame.
+-    if (seqId in this.mapFrames) {
++    if (this.mapFrames.has(seqId)) {
+       // Pop all BeginFrames before the current frame, and add only the dropped
+       // ones in |frames_to_visualize|.
+       // Non-dropped frames popped here are BeginFrames that are never
+@@ -544,17 +546,21 @@ export class TimelineFrameBeginFrameQueue {
+       // be naturally presented as continuationss of other frames.
+       while (this.queueFrames[0] !== seqId) {
+         const currentSeqId = this.queueFrames[0];
+-        if (this.mapFrames[currentSeqId].isDropped) {
+-          framesToVisualize.push(this.mapFrames[currentSeqId]);
++        const currentFrame = this.mapFrames.get(currentSeqId);
++        if (currentFrame && currentFrame.isDropped) {
++          framesToVisualize.push(currentFrame);
+         }
+ 
+-        delete this.mapFrames[currentSeqId];
++        this.mapFrames.delete(currentSeqId);
+         this.queueFrames.shift();
+       }
+ 
+       // Pop the BeginFrame associated with the current DrawFrame.
+-      framesToVisualize.push(this.mapFrames[seqId]);
+-      delete this.mapFrames[seqId];
++      const frame = this.mapFrames.get(seqId);
++      if (frame) {
++        framesToVisualize.push(frame);
++      }
++      this.mapFrames.delete(seqId);
+       this.queueFrames.shift();
+     }
+     return framesToVisualize;
+diff --git a/front_end/panels/browser_debugger/ObjectEventListenersSidebarPane.ts b/front_end/panels/browser_debugger/ObjectEventListenersSidebarPane.ts
+index bf6e855e31d7f0b6f92d23ceac2a66823af727bd..71098508b4181f5d2a52ac8cc53c5bab2b81ffe5 100644
+--- a/front_end/panels/browser_debugger/ObjectEventListenersSidebarPane.ts
++++ b/front_end/panels/browser_debugger/ObjectEventListenersSidebarPane.ts
+@@ -43,17 +43,16 @@ export class ObjectEventListenersSidebarPane extends UI.Widget.VBox implements U
+     const executionContext = UI.Context.Context.instance().flavor(SDK.RuntimeModel.ExecutionContext);
+     if (executionContext) {
+       this.#lastRequestedContext = executionContext;
+-      const result = await executionContext.evaluate(
+-          {
+-            expression: 'self',
+-            objectGroup: objectGroupName,
+-            includeCommandLineAPI: false,
+-            silent: true,
+-            returnByValue: false,
+-            generatePreview: false,
+-          },
+-          /* userGesture */ false,
+-          /* awaitPromise */ false);
++      const result = await executionContext.evaluateWithSelectedFrameFallback({
++        expression: 'self',
++        objectGroup: objectGroupName,
++        includeCommandLineAPI: false,
++        silent: true,
++        returnByValue: false,
++        generatePreview: false,
++      },
++                                                                              /* userGesture */ false,
++                                                                              /* awaitPromise */ false);
+       if (!('error' in result) && !result.exceptionDetails) {
+         windowObjects.push(result.object);
+       }
+diff --git a/front_end/panels/common/BadgeNotification.ts b/front_end/panels/common/BadgeNotification.ts
+index c2f796b0f19af42848791d23f567d28c04cdb917..9eb69f8dae9d2dc3b218db236c9d73aac238456d 100644
+--- a/front_end/panels/common/BadgeNotification.ts
++++ b/front_end/panels/common/BadgeNotification.ts
+@@ -72,6 +72,11 @@ const LEFT_OFFSET = 5;
+ const BOTTOM_OFFSET = 5;
+ const AUTO_CLOSE_TIME_IN_MS = 30000;
+ 
++// 作用：OH 平台适配开关
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export interface BadgeNotificationAction {
+   label: string;
+   jslogContext: string;
+@@ -136,7 +141,12 @@ const DEFAULT_VIEW = (input: ViewInput, _output: undefined, target: HTMLElement)
+ type View = typeof DEFAULT_VIEW;
+ 
+ function revealBadgeSettings(): void {
+-  void Common.Revealer.reveal(Common.Settings.moduleSetting('receive-gdp-badges'));
++  // 作用：OH上跳过 GDP badges 设置项的 reveal 操作
++  // #ifdef ARKWEB_DEVTOOLS
++  if (!adaptForOhos) {
++    void Common.Revealer.reveal(Common.Settings.moduleSetting('receive-gdp-badges'));
++  }
++  // #endif ARKWEB_DEVTOOLS
+ }
+ 
+ export class BadgeNotification extends UI.Widget.Widget {
+@@ -275,29 +285,39 @@ export class BadgeNotification extends UI.Widget.Widget {
+   }
+ 
+   #presentActivityBasedBadge(badge: Badges.Badge): void {
++    // 作用：OH上不向操作列表追加"查看 Google 开发者资料"按钮
++    // #ifdef ARKWEB_DEVTOOLS
++    const actions: Array<{
++      label: string,
++      jslogContext: string,
++      onClick: () => void,
++    }> = [
++      {
++        label: i18nString(UIStrings.manageSettings),
++        jslogContext: 'manage-settings',
++        onClick: () => {
++          this.detach();
++          revealBadgeSettings();
++        },
++      },
++    ];
++    if (!adaptForOhos) {
++      actions.push({
++        label: i18nString(UIStrings.viewProfile),
++        jslogContext: 'view-profile',
++        onClick: () => {
++          UIHelpers.openInNewTab(Host.GdpClient.GOOGLE_DEVELOPER_PROGRAM_PROFILE_LINK);
++        },
++      });
++    }
+     this.#show({
+       message: i18nString(UIStrings.activityBasedBadgeAwardMessage, {PH1: badge.title}),
+       jslogContext: badge.jslogContext,
+-      actions: [
+-        {
+-          label: i18nString(UIStrings.manageSettings),
+-          jslogContext: 'manage-settings',
+-          onClick: () => {
+-            this.detach();
+-            revealBadgeSettings();
+-          },
+-        },
+-        {
+-          label: i18nString(UIStrings.viewProfile),
+-          jslogContext: 'view-profile',
+-          onClick: () => {
+-            UIHelpers.openInNewTab(Host.GdpClient.GOOGLE_DEVELOPER_PROGRAM_PROFILE_LINK);
+-          }
+-        }
+-      ],
++      actions,
+       imageUri: badge.imageUri,
+       isStarterBadge: badge.isStarterBadge,
+     });
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   override onDetach(): void {
+diff --git a/front_end/panels/common/ExtensionServer.test.ts b/front_end/panels/common/ExtensionServer.test.ts
+index 9c9e013f3e68504e22cd7f1666dc7ab9a8234fb9..f6467ff10a05565c7dc2b6c79abb06d5f2a1fd1c 100644
+--- a/front_end/panels/common/ExtensionServer.test.ts
++++ b/front_end/panels/common/ExtensionServer.test.ts
+@@ -186,6 +186,30 @@ describeWithDevtoolsExtension('Extensions', {}, context => {
+   });
+ });
+ 
++describeWithDevtoolsExtension('Extensions', {}, context => {
++  expectConsoleLogs({
++    error: [
++      'Extension server error: Invalid argument urlScheme: Scheme is forbidden',
++      'Extension server error: Invalid argument urlScheme: Scheme is forbidden'
++    ],
++  });
++  beforeEach(() => {
++    createTarget().setInspectedURL(Platform.DevToolsPath.urlString`http://example.com`);
++  });
++
++  it('cannot register an open resource handler for forbidden schemes', async () => {
++    const registerLinkHandlerSpy = sinon.spy(Components.Linkifier.Linkifier, 'registerLinkHandler');
++
++    context.chrome.devtools?.panels.setOpenResourceHandler(() => {}, 'chrome:');
++    context.chrome.devtools?.panels.setOpenResourceHandler(() => {}, 'file:');
++
++    // Wait for the messages to be processed by sending a dummy eval request
++    await new Promise(resolve => context.chrome.devtools?.inspectedWindow.eval('1', undefined, resolve));
++
++    sinon.assert.notCalled(registerLinkHandlerSpy);
++  });
++});
++
+ describeWithDevtoolsExtension('Extensions', {}, context => {
+   beforeEach(() => {
+     createTarget().setInspectedURL(urlString`http://example.com`);
+@@ -1174,4 +1198,408 @@ describeWithDevtoolsExtension('validate attachSourceMapURL ', {}, context => {
+     // Validate that the script has the sourcemap dataURL attached.
+     assert.deepEqual(currentScript.sourceMapURL, encodedSourceMap);
+   });
++
++  describe('forwardKeyboardEvent', () => {
++    interface ForwardedKeyboardEvent extends KeyboardEvent {
++      // eslint-disable-next-line @typescript-eslint/naming-convention
++      __keyCode?: number;
++    }
++
++    interface WindowWithOptionalChrome {
++      chrome?: Partial<Chrome.DevTools.Chrome>;
++    }
++
++    interface TestExtensionServerClient {
++      sendRequest: sinon.SinonStub;
++    }
++
++    it('dispatches allowed global shortcut keys', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      const shortcutKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey('P', UI.KeyboardShortcut.Modifiers.Ctrl.value);
++      sinon.stub(UI.ShortcutRegistry.ShortcutRegistry.instance(), 'globalShortcutKeys').returns([shortcutKey]);
++
++      const dispatchedEvents: KeyboardEvent[] = [];
++      const listener = (event: Event) => dispatchedEvents.push(event as KeyboardEvent);
++      document.addEventListener('keydown', listener);
++
++      try {
++        const result = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [{
++            eventType: 'keydown',
++            ctrlKey: true,
++            altKey: false,
++            metaKey: false,
++            shiftKey: false,
++            key: 'p',
++            code: 'KeyP',
++            keyCode: 80,
++            location: 0,
++          }],
++        });
++
++        assert.isUndefined(result);
++        assert.lengthOf(dispatchedEvents, 1);
++        const [event] = dispatchedEvents;
++        assert.strictEqual(event.type, 'keydown');
++        assert.isTrue(event.ctrlKey);
++        assert.isFalse(event.altKey);
++        assert.strictEqual(event.key, 'p');
++        assert.strictEqual(event.code, 'KeyP');
++        assert.strictEqual((event as ForwardedKeyboardEvent).__keyCode, 80);
++      } finally {
++        document.removeEventListener('keydown', listener);
++      }
++    });
++
++    it('handles synthetic Escape key code', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      const escapeKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey(27, UI.KeyboardShortcut.Modifiers.None.value);
++      sinon.stub(UI.ShortcutRegistry.ShortcutRegistry.instance(), 'globalShortcutKeys').returns([escapeKey]);
++
++      const dispatchedEvents: KeyboardEvent[] = [];
++      const listener = (event: Event) => dispatchedEvents.push(event as KeyboardEvent);
++      document.addEventListener('keydown', listener);
++
++      try {
++        const result = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [{
++            eventType: 'keydown',
++            ctrlKey: false,
++            altKey: false,
++            metaKey: false,
++            shiftKey: false,
++            key: Platform.KeyboardUtilities.ESCAPE_KEY,
++            code: 'Escape',
++            keyCode: 0,
++            location: 0,
++          }],
++        });
++
++        assert.isUndefined(result);
++        assert.lengthOf(dispatchedEvents, 1);
++        const [event] = dispatchedEvents;
++        assert.strictEqual((event as ForwardedKeyboardEvent).__keyCode, 27);
++      } finally {
++        document.removeEventListener('keydown', listener);
++      }
++    });
++
++    it('rejects keys that are not allowed global shortcuts', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      sinon.stub(UI.ShortcutRegistry.ShortcutRegistry.instance(), 'globalShortcutKeys').returns([]);
++
++      const dispatchedEvents: KeyboardEvent[] = [];
++      const listener = (event: Event) => dispatchedEvents.push(event as KeyboardEvent);
++      document.addEventListener('keydown', listener);
++
++      try {
++        const result = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [{
++            eventType: 'keydown',
++            ctrlKey: false,
++            altKey: false,
++            metaKey: false,
++            shiftKey: false,
++            key: 'a',
++            code: 'KeyA',
++            keyCode: 65,
++            location: 0,
++          }],
++        });
++
++        assertIsStatus(result);
++        assert.strictEqual(result.code, 'E_BADARG');
++        assert.lengthOf(dispatchedEvents, 0);
++      } finally {
++        document.removeEventListener('keydown', listener);
++      }
++    });
++
++    it('rejects malformed entries without dispatching events', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      const shortcutKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey('P', UI.KeyboardShortcut.Modifiers.Ctrl.value);
++      sinon.stub(UI.ShortcutRegistry.ShortcutRegistry.instance(), 'globalShortcutKeys').returns([shortcutKey]);
++
++      const dispatchedEvents: KeyboardEvent[] = [];
++      const listener = (event: Event) => dispatchedEvents.push(event as KeyboardEvent);
++      document.addEventListener('keydown', listener);
++
++      try {
++        // Non-array entries
++        const result1 = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: 'not an array' as unknown as Extensions.ExtensionAPI.PrivateAPI.ForwardKeyboardEventRequestEntry[],
++        });
++        assertIsStatus(result1);
++        assert.strictEqual(result1.code, 'E_BADARG');
++
++        // Invalid eventType
++        const result2 = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [{
++            eventType: 'keyup',
++            ctrlKey: true,
++            altKey: false,
++            metaKey: false,
++            shiftKey: false,
++            key: 'p',
++            code: 'KeyP',
++            keyCode: 80,
++            location: 0,
++          }],
++        });
++        assertIsStatus(result2);
++        assert.strictEqual(result2.code, 'E_BADARG');
++
++        // Invalid property type (keyCode as string)
++        const result3 = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [{
++            eventType: 'keydown',
++            ctrlKey: true,
++            altKey: false,
++            metaKey: false,
++            shiftKey: false,
++            key: 'p',
++            code: 'KeyP',
++            keyCode: '80' as unknown as number,
++            location: 0,
++          }],
++        });
++        assertIsStatus(result3);
++        assert.strictEqual(result3.code, 'E_BADARGTYPE');
++
++        // Array with one valid and one invalid entry should dispatch nothing
++        const result4 = server.onForwardKeyboardEventForTest({
++          command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++          entries: [
++            {
++              eventType: 'keydown',
++              ctrlKey: true,
++              altKey: false,
++              metaKey: false,
++              shiftKey: false,
++              key: 'p',
++              code: 'KeyP',
++              keyCode: 80,
++              location: 0,
++            },
++            {
++              eventType: 'keydown',
++              ctrlKey: false,
++              altKey: false,
++              metaKey: false,
++              shiftKey: false,
++              key: 'q',
++              code: 'KeyQ',
++              keyCode: 81,
++              location: 0,
++            },
++          ],
++        });
++        assertIsStatus(result4);
++        assert.strictEqual(result4.code, 'E_BADARG');
++        assert.lengthOf(dispatchedEvents, 0);
++      } finally {
++        document.removeEventListener('keydown', listener);
++      }
++    });
++
++    it('extension client reads event properties once and forwards allowed shortcuts', async () => {
++      let sendRequestStub: sinon.SinonStub|undefined;
++      const shortcutKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey('P', UI.KeyboardShortcut.Modifiers.Ctrl.value);
++
++      const fakeDocument = document.createElement('div');
++      const fakeWindow = {
++        postMessage: sinon.stub(),
++        addEventListener: sinon.stub(),
++        removeEventListener: sinon.stub(),
++        document: fakeDocument,
++      } as unknown as Window;
++
++      const windowWithChrome = window as unknown as WindowWithOptionalChrome;
++      const originalChrome = windowWithChrome.chrome;
++      delete windowWithChrome.chrome;
++
++      try {
++        self.injectedExtensionAPI(context.extensionDescriptor, 'main', 'dark',
++                                  [shortcutKey], (extensionServer: unknown) => {
++                                    const client = extensionServer as TestExtensionServerClient;
++                                    sendRequestStub = sinon.stub(client, 'sendRequest');
++                                  }, 1, fakeWindow);
++
++        assert.exists(sendRequestStub);
++
++        let keyReadCount = 0;
++        let ctrlKeyReadCount = 0;
++        let keyCodeReadCount = 0;
++
++        const keydownEvent = new KeyboardEvent('keydown', {
++          ctrlKey: true,
++          key: 'p',
++          code: 'KeyP',
++          keyCode: 80,
++        });
++
++        Object.defineProperty(keydownEvent, 'ctrlKey', {
++          get() {
++            ctrlKeyReadCount++;
++            return true;
++          },
++        });
++        Object.defineProperty(keydownEvent, 'key', {
++          get() {
++            keyReadCount++;
++            return 'p';
++          },
++        });
++        Object.defineProperty(keydownEvent, 'keyCode', {
++          get() {
++            keyCodeReadCount++;
++            return 80;
++          },
++        });
++
++        // Dispatch the event to trigger forwardKeyboardEvent
++        fakeDocument.dispatchEvent(keydownEvent);
++
++        // Verify properties were read exactly once
++        assert.strictEqual(ctrlKeyReadCount, 1);
++        assert.strictEqual(keyReadCount, 1);
++        assert.strictEqual(keyCodeReadCount, 1);
++
++        // Wait for forwardTimer debounce.
++        await new Promise(resolve => setTimeout(resolve, 10));
++
++        sinon.assert.calledWith(
++            sendRequestStub,
++            sinon.match({
++              command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++              entries: sinon.match.some(sinon.match({
++                eventType: 'keydown',
++                ctrlKey: true,
++                altKey: false,
++                metaKey: false,
++                shiftKey: false,
++                key: 'p',
++                code: 'KeyP',
++                keyCode: 80,
++                location: 0,
++              })),
++            }),
++        );
++      } finally {
++        windowWithChrome.chrome = originalChrome;
++      }
++    });
++
++    it('extension client ignores input keystrokes without modifier keys', async () => {
++      let sendRequestStub: sinon.SinonStub|undefined;
++      const shortcutKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey('P', UI.KeyboardShortcut.Modifiers.None.value);
++
++      const fakeDocument = document.createElement('div');
++      const input = document.createElement('input');
++      fakeDocument.appendChild(input);
++      Object.defineProperty(fakeDocument, 'activeElement', {
++        get() {
++          return input;
++        },
++      });
++
++      const fakeWindow = {
++        postMessage: sinon.stub(),
++        addEventListener: sinon.stub(),
++        removeEventListener: sinon.stub(),
++        document: fakeDocument,
++      } as unknown as Window;
++
++      const windowWithChrome = window as unknown as WindowWithOptionalChrome;
++      const originalChrome = windowWithChrome.chrome;
++      delete windowWithChrome.chrome;
++
++      try {
++        self.injectedExtensionAPI(context.extensionDescriptor, 'main', 'dark',
++                                  [shortcutKey], (extensionServer: unknown) => {
++                                    const client = extensionServer as TestExtensionServerClient;
++                                    sendRequestStub = sinon.stub(client, 'sendRequest');
++                                  }, 1, fakeWindow);
++
++        assert.exists(sendRequestStub);
++
++        const keydownEvent = new KeyboardEvent('keydown', {
++          ctrlKey: false,
++          altKey: false,
++          metaKey: false,
++          key: 'p',
++          code: 'KeyP',
++          keyCode: 80,
++          cancelable: true,
++        });
++        const preventDefaultSpy = sinon.spy(keydownEvent, 'preventDefault');
++
++        fakeDocument.dispatchEvent(keydownEvent);
++        sinon.assert.notCalled(preventDefaultSpy);
++
++        await new Promise(resolve => setTimeout(resolve, 10));
++        sinon.assert.notCalled(sendRequestStub);
++      } finally {
++        windowWithChrome.chrome = originalChrome;
++      }
++    });
++
++    it('rejects commands other than ForwardKeyboardEvent', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      const result = server.onForwardKeyboardEventForTest({
++        command: 'invalidCommand' as Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++        entries: [],
++      });
++      assertIsStatus(result);
++      assert.strictEqual(result.code, 'E_BADARG');
++    });
++
++    it('rejects invalid keyCode values and non-boolean modifiers', () => {
++      const server = PanelCommon.ExtensionServer.ExtensionServer.instance();
++      const shortcutKey = UI.KeyboardShortcut.KeyboardShortcut.makeKey('P', UI.KeyboardShortcut.Modifiers.Ctrl.value);
++      sinon.stub(UI.ShortcutRegistry.ShortcutRegistry.instance(), 'globalShortcutKeys').returns([shortcutKey]);
++
++      // Invalid keyCode (out of range)
++      const result1 = server.onForwardKeyboardEventForTest({
++        command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++        entries: [{
++          eventType: 'keydown',
++          ctrlKey: true,
++          altKey: false,
++          metaKey: false,
++          shiftKey: false,
++          key: 'p',
++          code: 'KeyP',
++          keyCode: 300,
++          location: 0,
++        }],
++      });
++      assertIsStatus(result1);
++      assert.strictEqual(result1.code, 'E_BADARG');
++
++      // Invalid modifier type (ctrlKey as string)
++      const result2 = server.onForwardKeyboardEventForTest({
++        command: Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent,
++        entries: [{
++          eventType: 'keydown',
++          ctrlKey: 'true' as unknown as boolean,
++          altKey: false,
++          metaKey: false,
++          shiftKey: false,
++          key: 'p',
++          code: 'KeyP',
++          keyCode: 80,
++          location: 0,
++        }],
++      });
++      assertIsStatus(result2);
++      assert.strictEqual(result2.code, 'E_BADARGTYPE');
++    });
++  });
+ });
+diff --git a/front_end/panels/common/ExtensionServer.ts b/front_end/panels/common/ExtensionServer.ts
+index c4ee6f1320ca3bec6591f20b765bf6bc3dd9c3b1..cf0b0f2d9e525c3887485c6bee60ca815f615fa4 100644
+--- a/front_end/panels/common/ExtensionServer.ts
++++ b/front_end/panels/common/ExtensionServer.ts
+@@ -27,7 +27,13 @@ import * as ThemeSupport from '../../ui/legacy/theme_support/theme_support.js';
+ import {ExtensionButton, ExtensionPanel, ExtensionSidebarPane} from './ExtensionPanel.js';
+ 
+ const extensionOrigins = new WeakMap<MessagePort, Platform.DevToolsPath.UrlString>();
+-const kPermittedSchemes = ['http:', 'https:', 'file:', 'data:', 'chrome-extension:', 'about:'];
++const kForbiddenSchemes = [
++  'chrome:',
++  'chrome-untrusted:',
++  'chrome-error:',
++  'chrome-search:',
++  'devtools:',
++];
+ 
+ declare global {
+   interface Window {
+@@ -78,7 +84,6 @@ export class HostsPolicy {
+ }
+ 
+ class RegisteredExtension {
+-  openResourceScheme: null|string = null;
+   constructor(readonly name: string, readonly hostsPolicy: HostsPolicy, readonly allowFileAccess: boolean) {
+   }
+ 
+@@ -91,8 +96,11 @@ class RegisteredExtension {
+       return false;
+     }
+ 
+-    if (this.openResourceScheme && inspectedURL.startsWith(this.openResourceScheme)) {
+-      return true;
++    let parsedURL;
++    try {
++      parsedURL = new URL(inspectedURL);
++    } catch {
++      return false;
+     }
+ 
+     if (!ExtensionServer.canInspectURL(inspectedURL)) {
+@@ -104,12 +112,6 @@ class RegisteredExtension {
+     }
+ 
+     if (!this.allowFileAccess) {
+-      let parsedURL;
+-      try {
+-        parsedURL = new URL(inspectedURL);
+-      } catch {
+-        return false;
+-      }
+       return parsedURL.protocol !== 'file:';
+     }
+ 
+@@ -843,18 +845,27 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+     if (!extension) {
+       throw new Error('Received a message from an unregistered extension');
+     }
+-    if (message.urlScheme) {
+-      extension.openResourceScheme = message.urlScheme;
++    let validScheme = message.urlScheme;
++    if (validScheme) {
++      try {
++        const urlToParse = validScheme.replace(/:?(\/\/)?$/, '') + '://test';
++        validScheme = new URL(urlToParse).protocol;
++      } catch {
++        return this.status.E_BADARG('urlScheme', 'Invalid scheme');
++      }
++      if (kForbiddenSchemes.includes(validScheme) || validScheme === 'file:') {
++        return this.status.E_BADARG('urlScheme', 'Scheme is forbidden');
++      }
+     }
+     const extensionOrigin = this.getExtensionOrigin(port);
+     const {name} = extension;
+     const registration = {
+       title: name,
+       origin: extensionOrigin,
+-      scheme: message.urlScheme,
++      scheme: validScheme,
+       handler: this.handleOpenURL.bind(this, port),
+       shouldHandleOpenResource: (url: Platform.DevToolsPath.UrlString, schemes: Set<string>) =>
+-          Components.Linkifier.Linkifier.shouldHandleOpenResource(extension.openResourceScheme, url, schemes),
++          Components.Linkifier.Linkifier.shouldHandleOpenResource(validScheme || null, url, schemes),
+     };
+     if (message.handlerPresent) {
+       Components.Linkifier.Linkifier.registerLinkHandler(registration);
+@@ -1206,15 +1217,76 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+       return this.status.E_BADARG(
+           'command', `expected ${Extensions.ExtensionAPI.PrivateAPI.Commands.ForwardKeyboardEvent}`);
+     }
+-    message.entries.forEach(handleEventEntry);
++    if (!Array.isArray(message.entries)) {
++      return this.status.E_BADARG('entries', 'expected array');
++    }
++
++    const globalShortcutKeys = new Set(UI.ShortcutRegistry.ShortcutRegistry.instance().globalShortcutKeys());
++    const validEvents: Array<{event: KeyboardEvent, keyCode: number}> = [];
++
++    for (const entry of message.entries) {
++      if (!entry || typeof entry !== 'object') {
++        return this.status.E_BADARG('entries', 'expected object');
++      }
++      if (entry.eventType !== 'keydown') {
++        return this.status.E_BADARG('eventType', 'expected "keydown"');
++      }
++      if (typeof entry.key !== 'string') {
++        return this.status.E_BADARGTYPE('key', typeof entry.key, 'string');
++      }
++      if (typeof entry.code !== 'string') {
++        return this.status.E_BADARGTYPE('code', typeof entry.code, 'string');
++      }
++      if (typeof entry.keyCode !== 'number' || !Number.isFinite(entry.keyCode)) {
++        return this.status.E_BADARGTYPE('keyCode', typeof entry.keyCode, 'number');
++      }
++      if (typeof entry.location !== 'number' || !Number.isFinite(entry.location)) {
++        return this.status.E_BADARGTYPE('location', typeof entry.location, 'number');
++      }
++      if (typeof entry.ctrlKey !== 'boolean') {
++        return this.status.E_BADARGTYPE('ctrlKey', typeof entry.ctrlKey, 'boolean');
++      }
++      if (typeof entry.altKey !== 'boolean') {
++        return this.status.E_BADARGTYPE('altKey', typeof entry.altKey, 'boolean');
++      }
++      if (typeof entry.shiftKey !== 'boolean') {
++        return this.status.E_BADARGTYPE('shiftKey', typeof entry.shiftKey, 'boolean');
++      }
++      if (typeof entry.metaKey !== 'boolean') {
++        return this.status.E_BADARGTYPE('metaKey', typeof entry.metaKey, 'boolean');
++      }
++
++      let keyCode = entry.keyCode;
++      if (!keyCode && entry.key === Platform.KeyboardUtilities.ESCAPE_KEY) {
++        keyCode = 27;
++      }
++      if (!Number.isInteger(keyCode) || keyCode < 0 || keyCode > 255) {
++        return this.status.E_BADARG('keyCode', 'invalid keyCode');
++      }
++
++      let modifiers = 0;
++      if (entry.shiftKey) {
++        modifiers |= UI.KeyboardShortcut.Modifiers.Shift.value;
++      }
++      if (entry.ctrlKey) {
++        modifiers |= UI.KeyboardShortcut.Modifiers.Ctrl.value;
++      }
++      if (entry.altKey) {
++        modifiers |= UI.KeyboardShortcut.Modifiers.Alt.value;
++      }
++      if (entry.metaKey) {
++        modifiers |= UI.KeyboardShortcut.Modifiers.Meta.value;
++      }
++
++      const keyCombination = (keyCode & 255) | (modifiers << 8);
++      if (!globalShortcutKeys.has(keyCombination)) {
++        return this.status.E_BADARG('entries', 'unexpected shortcut key');
++      }
+ 
+-    function handleEventEntry(entry: KeyboardEventInit&{eventType: string}): void {
+-      // Fool around closure compiler -- it has its own notion of both KeyboardEvent constructor
+-      // and initKeyboardEvent methods and overriding these in externs.js does not have effect.
+       const event = new window.KeyboardEvent(entry.eventType, {
+         key: entry.key,
+         code: entry.code,
+-        keyCode: entry.keyCode,
++        keyCode,
+         location: entry.location,
+         ctrlKey: entry.ctrlKey,
+         altKey: entry.altKey,
+@@ -1222,24 +1294,23 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+         metaKey: entry.metaKey,
+       });
+ 
++      validEvents.push({event, keyCode});
++    }
++
++    for (const {event, keyCode} of validEvents) {
+       // @ts-expect-error
+-      event.__keyCode = keyCodeForEntry(entry);
++      event.__keyCode = keyCode;
+       document.dispatchEvent(event);
+     }
+ 
+-    function keyCodeForEntry(entry: KeyboardEventInit): unknown {
+-      let keyCode = entry.keyCode;
+-      if (!keyCode) {
+-        // This is required only for synthetic events (e.g. dispatched in tests).
+-        if (entry.key === Platform.KeyboardUtilities.ESCAPE_KEY) {
+-          keyCode = 27;
+-        }
+-      }
+-      return keyCode || 0;
+-    }
+     return undefined;
+   }
+ 
++  onForwardKeyboardEventForTest(message: Extensions.ExtensionAPI.PrivateAPI.ExtensionServerRequestMessage): Record
++      |undefined {
++    return this.onForwardKeyboardEvent(message);
++  }
++
+   private dispatchCallback(requestId: unknown, port: MessagePort, result: unknown): void {
+     if (requestId) {
+       port.postMessage({command: 'callback', requestId, result});
+@@ -1571,16 +1642,15 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+     }
+ 
+     void context
+-        .evaluate(
+-            {
+-              expression,
+-              objectGroup: 'extension',
+-              includeCommandLineAPI: exposeCommandLineAPI,
+-              silent: true,
+-              returnByValue,
+-              generatePreview: false,
+-            },
+-            /* userGesture */ false, /* awaitPromise */ false)
++        .evaluate({
++          expression,
++          objectGroup: 'extension',
++          includeCommandLineAPI: exposeCommandLineAPI,
++          silent: true,
++          returnByValue,
++          generatePreview: false,
++        },
++                  /* userGesture */ false, /* awaitPromise */ false)
+         .then(onEvaluate);
+ 
+     function onEvaluate(result: SDK.RuntimeModel.EvaluationResult): void {
+@@ -1603,7 +1673,7 @@ export class ExtensionServer extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+       return false;
+     }
+ 
+-    if (!kPermittedSchemes.includes(parsedURL.protocol)) {
++    if (kForbiddenSchemes.includes(parsedURL.protocol)) {
+       return false;
+     }
+ 
+diff --git a/front_end/panels/common/GdpSignUpDialog.ts b/front_end/panels/common/GdpSignUpDialog.ts
+index 06548853ade5f7be14a41c13274f9829fdbfc380..e0719416bb371e61eb3ce59dbd946ef029cdd7a1 100644
+--- a/front_end/panels/common/GdpSignUpDialog.ts
++++ b/front_end/panels/common/GdpSignUpDialog.ts
+@@ -223,7 +223,15 @@ export class GdpSignUpDialog extends UI.Widget.VBox {
+         this.#keepMeUpdated ? Host.GdpClient.EmailPreference.ENABLED : Host.GdpClient.EmailPreference.DISABLED;
+     const result = await Host.GdpClient.GdpClient.instance().createProfile({user, emailPreference});
+     if (result) {
+-      Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges').set(true);
++      // #ifdef ARKWEB_DEVTOOLS
++      const adaptForOhos = true;
++      // #endif ARKWEB_DEVTOOLS
++      // 作用：OH上跳过 GDP 徽章设置的启用
++      // #ifdef ARKWEB_DEVTOOLS
++      if (!adaptForOhos) {
++        Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges').set(true);
++      }
++      // #endif ARKWEB_DEVTOOLS
+       await Badges.UserBadges.instance().initialize();
+       Badges.UserBadges.instance().recordAction(Badges.BadgeAction.GDP_SIGN_UP_COMPLETE);
+       this.#onSuccess?.();
+diff --git a/front_end/panels/console/ConsoleInsightTeaser.ts b/front_end/panels/console/ConsoleInsightTeaser.ts
+index b53be0fff638c70ed404df140103d3ac93773b3a..7c2e5346d82f14039a07872ff6dd8120b95eb791 100644
+--- a/front_end/panels/console/ConsoleInsightTeaser.ts
++++ b/front_end/panels/console/ConsoleInsightTeaser.ts
+@@ -523,12 +523,25 @@ export class ConsoleInsightTeaser extends UI.Widget.Widget {
+     }
+   }
+ 
++  // 作用：安全获取teaser设置，OH上未注册
++  // #ifdef ARKWEB_DEVTOOLS
++  #getConsoleInsightTeasersSetting(): Common.Settings.Setting<unknown>|null {
++    try {
++      return Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled');
++    } catch {
++      return null;
++    }
++  }
++  // #endif ARKWEB_DEVTOOLS
++
+   maybeGenerateTeaser(): void {
+     const startGeneratingTeaser = (): void => {
+-      if (!this.#isInactive &&
+-          Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled').get()) {
++      // #ifdef ARKWEB_DEVTOOLS
++      const teaserSetting = this.#getConsoleInsightTeasersSetting();
++      if (!this.#isInactive && teaserSetting && teaserSetting.get()) {
+         void this.#generateTeaserText();
+       }
++      // #endif ARKWEB_DEVTOOLS
+     };
+ 
+     const hasSession = this.#builtInAi.hasSession();
+@@ -653,7 +666,12 @@ export class ConsoleInsightTeaser extends UI.Widget.Widget {
+ 
+   #dontShowChanged(e: Event): void {
+     const showTeasers = !(e.target as HTMLInputElement).checked;
+-    Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled').set(showTeasers);
++    // #ifdef ARKWEB_DEVTOOLS
++    const teaserSetting = this.#getConsoleInsightTeasersSetting();
++    if (teaserSetting) {
++      teaserSetting.set(showTeasers);
++    }
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   #hasTellMeMoreButton(): boolean {
+@@ -677,7 +695,9 @@ export class ConsoleInsightTeaser extends UI.Widget.Widget {
+           headerText: this.#headerText,
+           mainText: this.#mainText,
+           isInactive: this.#isInactive ||
+-              !Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled').get(),
++              // #ifdef ARKWEB_DEVTOOLS
++              !this.#getConsoleInsightTeasersSetting()?.get(),
++              // #endif ARKWEB_DEVTOOLS
+           dontShowChanged: this.#dontShowChanged.bind(this),
+           hasTellMeMoreButton: this.#hasTellMeMoreButton(),
+           isSlowGeneration: this.#isSlow,
+diff --git a/front_end/panels/console/ConsoleViewMessage.ts b/front_end/panels/console/ConsoleViewMessage.ts
+index d1cdbe459348bb30f659b615dae28f11083bcb69..2ca1a337630b198e61aba289dda2770dbf9a61a5 100644
+--- a/front_end/panels/console/ConsoleViewMessage.ts
++++ b/front_end/panels/console/ConsoleViewMessage.ts
+@@ -1410,10 +1410,24 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
+   }
+ 
+   #startTeaserGeneration(): void {
+-    if (this.#teaser &&
+-        Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled').getIfNotDisabled()) {
+-      this.#teaser.maybeGenerateTeaser();
++    // #ifdef ARKWEB_DEVTOOLS
++    if (this.#teaser) {
++      // 作用：用 try/catch 包裹 console-insight-teasers-enabled 设置项读取
++      // 合理性：OH上未注册该设置项，moduleSetting 会抛异常
++      // 必要性：不捕获则控制台消息渲染崩溃
++      let teaserEnabled = false;
++      try {
++        teaserEnabled =
++            Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled')
++                .getIfNotDisabled() as boolean;
++      } catch {
++        teaserEnabled = false;
++      }
++      if (teaserEnabled) {
++        this.#teaser.maybeGenerateTeaser();
++      }
+     }
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   #abortTeaserGeneration(): void {
+@@ -1528,10 +1542,22 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
+   }
+ 
+   shouldShowTeaser(): boolean {
++    // #ifdef ARKWEB_DEVTOOLS
+     if (!this.shouldShowInsights()) {
+       return false;
+     }
+-    if (!Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled').getIfNotDisabled() ||
++    // 作用：用 try/catch 包裹设置项读取，OH上设置项不存在时安全降级
++    // 合理性：与 #startTeaserGeneration 中的防御模式一致
++    // 必要性：不捕获则 shouldShowInsights 崩溃导致控制台消息不显示
++    let teaserEnabled = false;
++    try {
++      teaserEnabled =
++          Common.Settings.Settings.instance().moduleSetting('console-insight-teasers-enabled')
++              .getIfNotDisabled() as boolean;
++    } catch {
++      teaserEnabled = false;
++    }
++    if (!teaserEnabled ||
+         !AiAssistanceModel.BuiltInAi.BuiltInAi.instance().isEventuallyAvailable()) {
+       return false;
+     }
+@@ -1540,6 +1566,7 @@ export class ConsoleViewMessage implements ConsoleViewportElement {
+       return false;
+     }
+     return true;
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   getExplainLabel(): string {
+diff --git a/front_end/panels/console/console-meta.ts b/front_end/panels/console/console-meta.ts
+index 1a8fc1dfb71cb9ef735b97a3abed79f9596b286a..d6c015005393fe5fcd586b511658a90c5c3125db 100644
+--- a/front_end/panels/console/console-meta.ts
++++ b/front_end/panels/console/console-meta.ts
+@@ -429,6 +429,12 @@ Common.Settings.registerSettingExtension({
+   ],
+ });
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++// 作用：OH 平台跳过 console-insight-teasers-enabled 设置扩展注册
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.CONSOLE,
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+@@ -437,6 +443,8 @@ Common.Settings.registerSettingExtension({
+   settingType: Common.Settings.SettingType.BOOLEAN,
+   defaultValue: true,
+ });
++}
++// #endif ARKWEB_DEVTOOLS
+ 
+ Common.Revealer.registerRevealer({
+   contextTypes() {
+diff --git a/front_end/panels/elements/EventListenersWidget.test.ts b/front_end/panels/elements/EventListenersWidget.test.ts
+index ab989b2b8f820444ad2ba7921689e878e03d5cbe..132018b79cf46067510c10cbc6a322c0c7aa7cf3 100644
+--- a/front_end/panels/elements/EventListenersWidget.test.ts
++++ b/front_end/panels/elements/EventListenersWidget.test.ts
+@@ -89,7 +89,7 @@ describeWithMockConnection('EventListenersWidget', () => {
+     sinon.stub(parent, 'resolveToObject').withArgs('event-listeners-panel').resolves(parentRemoteObject);
+     sinon.stub(grandParent, 'resolveToObject').withArgs('event-listeners-panel').resolves(grandParentRemoteObject);
+     const executionContext = sinon.createStubInstance(SDK.RuntimeModel.ExecutionContext);
+-    executionContext.evaluate.resolves({object: windowRemoteObject});
++    executionContext.evaluateWithSelectedFrameFallback.resolves({object: windowRemoteObject});
+     sinon.stub(runtimeModel, 'executionContexts').returns([executionContext]);
+ 
+     // Set flavor, which will trigger an update.
+@@ -118,7 +118,7 @@ describeWithMockConnection('EventListenersWidget', () => {
+ 
+     const windowRemoteObject = sinon.createStubInstance(SDK.RemoteObject.RemoteObject);
+     const executionContext = sinon.createStubInstance(SDK.RuntimeModel.ExecutionContext);
+-    executionContext.evaluate.resolves({object: windowRemoteObject});
++    executionContext.evaluateWithSelectedFrameFallback.resolves({object: windowRemoteObject});
+     sinon.stub(runtimeModel, 'executionContexts').returns([executionContext]);
+ 
+     Common.Settings.Settings.instance().moduleSetting('show-event-listeners-for-ancestors').set(true);
+diff --git a/front_end/panels/elements/EventListenersWidget.ts b/front_end/panels/elements/EventListenersWidget.ts
+index 09058d4c46f67d39950bfd1616797cad5276b4b0..8ce74cba6ee7b002edf2addd8f09a1da47d3743e 100644
+--- a/front_end/panels/elements/EventListenersWidget.ts
++++ b/front_end/panels/elements/EventListenersWidget.ts
+@@ -243,17 +243,16 @@ export class EventListenersWidget extends UI.Widget.VBox {
+     }
+ 
+     return context
+-        .evaluate(
+-            {
+-              expression: 'self',
+-              objectGroup: objectGroupName,
+-              includeCommandLineAPI: false,
+-              silent: true,
+-              returnByValue: false,
+-              generatePreview: false,
+-            },
+-            /* userGesture */ false,
+-            /* awaitPromise */ false)
++        .evaluateWithSelectedFrameFallback({
++          expression: 'self',
++          objectGroup: objectGroupName,
++          includeCommandLineAPI: false,
++          silent: true,
++          returnByValue: false,
++          generatePreview: false,
++        },
++                                           /* userGesture */ false,
++                                           /* awaitPromise */ false)
+         .then(result => {
+           if ('object' in result) {
+             return result.object;
+diff --git a/front_end/panels/emulation/DeviceModeToolbar.ts b/front_end/panels/emulation/DeviceModeToolbar.ts
+index 87e2f2e19011b8b0e589674977087e0e838baab0..b516bbd7714818f95f6dbc06cacef192cfe7fb4f 100644
+--- a/front_end/panels/emulation/DeviceModeToolbar.ts
++++ b/front_end/panels/emulation/DeviceModeToolbar.ts
+@@ -556,11 +556,9 @@ export class DeviceModeToolbar {
+         {checked: this.model.type() === EmulationModel.DeviceModeModel.Type.Responsive, jslogContext: 'responsive'});
+     appendGroup.call(this, this.standardDevices());
+     appendGroup.call(this, this.customDevices());
+-    // #ifdef ARKWEB_DEVTOOLS
+-    // contextMenu.footerSection().appendItem(
+-    //     i18nString(UIStrings.edit), this.emulatedDevicesList.revealCustomSetting.bind(this.emulatedDevicesList),
+-    //     {jslogContext: 'edit'});
+-    // #endif ARKWEB_DEVTOOLS
++    contextMenu.footerSection().appendItem(
++        i18nString(UIStrings.edit), this.emulatedDevicesList.revealCustomSetting.bind(this.emulatedDevicesList),
++        {jslogContext: 'edit'});
+ 
+     function appendGroup(this: DeviceModeToolbar, devices: EmulationModel.EmulatedDevices.EmulatedDevice[]): void {
+       if (!devices.length) {
+diff --git a/front_end/panels/layer_viewer/LayerDetailsView.ts b/front_end/panels/layer_viewer/LayerDetailsView.ts
+index f8b2140bc87591281a0846538142c39ae82b4af4..b12a4f6b2ea4af778ca6f768299697456ceb63b0 100644
+--- a/front_end/panels/layer_viewer/LayerDetailsView.ts
++++ b/front_end/panels/layer_viewer/LayerDetailsView.ts
+@@ -21,6 +21,10 @@ import {
+   Type,
+ } from './LayerViewHost.js';
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ const UIStrings = {
+   /**
+    * @description Text in Layer Details View of the Layers panel
+@@ -331,6 +335,18 @@ export class LayerDetailsView extends Common.ObjectWrapper.eventMixin<EventTypes
+     });
+     this.paintProfilerLink.setAttribute(
+         'jslog', `${VisualLogging.action('layers.paint-profiler').track({click: true, keydown: 'Enter'})}`);
++
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      this.paintProfilerLink.remove();
++      let transition_class_list = ['hidden', 'devtools-link', 'link-margin'];
++      this.paintProfilerLink.classList.remove(...transition_class_list);
++      let linkContainer = this.contentElement.createChild('div', transition_class_list.join(' '));
++      linkContainer.appendChild(this.paintProfilerLink);
++      this.paintProfilerLink = linkContainer;
++      this.contentElement.appendChild(this.paintProfilerLink);
++    }
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   private createRow(title: string): HTMLElement {
+diff --git a/front_end/panels/layer_viewer/Layers3DView.ts b/front_end/panels/layer_viewer/Layers3DView.ts
+index c3d6e3f7ad2d4cf417c2b6a75e0278ed89e5815f..835fc7345df08e1dd974467e2667f461f8311c79 100644
+--- a/front_end/panels/layer_viewer/Layers3DView.ts
++++ b/front_end/panels/layer_viewer/Layers3DView.ts
+@@ -86,6 +86,10 @@ const uniformSamplerLocations = new Map<WebGLProgram, WebGLUniformLocation|null>
+ 
+ const imageForTexture = new Map<WebGLTexture, HTMLImageElement>();
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, typeof UI.Widget.VBox>(UI.Widget.VBox)
+     implements LayerView {
+   private failBanner: UI.EmptyWidget.EmptyWidget;
+@@ -300,6 +304,22 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
+   }
+ 
+   private resizeCanvas(): void {
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      let floatEquals = (a: number, b: number): boolean => {
++        return Math.abs(a - b) < 1.5 * window.devicePixelRatio;
++      }
++      let newWidth = this.canvasElement.offsetWidth * window.devicePixelRatio;
++      let newHeight = this.canvasElement.offsetHeight * window.devicePixelRatio;
++      if (floatEquals(newWidth, this.canvasElement.width) &&
++          floatEquals(newHeight, this.canvasElement.height)) {
++        return;
++      }
++      this.canvasElement.width = newWidth;
++      this.canvasElement.height = newHeight;
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
+     this.canvasElement.width = this.canvasElement.offsetWidth * window.devicePixelRatio;
+     this.canvasElement.height = this.canvasElement.offsetHeight * window.devicePixelRatio;
+   }
+@@ -656,6 +676,13 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
+       return;
+     }
+ 
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      // arkweb doesn't draw Chrome.
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
++
+     const drawChrome = !Common.Settings.Settings.instance().moduleSetting('frame-viewer-hide-chrome-window').get() &&
+         this.chromeTextures.length >= 3 && this.chromeTextures.indexOf(undefined) < 0;
+     const z = (this.maxDepth + 1) * LayerSpacing;
+@@ -824,6 +851,12 @@ export class Layers3DView extends Common.ObjectWrapper.eventMixin<EventTypes, ty
+     this.showSlowScrollRectsSetting = this.createVisibilitySetting(
+         i18nString(UIStrings.slowScrollRects), 'frame-viewer-show-slow-scroll-rects', true, this.panelToolbar);
+     this.showPaintsSetting.addChangeListener(this.updatePaints, this);
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      // 'frame-viewer-hide-chrome-window' isn't registered in arkweb.
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
+     Common.Settings.Settings.instance()
+         .moduleSetting('frame-viewer-hide-chrome-window')
+         .addChangeListener(this.update, this);
+diff --git a/front_end/panels/mobile_throttling/NetworkThrottlingSelector.ts b/front_end/panels/mobile_throttling/NetworkThrottlingSelector.ts
+index 9caf2259ecacd4465f70b5e5a167923b7aac324e..6f123cdf2c551dbff15477e2706b1e67b6c89722 100644
+--- a/front_end/panels/mobile_throttling/NetworkThrottlingSelector.ts
++++ b/front_end/panels/mobile_throttling/NetworkThrottlingSelector.ts
+@@ -57,10 +57,6 @@ const UIStrings = {
+ const str_ = i18n.i18n.registerUIStrings('panels/mobile_throttling/NetworkThrottlingSelector.ts', UIStrings);
+ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ interface ViewInput {
+   recommendedConditions: SDK.NetworkManager.ThrottlingConditions|null;
+   selectedConditions: SDK.NetworkManager.ThrottlingConditions|undefined;
+@@ -134,7 +130,7 @@ export const DEFAULT_VIEW: ViewFunction = (input, output, target) => {
+                   title(condition)}
+             </option>`)}
+         </optgroup>`)}
+-        <optgroup label=${input.customConditionsGroup.title} ?hidden=${adaptForOhos}>
++        <optgroup label=${input.customConditionsGroup.title}>
+           ${input.customConditionsGroup.items.map(condition => html`<option
+               ${Directives.ref(option => option && optionsMap.set(option as HTMLOptionElement, condition))}
+               ?selected=${selectedConditions && SDK.NetworkManager.networkConditionsEqual(condition, selectedConditions)}
+diff --git a/front_end/panels/mobile_throttling/ThrottlingManager.ts b/front_end/panels/mobile_throttling/ThrottlingManager.ts
+index c8398964a3a86496c6bfcaeecbeb506f55a894ec..3699ba119167dd2f9c79dfd5443b2eb279cd59b2 100644
+--- a/front_end/panels/mobile_throttling/ThrottlingManager.ts
++++ b/front_end/panels/mobile_throttling/ThrottlingManager.ts
+@@ -19,10 +19,6 @@ import {
+   ThrottlingPresets,
+ } from './ThrottlingPresets.js';
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ export interface CPUThrottlingSelectorWrapper {
+   control: UI.Toolbar.ToolbarComboBox;
+   updateRecommendedOption(recommendedOption: SDK.CPUThrottlingManager.CPUThrottlingOption|null): void;
+diff --git a/front_end/panels/network/NetworkLogView.ts b/front_end/panels/network/NetworkLogView.ts
+index beddd99a37f39ee3f28d37ea6b0d3fbb93ae08db..dcb85e48a7e5e44f8f1f7104d7503e6b14227309 100644
+--- a/front_end/panels/network/NetworkLogView.ts
++++ b/front_end/panels/network/NetworkLogView.ts
+@@ -73,10 +73,6 @@ import {NetworkFrameGrouper} from './NetworkFrameGrouper.js';
+ import networkLogViewStyles from './networkLogView.css.js';
+ import {NetworkLogViewColumns} from './NetworkLogViewColumns.js';
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ const UIStrings = {
+   /**
+    * @description Text in Network Log View of the Network panel
+@@ -1876,11 +1872,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes,
+           manager.requestConditions.add(SDK.NetworkManager.RequestCondition.createFromSetting(
+               {enabled: true, url: url as Platform.DevToolsPath.UrlString}));
+           manager.requestConditions.conditionsEnabled = true;
+-          // #ifdef ARKWEB_DEVTOOLS
+-          if (adaptForOhos) {
+-            return;
+-          }
+-          // #endif ARKWEB_DEVTOOLS
+           void UI.ViewManager.ViewManager.instance().showView('network.blocked-urls');
+         }
+ 
+@@ -1889,11 +1880,6 @@ export class NetworkLogView extends Common.ObjectWrapper.eventMixin<EventTypes,
+           if (entry) {
+             manager.requestConditions.delete(entry);
+           }
+-          // #ifdef ARKWEB_DEVTOOLS
+-          if (adaptForOhos) {
+-            return;
+-          }
+-          // #endif ARKWEB_DEVTOOLS
+           void UI.ViewManager.ViewManager.instance().showView('network.blocked-urls');
+         }
+ 
+diff --git a/front_end/panels/network/RequestConditionsDrawer.ts b/front_end/panels/network/RequestConditionsDrawer.ts
+index 319457a6f9221be5f265bbea4f0b43862a92efca..1efee71598e9ae038cd4777b18dd502020de3135 100644
+--- a/front_end/panels/network/RequestConditionsDrawer.ts
++++ b/front_end/panels/network/RequestConditionsDrawer.ts
+@@ -23,6 +23,10 @@ import * as PanelUtils from '../utils/utils.js';
+ 
+ import requestConditionsDrawerStyles from './requestConditionsDrawer.css.js';
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ const {ref} = Directives;
+ const {widgetConfig} = UI.Widget;
+ 
+@@ -408,7 +412,14 @@ export class RequestConditionsDrawer extends UI.Widget.VBox implements
+       void {
+     const toggle = (e: Event): void => {
+       if (editable) {
+-        e.consume(true);
++        // #ifdef ARKWEB_DEVTOOLS
++        // checkbox 点击, 只阻止冒泡，不阻止默认行为
++        if (adaptForOhos && e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
++          e.stopPropagation();
++        } else {
++          e.consume(true);
++        }
++        // #endif ARKWEB_DEVTOOLS
+         condition.enabled = !condition.enabled;
+       }
+     };
+@@ -676,6 +687,10 @@ export class RequestConditionsDrawer extends UI.Widget.VBox implements
+   override wasShown(): void {
+     UI.Context.Context.instance().setFlavor(RequestConditionsDrawer, this);
+     super.wasShown();
++    // #ifdef ARKWEB_DEVTOOLS
++    // 确保视图显示时checkbox状态与conditionsEnabled同步
++    this.update();
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   override willHide(): void {
+diff --git a/front_end/panels/network/network-meta.ts b/front_end/panels/network/network-meta.ts
+index 5d20b1ff83eb674f20bcdc355b1c157fe965f124..0ed6690d4bc362ef137d63211916ec9309c6ab35 100644
+--- a/front_end/panels/network/network-meta.ts
++++ b/front_end/panels/network/network-meta.ts
+@@ -192,11 +192,6 @@ UI.ViewManager.registerViewExtension({
+ 
+ const individualThrottlingEnabled = (): boolean =>
+     Boolean(Root.Runtime.hostConfig.devToolsIndividualRequestThrottling?.enabled);
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-if (adaptForOhos) {
+-  // arkweb does't support network request blocking.
+-} else {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.DRAWER_VIEW,
+   id: 'network.blocked-urls',
+@@ -211,8 +206,6 @@ UI.ViewManager.registerViewExtension({
+     return new Network.RequestConditionsDrawer.RequestConditionsDrawer();
+   },
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.DRAWER_VIEW,
+@@ -385,6 +378,10 @@ UI.ActionRegistration.registerActionExtension({
+   },
+ });
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.NETWORK,
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+@@ -405,10 +402,17 @@ Common.Settings.registerSettingExtension({
+       title: i18nLazyString(UIStrings.dontAllowToGenerateHarWithSensitiveData),
+     },
+   ],
++  // 作用：OH上屏蔽HAR导出设置中的"了解详情"链接
++  // #ifdef ARKWEB_DEVTOOLS
++  ...(adaptForOhos ? {} : {
+   learnMore: {
+-    url: 'https://goo.gle/devtools-export-hars' as Platform.DevToolsPath.UrlString,
++    // #ifdef ARKWEB_DEVTOOLS
++    // url: 'https://goo.gle/devtools-export-hars' as Platform.DevToolsPath.UrlString,
++    // #endif ARKWEB_DEVTOOLS
+     tooltip: i18nLazyString(UIStrings.allowToGenerateHarWithSensitiveDataDocumentation),
+   },
++  }),
++  // #endif ARKWEB_DEVTOOLS
+ });
+ 
+ Common.Settings.registerSettingExtension({
+diff --git a/front_end/panels/protocol_monitor/JSONEditor.ts b/front_end/panels/protocol_monitor/JSONEditor.ts
+index 4a455affa1dd3e6e3f27a226554bf005a92d4fd7..db43548db96325a6c6e0390c5c46f75f9c58e104 100644
+--- a/front_end/panels/protocol_monitor/JSONEditor.ts
++++ b/front_end/panels/protocol_monitor/JSONEditor.ts
+@@ -58,6 +58,10 @@ const UIStrings = {
+ const str_ = i18n.i18n.registerUIStrings('panels/protocol_monitor/JSONEditor.ts', UIStrings);
+ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export const enum ParameterType {
+   STRING = 'string',
+   NUMBER = 'number',
+@@ -501,6 +505,9 @@ export class JSONEditor extends Common.ObjectWrapper.eventMixin<EventTypes, type
+           getMessage: () => `<span>${head}</span>`,
+           getPossibleFixMessage: () => popupContent,
+           getLearnMoreLink: () =>
++              // #ifdef ARKWEB_DEVTOOLS
++              adaptForOhos ? '' :
++              // #endif ARKWEB_DEVTOOLS
+               `https://chromedevtools.github.io/devtools-protocol/tot/${this.command.split('.')[0]}/`,
+         });
+         popover.contentElement.appendChild(popupElement);
+diff --git a/front_end/panels/protocol_monitor/ProtocolMonitor.ts b/front_end/panels/protocol_monitor/ProtocolMonitor.ts
+index 5d5b3ee846f0be55b3f1b77e941d45194671298e..7f79ed4d7066e04a4e709270ac6e1506c0cde137 100644
+--- a/front_end/panels/protocol_monitor/ProtocolMonitor.ts
++++ b/front_end/panels/protocol_monitor/ProtocolMonitor.ts
+@@ -125,6 +125,10 @@ const UIStrings = {
+ const str_ = i18n.i18n.registerUIStrings('panels/protocol_monitor/ProtocolMonitor.ts', UIStrings);
+ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export const buildProtocolMetadata = (domains: Iterable<ProtocolDomain>):
+     Map<string, {parameters: Parameter[], description: string, replyArgs: string[]}> => {
+       const metadataByCommand = new Map<string, {parameters: Parameter[], description: string, replyArgs: string[]}>();
+@@ -515,6 +519,12 @@ export class ProtocolMonitorImpl extends UI.Panel.Panel implements SDK.TargetMan
+       this.requestUpdate();
+     }, {jslogContext: 'filter'});
+ 
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
++
+     /**
+      * You can click the "Documentation" item in the context menu to be
+      * taken to the CDP Documentation site entry for the given method.
+diff --git a/front_end/panels/recorder/components/RecordingView.ts b/front_end/panels/recorder/components/RecordingView.ts
+index 346068623e57477b481d0f5dc16b1d2569fa7d00..dc9bc84fda47f54de7f0fc3f89bce2c40fe28c5a 100644
+--- a/front_end/panels/recorder/components/RecordingView.ts
++++ b/front_end/panels/recorder/components/RecordingView.ts
+@@ -1186,12 +1186,12 @@ export class RecordingView extends UI.Widget.Widget {
+             );
+     // ARKWEB_ARKWEB_EXTENSIONS start
+     let for_ohos = true;
+-    if (for_ohos) {
+-      converter = this.extensionConverters.find(converter => {
+-          const kebab_id = Platform.StringUtilities.toKebabCase(converter.getId());
+-          return kebab_id === this.#recorderSettings?.preferredCopyFormat;
+-        }
+-      );
++    if (for_ohos && !converter) {
++      converter = [ ...this.builtInConverters, ...this.extensionConverters, ]
++            .find(converter => {
++                const kebab_id = Platform.StringUtilities.toKebabCase(converter.getId());
++                return kebab_id === this.#recorderSettings?.preferredCopyFormat;
++            });
+     }
+     // ARKWEB_ARKWEB_EXTENSIONS end
+     if (!converter) {
+diff --git a/front_end/panels/sensors/sensors-meta.ts b/front_end/panels/sensors/sensors-meta.ts
+index 651ac8e61e7a81e7259532fe7ce472e503e8210d..b690ea0da0b7d6d5ca2ae1033b675e48d742266f 100644
+--- a/front_end/panels/sensors/sensors-meta.ts
++++ b/front_end/panels/sensors/sensors-meta.ts
+@@ -130,11 +130,6 @@ async function loadEmulationModule(): Promise<typeof Sensors> {
+   return loadedSensorsModule;
+ }
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-if (adaptForOhos) {
+-  // arkweb does't support network request blocking.
+-} else {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.DRAWER_VIEW,
+   commandPrompt: i18nLazyString(UIStrings.showSensors),
+@@ -155,8 +150,6 @@ UI.ViewManager.registerViewExtension({
+     i18nLazyString(UIStrings.deviceOrientation),
+   ],
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.SETTINGS_VIEW,
+diff --git a/front_end/panels/settings/FrameworkIgnoreListSettingsTab.ts b/front_end/panels/settings/FrameworkIgnoreListSettingsTab.ts
+index 37d41c7e7e4a7bbe50eeb220226943d78a78044a..7414b47f7aad913f705dfdd7d05632dd466644e7 100644
+--- a/front_end/panels/settings/FrameworkIgnoreListSettingsTab.ts
++++ b/front_end/panels/settings/FrameworkIgnoreListSettingsTab.ts
+@@ -135,19 +135,26 @@ export class FrameworkIgnoreListSettingsTab extends UI.Widget.VBox implements
+             i18nString(UIStrings.automaticallyIgnoreListKnownThirdPartyScripts),
+             Common.Settings.Settings.instance().moduleSetting('automatically-ignore-list-known-third-party-scripts')));
+ 
+-    const automaticallyIgnoreLinkButton = new Buttons.Button.Button();
+-    automaticallyIgnoreLinkButton.data = {
+-      iconName: 'help',
+-      variant: Buttons.Button.Variant.ICON,
+-      size: Buttons.Button.Size.SMALL,
+-      jslogContext: 'learn-more',
+-      title: i18nString(UIStrings.learnMore),
+-    };
+-    automaticallyIgnoreLinkButton.addEventListener(
+-        'click',
+-        () => UIHelpers.openInNewTab(
+-            'https://developer.chrome.com/docs/devtools/settings/ignore-list/#skip-third-party'));
+-    automaticallyIgnoreListContainer.appendChild(automaticallyIgnoreLinkButton);
++    // #ifdef ARKWEB_DEVTOOLS
++    const adaptForOhos = true;
++    if (adaptForOhos) {
++      // ArkWeb does not support external links to chrome sites
++    } else {
++      const automaticallyIgnoreLinkButton = new Buttons.Button.Button();
++      automaticallyIgnoreLinkButton.data = {
++        iconName: 'help',
++        variant: Buttons.Button.Variant.ICON,
++        size: Buttons.Button.Size.SMALL,
++        jslogContext: 'learn-more',
++        title: i18nString(UIStrings.learnMore),
++      };
++      automaticallyIgnoreLinkButton.addEventListener(
++          'click',
++          () => UIHelpers.openInNewTab(
++              'https://developer.chrome.com/docs/devtools/settings/ignore-list/#skip-third-party'));
++      automaticallyIgnoreListContainer.appendChild(automaticallyIgnoreLinkButton);
++    } 
++    // #endif ARKWEB_DEVTOOLS
+ 
+     const ignoreListAnonymousScripts =
+         generalExclusionGroup.createChild('div', 'ignore-list-option')
+@@ -186,7 +193,9 @@ export class FrameworkIgnoreListSettingsTab extends UI.Widget.VBox implements
+       const enabled = enabledSetting.get();
+       ignoreListContentScripts.disabled = !enabled;
+       automaticallyIgnoreList.disabled = !enabled;
+-      automaticallyIgnoreLinkButton.disabled = !enabled;
++      // #ifdef ARKWEB_DEVTOOLS
++      // automaticallyIgnoreLinkButton.disabled = !enabled;
++      // #endif ARKWEB_DEVTOOLS
+       ignoreListAnonymousScripts.disabled = !enabled;
+       addPatternButton.disabled = !enabled;
+       this.settingUpdated();
+diff --git a/front_end/panels/settings/SettingsScreen.ts b/front_end/panels/settings/SettingsScreen.ts
+index 8c6d7151616376df84d474b605723ec2f841d36e..0cc8d0dbb6bfcc6a8c9f0a7e07b66d5a999e8d90 100644
+--- a/front_end/panels/settings/SettingsScreen.ts
++++ b/front_end/panels/settings/SettingsScreen.ts
+@@ -24,7 +24,9 @@ import {PanelUtils} from '../utils/utils.js';
+ import * as PanelComponents from './components/components.js';
+ import type {KeybindsSettingsTab} from './KeybindsSettingsTab.js';
+ import settingsScreenStyles from './settingsScreen.css.js';
+-
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
+ const UIStrings = {
+ 
+   /**
+@@ -117,12 +119,17 @@ export class SettingsScreen extends UI.Widget.VBox implements UI.View.ViewLocati
+     tabbedPane.headerElement().prepend(settingsLabelElement);
+     tabbedPane.setShrinkableTabs(false);
+     tabbedPane.makeVerticalTabLayout();
+-    const keyBindsView = UI.ViewManager.ViewManager.instance().view('keybinds');
+-    if (keyBindsView) {
+-      void keyBindsView.widget().then(widget => {
+-        this.keybindsTab = widget as KeybindsSettingsTab;
+-      });
++    // 作用：OH上跳过 Keybinds 快捷键面板加载
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
++      const keyBindsView = UI.ViewManager.ViewManager.instance().view('keybinds');
++      if (keyBindsView) {
++        void keyBindsView.widget().then(widget => {
++          this.keybindsTab = widget as KeybindsSettingsTab;
++        });
++      }
+     }
++    // #endif ARKWEB_DEVTOOLS
+     tabbedPane.show(this.contentElement);
+     tabbedPane.selectTab('preferences');
+     tabbedPane.addEventListener(UI.TabbedPane.Events.TabInvoked, this.tabInvoked, this);
+@@ -235,8 +242,12 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
+         this.contentElement.createChild('div', 'settings-card-container-wrapper').createChild('div');
+ 
+     this.containerElement.classList.add('settings-multicolumn-card-container');
++    // 作用：OH上跳过 SyncSection 的 markAsRoot 调用
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
+     this.syncSection.markAsRoot();
+-
++    }
++    // #endif ARKWEB_DEVTOOLS
+     // AI, GRID, MOBILE, EMULATION, and RENDERING are intentionally excluded from this list.
+     // AI settings are displayed in their own tab.
+     const explicitSectionOrder: Common.Settings.SettingCategory[] = [
+@@ -295,7 +306,12 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
+   override wasShown(): void {
+     UI.Context.Context.instance().setFlavor(GenericSettingsTab, this);
+     super.wasShown();
++    // 作用：OH上跳过 SyncSection 更新
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos) {
+     this.updateSyncSection();
++    }
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   override willHide(): void {
+@@ -336,7 +352,10 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
+     // Always create the EXTENSIONS section and append the link handling control.
+     if (category === Common.Settings.SettingCategory.EXTENSIONS) {
+       this.createExtensionSection(settings);
+-    } else if (category === Common.Settings.SettingCategory.ACCOUNT && settings.length > 0) {
++    // 作用：OH上不渲染 ACCOUNT 分类卡片
++    // #ifdef ARKWEB_DEVTOOLS
++    } else if (category === Common.Settings.SettingCategory.ACCOUNT && settings.length > 0 && !adaptForOhos) {
++    // #endif ARKWEB_DEVTOOLS
+       const syncCard = createSettingsCard(
+           Common.SettingRegistration.getLocalizedSettingsCategory(Common.SettingRegistration.SettingCategory.ACCOUNT),
+           this.syncSection.element);
+@@ -371,7 +390,10 @@ export class GenericSettingsTab extends UI.Widget.VBox implements SettingsTab {
+       const element = this.settingToControl.get(setting);
+       if (element) {
+         PanelUtils.highlightElement(element);
+-      } else if (setting.name === 'receive-gdp-badges') {
++      // 作用：OH上跳过 GDP badges 设置的高亮定位
++      // #ifdef ARKWEB_DEVTOOLS
++      } else if (!adaptForOhos && setting.name === 'receive-gdp-badges') {
++      // #endif ARKWEB_DEVTOOLS
+         void this.#syncSectionUpdatePromise?.then(() => {
+           void this.syncSection.highlightReceiveBadgesSetting();
+         });
+@@ -542,8 +564,8 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
+         void SettingsScreen.showSettingsScreen({focusTabHeader: true} as ShowSettingsScreenOptions);
+         return true;
+       case 'settings.documentation':
++      // 作用：OH上文档链接动作直接返回 true（不执行跳转）
+       // #ifdef ARKWEB_DEVTOOLS
+-      const adaptForOhos = true;
+       if (adaptForOhos) {
+         return true;
+       }
+@@ -551,7 +573,12 @@ export class ActionDelegate implements UI.ActionRegistration.ActionDelegate {
+         UIHelpers.openInNewTab('https://developer.chrome.com/docs/devtools/');
+         return true;
+       case 'settings.shortcuts':
+-        void SettingsScreen.showSettingsScreen({name: 'keybinds', focusTabHeader: true});
++        // 作用：OH上跳过快捷键设置面板打开
++        // #ifdef ARKWEB_DEVTOOLS
++        if (!adaptForOhos) {
++          void SettingsScreen.showSettingsScreen({name: 'keybinds', focusTabHeader: true});
++        }
++        // #endif ARKWEB_DEVTOOLS
+         return true;
+     }
+     return false;
+diff --git a/front_end/panels/settings/components/SyncSection.ts b/front_end/panels/settings/components/SyncSection.ts
+index f10edc1cc5df54d8f537a28550c03594ae47180b..b55d621e20460580f5126b2e43b2dad714224d94 100644
+--- a/front_end/panels/settings/components/SyncSection.ts
++++ b/front_end/panels/settings/components/SyncSection.ts
+@@ -275,8 +275,18 @@ export class SyncSection extends UI.Widget.Widget {
+   constructor(element?: HTMLElement, view: View = DEFAULT_VIEW) {
+     super(element);
+     this.#view = view;
+-    this.#receiveBadgesSetting = Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges');
+-    this.#syncSetting = Common.Settings.moduleSetting('sync-preferences') as Common.Settings.Setting<boolean>;
++    // 作用：OH上将 SyncSection 的两个设置项置空
++    // #ifdef ARKWEB_DEVTOOLS
++    const adaptForOhos = true;
++    // 作用：OH 平台将 receive-gdp-badges 和 sync-preferences 两个设置项置空，跳过上游的 moduleSetting 注册访问
++    if (!adaptForOhos) {
++      this.#receiveBadgesSetting = Common.Settings.Settings.instance().moduleSetting('receive-gdp-badges');
++      this.#syncSetting = Common.Settings.moduleSetting('sync-preferences') as Common.Settings.Setting<boolean>;
++    } else {
++      this.#receiveBadgesSetting = null as unknown as Common.Settings.Setting<boolean>;
++      this.#syncSetting = null as unknown as Common.Settings.Setting<boolean>;
++    }
++    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   override wasShown(): void {
+diff --git a/front_end/panels/settings/emulation/components/UserAgentClientHintsForm.ts b/front_end/panels/settings/emulation/components/UserAgentClientHintsForm.ts
+index 646895aa14f299ee6c20fa9cb120ab5d04cdc426..7620e253a8951d6b4b0f26fe6a4a51222800de9e 100644
+--- a/front_end/panels/settings/emulation/components/UserAgentClientHintsForm.ts
++++ b/front_end/panels/settings/emulation/components/UserAgentClientHintsForm.ts
+@@ -18,7 +18,9 @@ import * as EmulationUtils from '../utils/utils.js';
+ import userAgentClientHintsFormStyles from './userAgentClientHintsForm.css.js';
+ 
+ const {html} = Lit;
+-
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
+ const UIStrings = {
+   /**
+    * @description Title for user agent client hints form
+@@ -544,7 +546,9 @@ export class UserAgentClientHintsForm extends HTMLElement {
+           type="text"
+           @input=${handlePlatformNameChange}
+           .value=${platform}
+-          placeholder=${i18nString(UIStrings.platformPlaceholder)}
++          // #ifdef ARKWEB_DEVTOOLS
++          placeholder=${adaptForOhos ? 'Platform (e.g. OpenHarmony)' : i18nString(UIStrings.platformPlaceholder)}
++          // #endif ARKWEB_DEVTOOLS
+           aria-label=${i18nString(UIStrings.platformLabel)}
+           jslog=${VisualLogging.textField('platform').track({
+       change: true,
+@@ -849,9 +853,8 @@ export class UserAgentClientHintsForm extends HTMLElement {
+     // clang-format on
+ 
+     // clang-format off
+-    // #ifdef ARKWEB_DEVTOOLS
+-    const adaptForOhos = true;
+-    let output = html`
++    let output;
++    output = html`
+       <style>${Input.checkboxStyles}</style>
+       <style>${userAgentClientHintsFormStyles}</style>
+       <section class="root">
+@@ -871,7 +874,7 @@ export class UserAgentClientHintsForm extends HTMLElement {
+             ${i18nString(UIStrings.title)}
+           </div>
+           <devtools-icon tabindex=${this.#isFormDisabled ? '-1' : '0'} class=info-icon name=info aria-label=${i18nString(UIStrings.userAgentClientHintsInfo)} title=${i18nString(UIStrings.userAgentClientHintsInfo)}></devtools-icon>
+-          <x-link
++          ${adaptForOhos ? '' : html`<x-link
+            tabindex=${this.#isFormDisabled ? '-1' : '0'}
+            href="https://web.dev/user-agent-client-hints/"
+            target="_blank"
+@@ -881,7 +884,7 @@ export class UserAgentClientHintsForm extends HTMLElement {
+            jslog=${VisualLogging.link('learn-more').track({click: true})}
+           >
+             ${i18nString(UIStrings.learnMore)}
+-          </x-link>
++          </x-link>`}
+         </div>
+         <form
+           id="form-container"
+@@ -906,48 +909,6 @@ export class UserAgentClientHintsForm extends HTMLElement {
+         <div aria-live="polite" aria-label=${this.#useragentModifiedAriaMessage}></div>
+       </section>
+     `;
+-    if (adaptForOhos) {
+-      output = html`
+-        <section class="root">
+-          <div
+-            class="tree-title"
+-            role="button"
+-            @click=${this.#handleTreeClick}
+-            tabindex=${this.#isFormDisabled ? '-1' : '0'}
+-            @keydown=${this.#handleTreeExpand}
+-            aria-expanded=${this.#isFormOpened}
+-            aria-controls="form-container"
+-            aria-disabled=${this.#isFormDisabled}
+-            aria-label=${i18nString(UIStrings.title)}
+-            jslog=${VisualLogging.toggleSubpane().track({click: true})}
+-          >
+-            <devtools-icon
+-              class=${this.#isFormOpened ? 'rotate-icon' : ''}
+-              .data=${{
+-                color: 'var(--icon-default)',
+-                iconName: 'triangle-right',
+-                width: '14px',
+-              }}
+-            ></devtools-icon>
+-            ${i18nString(UIStrings.title)}
+-          </div>
+-          <form
+-            id="form-container"
+-            class="form-container ${this.#isFormOpened ? '' : 'hide-container'}"
+-            @submit=${this.#handleSubmit}
+-          >
+-            ${useragentSection}
+-            ${fullVersionListSection}
+-            ${fullBrowserInput}
+-            ${platformSection}
+-            ${architectureInput}
+-            ${deviceModelSection}
+-            ${submitButton}
+-          </form>
+-          <div aria-live="polite" aria-label=${this.#useragentModifiedAriaMessage}></div>
+-        </section>
+-      `;
+-    }
+     // clang-format on
+     Lit.render(output, this.#shadow, {host: this});
+   }
+diff --git a/front_end/panels/settings/settings-meta.ts b/front_end/panels/settings/settings-meta.ts
+index 38d8e8877366e31d451d475ae616d8f25d6e1248..650314bb14265204e47d74ae38987c71717947a7 100644
+--- a/front_end/panels/settings/settings-meta.ts
++++ b/front_end/panels/settings/settings-meta.ts
+@@ -111,7 +111,9 @@ UI.ViewManager.registerViewExtension({
+   },
+   iconName: 'folder',
+ });
+-
++// 作用：OH上隐藏 Chrome AI 设置面板
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.SETTINGS_VIEW,
+   id: 'chrome-ai',
+@@ -130,7 +132,9 @@ UI.ViewManager.registerViewExtension({
+         false;
+   },
+ });
+-
++}
++// 作用：OH上隐藏 Experiments 实验性功能设置面板
++if (!adaptForOhos) {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.SETTINGS_VIEW,
+   id: 'experiments',
+@@ -144,7 +148,8 @@ UI.ViewManager.registerViewExtension({
+   },
+   iconName: 'experiment',
+ });
+-
++}
++// #endif ARKWEB_DEVTOOLS
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.SETTINGS_VIEW,
+   id: 'blackbox',
+@@ -157,7 +162,9 @@ UI.ViewManager.registerViewExtension({
+   },
+   iconName: 'clear-list',
+ });
+-
++// 作用：OH上隐藏 Keybinds 快捷键设置面板
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.SETTINGS_VIEW,
+   id: 'keybinds',
+@@ -170,11 +177,12 @@ UI.ViewManager.registerViewExtension({
+   },
+   iconName: 'keyboard',
+ });
++}
++// #endif ARKWEB_DEVTOOLS
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-if (adaptForOhos) {
+-  // arkweb does't support settings.
+-} else {
++// 作用：移除 ARKWEB_DEVTOOLS 条件编译宏，改为始终注册设置相关动作（快捷键、文档链接等）
++// 合理性：OH上通过各动作内部的 adaptForOhos 判断来决定行为，而非外部整体屏蔽，使代码更可维护
++// 必要性：旧方式整体屏蔽导致 OH 上设置面板的齿轮图标等 UI 元素也消失
+ UI.ActionRegistration.registerActionExtension({
+   category: UI.ActionRegistration.ActionCategory.SETTINGS,
+   actionId: 'settings.show',
+@@ -210,8 +218,6 @@ UI.ActionRegistration.registerActionExtension({
+     },
+   ],
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ActionRegistration.registerActionExtension({
+   category: UI.ActionRegistration.ActionCategory.SETTINGS,
+diff --git a/front_end/panels/snippets/ScriptSnippetFileSystem.ts b/front_end/panels/snippets/ScriptSnippetFileSystem.ts
+index 134cb8d3cf53578f350aab8adbfef55d89940270..21d1d2cdab51da4453edae5bbacb50573d9d58f4 100644
+--- a/front_end/panels/snippets/ScriptSnippetFileSystem.ts
++++ b/front_end/panels/snippets/ScriptSnippetFileSystem.ts
+@@ -163,17 +163,16 @@ export async function evaluateScriptSnippet(uiSourceCode: Workspace.UISourceCode
+ 
+   const url = uiSourceCode.url();
+ 
+-  const result = await executionContext.evaluate(
+-      {
+-        expression: `${expression}\n//# sourceURL=${url}`,
+-        objectGroup: 'console',
+-        silent: false,
+-        includeCommandLineAPI: true,
+-        returnByValue: false,
+-        generatePreview: true,
+-        replMode: true,
+-      } as SDK.RuntimeModel.EvaluationOptions,
+-      true, true);
++  const result = await executionContext.evaluateWithSelectedFrameFallback({
++    expression: `${expression}\n//# sourceURL=${url}`,
++    objectGroup: 'console',
++    silent: false,
++    includeCommandLineAPI: true,
++    returnByValue: false,
++    generatePreview: true,
++    replMode: true,
++  } as SDK.RuntimeModel.EvaluationOptions,
++                                                                          true, true);
+ 
+   if ('exceptionDetails' in result && result.exceptionDetails) {
+     consoleModel?.addMessage(SDK.ConsoleModel.ConsoleMessage.fromException(
+diff --git a/front_end/panels/sources/SourcesView.ts b/front_end/panels/sources/SourcesView.ts
+index 84544d3092b2c9fdcde8694edbc30c1f14cf74db..70d9166fae2b48c6c6a76e314a091e5d07ac5c53 100644
+--- a/front_end/panels/sources/SourcesView.ts
++++ b/front_end/panels/sources/SourcesView.ts
+@@ -30,10 +30,6 @@ import {
+ } from './TabbedEditorContainer.js';
+ import {Events as UISourceCodeFrameEvents, UISourceCodeFrame} from './UISourceCodeFrame.js';
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ const UIStrings = {
+   /**
+    * @description Text to open a file
+@@ -166,14 +162,6 @@ export class SourcesView extends Common.ObjectWrapper.eventMixin<EventTypes, typ
+       {actionId: 'quick-open.show-command-menu', description: i18nString(UIStrings.runCommand)},
+     ];
+ 
+-    // #ifdef ARKWEB_DEVTOOLS
+-    if (adaptForOhos) {
+-      shortcuts = [
+-        {actionId: 'quick-open.show', description: i18nString(UIStrings.openFile)},
+-      ];
+-    }
+-    // #endif ARKWEB_DEVTOOLS
+-
+     const list = placeholder.createChild('div', 'shortcuts-list');
+     list.classList.add('tabbed-pane-placeholder-row');
+     UI.ARIAUtils.markAsList(list);
+diff --git a/front_end/panels/sources/WatchExpressionsSidebarPane.ts b/front_end/panels/sources/WatchExpressionsSidebarPane.ts
+index 8bb4f94860a91653e33155dae45746e2950c2205..41091475da0d7d72b5e5c6deb38d28681c3e59d5 100644
+--- a/front_end/panels/sources/WatchExpressionsSidebarPane.ts
++++ b/front_end/panels/sources/WatchExpressionsSidebarPane.ts
+@@ -364,7 +364,7 @@ export class WatchExpression extends Common.ObjectWrapper.ObjectWrapper<EventTyp
+       }
+     }
+ 
+-    return await executionContext.evaluate(
++    return await executionContext.evaluateWithSelectedFrameFallback(
+         {
+           expression,
+           objectGroup: WatchExpression.watchObjectGroupId,
+diff --git a/front_end/panels/sources/sources-meta.ts b/front_end/panels/sources/sources-meta.ts
+index 998bdf14183680f753e62ec06c92b528ee622a07..3c90b2eb3a6957b7afb51d57953e51d52c0c9b2b 100644
+--- a/front_end/panels/sources/sources-meta.ts
++++ b/front_end/panels/sources/sources-meta.ts
+@@ -530,11 +530,6 @@ UI.ViewManager.registerViewExtension({
+   },
+ });
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-if (adaptForOhos) {
+-  // arkweb does't support network request blocking.
+-} else {
+ UI.ViewManager.registerViewExtension({
+   location: UI.ViewManager.ViewLocationValues.DRAWER_VIEW,
+   id: 'sources.quick',
+@@ -547,8 +542,6 @@ UI.ViewManager.registerViewExtension({
+     return new Sources.SourcesPanel.QuickSourceView();
+   },
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ViewManager.registerViewExtension({
+   id: 'sources.threads',
+diff --git a/front_end/panels/timeline/components/NetworkThrottlingSelector.ts b/front_end/panels/timeline/components/NetworkThrottlingSelector.ts
+index 55f7338f4f3b56adcef686951a5df0300a4dc2a4..8376b1d03e12ca01ec7acb3138f743585e44eb7f 100644
+--- a/front_end/panels/timeline/components/NetworkThrottlingSelector.ts
++++ b/front_end/panels/timeline/components/NetworkThrottlingSelector.ts
+@@ -61,10 +61,6 @@ const UIStrings = {
+ const str_ = i18n.i18n.registerUIStrings('panels/timeline/components/NetworkThrottlingSelector.ts', UIStrings);
+ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ interface ConditionsGroup {
+   name: string;
+   items: SDK.NetworkManager.Conditions[];
+@@ -131,11 +127,6 @@ export class NetworkThrottlingSelector extends HTMLElement {
+         jslogContext: 'custom-network-throttling-item',
+       },
+     ];
+-    // #ifdef ARKWEB_DEVTOOLS
+-    if (adaptForOhos) {
+-      this.#groups = this.#groups.filter(group => !group.showCustomAddOption);
+-    }
+-    // #endif ARKWEB_DEVTOOLS
+   }
+ 
+   #onConditionsChanged(): void {
+diff --git a/front_end/panels/timeline/timeline-meta.ts b/front_end/panels/timeline/timeline-meta.ts
+index 0364aa587554ef5dda6b8b895649087a6792739e..9445b775fa8c6341f70ca2462e7a2766e385ad5d 100644
+--- a/front_end/panels/timeline/timeline-meta.ts
++++ b/front_end/panels/timeline/timeline-meta.ts
+@@ -3,6 +3,10 @@
+ // found in the LICENSE file.
+ 
+ import * as Common from '../../core/common/common.js';
++
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
+ import * as i18n from '../../core/i18n/i18n.js';
+ import * as SDK from '../../core/sdk/sdk.js';
+ import * as UI from '../../ui/legacy/legacy.js';
+@@ -305,6 +309,9 @@ UI.ActionRegistration.registerActionExtension({
+   ],
+ });
+ 
++// 作用：OH上屏蔽"在图层视图中隐藏chrome框架"设置项的注册
++// #ifdef ARKWEB_DEVTOOLS
++if (!adaptForOhos) {
+ Common.Settings.registerSettingExtension({
+   category: Common.Settings.SettingCategory.PERFORMANCE,
+   storageType: Common.Settings.SettingStorageType.SYNCED,
+@@ -313,6 +320,8 @@ Common.Settings.registerSettingExtension({
+   settingType: Common.Settings.SettingType.BOOLEAN,
+   defaultValue: false,
+ });
++}
++// #endif ARKWEB_DEVTOOLS
+ 
+ // IMPORTANT: if you are updating this, you should also update the setting in
+ // js_timeline-meta.
+diff --git a/front_end/testing/MockExecutionContext.ts b/front_end/testing/MockExecutionContext.ts
+index 0a83fe796925ebeb2ed21fc099d6ac516f1537bf..8644c0529f4dd1646e100a2a81665ab8ad60e39b 100644
+--- a/front_end/testing/MockExecutionContext.ts
++++ b/front_end/testing/MockExecutionContext.ts
+@@ -16,8 +16,8 @@ export class MockExecutionContext extends SDK.RuntimeModel.ExecutionContext {
+     super(runtimeModel, 1 as Protocol.Runtime.ExecutionContextId, 'test id', 'test name', urlString`test origin`, true);
+   }
+ 
+-  override async evaluate(_options: SDK.RuntimeModel.EvaluationOptions, userGesture: boolean, _awaitPromise: boolean):
+-      Promise<SDK.RuntimeModel.EvaluationResult> {
++  override async evaluateWithSelectedFrameFallback(_options: SDK.RuntimeModel.EvaluationOptions, userGesture: boolean,
++                                                   _awaitPromise: boolean): Promise<SDK.RuntimeModel.EvaluationResult> {
+     assert.isTrue(userGesture);
+     return {error: 'test'};
+   }
+diff --git a/front_end/ui/components/panel_feedback/FeedbackButton.ts b/front_end/ui/components/panel_feedback/FeedbackButton.ts
+index 72c10a0c5e5b6959f9d0ba9f99f6405eea26f91c..c6198d804a0cd85e7235ac9d9c60156247bb6fbb 100644
+--- a/front_end/ui/components/panel_feedback/FeedbackButton.ts
++++ b/front_end/ui/components/panel_feedback/FeedbackButton.ts
+@@ -20,6 +20,10 @@ const UIStrings = {
+ const str_ = i18n.i18n.registerUIStrings('ui/components/panel_feedback/FeedbackButton.ts', UIStrings);
+ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export interface FeedbackButtonData {
+   feedbackUrl: Platform.DevToolsPath.UrlString;
+ }
+@@ -44,6 +48,13 @@ export class FeedbackButton extends HTMLElement {
+       throw new Error('FeedbackButton render was not scheduled');
+     }
+ 
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      // Feedback is not supported.
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
++
+     // clang-format off
+     render(html`
+       <devtools-button
+diff --git a/front_end/ui/components/panel_feedback/PanelFeedback.ts b/front_end/ui/components/panel_feedback/PanelFeedback.ts
+index 42968fb1f60d31a4fee185f6b6b7ead68af49d7e..9829528f58cadb314464a1b6d028a9da1d60dfc4 100644
+--- a/front_end/ui/components/panel_feedback/PanelFeedback.ts
++++ b/front_end/ui/components/panel_feedback/PanelFeedback.ts
+@@ -37,6 +37,10 @@ const i18nString = i18n.i18n.getLocalizedString.bind(undefined, str_);
+ 
+ const videoThumbnailUrl = new URL('../../../Images/preview_feature_video_thumbnail.svg', import.meta.url).toString();
+ 
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ export interface PanelFeedbackData {
+   feedbackUrl: Platform.DevToolsPath.UrlString;
+   quickStartUrl: Platform.DevToolsPath.UrlString;
+@@ -61,6 +65,13 @@ export class PanelFeedback extends HTMLElement {
+       throw new Error('PanelFeedback render was not scheduled');
+     }
+ 
++    // #ifdef ARKWEB_DEVTOOLS
++    if (adaptForOhos) {
++      // Feedback is not supported.
++      return;
++    }
++    // #endif ARKWEB_DEVTOOLS
++
+     // clang-format off
+     render(html`
+       <style>${panelFeedbackStyles}</style>
+diff --git a/front_end/ui/components/suggestion_input/SuggestionInput.ts b/front_end/ui/components/suggestion_input/SuggestionInput.ts
+index e83dc1e3411ff7c5431dba7d7d3ad5c1601e0a4b..210367a054b409ad9d8d4bb97645a84efe95065b 100644
+--- a/front_end/ui/components/suggestion_input/SuggestionInput.ts
++++ b/front_end/ui/components/suggestion_input/SuggestionInput.ts
+@@ -83,7 +83,7 @@ class EditableContent extends HTMLElement {
+     this.tabIndex = 0;
+ 
+     this.addEventListener('focus', () => {
+-      this.innerHTML = this.innerText;
++      this.textContent = this.innerText;
+     });
+     this.addEventListener('blur', this.#highlight.bind(this));
+   }
+diff --git a/front_end/ui/components/text_editor/javascript.ts b/front_end/ui/components/text_editor/javascript.ts
+index 7edecaf209443c1d74512f959bad314c533d109e..d7cf1c177dc2c262d217ade67b1c03630795e068 100644
+--- a/front_end/ui/components/text_editor/javascript.ts
++++ b/front_end/ui/components/text_editor/javascript.ts
+@@ -237,19 +237,18 @@ async function evaluateExpression(
+     expression: string,
+     group: string,
+     ): Promise<SDK.RemoteObject.RemoteObject|null> {
+-  const result = await context.evaluate(
+-      {
+-        expression,
+-        objectGroup: group,
+-        includeCommandLineAPI: true,
+-        silent: true,
+-        returnByValue: false,
+-        generatePreview: false,
+-        throwOnSideEffect: true,
+-        timeout: 500,
+-        replMode: true,
+-      },
+-      false, false);
++  const result = await context.evaluateWithSelectedFrameFallback({
++    expression,
++    objectGroup: group,
++    includeCommandLineAPI: true,
++    silent: true,
++    returnByValue: false,
++    generatePreview: false,
++    throwOnSideEffect: true,
++    timeout: 500,
++    replMode: true,
++  },
++                                                                 false, false);
+   if ('error' in result || result.exceptionDetails || !result.object) {
+     return null;
+   }
+diff --git a/front_end/ui/helpers/OpenInNewTab.ts b/front_end/ui/helpers/OpenInNewTab.ts
+index cfa93f367d70f491be8e94462fb89ccb568a1242..867256a2f6dc10a845119a2727fcd925ebcc0141 100644
+--- a/front_end/ui/helpers/OpenInNewTab.ts
++++ b/front_end/ui/helpers/OpenInNewTab.ts
+@@ -57,6 +57,10 @@ import * as SDK from '../../core/sdk/sdk.js';
+  * @throws TypeError if `url` is not a valid URL.
+  * @see https://en.wikipedia.org/wiki/UTM_parameters
+  */
++// 作用：声明 OH 平台适配开关变量
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
+ export function openInNewTab(url: URL|string): void {
+   url = new URL(url);
+   if (Common.ParsedURL.schemeIs(url, 'javascript:')) {
+@@ -77,7 +81,9 @@ export function openInNewTab(url: URL|string): void {
+       }
+     });
+   } else {
+-    if (['developer.chrome.com', 'developers.google.com', 'web.dev'].includes(url.hostname)) {
++    // 作用：OH 平台跳过对 Chrome 站点的 UTM 参数追加
++    // #ifdef ARKWEB_DEVTOOLS
++    if (!adaptForOhos && ['developer.chrome.com', 'developers.google.com', 'web.dev'].includes(url.hostname)) {
+       if (!url.searchParams.has('utm_source')) {
+         url.searchParams.append('utm_source', 'devtools');
+       }
+@@ -86,6 +92,7 @@ export function openInNewTab(url: URL|string): void {
+         url.searchParams.append('utm_campaign', channel);
+       }
+     }
++    // #endif ARKWEB_DEVTOOLS
+     Host.InspectorFrontendHost.InspectorFrontendHostInstance.openInNewTab(Platform.DevToolsPath.urlString`${url}`);
+   }
+ }
+diff --git a/front_end/ui/legacy/components/object_ui/JavaScriptREPL.ts b/front_end/ui/legacy/components/object_ui/JavaScriptREPL.ts
+index 7d77c1acb72286254f64b30e90204d5a2dda2601..b04780c2c87f881ca241d0cd06eab5d868014aea 100644
+--- a/front_end/ui/legacy/components/object_ui/JavaScriptREPL.ts
++++ b/front_end/ui/legacy/components/object_ui/JavaScriptREPL.ts
+@@ -76,7 +76,7 @@ export class JavaScriptREPL {
+       replMode,
+       silent,
+     };
+-    return await executionContext.evaluate(options, false /* userGesture */, awaitPromise);
++    return await executionContext.evaluateWithSelectedFrameFallback(options, false /* userGesture */, awaitPromise);
+   }
+ 
+   static async evaluateAndBuildPreview(
+diff --git a/front_end/ui/legacy/components/quick_open/CommandMenu.ts b/front_end/ui/legacy/components/quick_open/CommandMenu.ts
+index 1338dbabf7e90abed8140981c9d218b52b48c8fe..3b5d7a50a53195ad9a31f01cd0e858911594392f 100644
+--- a/front_end/ui/legacy/components/quick_open/CommandMenu.ts
++++ b/front_end/ui/legacy/components/quick_open/CommandMenu.ts
+@@ -452,18 +452,11 @@ export class ShowActionDelegate implements UI.ActionRegistration.ActionDelegate
+   }
+ }
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-if (adaptForOhos) {
+-  // arkweb doesn't support command.
+-} else {
+-  registerProvider({
+-    prefix: '>',
+-    iconName: 'chevron-right',
+-    provider: () => Promise.resolve(new CommandMenuProvider()),
+-    helpTitle: () => i18nString(UIStrings.runCommand),
+-    titlePrefix: () => i18nString(UIStrings.run),
+-    titleSuggestion: () => i18nString(UIStrings.command),
+-  });
+-}
+-// #endif ARKWEB_DEVTOOLS
+\ No newline at end of file
++registerProvider({
++  prefix: '>',
++  iconName: 'chevron-right',
++  provider: () => Promise.resolve(new CommandMenuProvider()),
++  helpTitle: () => i18nString(UIStrings.runCommand),
++  titlePrefix: () => i18nString(UIStrings.run),
++  titleSuggestion: () => i18nString(UIStrings.command),
++});
+diff --git a/front_end/ui/legacy/components/quick_open/quick_open-meta.ts b/front_end/ui/legacy/components/quick_open/quick_open-meta.ts
+index 1842933d6aeae0ff01d96a1d07ca6e73bfc0ae78..60968cadba2874f2e0b110b82300e6471a31a93b 100644
+--- a/front_end/ui/legacy/components/quick_open/quick_open-meta.ts
++++ b/front_end/ui/legacy/components/quick_open/quick_open-meta.ts
+@@ -7,10 +7,6 @@ import * as UI from '../../../../ui/legacy/legacy.js';
+ 
+ import type * as QuickOpen from './quick_open.js';
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-const adaptForOhos = true;
+-// #endif ARKWEB_DEVTOOLS
+-
+ const UIStrings = {
+   /**
+    * @description Title of action that opens a file
+@@ -33,10 +29,6 @@ async function loadQuickOpenModule(): Promise<typeof QuickOpen> {
+   return loadedQuickOpenModule;
+ }
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-if (adaptForOhos) {
+-  // arkweb doesn't support command.
+-} else {
+ UI.ActionRegistration.registerActionExtension({
+   actionId: 'quick-open.show-command-menu',
+   category: UI.ActionRegistration.ActionCategory.GLOBAL,
+@@ -70,8 +62,6 @@ UI.ActionRegistration.registerActionExtension({
+     },
+   ],
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ActionRegistration.registerActionExtension({
+   actionId: 'quick-open.show',
+@@ -118,17 +108,11 @@ UI.ActionRegistration.registerActionExtension({
+   ],
+ });
+ 
+-// #ifdef ARKWEB_DEVTOOLS
+-if (adaptForOhos) {
+-  // arkweb doesn't support command.
+-} else {
+ UI.ContextMenu.registerItem({
+   location: UI.ContextMenu.ItemLocation.MAIN_MENU_DEFAULT,
+   actionId: 'quick-open.show-command-menu',
+   order: undefined,
+ });
+-}
+-// #endif ARKWEB_DEVTOOLS
+ 
+ UI.ContextMenu.registerItem({
+   location: UI.ContextMenu.ItemLocation.MAIN_MENU_DEFAULT,
+diff --git a/front_end/ui/legacy/tabbedPane.css b/front_end/ui/legacy/tabbedPane.css
+index 5de9a279eb5decc322b2edc0c1eaa60dc46d73b5..0e0903572bf385d0ad652eb28e074b18b858afc2 100644
+--- a/front_end/ui/legacy/tabbedPane.css
++++ b/front_end/ui/legacy/tabbedPane.css
+@@ -530,3 +530,10 @@
+ .tabbed-pane-header-tab.ai .ai-icon devtools-icon {
+   color: var(--sys-color-on-primary);
+ }
++
++/* For ArkWeb */
++.tabbed-pane-header-tabs-drop-down-container {
++  &[aria-haspopup='true'][aria-expanded='true'] {
++    pointer-events: none;
++  }
++}
+diff --git a/front_end/ui/legacy/theme_support/ThemeSupport.ts b/front_end/ui/legacy/theme_support/ThemeSupport.ts
+index 85bda316b036ebf08a6e26cf1ad839b24c6af0d2..0c7fc71ad7016ab4e5e17c0ab1bcd95085a8a67a 100644
+--- a/front_end/ui/legacy/theme_support/ThemeSupport.ts
++++ b/front_end/ui/legacy/theme_support/ThemeSupport.ts
+@@ -40,6 +40,11 @@ import * as Root from '../../../core/root/root.js';
+ 
+ let themeSupportInstance: ThemeSupport;
+ 
++// 作用：OH 平台适配开关
++// #ifdef ARKWEB_DEVTOOLS
++const adaptForOhos = true;
++// #endif ARKWEB_DEVTOOLS
++
+ const themeValueByTargetByName = new Map<Element|null, Map<string, string>>();
+ 
+ export class ThemeSupport extends EventTarget {
+@@ -159,7 +164,10 @@ export class ThemeSupport extends EventTarget {
+     this.#themeName = useSystemPreferred ? systemPreferredTheme : this.setting.get();
+     document.documentElement.classList.toggle('theme-with-dark-background', this.#themeName === 'dark');
+ 
+-    const useChromeTheme = Common.Settings.moduleSetting('chrome-theme-colors').get();
++    // 作用：将 useChromeTheme 强制置为 false；合理性：main-meta.ts 已跳过 chrome-theme-colors 注册；必要性：不短路则 moduleSetting 抛异常
++    // #ifdef ARKWEB_DEVTOOLS
++    const useChromeTheme = adaptForOhos ? false : Common.Settings.moduleSetting('chrome-theme-colors').get();
++    // #endif ARKWEB_DEVTOOLS
+     const isIncognito = Root.Runtime.hostConfig.isOffTheRecord === true;
+     // Baseline is the name of Chrome's default color theme and there are two of these: default and grayscale.
+     // The collective name for the rest of the color themes is dynamic.
+@@ -191,7 +199,10 @@ export class ThemeSupport extends EventTarget {
+   }
+ 
+   #fetchColorsAndApplyHostTheme(document: Document): void {
+-    const useChromeTheme = Common.Settings.moduleSetting('chrome-theme-colors').get();
++    // 作用：将 useChromeTheme 强制置为 false；合理性：main-meta.ts 已跳过 chrome-theme-colors 注册；必要性：不短路则 moduleSetting 抛异常
++    // #ifdef ARKWEB_DEVTOOLS
++    const useChromeTheme = adaptForOhos ? false : Common.Settings.moduleSetting('chrome-theme-colors').get();
++    // #endif ARKWEB_DEVTOOLS
+     if (Host.InspectorFrontendHost.InspectorFrontendHostInstance.isHostedMode() || !useChromeTheme) {
+       this.#applyThemeToDocument(document);
+       return;

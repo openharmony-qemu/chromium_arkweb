@@ -1,0 +1,217 @@
+diff --git a/av1/encoder/encoder.c b/av1/encoder/encoder.c
+index 54e4214a042ed0f9ca246b9c62bdd747ab450d52..0b02b7587a0418d1ace3b98a1f0dc3293faba239 100644
+--- a/av1/encoder/encoder.c
++++ b/av1/encoder/encoder.c
+@@ -753,6 +753,7 @@ static void init_config(struct AV1_COMP *cpi, const AV1EncoderConfig *oxcf) {
+   cpi->svc.number_temporal_layers = 1;
+   cm->spatial_layer_id = 0;
+   cm->temporal_layer_id = 0;
++  cpi->src_sad_blk_alloc_size = 0;
+   // Init rtc_ref parameters.
+   cpi->ppi->rtc_ref.set_ref_frame_config = 0;
+   cpi->ppi->rtc_ref.non_reference_frame = 0;
+diff --git a/av1/encoder/encoder.h b/av1/encoder/encoder.h
+index c68f7e92824ae7a06ef34dfd7bf3fc27ffa13920..f9c16ee40d7ad8570d4a732ad18df001f3566434 100644
+--- a/av1/encoder/encoder.h
++++ b/av1/encoder/encoder.h
+@@ -3643,6 +3643,11 @@ typedef struct AV1_COMP {
+    */
+   uint64_t *src_sad_blk_64x64;
+ 
++  /*!
++   * Size of allocated buffer to store 64x64 SAD, in units of uint64_t.
++   */
++  int src_sad_blk_alloc_size;
++
+   /*!
+    * SSE between the current frame and the reconstructed last frame
+    * It is only used for CBR mode.
+diff --git a/av1/encoder/ratectrl.c b/av1/encoder/ratectrl.c
+index 69ade1773c2c363c569c954ddbfa8a4db36f2e2d..fb645513c5c084410c9eee3dd30292df2eb03522 100644
+--- a/av1/encoder/ratectrl.c
++++ b/av1/encoder/ratectrl.c
+@@ -3210,6 +3210,7 @@ static void rc_scene_detection_onepass_rt(AV1_COMP *cpi,
+       unscaled_last_src == NULL) {
+     aom_free(cpi->src_sad_blk_64x64);
+     cpi->src_sad_blk_64x64 = NULL;
++    cpi->src_sad_blk_alloc_size = 0;
+   }
+   if (unscaled_src == NULL || unscaled_last_src == NULL) return;
+   src_y = unscaled_src->y_buffer;
+@@ -3223,6 +3224,7 @@ static void rc_scene_detection_onepass_rt(AV1_COMP *cpi,
+   if (src_width != last_src_width || src_height != last_src_height) {
+     aom_free(cpi->src_sad_blk_64x64);
+     cpi->src_sad_blk_64x64 = NULL;
++    cpi->src_sad_blk_alloc_size = 0;
+     return;
+   }
+   rc->high_source_sad = 0;
+@@ -3274,10 +3276,12 @@ static void rc_scene_detection_onepass_rt(AV1_COMP *cpi,
+   // Store blkwise SAD for later use. Disable for spatial layers for now.
+   if (width == cm->render_width && height == cm->render_height &&
+       cpi->svc.number_spatial_layers == 1) {
+-    if (cpi->src_sad_blk_64x64 == NULL) {
++    if (cpi->src_sad_blk_alloc_size != sb_cols * sb_rows) {
++      aom_free(cpi->src_sad_blk_64x64);
+       CHECK_MEM_ERROR(cm, cpi->src_sad_blk_64x64,
+                       (uint64_t *)aom_calloc(sb_cols * sb_rows,
+                                              sizeof(*cpi->src_sad_blk_64x64)));
++      cpi->src_sad_blk_alloc_size = sb_cols * sb_rows;
+     }
+   }
+   const CommonModeInfoParams *const mi_params = &cpi->common.mi_params;
+@@ -3845,6 +3849,7 @@ void av1_get_one_pass_rt_params(AV1_COMP *cpi, FRAME_TYPE *const frame_type,
+     } else {
+       aom_free(cpi->src_sad_blk_64x64);
+       cpi->src_sad_blk_64x64 = NULL;
++      cpi->src_sad_blk_alloc_size = 0;
+     }
+   }
+   if (cpi->sf.rt_sf.rc_compute_spatial_var_sc_kf &&
+diff --git a/av1/encoder/speed_features.c b/av1/encoder/speed_features.c
+index 8cc56a2792b1f3ef9182d967098df0bf9116c8d4..e77124559bae1dde2da5e635a25a06989390c413 100644
+--- a/av1/encoder/speed_features.c
++++ b/av1/encoder/speed_features.c
+@@ -1827,9 +1827,12 @@ static void set_rt_speed_feature_framesize_dependent(const AV1_COMP *const cpi,
+   // temporal filtering which may change the input source during encoding:
+   // this causes an issue on resized frames when psnr is calculated,
+   // so disable it here for frames that are resized (encoding width/height
+-  // different from configured width/height).
+-  if (is_psnr_calc_enabled(cpi) && (cpi->oxcf.frm_dim_cfg.width != cm->width ||
+-                                    cpi->oxcf.frm_dim_cfg.height != cm->height))
++  // different from configured width/height). Also disable for spatial layers.
++  // Bug: 491358681
++  if ((is_psnr_calc_enabled(cpi) &&
++       (cpi->oxcf.frm_dim_cfg.width != cm->width ||
++        cpi->oxcf.frm_dim_cfg.height != cm->height)) ||
++      cpi->svc.number_spatial_layers > 1)
+     sf->rt_sf.use_rtc_tf = 0;
+ 
+   // This speed feature is causing artifacts with active_maps enabled, so
+diff --git a/av1/encoder/var_based_part.c b/av1/encoder/var_based_part.c
+index d4e196cd76e581ea651945c6cc5ec25883bf1d42..d09b0ca00eb55b040c66e1fbb009cc475937a8e7 100644
+--- a/av1/encoder/var_based_part.c
++++ b/av1/encoder/var_based_part.c
+@@ -1027,6 +1027,10 @@ static inline void chroma_check(AV1_COMP *cpi, MACROBLOCK *x, BLOCK_SIZE bsize,
+   const YV12_BUFFER_CONFIG *yv12_alt = get_ref_frame_yv12_buf(cm, ALTREF_FRAME);
+   const struct scale_factors *const sf =
+       get_ref_scale_factors_const(cm, LAST_FRAME);
++  const struct scale_factors *const sf_g =
++      get_ref_scale_factors_const(cm, GOLDEN_FRAME);
++  const struct scale_factors *const sf_alt =
++      get_ref_scale_factors_const(cm, ALTREF_FRAME);
+   struct buf_2d dst;
+   unsigned int uv_sad_g = 0;
+   unsigned int uv_sad_alt = 0;
+@@ -1063,7 +1067,7 @@ static inline void chroma_check(AV1_COMP *cpi, MACROBLOCK *x, BLOCK_SIZE bsize,
+         uint8_t *src = (plane == 1) ? yv12_g->u_buffer : yv12_g->v_buffer;
+         setup_pred_plane(&dst, xd->mi[0]->bsize, src, yv12_g->uv_crop_width,
+                          yv12_g->uv_crop_height, yv12_g->uv_stride, xd->mi_row,
+-                         xd->mi_col, sf, xd->plane[plane].subsampling_x,
++                         xd->mi_col, sf_g, xd->plane[plane].subsampling_x,
+                          xd->plane[plane].subsampling_y);
+         uv_sad_g = cpi->ppi->fn_ptr[bs].sdf(p->src.buf, p->src.stride, dst.buf,
+                                             dst.stride);
+@@ -1074,7 +1078,7 @@ static inline void chroma_check(AV1_COMP *cpi, MACROBLOCK *x, BLOCK_SIZE bsize,
+         uint8_t *src = (plane == 1) ? yv12_alt->u_buffer : yv12_alt->v_buffer;
+         setup_pred_plane(&dst, xd->mi[0]->bsize, src, yv12_alt->uv_crop_width,
+                          yv12_alt->uv_crop_height, yv12_alt->uv_stride,
+-                         xd->mi_row, xd->mi_col, sf,
++                         xd->mi_row, xd->mi_col, sf_alt,
+                          xd->plane[plane].subsampling_x,
+                          xd->plane[plane].subsampling_y);
+         uv_sad_alt = cpi->ppi->fn_ptr[bs].sdf(p->src.buf, p->src.stride,
+diff --git a/test/encode_api_test.cc b/test/encode_api_test.cc
+index 0b28d2c24fc74cbabeade4213b0587d7654b3bd6..c62d47e8939e70585b0b6ac8677e61028f5d938b 100644
+--- a/test/encode_api_test.cc
++++ b/test/encode_api_test.cc
+@@ -1781,4 +1781,89 @@ TEST_F(GetGopInfoTest, GetGopInfo) {
+ }
+ #endif  // !CONFIG_REALTIME_ONLY
+ 
++TEST(EncodeAPI, DynamicSvcTemporalIssue502735235) {
++  aom_codec_iface_t *iface = aom_codec_av1_cx();
++  aom_codec_enc_cfg_t cfg;
++  ASSERT_EQ(aom_codec_enc_config_default(iface, &cfg, AOM_USAGE_REALTIME),
++            AOM_CODEC_OK);
++
++  // Init at 256x512.
++  cfg.g_w = 256;
++  cfg.g_h = 512;
++  cfg.g_timebase.num = 1;
++  cfg.g_timebase.den = 30;
++  cfg.rc_end_usage = AOM_CBR;
++  cfg.rc_target_bitrate = 1000;
++  cfg.g_lag_in_frames = 0;
++
++  aom_codec_ctx_t codec;
++  ASSERT_EQ(aom_codec_enc_init(&codec, iface, &cfg, 0), AOM_CODEC_OK);
++  ASSERT_EQ(aom_codec_control(&codec, AOME_SET_CPUUSED, 10), AOM_CODEC_OK);
++
++  // AV1E_SET_SVC_PARAMS
++  aom_svc_params_t svc_params = {};
++  svc_params.number_spatial_layers = 1;
++  svc_params.number_temporal_layers = 2;
++  svc_params.scaling_factor_num[0] = 1;
++  svc_params.scaling_factor_den[0] = 1;
++  svc_params.framerate_factor[0] = 2;
++  svc_params.framerate_factor[1] = 1;
++  svc_params.max_quantizers[0] = 56;
++  svc_params.min_quantizers[0] = 10;
++  svc_params.max_quantizers[1] = 56;
++  svc_params.min_quantizers[1] = 10;
++  svc_params.layer_target_bitrate[0] = cfg.rc_target_bitrate * 60 / 100;
++  svc_params.layer_target_bitrate[1] = cfg.rc_target_bitrate;
++  EXPECT_EQ(aom_codec_control(&codec, AV1E_SET_SVC_PARAMS, &svc_params),
++            AOM_CODEC_OK);
++
++  // Encode at 256x512. TL0.
++  aom_svc_layer_id_t layer_id = {};
++  layer_id.spatial_layer_id = 0;
++  layer_id.spatial_layer_id = 0;
++  ASSERT_EQ(aom_codec_control(&codec, AV1E_SET_SVC_LAYER_ID, &layer_id),
++            AOM_CODEC_OK);
++  aom_image_t *raw = aom_img_alloc(nullptr, AOM_IMG_FMT_I420, 256, 512, 1);
++  ASSERT_NE(raw, nullptr);
++  ASSERT_EQ(aom_codec_encode(&codec, raw, /*pts=*/0, /*duration=*/1,
++                             /*flags=*/0),
++            AOM_CODEC_OK);
++  aom_img_free(raw);
++
++  // Encode at 256x64 TL1, twice, set keyframe for both.
++  cfg.g_w = 256;
++  cfg.g_h = 64;
++  ASSERT_EQ(aom_codec_enc_config_set(&codec, &cfg), AOM_CODEC_OK);
++  layer_id.spatial_layer_id = 0;
++  layer_id.temporal_layer_id = 1;
++  ASSERT_EQ(aom_codec_control(&codec, AV1E_SET_SVC_LAYER_ID, &layer_id),
++            AOM_CODEC_OK);
++  raw = aom_img_alloc(nullptr, AOM_IMG_FMT_I420, 256, 64, 1);
++  ASSERT_NE(raw, nullptr);
++  ASSERT_EQ(aom_codec_encode(&codec, raw, /*pts=*/1, /*duration=*/1,
++                             /*flags=*/AOM_EFLAG_FORCE_KF),
++            AOM_CODEC_OK);
++  ASSERT_EQ(aom_codec_encode(&codec, raw, /*pts=*/2, /*duration=*/1,
++                             /*flags=*/0),
++            AOM_CODEC_OK);
++  aom_img_free(raw);
++
++  // Encode TL0 back at original resolution 256x512.
++  cfg.g_w = 256;
++  cfg.g_h = 512;
++  ASSERT_EQ(aom_codec_enc_config_set(&codec, &cfg), AOM_CODEC_OK);
++  layer_id.spatial_layer_id = 0;
++  layer_id.temporal_layer_id = 0;
++  ASSERT_EQ(aom_codec_control(&codec, AV1E_SET_SVC_LAYER_ID, &layer_id),
++            AOM_CODEC_OK);
++  raw = aom_img_alloc(nullptr, AOM_IMG_FMT_I420, 256, 512, 1);
++  ASSERT_NE(raw, nullptr);
++  ASSERT_EQ(aom_codec_encode(&codec, raw, /*pts=*/3, /*duration=*/1,
++                             /*flags=*/0),
++            AOM_CODEC_OK);
++  aom_img_free(raw);
++
++  ASSERT_EQ(aom_codec_destroy(&codec), AOM_CODEC_OK);
++}
++
+ }  // namespace

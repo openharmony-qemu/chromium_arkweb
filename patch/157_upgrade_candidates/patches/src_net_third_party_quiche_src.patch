@@ -1,0 +1,418 @@
+diff --git a/build/source_list.gni b/build/source_list.gni
+index 7d6d1d0d400a7133983c561583b6a94da507917d..f1fc9835907a27dd68588c8d24e1fbbbc412a2b7 100644
+--- a/build/source_list.gni
++++ b/build/source_list.gni
+@@ -416,6 +416,11 @@ quiche_core_hdrs = [
+     "src/quiche/web_transport/web_transport_headers.h",
+     "src/quiche/web_transport/web_transport_priority_scheduler.h",
+ ]
++if (defined(is_arkweb) && is_arkweb) {
++  quiche_core_hdrs += [
++    "//arkweb/chromium_ext/net/quiche/quic_stream_frame_detector.h",
++  ]
++}
+ quiche_core_srcs = [
+     "src/quiche/common/bug_utils.cc",
+     "src/quiche/common/capsule.cc",
+@@ -722,6 +727,11 @@ quiche_core_srcs = [
+     "src/quiche/web_transport/web_transport_headers.cc",
+     "src/quiche/web_transport/web_transport_priority_scheduler.cc",
+ ]
++if (defined(is_arkweb) && is_arkweb) {
++  quiche_core_srcs += [
++    "//arkweb/chromium_ext/net/quiche/quic_stream_frame_detector.cc",
++  ]
++}
+ quiche_tool_support_hdrs = [
+     "src/quiche/common/platform/api/quiche_command_line_flags.h",
+     "src/quiche/common/platform/api/quiche_default_proof_providers.h",
+@@ -1385,6 +1395,11 @@ quiche_tests_srcs = [
+     "src/quiche/web_transport/web_transport_headers_test.cc",
+     "src/quiche/web_transport/web_transport_priority_scheduler_test.cc",
+ ]
++if (defined(is_arkweb) && is_arkweb) {
++  quiche_tests_srcs += [
++    "//arkweb/chromium_ext/net/quiche/quic_stream_frame_detector_test.cc",
++  ]
++}
+ io_tests_hdrs = [
+ 
+ ]
+diff --git a/quiche/blind_sign_auth/blind_sign_auth.cc b/quiche/blind_sign_auth/blind_sign_auth.cc
+index bcf584f5b4ae4c41bbfd05fcc5cc8413e8efc281..d58f4e1ab35d9d6b90c15fbb50d5677c4293e743 100644
+--- a/quiche/blind_sign_auth/blind_sign_auth.cc
++++ b/quiche/blind_sign_auth/blind_sign_auth.cc
+@@ -14,6 +14,7 @@
+ #include <utility>
+ #include <vector>
+ 
++#include "arkweb/build/features/features.h"
+ #include "absl/algorithm/container.h"
+ #include "absl/cleanup/cleanup.h"
+ #include "absl/functional/bind_front.h"
+@@ -48,7 +49,11 @@ std::string OmitDefault(T value) {
+ constexpr absl::string_view kAttestationProtoTypeUrl =
+     "type.googleapis.com/privacy.ppn.AndroidAttestationData";
+ constexpr absl::string_view kIssuerHostname =
++#if BUILDFLAG(ARKWEB_PRIVACY_COMPLIANCE)
++    "https://x.x.x";
++#else
+     "https://ipprotection-ppissuer.googleapis.com";
++#endif
+ constexpr size_t kExpectedExtensionTypesSize = 5;
+ constexpr std::array<const uint16_t, kExpectedExtensionTypesSize>
+     kExpectedExtensionTypes = {0x0001, 0x0002, 0xF001, 0xF002, 0xF003};
+diff --git a/quiche/quic/core/quic_connection.cc b/quiche/quic/core/quic_connection.cc
+index f393af9438998dce996d737a016f0df519442014..13c9b93851c11179bbd99b58d80c8d01c8e12087 100644
+--- a/quiche/quic/core/quic_connection.cc
++++ b/quiche/quic/core/quic_connection.cc
+@@ -102,6 +102,11 @@
+ #include "quiche/common/quiche_mem_slice.h"
+ #include "quiche/common/quiche_text_utils.h"
+ 
++#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
++#include "base/base_switches.h"
++#include "base/command_line.h"
++#endif
++
+ namespace quic {
+ 
+ class QuicDecrypter;
+@@ -221,6 +226,12 @@ QuicConnection::QuicConnection(
+       idle_network_detector_(
+           this, clock_->ApproximateNow(),
+           QuicAlarmProxy(&alarms_, QuicAlarmSlot::kIdleNetworkDetector)),
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++      stream_frame_detector_(
++          std::make_unique<QuicStreamFrameDetector>(
++              this, clock_->ApproximateNow(),
++              QuicAlarmProxy(&alarms_, QuicAlarmSlot::kStreamFrameDetector))),
++#endif
+       path_validator_(alarm_factory_, &arena_, this, random_generator_, clock_,
+                       &context_),
+       ping_manager_(perspective, this,
+@@ -1379,6 +1390,11 @@ bool QuicConnection::OnStreamFrame(const QuicStreamFrame& frame) {
+     return false;
+   }
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  // Update stream frame detector.
++  stream_frame_detector_->OnStreamFrameReceived(clock_->ApproximateNow());
++#endif
++
+   if (debug_visitor_ != nullptr) {
+     debug_visitor_->OnStreamFrame(frame);
+   }
+@@ -1809,6 +1825,18 @@ bool QuicConnection::OnConnectionCloseFrame(
+                       << connection_id() << ", with error: "
+                       << QuicErrorCodeToString(frame.quic_error_code) << " ("
+                       << frame.error_details << ")";
++
++#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
++      if (base::CommandLine::ForCurrentProcess()->HasSwitch(
++              switches::kEnableLoggerReport)) {
++        LOG_FEEDBACK(INFO) << ENDPOINT
++                           << "Received ConnectionClose for connection: "
++                           << connection_id() << ", with error: "
++                           << QuicErrorCodeToString(frame.quic_error_code)
++                           << " (" << frame.error_details << ")";
++      }
++#endif
++
+       break;
+     case IETF_QUIC_TRANSPORT_CONNECTION_CLOSE:
+       QUIC_DLOG(INFO) << ENDPOINT
+@@ -1822,6 +1850,23 @@ bool QuicConnection::OnConnectionCloseFrame(
+                                  frame.wire_error_code))
+                       << ", error frame type: "
+                       << frame.transport_close_frame_type;
++
++#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
++      if (base::CommandLine::ForCurrentProcess()->HasSwitch(
++              switches::kEnableLoggerReport)) {
++        LOG_FEEDBACK(INFO)
++            << ENDPOINT << "Received Transport ConnectionClose for connection: "
++            << connection_id()
++            << ", with error: " << QuicErrorCodeToString(frame.quic_error_code)
++            << " (" << frame.error_details << ")"
++            << ", transport error code: "
++            << QuicIetfTransportErrorCodeString(
++                   static_cast<QuicIetfTransportErrorCodes>(
++                       frame.wire_error_code))
++            << ", error frame type: " << frame.transport_close_frame_type;
++      }
++#endif
++
+       break;
+     case IETF_QUIC_APPLICATION_CONNECTION_CLOSE:
+       QUIC_DLOG(INFO) << ENDPOINT
+@@ -1830,6 +1875,20 @@ bool QuicConnection::OnConnectionCloseFrame(
+                       << QuicErrorCodeToString(frame.quic_error_code) << " ("
+                       << frame.error_details << ")"
+                       << ", application error code: " << frame.wire_error_code;
++
++#if BUILDFLAG(ARKWEB_LOGGER_REPORT)
++      if (base::CommandLine::ForCurrentProcess()->HasSwitch(
++              switches::kEnableLoggerReport)) {
++        LOG_FEEDBACK(INFO)
++            << ENDPOINT
++            << "Received Application ConnectionClose for connection: "
++            << connection_id()
++            << ", with error: " << QuicErrorCodeToString(frame.quic_error_code)
++            << " (" << frame.error_details << ")"
++            << ", application error code: " << frame.wire_error_code;
++      }
++#endif
++
+       break;
+   }
+ 
+@@ -7562,3 +7621,7 @@ QuicConnection::SerializeLargePacketNumberConnectionClosePacket(
+ #undef ENDPOINT  // undef for jumbo builds
+ 
+ }  // namespace quic
++
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++#include "arkweb/chromium_ext/net/quiche/quic_connection_for_include.cc"
++#endif
+diff --git a/quiche/quic/core/quic_connection.h b/quiche/quic/core/quic_connection.h
+index 2539953198fb133c240f2f0bd174f2d845283753..ca20cb86f3fc5392227ae7bee3bae2a1f371a5e6 100644
+--- a/quiche/quic/core/quic_connection.h
++++ b/quiche/quic/core/quic_connection.h
+@@ -102,6 +102,9 @@
+ #include "quiche/common/quiche_buffer_allocator.h"
+ #include "quiche/common/quiche_circular_deque.h"
+ #include "quiche/common/quiche_mem_slice.h"
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++#include "arkweb/chromium_ext/net/quiche/quic_stream_frame_detector.h"
++#endif
+ 
+ namespace quic {
+ 
+@@ -234,6 +237,17 @@ class QUICHE_EXPORT QuicConnectionVisitorInterface {
+   // Called to retrieve streams information for logging purpose.
+   virtual std::string GetStreamsInfoForLogging() const = 0;
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  // Called to retrieve server host for quic broken purpose.
++  virtual std::string GetServerHostForQuicBroken() const = 0;
++
++  // Called to retrieve streams information for quic broken purpose.
++  virtual std::string GetStreamsInfoForQuicBroken() const = 0;
++ 
++  // Called to retrieve the number of active streams.
++  virtual size_t GetNumActiveStreamsForInterface() const = 0;
++#endif
++
+   // Called when a self address change is observed. Returns true if self address
+   // change is allowed.
+   virtual bool AllowSelfAddressChange() const = 0;
+@@ -539,6 +553,9 @@ class QUICHE_EXPORT QuicConnection
+       public QuicSentPacketManager::NetworkChangeVisitor,
+       public QuicNetworkBlackholeDetector::Delegate,
+       public QuicIdleNetworkDetector::Delegate,
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++      public QuicStreamFrameDetector::Delegate,
++#endif
+       public QuicPathValidator::SendDelegate,
+       public QuicConnectionIdManagerVisitorInterface,
+       public QuicPingManager::Delegate,
+@@ -833,6 +850,11 @@ class QUICHE_EXPORT QuicConnection
+   void OnHandshakeTimeout() override;
+   void OnIdleNetworkDetected() override;
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  // QuicStreamFrameDetector::Delegate
++  void OnBrokenDetect() override;
++#endif
++
+   // QuicPingManager::Delegate
+   void OnKeepAliveTimeout() override;
+   void OnRetransmittableOnWireTimeout() override;
+@@ -1485,6 +1507,10 @@ class QUICHE_EXPORT QuicConnection
+   void OnNetworkBlackholeDetectorAlarm() override;
+   void OnPingAlarm() override;
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  void OnStreamFrameDetectorAlarm() override;
++#endif
++
+   // Create a CONNECTION_CLOSE packet with a large packet number.
+   // If this method is called before handshake is confirmed, this method returns
+   // nullptr.
+@@ -2328,6 +2354,10 @@ class QUICHE_EXPORT QuicConnection
+ 
+   QuicIdleNetworkDetector idle_network_detector_;
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  std::unique_ptr<QuicStreamFrameDetector> stream_frame_detector_;
++#endif
++
+   QuicPathValidator path_validator_;
+ 
+   // Stores information of a path which maybe used as default path in the
+diff --git a/quiche/quic/core/quic_connection_alarms.cc b/quiche/quic/core/quic_connection_alarms.cc
+index d1361d946f015fca7761be5e64b70262eda00315..1f3403b6dcdeb2dd416c385c3ec1a702b1e54e12 100644
+--- a/quiche/quic/core/quic_connection_alarms.cc
++++ b/quiche/quic/core/quic_connection_alarms.cc
+@@ -84,6 +84,10 @@ std::string QuicAlarmSlotName(QuicAlarmSlot slot) {
+       return "MultiPortProbing";
+     case QuicAlarmSlot::kIdleNetworkDetector:
+       return "IdleNetworkDetector";
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++    case QuicAlarmSlot::kStreamFrameDetector:
++      return "StreamFrameDetector";
++#endif
+     case QuicAlarmSlot::kNetworkBlackholeDetector:
+       return "NetworkBlackholeDetector";
+     case QuicAlarmSlot::kPing:
+@@ -100,7 +104,11 @@ QuicAlarmMultiplexer::QuicAlarmMultiplexer(
+     : deadlines_({QuicTime::Zero(), QuicTime::Zero(), QuicTime::Zero(),
+                   QuicTime::Zero(), QuicTime::Zero(), QuicTime::Zero(),
+                   QuicTime::Zero(), QuicTime::Zero(), QuicTime::Zero(),
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++                  QuicTime::Zero(), QuicTime::Zero(), QuicTime::Zero()}),
++#else
+                   QuicTime::Zero(), QuicTime::Zero()}),
++#endif
+       now_alarm_(alarm_factory.CreateAlarm(
+           arena.New<MultiplexerAlarmDelegate>(this), &arena)),
+       later_alarm_(alarm_factory.CreateAlarm(
+@@ -254,6 +262,11 @@ void QuicAlarmMultiplexer::Fire(QuicAlarmSlot slot) {
+     case QuicAlarmSlot::kIdleNetworkDetector:
+       connection_->OnIdleDetectorAlarm();
+       return;
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++    case QuicAlarmSlot::kStreamFrameDetector:
++      connection_->OnStreamFrameDetectorAlarm();
++      return;
++#endif
+     case QuicAlarmSlot::kNetworkBlackholeDetector:
+       connection_->OnNetworkBlackholeDetectorAlarm();
+       return;
+diff --git a/quiche/quic/core/quic_connection_alarms.h b/quiche/quic/core/quic_connection_alarms.h
+index 2bb9d224139228d494f58e700e75e0c65ef436f6..5929ada78fc978054ea731607f43661e4011e2b6 100644
+--- a/quiche/quic/core/quic_connection_alarms.h
++++ b/quiche/quic/core/quic_connection_alarms.h
+@@ -35,6 +35,9 @@ class QUICHE_EXPORT QuicConnectionAlarmsDelegate {
+   virtual void OnDiscardZeroRttDecryptionKeysAlarm() = 0;
+   virtual void MaybeProbeMultiPortPath() = 0;
+   virtual void OnIdleDetectorAlarm() = 0;
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  virtual void OnStreamFrameDetectorAlarm() = 0;
++#endif
+   virtual void OnNetworkBlackholeDetectorAlarm() = 0;
+   virtual void OnPingAlarm() = 0;
+ 
+@@ -71,6 +74,10 @@ enum class QuicAlarmSlot : uint8_t {
+   kMultiPortProbing,
+   // An alarm for QuicIdleNetworkDetector.
+   kIdleNetworkDetector,
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  // An alarm for QuicStreamFrameDetector.
++  kStreamFrameDetector,
++#endif
+   // An alarm for QuicNetworkBlackholeDetection.
+   kNetworkBlackholeDetector,
+   // An alarm for QuicPingManager.
+diff --git a/quiche/quic/core/quic_session.cc b/quiche/quic/core/quic_session.cc
+index 69e861040766ac969d1a213889342642a9c37dd5..18809aeddeb4a9ea96c7a8ff12c77439dcf83895 100644
+--- a/quiche/quic/core/quic_session.cc
++++ b/quiche/quic/core/quic_session.cc
+@@ -3025,3 +3025,7 @@ void QuicSession::OnStreamCountReset() {
+ 
+ #undef ENDPOINT  // undef for jumbo builds
+ }  // namespace quic
++
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++#include "arkweb/chromium_ext/net/quiche/quic_session_for_include.cc"
++#endif
+diff --git a/quiche/quic/core/quic_session.h b/quiche/quic/core/quic_session.h
+index 0f76387ee0a66f241cd278f2647e409e638b679e..76315e5a1d75bbf5acea283d82b88b5979ddb622 100644
+--- a/quiche/quic/core/quic_session.h
++++ b/quiche/quic/core/quic_session.h
+@@ -168,6 +168,11 @@ class QUICHE_EXPORT QuicSession
+       const QuicConnectionId& server_connection_id) override;
+   bool WillingAndAbleToWrite() const override;
+   std::string GetStreamsInfoForLogging() const override;
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  std::string GetServerHostForQuicBroken() const override { return ""; }
++  std::string GetStreamsInfoForQuicBroken() const override;
++  size_t GetNumActiveStreamsForInterface() const override;
++#endif
+   void OnPathDegrading() override;
+   void OnForwardProgressMadeAfterPathDegrading() override;
+   void OnForwardProgressMadeAfterFlowLabelChange() override;
+diff --git a/quiche/quic/core/quic_stream.cc b/quiche/quic/core/quic_stream.cc
+index 63e4253524038bde4769c2e9bd4aadd51024aba5..bc5d23a185d93d433d5c495cc7f2c615073e14ad 100644
+--- a/quiche/quic/core/quic_stream.cc
++++ b/quiche/quic/core/quic_stream.cc
+@@ -1676,3 +1676,7 @@ QuicByteCount QuicStream::CalculateSendWindowSize() const {
+ }
+ 
+ }  // namespace quic
++
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++#include "arkweb/chromium_ext/net/quiche/quic_stream_for_include.cc"
++#endif
+diff --git a/quiche/quic/core/quic_stream.h b/quiche/quic/core/quic_stream.h
+index 0636b54cdd8000e78d729bbfa333a0ecd15218ac..fa1330271b4398ed8c7a4de75c2f790659697f08 100644
+--- a/quiche/quic/core/quic_stream.h
++++ b/quiche/quic/core/quic_stream.h
+@@ -443,6 +443,10 @@ class QUICHE_EXPORT QuicStream : public QuicStreamSequencer::StreamInterface {
+ 
+   const QuicTime::Delta pending_duration() const { return pending_duration_; }
+ 
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  uint64_t BufferedBytesInSequence() const;
++#endif
++
+  protected:
+   // Called when data of [offset, offset + data_length] is buffered in send
+   // buffer.
+diff --git a/quiche/quic/test_tools/mock_quic_connection_alarms.h b/quiche/quic/test_tools/mock_quic_connection_alarms.h
+index 8c29ee73df174f4870d0956524b31d38312b05f7..881534365eea55608375f6cc7145ba22858f002f 100644
+--- a/quiche/quic/test_tools/mock_quic_connection_alarms.h
++++ b/quiche/quic/test_tools/mock_quic_connection_alarms.h
+@@ -26,6 +26,9 @@ class MockConnectionAlarmsDelegate : public QuicConnectionAlarmsDelegate {
+   MOCK_METHOD(void, OnIdleDetectorAlarm, (), (override));
+   MOCK_METHOD(void, OnNetworkBlackholeDetectorAlarm, (), (override));
+   MOCK_METHOD(void, OnPingAlarm, (), (override));
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  MOCK_METHOD(void, OnStreamFrameDetectorAlarm, (), (override));
++#endif
+ 
+   QuicConnectionContext* context() override { return nullptr; }
+   const QuicClock* clock() const override { return &clock_; }
+diff --git a/quiche/quic/test_tools/quic_test_utils.h b/quiche/quic/test_tools/quic_test_utils.h
+index 1d0444987e1658eb7ece6272aa601b614309337d..13569784697001a7ba46c9c5c8e9fcdd7fe238a8 100644
+--- a/quiche/quic/test_tools/quic_test_utils.h
++++ b/quiche/quic/test_tools/quic_test_utils.h
+@@ -486,6 +486,11 @@ class MockQuicConnectionVisitor : public QuicConnectionVisitorInterface {
+   MOCK_METHOD(bool, WillingAndAbleToWrite, (), (const, override));
+   MOCK_METHOD(bool, ShouldKeepConnectionAlive, (), (const, override));
+   MOCK_METHOD(std::string, GetStreamsInfoForLogging, (), (const, override));
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  MOCK_METHOD(std::string, GetServerHostForQuicBroken, (), (const, override));
++  MOCK_METHOD(std::string, GetStreamsInfoForQuicBroken, (), (const, override));
++  MOCK_METHOD(size_t, GetNumActiveStreamsForInterface, (), (const, override));
++#endif
+   MOCK_METHOD(void, OnSuccessfulVersionNegotiation,
+               (const ParsedQuicVersion& version), (override));
+   MOCK_METHOD(void, OnAckNeedsRetransmittableFrame, (), (override));
+diff --git a/quiche/quic/test_tools/simulator/quic_endpoint.h b/quiche/quic/test_tools/simulator/quic_endpoint.h
+index 7395848806a04c811700e3012b62acf13709a068..d4e41d1cc4598b67b84dcd3d6ceebbd9cfab82a5 100644
+--- a/quiche/quic/test_tools/simulator/quic_endpoint.h
++++ b/quiche/quic/test_tools/simulator/quic_endpoint.h
+@@ -51,6 +51,11 @@ class QuicEndpoint : public QuicEndpointBase,
+   bool ShouldKeepConnectionAlive() const override;
+ 
+   std::string GetStreamsInfoForLogging() const override { return ""; }
++#if BUILDFLAG(ARKWEB_NETWORK_LOAD)
++  std::string GetServerHostForQuicBroken() const override { return ""; }
++  std::string GetStreamsInfoForQuicBroken() const override { return ""; }
++  size_t GetNumActiveStreamsForInterface() const override { return 0; }
++#endif
+   void OnWindowUpdateFrame(const QuicWindowUpdateFrame& /*frame*/) override {}
+   void OnBlockedFrame(const QuicBlockedFrame& /*frame*/) override {}
+   void OnRstStream(const QuicRstStreamFrame& /*frame*/) override {}

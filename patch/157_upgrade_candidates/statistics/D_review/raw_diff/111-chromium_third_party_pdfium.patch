@@ -1,0 +1,847 @@
+diff --git a/core/fpdfapi/edit/cpdf_pagecontentgenerator.cpp b/core/fpdfapi/edit/cpdf_pagecontentgenerator.cpp
+index f3c65f3acd3019971727f40f4dd3ecef130a4983..40880a3a430032fbeb7c5718bba16dec17e0d930 100644
+--- a/core/fpdfapi/edit/cpdf_pagecontentgenerator.cpp
++++ b/core/fpdfapi/edit/cpdf_pagecontentgenerator.cpp
+@@ -620,7 +620,7 @@ const CPDF_ContentMarks* CPDF_PageContentGenerator::ProcessContentMarks(
+         break;
+       }
+       case CPDF_ContentMarkItem::kPropertiesDict: {
+-        *buf << "/" << item->GetPropertyName() << " ";
++        *buf << "/" << PDF_NameEncode(item->GetPropertyName()) << " ";
+         break;
+       }
+       case CPDF_ContentMarkItem::kNone:
+diff --git a/core/fpdfapi/edit/cpdf_pagecontentgenerator_unittest.cpp b/core/fpdfapi/edit/cpdf_pagecontentgenerator_unittest.cpp
+index 75fede52ec9423e0b1ebddc04f54b3f18a45ece6..5bd69166cd34c5b088c374d8d4cfa14d78eb2e77 100644
+--- a/core/fpdfapi/edit/cpdf_pagecontentgenerator_unittest.cpp
++++ b/core/fpdfapi/edit/cpdf_pagecontentgenerator_unittest.cpp
+@@ -450,3 +450,29 @@ TEST_F(CPDFPageContentGeneratorTest, ProcessFormWithPath) {
+       "99999 4.6500001 2.98 3.4560001 .23999999 c 3.102 4.6700001 l h f Q\n",
+       ByteString(process_buf));
+ }
++
++TEST_F(CPDFPageContentGeneratorTest, ProcessContentMarksWithProperties) {
++  auto doc = std::make_unique<CPDF_TestDocument>();
++  doc->CreateNewDoc();
++
++  RetainPtr<CPDF_Dictionary> page_dict(doc->CreateNewPage(0));
++  auto test_page = pdfium::MakeRetain<CPDF_Page>(doc.get(), page_dict);
++
++  auto path_obj = std::make_unique<CPDF_PathObject>();
++  path_obj->set_filltype(CFX_FillRenderOptions::FillType::kWinding);
++  path_obj->path().AppendRect(0, 0, 10, 10);
++  path_obj->SetDirty(true);
++
++  auto marks_dict = pdfium::MakeRetain<CPDF_Dictionary>();
++  path_obj->GetContentMarks()->AddMarkWithPropertiesHolder(
++      "M1", marks_dict, "Property Name With Space");
++
++  test_page->AppendPageObject(std::move(path_obj));
++
++  CPDF_PageContentGenerator generator(test_page.Get());
++  fxcrt::ostringstream buf;
++  EXPECT_TRUE(generator.ProcessPageObjects(&buf));
++  ByteString content(buf);
++
++  EXPECT_TRUE(content.Contains("/M1 /Property#20Name#20With#20Space BDC"));
++}
+diff --git a/core/fpdfdoc/cpdf_nametree.cpp b/core/fpdfdoc/cpdf_nametree.cpp
+index 28ac0de2d0782e152f8661506171aa3686f4202c..c0eea57df16b00807522edc21b295349ec6b382f 100644
+--- a/core/fpdfdoc/cpdf_nametree.cpp
++++ b/core/fpdfdoc/cpdf_nametree.cpp
+@@ -31,14 +31,20 @@ struct NodeToInsert {
+ };
+ 
+ std::pair<WideString, WideString> GetNodeLimits(CPDF_Array* limits) {
+-  WideString left = limits->GetUnicodeTextAt(0);
+-  WideString right = limits->GetUnicodeTextAt(1);
++  while (limits->size() < 2) {
++    limits->AppendNew<CPDF_String>("");
++  }
++
++  RetainPtr<CPDF_Object> obj0 = limits->GetMutableObjectAt(0);
++  RetainPtr<CPDF_Object> obj1 = limits->GetMutableObjectAt(1);
++  WideString left = obj0->GetUnicodeText();
++  WideString right = obj1->GetUnicodeText();
+ 
+   // If the lower limit is greater than the upper limit, swap them.
+   if (left.Compare(right) > 0) {
+     std::swap(left, right);
+-    limits->SetNewAt<CPDF_String>(0, left.AsStringView());
+-    limits->SetNewAt<CPDF_String>(1, right.AsStringView());
++    limits->SetAt(0, std::move(obj1));
++    limits->SetAt(1, std::move(obj0));
+   }
+ 
+   return {std::move(left), std::move(right)};
+diff --git a/fpdfsdk/cpdfsdk_formfillenvironment.cpp b/fpdfsdk/cpdfsdk_formfillenvironment.cpp
+index 4ea9a32e4da96659fb0888717569ec04643aea2a..1ce8474935b9a07f3f7015a1824ba4ee37c69379 100644
+--- a/fpdfsdk/cpdfsdk_formfillenvironment.cpp
++++ b/fpdfsdk/cpdfsdk_formfillenvironment.cpp
+@@ -16,6 +16,7 @@
+ #include "core/fpdfapi/parser/cpdf_array.h"
+ #include "core/fpdfapi/parser/cpdf_dictionary.h"
+ #include "core/fpdfdoc/cpdf_nametree.h"
++#include "core/fxcrt/autorestorer.h"
+ #include "core/fxcrt/check.h"
+ #include "core/fxcrt/containers/contains.h"
+ #include "core/fxcrt/data_vector.h"
+@@ -120,6 +121,9 @@ void CPDFSDK_FormFillEnvironment::OutputSelectedRect(
+ 
+   CFX_PointF ptA = pFormField->PWLtoFFL(CFX_PointF(rect.left, rect.bottom));
+   CFX_PointF ptB = pFormField->PWLtoFFL(CFX_PointF(rect.right, rect.top));
++
++  AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++  in_passive_ffi_callback_ = true;
+   info_->FFI_OutputSelectedRect(info_, pPage, ptA.x, ptB.y, ptB.x, ptA.y);
+ }
+ 
+@@ -367,6 +371,8 @@ IJS_Runtime* CPDFSDK_FormFillEnvironment::GetIJSRuntime() {
+ void CPDFSDK_FormFillEnvironment::Invalidate(IPDF_Page* page,
+                                              const FX_RECT& rect) {
+   if (info_ && info_->FFI_Invalidate) {
++    AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++    in_passive_ffi_callback_ = true;
+     info_->FFI_Invalidate(info_, FPDFPageFromIPDFPage(page), rect.left,
+                           rect.top, rect.right, rect.bottom);
+   }
+@@ -375,6 +381,8 @@ void CPDFSDK_FormFillEnvironment::Invalidate(IPDF_Page* page,
+ void CPDFSDK_FormFillEnvironment::SetCursor(
+     IPWL_FillerNotify::CursorStyle nCursorType) {
+   if (info_ && info_->FFI_SetCursor) {
++    AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++    in_passive_ffi_callback_ = true;
+     info_->FFI_SetCursor(info_, static_cast<int>(nCursorType));
+   }
+ }
+@@ -395,6 +403,8 @@ void CPDFSDK_FormFillEnvironment::KillTimer(int nTimerID) {
+ 
+ void CPDFSDK_FormFillEnvironment::OnChange() {
+   if (info_ && info_->FFI_OnChange) {
++    AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++    in_passive_ffi_callback_ = true;
+     info_->FFI_OnChange(info_);
+   }
+ }
+@@ -417,6 +427,8 @@ void CPDFSDK_FormFillEnvironment::OnSetFieldInputFocusInternal(
+     size_t nCharacters = text.GetLength();
+     ByteString bsUTFText = text.ToUTF16LE();
+     auto* pBuffer = reinterpret_cast<const unsigned short*>(bsUTFText.c_str());
++    AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++    in_passive_ffi_callback_ = true;
+     info_->FFI_SetTextFieldFocus(
+         info_, pBuffer, pdfium::checked_cast<FPDF_DWORD>(nCharacters), bFocus);
+   }
+@@ -481,6 +493,8 @@ void CPDFSDK_FormFillEnvironment::DisplayCaret(IPDF_Page* page,
+                                                double right,
+                                                double bottom) {
+   if (info_ && info_->version >= 2 && info_->FFI_DisplayCaret) {
++    AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++    in_passive_ffi_callback_ = true;
+     info_->FFI_DisplayCaret(info_, FPDFPageFromIPDFPage(page), bVisible, left,
+                             top, right, bottom);
+   }
+@@ -898,6 +912,8 @@ void CPDFSDK_FormFillEnvironment::SendOnFocusChange(
+   FPDF_ANNOTATION fpdf_annot =
+       FPDFAnnotationFromCPDFAnnotContext(focused_annot.get());
+ 
++  AutoRestorer<bool> ffi_restorer(&in_passive_ffi_callback_);
++  in_passive_ffi_callback_ = true;
+   info_->FFI_OnFocusChange(info_, fpdf_annot, pPageView->GetPageIndex());
+ }
+ 
+diff --git a/fpdfsdk/cpdfsdk_formfillenvironment.h b/fpdfsdk/cpdfsdk_formfillenvironment.h
+index ce1dd0e09b61de922e3f9db0f4794b87d4a893b6..a001a31c01cdb8cb3b482e14ba8d48847a608e29 100644
+--- a/fpdfsdk/cpdfsdk_formfillenvironment.h
++++ b/fpdfsdk/cpdfsdk_formfillenvironment.h
+@@ -85,6 +85,8 @@ class CPDFSDK_FormFillEnvironment final
+   bool HasPermissions(uint32_t flags) const override;
+   void OnChange() override;
+ 
++  bool InPassiveFFICallback() const { return in_passive_ffi_callback_; }
++
+   CPDFSDK_PageView* GetPageViewAtIndex(int nIndex);
+   void RemovePageView(IPDF_Page* pUnderlyingPage);
+   void UpdateAllViews(CPDFSDK_Annot* pAnnot);
+@@ -286,6 +288,7 @@ class CPDFSDK_FormFillEnvironment final
+   std::unique_ptr<CFFL_InteractiveFormFiller> interactive_form_filler_;
+   bool change_mask_ = false;
+   bool being_destroyed_ = false;
++  bool in_passive_ffi_callback_ = false;
+ 
+   // Holds the list of focusable annot types.
+   // Annotations of type WIDGET are by default focusable.
+diff --git a/fpdfsdk/fpdf_formfill.cpp b/fpdfsdk/fpdf_formfill.cpp
+index 234ef8dfe229868455e148d903fea7c9a8392a06..772575ccd56c79cdaf3e4c61544ca25758e445ea 100644
+--- a/fpdfsdk/fpdf_formfill.cpp
++++ b/fpdfsdk/fpdf_formfill.cpp
+@@ -829,6 +829,12 @@ FPDF_RemoveFormFieldHighlight(FPDF_FORMHANDLE hHandle) {
+ 
+ FPDF_EXPORT void FPDF_CALLCONV FORM_OnAfterLoadPage(FPDF_PAGE page,
+                                                     FPDF_FORMHANDLE hHandle) {
++  CPDFSDK_FormFillEnvironment* pFormFillEnv =
++      CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
++    return;
++  }
++
+   if (CPDFSDK_PageView* pPageView = FormHandleToPageView(hHandle, page)) {
+     pPageView->SetValid(true);
+   }
+@@ -838,7 +844,7 @@ FPDF_EXPORT void FPDF_CALLCONV FORM_OnBeforeClosePage(FPDF_PAGE page,
+                                                       FPDF_FORMHANDLE hHandle) {
+   CPDFSDK_FormFillEnvironment* pFormFillEnv =
+       CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
+-  if (!pFormFillEnv) {
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
+     return;
+   }
+ 
+@@ -859,7 +865,11 @@ FPDF_EXPORT void FPDF_CALLCONV
+ FORM_DoDocumentJSAction(FPDF_FORMHANDLE hHandle) {
+   CPDFSDK_FormFillEnvironment* pFormFillEnv =
+       CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
+-  if (pFormFillEnv && pFormFillEnv->IsJSPlatformPresent()) {
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
++    return;
++  }
++
++  if (pFormFillEnv->IsJSPlatformPresent()) {
+     pFormFillEnv->ProcJavascriptAction();
+   }
+ }
+@@ -868,16 +878,18 @@ FPDF_EXPORT void FPDF_CALLCONV
+ FORM_DoDocumentOpenAction(FPDF_FORMHANDLE hHandle) {
+   CPDFSDK_FormFillEnvironment* pFormFillEnv =
+       CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
+-  if (pFormFillEnv) {
+-    pFormFillEnv->ProcOpenAction();
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
++    return;
+   }
++
++  pFormFillEnv->ProcOpenAction();
+ }
+ 
+ FPDF_EXPORT void FPDF_CALLCONV FORM_DoDocumentAAction(FPDF_FORMHANDLE hHandle,
+                                                       int aaType) {
+   CPDFSDK_FormFillEnvironment* pFormFillEnv =
+       CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
+-  if (!pFormFillEnv) {
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
+     return;
+   }
+ 
+@@ -899,7 +911,7 @@ FPDF_EXPORT void FPDF_CALLCONV FORM_DoPageAAction(FPDF_PAGE page,
+                                                   int aaType) {
+   CPDFSDK_FormFillEnvironment* pFormFillEnv =
+       CPDFSDKFormFillEnvironmentFromFPDFFormHandle(hHandle);
+-  if (!pFormFillEnv) {
++  if (!pFormFillEnv || pFormFillEnv->InPassiveFFICallback()) {
+     return;
+   }
+ 
+diff --git a/fxjs/xfa/cfxjse_engine.cpp b/fxjs/xfa/cfxjse_engine.cpp
+index 35f5a6eed60a51fba1c863f589b157ddc876511e..9a0a7cd20f9dffc76407f40fc5adffdf8981771b 100644
+--- a/fxjs/xfa/cfxjse_engine.cpp
++++ b/fxjs/xfa/cfxjse_engine.cpp
+@@ -147,6 +147,10 @@ CFXJSE_Engine::~CFXJSE_Engine() {
+     const v8::Global<v8::Object>& binding = pair.second;
+     FXJSE_ClearObjectBinding(v8::Local<v8::Object>::New(GetIsolate(), binding));
+   }
++  for (const auto& pair : map_variable_to_context_) {
++    FXJSE_ClearObjectBinding(pair.second->GetGlobalObject());
++  }
++  FXJSE_ClearObjectBinding(js_context_->GetGlobalObject());
+ }
+ 
+ CFXJSE_Engine::EventParamScope::EventParamScope(CFXJSE_Engine* pEngine,
+@@ -947,15 +951,20 @@ CXFA_Object* CFXJSE_Engine::ToXFAObject(v8::Local<v8::Value> obj) {
+   if (!fxv8::IsObject(obj)) {
+     return nullptr;
+   }
+-
+-  CFXJSE_HostObject* pHostObj =
++  CFXJSE_HostObject* host_obj =
+       FXJSE_RetrieveObjectBinding(obj.As<v8::Object>());
+-  if (!pHostObj) {
++  if (!host_obj) {
+     return nullptr;
+   }
+-
+-  CJX_Object* pJSObject = pHostObj->AsCJXObject();
+-  return pJSObject ? pJSObject->GetXFAObject() : nullptr;
++  CJX_Object* jx_obj = host_obj->AsCJXObject();
++  if (!jx_obj) {
++    return nullptr;
++  }
++  CXFA_Object* xfa_obj = jx_obj->GetXFAObject();
++  if (!xfa_obj || xfa_obj->GetDocument() != document_) {
++    return nullptr;
++  }
++  return xfa_obj;
+ }
+ 
+ v8::Local<v8::Object> CFXJSE_Engine::NewNormalXFAObject(CXFA_Object* obj) {
+diff --git a/third_party/agg23/0018-outline_aa_reset.patch b/third_party/agg23/0018-outline_aa_reset.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..7d9c8d63fd399257fe15d11e0e1edb9e8420a938
+--- /dev/null
++++ b/third_party/agg23/0018-outline_aa_reset.patch
+@@ -0,0 +1,20 @@
++diff --git a/third_party/agg23/agg_rasterizer_scanline_aa.cpp b/third_party/agg23/agg_rasterizer_scanline_aa.cpp
++index ed59cf0ffb..d561e02b58 100644
++--- a/third_party/agg23/agg_rasterizer_scanline_aa.cpp
+++++ b/third_party/agg23/agg_rasterizer_scanline_aa.cpp
++@@ -101,13 +101,13 @@ outline_aa::outline_aa() :
++     m_max_y(-0x7FFFFFFF),
++     m_sorted(false)
++ {
++-    m_cur_cell.set(0x7FFF, 0x7FFF, 0, 0);
+++    m_cur_cell.set(0x7FFFFFFF, 0x7FFFFFFF, 0, 0);
++ }
++ void outline_aa::reset()
++ {
++     m_num_cells = 0;
++     m_cur_block = 0;
++-    m_cur_cell.set(0x7FFF, 0x7FFF, 0, 0);
+++    m_cur_cell.set(0x7FFFFFFF, 0x7FFFFFFF, 0, 0);
++     m_sorted = false;
++     m_min_x =  0x7FFFFFFF;
++     m_min_y =  0x7FFFFFFF;
+diff --git a/third_party/agg23/README.pdfium b/third_party/agg23/README.pdfium
+index 8857222d559ed37bba60f43e94227f527b02a7ac..ae138e5f5580ed4d28e9e2c818166b40ec3dcaaa 100644
+--- a/third_party/agg23/README.pdfium
++++ b/third_party/agg23/README.pdfium
+@@ -37,4 +37,5 @@ shadow variable.
+ outline_aa::render_line().
+ 0015-include-string-h.patch: IWYU for <string.h>
+ 0016-support-negative-dash-phases.patch: Support negative dash phases in
+-calc_dash_start().
+\ No newline at end of file
++calc_dash_start().
++0018-outline_aa_reset.patch: Correctly reset current cell.
+diff --git a/third_party/agg23/agg_rasterizer_scanline_aa.cpp b/third_party/agg23/agg_rasterizer_scanline_aa.cpp
+index ed59cf0ffb6096a4e1625c0a66c5ce63b0b953f0..d561e02b581f55f4e32457c84972a8d392ece84c 100644
+--- a/third_party/agg23/agg_rasterizer_scanline_aa.cpp
++++ b/third_party/agg23/agg_rasterizer_scanline_aa.cpp
+@@ -101,13 +101,13 @@ outline_aa::outline_aa() :
+     m_max_y(-0x7FFFFFFF),
+     m_sorted(false)
+ {
+-    m_cur_cell.set(0x7FFF, 0x7FFF, 0, 0);
++    m_cur_cell.set(0x7FFFFFFF, 0x7FFFFFFF, 0, 0);
+ }
+ void outline_aa::reset()
+ {
+     m_num_cells = 0;
+     m_cur_block = 0;
+-    m_cur_cell.set(0x7FFF, 0x7FFF, 0, 0);
++    m_cur_cell.set(0x7FFFFFFF, 0x7FFFFFFF, 0, 0);
+     m_sorted = false;
+     m_min_x =  0x7FFFFFFF;
+     m_min_y =  0x7FFFFFFF;
+diff --git a/third_party/lcms/0037-theoretical-overflow.patch b/third_party/lcms/0037-theoretical-overflow.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..9c19906b2116e47231881c8a38f508bc791f02cb
+--- /dev/null
++++ b/third_party/lcms/0037-theoretical-overflow.patch
+@@ -0,0 +1,190 @@
++diff --git a/third_party/lcms/src/cmscgats.c b/third_party/lcms/src/cmscgats.c
++index 71692641a..0fe896122 100644
++--- a/third_party/lcms/src/cmscgats.c
+++++ b/third_party/lcms/src/cmscgats.c
++@@ -2456,6 +2456,9 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, const void *Ptr, cm
++     _cmsAssert(Ptr != NULL);
++     _cmsAssert(len != 0);
++ 
+++    // Check for later overflow
+++    if (len + 1 == 0) return NULL;
+++
++     type = IsMyBlock((const cmsUInt8Number*)Ptr, len);
++     if (type == 0) return NULL;
++ 
++@@ -2463,6 +2466,7 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, const void *Ptr, cm
++     if (!hIT8) return NULL;
++ 
++     it8 = (cmsIT8*) hIT8;
+++
++     it8 ->MemoryBlock = (char*) _cmsMalloc(ContextID, len + 1);
++     if (it8->MemoryBlock == NULL)
++     {
++diff --git a/third_party/lcms/src/cmslut.c b/third_party/lcms/src/cmslut.c
++index 11361de45..03bb01cb9 100644
++--- a/third_party/lcms/src/cmslut.c
+++++ b/third_party/lcms/src/cmslut.c
++@@ -547,7 +547,7 @@ cmsStage* CMSEXPORT cmsStageAllocCLut16bitGranular(cmsContext ContextID,
++                                          cmsUInt32Number outputChan,
++                                          const cmsUInt16Number* Table)
++ {
++-    cmsUInt32Number i, n;
+++    cmsUInt32Number i, n, cs;
++     _cmsStageCLutData* NewElem;
++     cmsStage* NewMPE;
++ 
++@@ -571,14 +571,17 @@ cmsStage* CMSEXPORT cmsStageAllocCLut16bitGranular(cmsContext ContextID,
++ 
++     NewMPE ->Data  = (void*) NewElem;
++ 
++-    NewElem -> nEntries = n = outputChan * CubeSize(clutPoints, inputChan);
++-    NewElem -> HasFloatValues = FALSE;
+++    cs = CubeSize(clutPoints, inputChan);
+++    n = outputChan * cs;
++ 
++-    if (n == 0) {
+++    if (n == 0 || n / outputChan != cs)  // Check for overflow.
+++    {
++         cmsStageFree(NewMPE);
++         return NULL;
++     }
++ 
+++    NewElem -> nEntries = n;
+++    NewElem -> HasFloatValues = FALSE;
++ 
++     NewElem ->Tab.T  = (cmsUInt16Number*) _cmsCalloc(ContextID, n, sizeof(cmsUInt16Number));
++     if (NewElem ->Tab.T == NULL) {
++@@ -638,7 +641,7 @@ cmsStage* CMSEXPORT cmsStageAllocCLutFloat(cmsContext ContextID,
++ 
++ cmsStage* CMSEXPORT cmsStageAllocCLutFloatGranular(cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table)
++ {
++-    cmsUInt32Number i, n;
+++    cmsUInt32Number i, n, cs;
++     _cmsStageCLutData* NewElem;
++     cmsStage* NewMPE;
++ 
++@@ -662,15 +665,18 @@ cmsStage* CMSEXPORT cmsStageAllocCLutFloatGranular(cmsContext ContextID, const c
++ 
++     NewMPE ->Data  = (void*) NewElem;
++ 
++-    // There is a potential integer overflow on conputing n and nEntries.
++-    NewElem -> nEntries = n = outputChan * CubeSize(clutPoints, inputChan);
++-    NewElem -> HasFloatValues = TRUE;
+++    cs = CubeSize(clutPoints, inputChan);
+++    n = outputChan * cs;
++ 
++-    if (n == 0) {
+++    if (n == 0 || n / outputChan != cs)  // Check for overflow.
+++    {
++         cmsStageFree(NewMPE);
++         return NULL;
++     }
++ 
+++    NewElem -> nEntries = n;
+++    NewElem -> HasFloatValues = TRUE;
+++
++     NewElem ->Tab.TFloat  = (cmsFloat32Number*) _cmsCalloc(ContextID, n, sizeof(cmsFloat32Number));
++     if (NewElem ->Tab.TFloat == NULL) {
++         cmsStageFree(NewMPE);
++diff --git a/third_party/lcms/src/cmsnamed.c b/third_party/lcms/src/cmsnamed.c
++index 54d1abf91..50cc6b349 100644
++--- a/third_party/lcms/src/cmsnamed.c
+++++ b/third_party/lcms/src/cmsnamed.c
++@@ -92,7 +92,7 @@ cmsBool GrowMLUpool(cmsMLU* mlu)
++ static
++ cmsBool GrowMLUtable(cmsMLU* mlu)
++ {
++-    cmsUInt32Number AllocatedEntries;
+++    cmsUInt32Number AllocatedEntries, AllocatedBytes;
++     _cmsMLUentry *NewPtr;
++ 
++     // Sanity check
++@@ -103,8 +103,13 @@ cmsBool GrowMLUtable(cmsMLU* mlu)
++     // Check for overflow
++     if (AllocatedEntries / 2 != mlu ->AllocatedEntries) return FALSE;
++ 
+++    AllocatedBytes = AllocatedEntries * sizeof(_cmsMLUentry);
+++
+++    // Check for overflow
+++    if (AllocatedBytes / sizeof(_cmsMLUentry) != AllocatedEntries) return FALSE;
+++
++     // Reallocate the memory
++-    NewPtr = (_cmsMLUentry*)_cmsRealloc(mlu ->ContextID, mlu ->Entries, AllocatedEntries*sizeof(_cmsMLUentry));
+++    NewPtr = (_cmsMLUentry*)_cmsRealloc(mlu ->ContextID, mlu ->Entries, AllocatedBytes);
++     if (NewPtr == NULL) return FALSE;
++ 
++     mlu ->Entries          = NewPtr;
++diff --git a/third_party/lcms/src/cmstypes.c b/third_party/lcms/src/cmstypes.c
++index ec1909f8d..074511296 100644
++--- a/third_party/lcms/src/cmstypes.c
+++++ b/third_party/lcms/src/cmstypes.c
++@@ -1488,10 +1488,10 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
++     cmsMLU* mlu;
++     cmsUInt32Number Count, RecLen, NumOfWchar;
++     cmsUInt32Number SizeOfHeader;
++-    cmsUInt32Number  Len, Offset;
+++    cmsUInt32Number  Len, Offset, WideLen, WideSizeOfTag;
++     cmsUInt32Number  i;
++     wchar_t*         Block;
++-    cmsUInt32Number  BeginOfThisString, EndOfThisString, LargestPosition;
+++    cmsUInt32Number  BeginOfThisString, EndOfThisString, LargestPosition, WideBeginOfThisString;
++ 
++     *nItems = 0;
++     if (!_cmsReadUInt32Number(io, &Count)) return NULL;
++@@ -1533,9 +1533,16 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
++         // True begin of the string
++         BeginOfThisString = Offset - SizeOfHeader - 8;
++ 
++-        // Adjust to wchar_t elements
++-        mlu ->Entries[i].Len = (Len * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
++-        mlu ->Entries[i].StrW = (BeginOfThisString * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
+++        // Adjust to wchar_t elements and check for overflow
+++        WideBeginOfThisString = BeginOfThisString * sizeof(wchar_t);
+++        if (WideBeginOfThisString /  sizeof(wchar_t) != BeginOfThisString) goto Error;
+++
+++        // Adjust to wchar_t elements and check for overflow
+++        WideLen = Len * sizeof(wchar_t);
+++        if (WideLen / sizeof(wchar_t) != Len) goto Error;
+++
+++        mlu ->Entries[i].Len = WideLen / sizeof(cmsUInt16Number);
+++        mlu ->Entries[i].StrW = WideBeginOfThisString / sizeof(cmsUInt16Number);
++ 
++         // To guess maximum size, add offset + len
++         EndOfThisString = BeginOfThisString + Len;
++@@ -1544,7 +1551,12 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
++     }
++ 
++     // Now read the remaining of tag and fill all strings. Subtract the directory
++-    SizeOfTag   = (LargestPosition * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
+++    WideSizeOfTag = LargestPosition * sizeof(wchar_t);
+++
+++    // Check for overflow
+++    if (WideSizeOfTag / sizeof(wchar_t) != LargestPosition) goto Error;
+++
+++    SizeOfTag = WideSizeOfTag / sizeof(cmsUInt16Number);
++     if (SizeOfTag == 0)
++     {
++         Block = NULL;
++@@ -5128,7 +5140,7 @@ static
++ cmsBool ReadOneWChar(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, wchar_t ** wcstr)
++ {
++ 
++-    cmsUInt32Number nChars;
+++    cmsUInt32Number nChars, nBytes;
++ 
++       // Special case for undefined strings (see ICC Votable
++       // Proposal Submission, Dictionary Type and Metadata TAG Definition)
++@@ -5141,9 +5153,12 @@ cmsBool ReadOneWChar(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, wchar
++       if (!io -> Seek(io, e -> Offsets[i])) return FALSE;
++ 
++       nChars = e ->Sizes[i] / sizeof(cmsUInt16Number);
+++      nBytes = (nChars + 1) * sizeof(wchar_t);
++ 
+++      // Check for overflow
+++      if (nBytes / sizeof(wchar_t) != nChars + 1) return FALSE;
++ 
++-      *wcstr = (wchar_t*) _cmsMallocZero(e ->ContextID, (nChars + 1) * sizeof(wchar_t));
+++      *wcstr = (wchar_t*) _cmsMallocZero(e ->ContextID, nBytes);
++       if (*wcstr == NULL) return FALSE;
++ 
++       if (!_cmsReadWCharArray(io, nChars, *wcstr)) {
+diff --git a/third_party/lcms/README.pdfium b/third_party/lcms/README.pdfium
+index 2f27874525e687208db6a8eadf27ac4f54e3cfcd..695aecdeaf2da8d850387d063893b30433526e16 100644
+--- a/third_party/lcms/README.pdfium
++++ b/third_party/lcms/README.pdfium
+@@ -26,3 +26,4 @@ Local Modifications:
+ 0034-dead-code.patch: Remove dead code.
+ 0035-func-ptr-mixup.patch: Prevent mixing up function pointer types.
+ 0036-cubesize-overflow.patch: Check for overflow in CubeSize().
++0037-theoretical-overflow.patch: Fix additional size overflows.
+diff --git a/third_party/lcms/src/cmscgats.c b/third_party/lcms/src/cmscgats.c
+index 71692641ac80dd84708b888562626b8be3d0ce76..0fe89612289a2f60298ef9b622c76e087a8a4ef0 100644
+--- a/third_party/lcms/src/cmscgats.c
++++ b/third_party/lcms/src/cmscgats.c
+@@ -2456,6 +2456,9 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, const void *Ptr, cm
+     _cmsAssert(Ptr != NULL);
+     _cmsAssert(len != 0);
+ 
++    // Check for later overflow
++    if (len + 1 == 0) return NULL;
++
+     type = IsMyBlock((const cmsUInt8Number*)Ptr, len);
+     if (type == 0) return NULL;
+ 
+@@ -2463,6 +2466,7 @@ cmsHANDLE  CMSEXPORT cmsIT8LoadFromMem(cmsContext ContextID, const void *Ptr, cm
+     if (!hIT8) return NULL;
+ 
+     it8 = (cmsIT8*) hIT8;
++
+     it8 ->MemoryBlock = (char*) _cmsMalloc(ContextID, len + 1);
+     if (it8->MemoryBlock == NULL)
+     {
+diff --git a/third_party/lcms/src/cmslut.c b/third_party/lcms/src/cmslut.c
+index 11361de45cc9bac5b5194762ed524ff7debca8e6..03bb01cb9d8b9bd912c40ff343b5582ec91262f4 100644
+--- a/third_party/lcms/src/cmslut.c
++++ b/third_party/lcms/src/cmslut.c
+@@ -547,7 +547,7 @@ cmsStage* CMSEXPORT cmsStageAllocCLut16bitGranular(cmsContext ContextID,
+                                          cmsUInt32Number outputChan,
+                                          const cmsUInt16Number* Table)
+ {
+-    cmsUInt32Number i, n;
++    cmsUInt32Number i, n, cs;
+     _cmsStageCLutData* NewElem;
+     cmsStage* NewMPE;
+ 
+@@ -571,14 +571,17 @@ cmsStage* CMSEXPORT cmsStageAllocCLut16bitGranular(cmsContext ContextID,
+ 
+     NewMPE ->Data  = (void*) NewElem;
+ 
+-    NewElem -> nEntries = n = outputChan * CubeSize(clutPoints, inputChan);
+-    NewElem -> HasFloatValues = FALSE;
++    cs = CubeSize(clutPoints, inputChan);
++    n = outputChan * cs;
+ 
+-    if (n == 0) {
++    if (n == 0 || n / outputChan != cs)  // Check for overflow.
++    {
+         cmsStageFree(NewMPE);
+         return NULL;
+     }
+ 
++    NewElem -> nEntries = n;
++    NewElem -> HasFloatValues = FALSE;
+ 
+     NewElem ->Tab.T  = (cmsUInt16Number*) _cmsCalloc(ContextID, n, sizeof(cmsUInt16Number));
+     if (NewElem ->Tab.T == NULL) {
+@@ -638,7 +641,7 @@ cmsStage* CMSEXPORT cmsStageAllocCLutFloat(cmsContext ContextID,
+ 
+ cmsStage* CMSEXPORT cmsStageAllocCLutFloatGranular(cmsContext ContextID, const cmsUInt32Number clutPoints[], cmsUInt32Number inputChan, cmsUInt32Number outputChan, const cmsFloat32Number* Table)
+ {
+-    cmsUInt32Number i, n;
++    cmsUInt32Number i, n, cs;
+     _cmsStageCLutData* NewElem;
+     cmsStage* NewMPE;
+ 
+@@ -662,15 +665,18 @@ cmsStage* CMSEXPORT cmsStageAllocCLutFloatGranular(cmsContext ContextID, const c
+ 
+     NewMPE ->Data  = (void*) NewElem;
+ 
+-    // There is a potential integer overflow on conputing n and nEntries.
+-    NewElem -> nEntries = n = outputChan * CubeSize(clutPoints, inputChan);
+-    NewElem -> HasFloatValues = TRUE;
++    cs = CubeSize(clutPoints, inputChan);
++    n = outputChan * cs;
+ 
+-    if (n == 0) {
++    if (n == 0 || n / outputChan != cs)  // Check for overflow.
++    {
+         cmsStageFree(NewMPE);
+         return NULL;
+     }
+ 
++    NewElem -> nEntries = n;
++    NewElem -> HasFloatValues = TRUE;
++
+     NewElem ->Tab.TFloat  = (cmsFloat32Number*) _cmsCalloc(ContextID, n, sizeof(cmsFloat32Number));
+     if (NewElem ->Tab.TFloat == NULL) {
+         cmsStageFree(NewMPE);
+diff --git a/third_party/lcms/src/cmsnamed.c b/third_party/lcms/src/cmsnamed.c
+index 54d1abf913b315497f45ebe48cd3404215412475..50cc6b34954cbb873321791a024042434b76df3c 100644
+--- a/third_party/lcms/src/cmsnamed.c
++++ b/third_party/lcms/src/cmsnamed.c
+@@ -92,7 +92,7 @@ cmsBool GrowMLUpool(cmsMLU* mlu)
+ static
+ cmsBool GrowMLUtable(cmsMLU* mlu)
+ {
+-    cmsUInt32Number AllocatedEntries;
++    cmsUInt32Number AllocatedEntries, AllocatedBytes;
+     _cmsMLUentry *NewPtr;
+ 
+     // Sanity check
+@@ -103,8 +103,13 @@ cmsBool GrowMLUtable(cmsMLU* mlu)
+     // Check for overflow
+     if (AllocatedEntries / 2 != mlu ->AllocatedEntries) return FALSE;
+ 
++    AllocatedBytes = AllocatedEntries * sizeof(_cmsMLUentry);
++
++    // Check for overflow
++    if (AllocatedBytes / sizeof(_cmsMLUentry) != AllocatedEntries) return FALSE;
++
+     // Reallocate the memory
+-    NewPtr = (_cmsMLUentry*)_cmsRealloc(mlu ->ContextID, mlu ->Entries, AllocatedEntries*sizeof(_cmsMLUentry));
++    NewPtr = (_cmsMLUentry*)_cmsRealloc(mlu ->ContextID, mlu ->Entries, AllocatedBytes);
+     if (NewPtr == NULL) return FALSE;
+ 
+     mlu ->Entries          = NewPtr;
+diff --git a/third_party/lcms/src/cmstypes.c b/third_party/lcms/src/cmstypes.c
+index ec1909f8d33fe77cfccbaf9778e33c8610a02b7d..07451129642fdc03e8cdca1ff88110665962f57e 100644
+--- a/third_party/lcms/src/cmstypes.c
++++ b/third_party/lcms/src/cmstypes.c
+@@ -1488,10 +1488,10 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
+     cmsMLU* mlu;
+     cmsUInt32Number Count, RecLen, NumOfWchar;
+     cmsUInt32Number SizeOfHeader;
+-    cmsUInt32Number  Len, Offset;
++    cmsUInt32Number  Len, Offset, WideLen, WideSizeOfTag;
+     cmsUInt32Number  i;
+     wchar_t*         Block;
+-    cmsUInt32Number  BeginOfThisString, EndOfThisString, LargestPosition;
++    cmsUInt32Number  BeginOfThisString, EndOfThisString, LargestPosition, WideBeginOfThisString;
+ 
+     *nItems = 0;
+     if (!_cmsReadUInt32Number(io, &Count)) return NULL;
+@@ -1533,9 +1533,16 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
+         // True begin of the string
+         BeginOfThisString = Offset - SizeOfHeader - 8;
+ 
+-        // Adjust to wchar_t elements
+-        mlu ->Entries[i].Len = (Len * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
+-        mlu ->Entries[i].StrW = (BeginOfThisString * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
++        // Adjust to wchar_t elements and check for overflow
++        WideBeginOfThisString = BeginOfThisString * sizeof(wchar_t);
++        if (WideBeginOfThisString /  sizeof(wchar_t) != BeginOfThisString) goto Error;
++
++        // Adjust to wchar_t elements and check for overflow
++        WideLen = Len * sizeof(wchar_t);
++        if (WideLen / sizeof(wchar_t) != Len) goto Error;
++
++        mlu ->Entries[i].Len = WideLen / sizeof(cmsUInt16Number);
++        mlu ->Entries[i].StrW = WideBeginOfThisString / sizeof(cmsUInt16Number);
+ 
+         // To guess maximum size, add offset + len
+         EndOfThisString = BeginOfThisString + Len;
+@@ -1544,7 +1551,12 @@ void *Type_MLU_Read(struct _cms_typehandler_struct* self, cmsIOHANDLER* io, cmsU
+     }
+ 
+     // Now read the remaining of tag and fill all strings. Subtract the directory
+-    SizeOfTag   = (LargestPosition * sizeof(wchar_t)) / sizeof(cmsUInt16Number);
++    WideSizeOfTag = LargestPosition * sizeof(wchar_t);
++
++    // Check for overflow
++    if (WideSizeOfTag / sizeof(wchar_t) != LargestPosition) goto Error;
++
++    SizeOfTag = WideSizeOfTag / sizeof(cmsUInt16Number);
+     if (SizeOfTag == 0)
+     {
+         Block = NULL;
+@@ -5128,7 +5140,7 @@ static
+ cmsBool ReadOneWChar(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, wchar_t ** wcstr)
+ {
+ 
+-    cmsUInt32Number nChars;
++    cmsUInt32Number nChars, nBytes;
+ 
+       // Special case for undefined strings (see ICC Votable
+       // Proposal Submission, Dictionary Type and Metadata TAG Definition)
+@@ -5141,9 +5153,12 @@ cmsBool ReadOneWChar(cmsIOHANDLER* io,  _cmsDICelem* e, cmsUInt32Number i, wchar
+       if (!io -> Seek(io, e -> Offsets[i])) return FALSE;
+ 
+       nChars = e ->Sizes[i] / sizeof(cmsUInt16Number);
++      nBytes = (nChars + 1) * sizeof(wchar_t);
+ 
++      // Check for overflow
++      if (nBytes / sizeof(wchar_t) != nChars + 1) return FALSE;
+ 
+-      *wcstr = (wchar_t*) _cmsMallocZero(e ->ContextID, (nChars + 1) * sizeof(wchar_t));
++      *wcstr = (wchar_t*) _cmsMallocZero(e ->ContextID, nBytes);
+       if (*wcstr == NULL) return FALSE;
+ 
+       if (!_cmsReadWCharArray(io, nChars, *wcstr)) {
+diff --git a/third_party/libopenjpeg/0051-opj_j2k_copy_default_double_free.patch b/third_party/libopenjpeg/0051-opj_j2k_copy_default_double_free.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..a0c8b26f912e7e3174edadaaebdce86537d8d102
+--- /dev/null
++++ b/third_party/libopenjpeg/0051-opj_j2k_copy_default_double_free.patch
+@@ -0,0 +1,32 @@
++diff --git a/third_party/libopenjpeg/j2k.c b/third_party/libopenjpeg/j2k.c
++index fc5ce62df..1fb83f8b5 100644
++--- a/third_party/libopenjpeg/j2k.c
+++++ b/third_party/libopenjpeg/j2k.c
++@@ -9246,8 +9246,10 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
++         /* Remove memory not owned by this tile in case of early error return. */
++         l_tcp->m_mct_decoding_matrix = 00;
++         l_tcp->m_nb_max_mct_records = 0;
+++        l_tcp->m_nb_mct_records = 0;
++         l_tcp->m_mct_records = 00;
++         l_tcp->m_nb_max_mcc_records = 0;
+++        l_tcp->m_nb_mcc_records = 0;
++         l_tcp->m_mcc_records = 00;
++         /* Reconnect the tile-compo coding parameters pointer to the current tile coding parameters*/
++         l_tcp->tccps = l_current_tccp;
++@@ -9270,6 +9272,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
++             return OPJ_FALSE;
++         }
++         memcpy(l_tcp->m_mct_records, l_default_tcp->m_mct_records, l_mct_records_size);
+++        l_tcp->m_nb_max_mct_records = l_default_tcp->m_nb_max_mct_records;
++ 
++         /* Copy the mct record data from dflt_tile_cp to the current tile*/
++         l_src_mct_rec = l_default_tcp->m_mct_records;
++@@ -9290,7 +9293,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
++             ++l_src_mct_rec;
++             ++l_dest_mct_rec;
++             /* Update with each pass to free exactly what has been allocated on early return. */
++-            l_tcp->m_nb_max_mct_records += 1;
+++            l_tcp->m_nb_mct_records += 1;
++         }
++ 
++         /* Get the mcc_record of the dflt_tile_cp and copy them into the current tile cp*/
+diff --git a/third_party/libopenjpeg/0052-opj_j2k_copy_default_mcc_records.patch b/third_party/libopenjpeg/0052-opj_j2k_copy_default_mcc_records.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..ce6b829d887ff2c78d3ff05a0632d926b15eb2c0
+--- /dev/null
++++ b/third_party/libopenjpeg/0052-opj_j2k_copy_default_mcc_records.patch
+@@ -0,0 +1,12 @@
++diff --git a/third_party/libopenjpeg/j2k.c b/third_party/libopenjpeg/j2k.c
++index 1fb83f8b5f..2835adbbb4 100644
++--- a/third_party/libopenjpeg/j2k.c
+++++ b/third_party/libopenjpeg/j2k.c
++@@ -9306,6 +9306,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
++         }
++         memcpy(l_tcp->m_mcc_records, l_default_tcp->m_mcc_records, l_mcc_records_size);
++         l_tcp->m_nb_max_mcc_records = l_default_tcp->m_nb_max_mcc_records;
+++        l_tcp->m_nb_mcc_records = l_default_tcp->m_nb_mcc_records;
++ 
++         /* Copy the mcc record data from dflt_tile_cp to the current tile*/
++         l_src_mcc_rec = l_default_tcp->m_mcc_records;
+diff --git a/third_party/libopenjpeg/README.pdfium b/third_party/libopenjpeg/README.pdfium
+index 905c6400170ab259cf74cf0eb4c699ed90fb59bf..ce9463585ad9a0b4cc77e76d803338a9c0dcd46f 100644
+--- a/third_party/libopenjpeg/README.pdfium
++++ b/third_party/libopenjpeg/README.pdfium
+@@ -34,6 +34,8 @@ Local Modifications:
+ 0041-remove_opj_clock.patch: Remove unused opj_clock.h include.
+ 0046-func-ptr-mixup.patch: Prevent mixing up function pointer types.
+ 0047-opj_j2k_read_sod.patch: Fix out of bounds read.
++0051-opj_j2k_copy_default_double_free.patch: Fix a double free.
++0052-opj_j2k_copy_default_mcc_records.patch: Fix MCC records count.
+ 
+ Note:
+ 
+diff --git a/third_party/libopenjpeg/j2k.c b/third_party/libopenjpeg/j2k.c
+index aef6e3022701bcb6c4239319a8aadd45262f85b3..4e7a69cba453a129bbbb4264ed55534ee2235115 100644
+--- a/third_party/libopenjpeg/j2k.c
++++ b/third_party/libopenjpeg/j2k.c
+@@ -9247,8 +9247,10 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
+         /* Remove memory not owned by this tile in case of early error return. */
+         l_tcp->m_mct_decoding_matrix = 00;
+         l_tcp->m_nb_max_mct_records = 0;
++        l_tcp->m_nb_mct_records = 0;
+         l_tcp->m_mct_records = 00;
+         l_tcp->m_nb_max_mcc_records = 0;
++        l_tcp->m_nb_mcc_records = 0;
+         l_tcp->m_mcc_records = 00;
+         /* Reconnect the tile-compo coding parameters pointer to the current tile coding parameters*/
+         l_tcp->tccps = l_current_tccp;
+@@ -9271,6 +9273,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
+             return OPJ_FALSE;
+         }
+         memcpy(l_tcp->m_mct_records, l_default_tcp->m_mct_records, l_mct_records_size);
++        l_tcp->m_nb_max_mct_records = l_default_tcp->m_nb_max_mct_records;
+ 
+         /* Copy the mct record data from dflt_tile_cp to the current tile*/
+         l_src_mct_rec = l_default_tcp->m_mct_records;
+@@ -9291,7 +9294,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
+             ++l_src_mct_rec;
+             ++l_dest_mct_rec;
+             /* Update with each pass to free exactly what has been allocated on early return. */
+-            l_tcp->m_nb_max_mct_records += 1;
++            l_tcp->m_nb_mct_records += 1;
+         }
+ 
+         /* Get the mcc_record of the dflt_tile_cp and copy them into the current tile cp*/
+@@ -9304,6 +9307,7 @@ static OPJ_BOOL opj_j2k_copy_default_tcp_and_create_tcd(opj_j2k_t * p_j2k,
+         }
+         memcpy(l_tcp->m_mcc_records, l_default_tcp->m_mcc_records, l_mcc_records_size);
+         l_tcp->m_nb_max_mcc_records = l_default_tcp->m_nb_max_mcc_records;
++        l_tcp->m_nb_mcc_records = l_default_tcp->m_nb_mcc_records;
+ 
+         /* Copy the mcc record data from dflt_tile_cp to the current tile*/
+         l_src_mcc_rec = l_default_tcp->m_mcc_records;

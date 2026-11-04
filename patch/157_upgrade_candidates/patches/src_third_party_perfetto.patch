@@ -1,0 +1,149 @@
+diff --git a/buildtools/BUILD.gn b/buildtools/BUILD.gn
+index f384b7e94465eb5db03db9f34cea5c0c4894b42c..cbd2e7c18524faf9a3651b1e4166856f22716c4d 100644
+--- a/buildtools/BUILD.gn
++++ b/buildtools/BUILD.gn
+@@ -621,6 +621,7 @@ if (current_toolchain == host_toolchain) {
+       # Protobuf does has its own #define WIN32_LEAN_AND_MEAN.
+       configs -= [ "//gn/standalone:win32_lean_and_mean" ]
+     }
++    ldflags = [ "-lgcc_s" ]
+   }
+ }  # host_toolchain
+ 
+diff --git a/gn/BUILD.gn b/gn/BUILD.gn
+index 60a4ce1ac149dd96a690883bf4a70183419c776d..7a536803503caa39b7f938f59bcfae7f14b5e880 100644
+--- a/gn/BUILD.gn
++++ b/gn/BUILD.gn
+@@ -67,7 +67,7 @@ action("gen_buildflags") {
+   # We need local symbolization to run diff tests in chrome.
+   if (enable_perfetto_trace_processor &&
+       (perfetto_build_standalone || build_with_chromium) &&
+-      !perfetto_build_with_android) {
++      !perfetto_build_with_android && !is_ohos) {
+     perfetto_local_symbolizer =
+         "PERFETTO_BUILDFLAG_DEFINE_PERFETTO_OS_LINUX() || " +
+         "PERFETTO_BUILDFLAG_DEFINE_PERFETTO_OS_FREEBSD() || " +
+diff --git a/include/perfetto/tracing/data_source.h b/include/perfetto/tracing/data_source.h
+index a3512c93331947977ff3b714e3e4284fc9dd8339..240013d7431ed69bca0ced589608aa9b412dad8d 100644
+--- a/include/perfetto/tracing/data_source.h
++++ b/include/perfetto/tracing/data_source.h
+@@ -44,6 +44,8 @@
+ 
+ #include "protos/perfetto/trace/trace_packet.pbzero.h"
+ 
++#include "build/build_config.h"
++
+ // DEPRECATED: Instead of using this macro, prefer specifying symbol linkage
+ // attributes explicitly using the `_WITH_ATTRS` macro variants (e.g.,
+ // PERFETTO_DECLARE_DATA_SOURCE_STATIC_MEMBERS_WITH_ATTRS). This avoids
+@@ -249,8 +251,9 @@ struct DataSourceHelper {
+ template <typename DerivedDataSource,
+           typename DataSourceTraits = DefaultDataSourceTraits>
+ class DataSource : public DataSourceBase {
+-  struct DefaultTracePointTraits;
+   using Helper = DataSourceHelper<DerivedDataSource, DataSourceTraits>;
++ private:
++    struct DefaultTracePointTraits;
+ 
+  public:
+   // The BufferExhaustedPolicy to use for TraceWriters of this DataSource.
+@@ -412,9 +415,17 @@ class DataSource : public DataSourceBase {
+     // - |instances| is re-read with an acquire barrier below if this succeeds.
+     // - The code between this point and the acquire-load is based on static
+     //    storage which has indefinite lifetime.
++#if BUILDFLAG(IS_ARKWEB)
++    auto activeInstances = Traits::GetActiveInstances(trace_point_data);
++    if (activeInstances == nullptr) {
++        PERFETTO_ELOG("CallIfEnabled GetActiveInstances nullptr");
++        return;
++    }
++    uint32_t instances = activeInstances->load(std::memory_order_relaxed);
++#else
+     uint32_t instances = Traits::GetActiveInstances(trace_point_data)
+                              ->load(std::memory_order_relaxed);
+-
++#endif
+     // This is the tracing fast-path. Bail out immediately if tracing is not
+     // enabled (or tracing is enabled but not for this data source).
+     if (PERFETTO_LIKELY(!instances))
+diff --git a/protos/third_party/chromium/chrome_track_event.proto b/protos/third_party/chromium/chrome_track_event.proto
+index fa041f56dc919c6b24c7b9934b9e4217874f5113..6ee63b436604b068295e8969632a903a274702a8 100644
+--- a/protos/third_party/chromium/chrome_track_event.proto
++++ b/protos/third_party/chromium/chrome_track_event.proto
+@@ -854,6 +854,12 @@ message EventLatency {
+     INERTIAL_GESTURE_SCROLL_UPDATE = 26;
+     MOUSE_MOVED_EVENT = 27;
+     INERTIAL_GESTURE_SCROLL_END = 28;
++    // #if BUILDFLAG(ARKWEB_DRAG_DROP)
++    GESTURE_DRAG_LONG_PRESS = 29;
++    // #endif
++    // #if BUILDFLAG(ARKWEB_AI)
++    GESTURE_CREATE_OVERLAY = 30;
++    // #endif
+   }
+ 
+   optional EventType event_type = 1;
+diff --git a/src/ipc/protoc_plugin/BUILD.gn b/src/ipc/protoc_plugin/BUILD.gn
+index 57dcb51d60aae254b7b64e6aa9cbec27c81feebd..d1891fd0208380268537f62ce3a55b80a0b5042c 100644
+--- a/src/ipc/protoc_plugin/BUILD.gn
++++ b/src/ipc/protoc_plugin/BUILD.gn
+@@ -21,4 +21,5 @@ perfetto_host_executable("ipc_plugin") {
+     "../../../gn:protoc_lib",
+     "../../../src/base",
+   ]
++  ldflags = [ "-lgcc_s" ]
+ }
+diff --git a/src/protozero/descriptor_diff/BUILD.gn b/src/protozero/descriptor_diff/BUILD.gn
+index 637765205908c484292d8dcb7b6579b1b41415e6..bc7572eb46ed091fcc21eabb49ec488dd84476a5 100644
+--- a/src/protozero/descriptor_diff/BUILD.gn
++++ b/src/protozero/descriptor_diff/BUILD.gn
+@@ -23,6 +23,7 @@ perfetto_host_executable("protozero_descriptor_diff") {
+     "../../base",
+     "../../base:version",
+   ]
++  ldflags = [ "-lgcc_s" ]
+ }
+ 
+ perfetto_unittest_source_set("unittests") {
+diff --git a/src/protozero/protoc_plugin/BUILD.gn b/src/protozero/protoc_plugin/BUILD.gn
+index d07a33c7bdf375dcc89edf9ed7e185d3d792c72c..47ab19d018a409711b89b9c2f2eb7cbccfd85c34 100644
+--- a/src/protozero/protoc_plugin/BUILD.gn
++++ b/src/protozero/protoc_plugin/BUILD.gn
+@@ -23,6 +23,7 @@ perfetto_host_executable("protozero_plugin") {
+     "../../../gn:protoc_lib",
+     "../../../src/base",
+   ]
++  ldflags = [ "-lgcc_s" ]
+ }
+ 
+ # The plugin that generates standalone C++ objects from protos (xxx.gen.h).
+@@ -35,6 +36,7 @@ perfetto_host_executable("cppgen_plugin") {
+     "../../../gn:protoc_lib",
+     "../../../src/base",
+   ]
++  ldflags = [ "-lgcc_s" ]
+ }
+ 
+ # The plugin that generates standalone C macros and function from protos
+diff --git a/src/tracing/internal/tracing_muxer_impl.cc b/src/tracing/internal/tracing_muxer_impl.cc
+index 42e7a849a51586ef5af8f015fb5086aca1d9f34b..c099aec46cf298519c5a3e899a90fe83b4a9d03f 100644
+--- a/src/tracing/internal/tracing_muxer_impl.cc
++++ b/src/tracing/internal/tracing_muxer_impl.cc
+@@ -22,6 +22,7 @@
+ #include <optional>
+ #include <vector>
+ 
++#include "arkweb/build/features/features.h"
+ #include "perfetto/base/build_config.h"
+ #include "perfetto/base/logging.h"
+ #include "perfetto/base/task_runner.h"
+@@ -1181,6 +1182,9 @@ void TracingMuxerImpl::RegisterInterceptor(
+     }
+     // Only allow certain interceptors for now.
+     if (descriptor.name() != "test_interceptor" &&
++#if BUILDFLAG(IS_ARKWEB) || BUILDFLAG(ARKWEB_DFX_TRACING)
++        descriptor.name() != "hitrace_interceptor" &&
++#endif
+         descriptor.name() != "console" && descriptor.name() != "etwexport") {
+       PERFETTO_ELOG(
+           "Interceptors are experimental. If you want to use them, please "
