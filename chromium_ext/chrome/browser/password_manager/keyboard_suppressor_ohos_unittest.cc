@@ -50,6 +50,10 @@ class KeyboardSuppressorOhosRenderFrameTest
         web_contents()->GetPrimaryMainFrame());
   }
 
+  autofill::ContentAutofillClient* GetAutofillClient() {
+    return autofill_client_injector_[web_contents()];
+  }
+
  private:
   autofill::test::AutofillUnitTestEnvironment autofill_test_environment_;
   autofill::TestAutofillClientInjector<autofill::TestContentAutofillClient>
