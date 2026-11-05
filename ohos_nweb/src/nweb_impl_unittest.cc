@@ -8282,6 +8282,87 @@ TEST_F(NWebImplTest, NotifyPopupWindowDisposition001) {
   EXPECT_TRUE(nweb_impl_->is_pause_);
 }
 
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+/**
+ * @tc.name: NotifyPopupWindowDisposition_NullDelegate_NoCrash_0100
+ * @tc.desc: NotifyPopupWindowDisposition is safe when nweb_delegate_ is null.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest, NotifyPopupWindowDisposition_NullDelegate_NoCrash_0100) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  EXPECT_EQ(nweb_impl_->nweb_delegate_, nullptr);
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_impl_->NotifyPopupWindowDisposition(CEF_WOD_NEW_POPUP));
+}
+
+/**
+ * @tc.name: NotifyPopupWindowDisposition_NewBackgroundTab_SetsPause_0100
+ * @tc.desc: NotifyPopupWindowDisposition with CEF_WOD_NEW_BACKGROUND_TAB sets
+ *           is_pause_ to true and forwards disposition to nweb_delegate_.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest,
+       NotifyPopupWindowDisposition_NewBackgroundTab_SetsPause_0100) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  nweb_impl_->is_pause_ = false;
+
+  EXPECT_CALL(*mock_delegate_,
+              SetPopupWindowDisposition(CEF_WOD_NEW_BACKGROUND_TAB))
+      .Times(1);
+
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_impl_->NotifyPopupWindowDisposition(CEF_WOD_NEW_BACKGROUND_TAB));
+
+  EXPECT_TRUE(nweb_impl_->is_pause_);
+  Mock::VerifyAndClearExpectations(mock_delegate_.get());
+}
+
+/**
+ * @tc.name: NotifyPopupWindowDisposition_NewPopup_DoesNotSetPause_0100
+ * @tc.desc: NotifyPopupWindowDisposition with a non-background-tab disposition
+ *           does not set is_pause_ but still forwards the disposition.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest,
+       NotifyPopupWindowDisposition_NewPopup_DoesNotSetPause_0100) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  nweb_impl_->is_pause_ = false;
+
+  EXPECT_CALL(*mock_delegate_, SetPopupWindowDisposition(CEF_WOD_NEW_POPUP))
+      .Times(1);
+
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_impl_->NotifyPopupWindowDisposition(CEF_WOD_NEW_POPUP));
+
+  EXPECT_FALSE(nweb_impl_->is_pause_);
+  Mock::VerifyAndClearExpectations(mock_delegate_.get());
+}
+
+/**
+ * @tc.name: NotifyPopupWindowDisposition_NewWindow_DoesNotSetPause_0100
+ * @tc.desc: NotifyPopupWindowDisposition with CEF_WOD_NEW_WINDOW forwards the
+ *           disposition and does not set is_pause_.
+ * @tc.type: FUNC
+ */
+TEST_F(NWebImplTest,
+       NotifyPopupWindowDisposition_NewWindow_DoesNotSetPause_0100) {
+  ASSERT_NE(nweb_impl_, nullptr);
+  nweb_impl_->nweb_delegate_ = mock_delegate_;
+  nweb_impl_->is_pause_ = false;
+
+  EXPECT_CALL(*mock_delegate_, SetPopupWindowDisposition(CEF_WOD_NEW_WINDOW))
+      .Times(1);
+
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_impl_->NotifyPopupWindowDisposition(CEF_WOD_NEW_WINDOW));
+
+  EXPECT_FALSE(nweb_impl_->is_pause_);
+  Mock::VerifyAndClearExpectations(mock_delegate_.get());
+}
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
+
 TEST_F(NWebImplTest, OnBlur003) {
   nweb_impl_->nweb_delegate_ = mock_delegate_;
   nweb_impl_->inputmethod_handler_ = nullptr;

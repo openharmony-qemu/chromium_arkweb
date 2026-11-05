@@ -534,4 +534,20 @@ TEST_F(NWebDelegateTest, GetCommandActionManager_BeforeInit_ReturnsNull_0100) {
 }
 #endif  // BUILDFLAG(ARKWEB_INPUT_EVENTS)
 
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW)
+TEST_F(NWebDelegateTest, SetPopupWindowDisposition) {
+  ASSERT_NE(nweb_delegate_, nullptr);
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_delegate_->SetPopupWindowDisposition(CEF_WOD_NEW_POPUP));
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_delegate_->SetPopupWindowDisposition(CEF_WOD_NEW_BACKGROUND_TAB));
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_delegate_->SetPopupWindowDisposition(CEF_WOD_NEW_WINDOW));
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_delegate_->SetPopupWindowDisposition(CEF_WOD_UNKNOWN));
+  EXPECT_NO_FATAL_FAILURE(
+      nweb_delegate_->SetPopupWindowDisposition(CEF_WOD_CURRENT_TAB));
+}
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
+
 }  // namespace OHOS::NWeb

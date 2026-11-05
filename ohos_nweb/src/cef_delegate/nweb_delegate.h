@@ -660,6 +660,8 @@ class NWebDelegate : public NWebDelegateInterface, public virtual CefRefCount {
 #endif
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   void NotifyPopupWindowResult(bool result) override;
+  void SetPopupWindowDisposition(
+      CefLifeSpanHandler::WindowOpenDisposition disposition) override;
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #if BUILDFLAG(ARKWEB_CA)
   bool GetCertChainDerData(std::vector<std::string>& certChainData,

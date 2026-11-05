@@ -4747,6 +4747,13 @@ void NWebDelegate::NotifyPopupWindowResult(bool result) {
     handler_delegate_->NotifyPopupWindowResult(result);
   }
 }
+
+void NWebDelegate::SetPopupWindowDisposition(
+    CefLifeSpanHandler::WindowOpenDisposition disposition) {
+  if (handler_delegate_) {
+    handler_delegate_->SetPopupWindowDisposition(disposition);
+  }
+}
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 
 #if BUILDFLAG(ARKWEB_CA)

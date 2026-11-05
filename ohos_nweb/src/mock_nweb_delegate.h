@@ -688,6 +688,10 @@ class MockNWebDelegate : public NWebDelegateInterface {
 #endif  // BUILDFLAG(ARKWEB_NO_STATE_PREFETCH)
 #if BUILDFLAG(ARKWEB_MULTI_WINDOW)
   MOCK_METHOD(void, NotifyPopupWindowResult, (bool result), (override));
+  MOCK_METHOD(void,
+              SetPopupWindowDisposition,
+              (CefLifeSpanHandler::WindowOpenDisposition disposition),
+              (override));
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 #if BUILDFLAG(ARKWEB_CA)
   MOCK_METHOD(bool,

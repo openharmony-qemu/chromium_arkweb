@@ -921,3 +921,38 @@ TEST_F(NWebHandlerDelegateTest, SetLoadFinished_UpdateExisting) {
   NWebHandlerDelegate::RemoveLoadFinished(nweb_id);
 }
 #endif  // BUILDFLAG(ARKWEB_PERFORMANCE_INC_FREQ)
+
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW) && BUILDFLAG(ARKWEB_NWEB_EX)
+// Test OnContentsBoundsChange returns false when new_bounds is empty
+TEST_F(NWebHandlerDelegateTest, OnContentsBoundsChange_IsEmptyBounds_TEST001) {
+  delegate->nweb_id_ = 100;
+  delegate->disposition_ = CefLifeSpanHandler::WindowOpenDisposition::CEF_WOD_NEW_POPUP;
+  CefRect empty_bounds(0, 0, 0, 0);
+  EXPECT_FALSE(delegate->OnContentsBoundsChange(browser_, empty_bounds));
+}
+
+// Test OnContentsBoundsChange returns false when disposition is CEF_WOD_UNKNOWN
+TEST_F(NWebHandlerDelegateTest, OnContentsBoundsChange_UnknownDisposition_TEST002) {
+  delegate->nweb_id_ = 100;
+  delegate->disposition_ = CefLifeSpanHandler::WindowOpenDisposition::CEF_WOD_UNKNOWN;
+  CefRect valid_bounds(100, 200, 300, 400);
+  EXPECT_FALSE(delegate->OnContentsBoundsChange(browser_, valid_bounds));
+}
+
+// Test OnContentsBoundsChange returns true when disposition is CEF_WOD_NEW_POPUP;
+// OnWindowRectChanged is called on the singleton
+TEST_F(NWebHandlerDelegateTest, OnContentsBoundsChange_NewPopup_TEST003) {
+  delegate->nweb_id_ = 100;
+  delegate->disposition_ = CefLifeSpanHandler::WindowOpenDisposition::CEF_WOD_NEW_POPUP;
+  CefRect valid_bounds(100, 200, 300, 400);
+  EXPECT_TRUE(delegate->OnContentsBoundsChange(browser_, valid_bounds));
+}
+
+// Test OnContentsBoundsChange returns true when disposition is CEF_WOD_NEW_WINDOW
+TEST_F(NWebHandlerDelegateTest, OnContentsBoundsChange_NewWindow_TEST004) {
+  delegate->nweb_id_ = 101;
+  delegate->disposition_ = CefLifeSpanHandler::WindowOpenDisposition::CEF_WOD_NEW_WINDOW;
+  CefRect valid_bounds(0, 0, 800, 600);
+  EXPECT_TRUE(delegate->OnContentsBoundsChange(browser_, valid_bounds));
+}
+#endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW) && BUILDFLAG(ARKWEB_NWEB_EX)

@@ -1839,6 +1839,11 @@ void NWebHandlerDelegate::NotifyPopupWindowResult(bool result) {
   }
   popupWindowCallback_ = nullptr;
 }
+
+void NWebHandlerDelegate::SetPopupWindowDisposition(
+    CefLifeSpanHandler::WindowOpenDisposition disposition) {
+  disposition_ = disposition;
+}
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
 
 #if BUILDFLAG(ARKWEB_ADBLOCK)
@@ -7025,6 +7030,25 @@ void NWebHandlerDelegate::SaveEnableSafeBrowsingDetection(
   bool enable, bool strictMode) {
   is_safe_browsing_enabled_ = enable;
   safe_browsing_strict_mode_ = strictMode;
+}
+#endif
+
+#if BUILDFLAG(ARKWEB_MULTI_WINDOW) && BUILDFLAG(ARKWEB_NWEB_EX)
+bool NWebHandlerDelegate::OnContentsBoundsChange(
+    CefRefPtr<CefBrowser> /* browser */, const CefRect& new_bounds) {
+  LOG(INFO) << "NWebHandlerDelegate::OnContentsBoundsChange ENTER: nweb_id="
+      << nweb_id_ << " disposition_ " << static_cast<int32_t>(disposition_);
+  if (new_bounds.IsEmpty()) {
+    return false;
+  }
+  if (disposition_ != CEF_WOD_NEW_POPUP && disposition_ != CEF_WOD_NEW_WINDOW) {
+    LOG(INFO) << "NWebHandlerDelegate::OnContentsBoundsChange skipped,"
+        << " not new popup or new window";
+    return false;
+  }
+  nweb_ex::NWebAppClientExtensionDelegateImpl::GetInstance().OnWindowRectChanged(
+      nweb_id_, new_bounds.x, new_bounds.y, new_bounds.width, new_bounds.height);
+  return true;
 }
 #endif
 
