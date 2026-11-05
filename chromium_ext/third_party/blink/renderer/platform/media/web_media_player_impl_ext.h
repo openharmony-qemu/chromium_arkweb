@@ -218,6 +218,10 @@ public:
   void MediaResumeFromBFCachePage(bool restoring_in_bfcache) override;
 #endif  // BUILDFLAG(ARKWEB_BFCACHE)
 
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+  void OnHlsBrowserTaintChanged(bool tainted);
+#endif  // ARKWEB_MEDIA_HLS
+
 #if BUILDFLAG(ARKWEB_MEDIA_CAPABILITIES_ENHANCE)
   int64_t GetFreezeTime() const override;
   int64_t GetPlayedTime() override;

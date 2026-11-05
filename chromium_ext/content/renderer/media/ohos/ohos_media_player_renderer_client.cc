@@ -25,7 +25,8 @@ OHOSMediaPlayerRendererClient::OHOSMediaPlayerRendererClient(
     scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
     std::unique_ptr<media::MojoRenderer> mojo_renderer,
     media::ScopedNativeTextureWrapper native_texture_wrapper,
-    media::VideoRendererSink* sink)
+    media::VideoRendererSink* sink,
+    base::RepeatingCallback<void(bool)> on_media_taint_changed)
     : MojoRendererWrapper(std::move(mojo_renderer)),
       native_texture_wrapper_(std::move(native_texture_wrapper)),
       client_(nullptr),
@@ -33,7 +34,8 @@ OHOSMediaPlayerRendererClient::OHOSMediaPlayerRendererClient(
       media_task_runner_(std::move(media_task_runner)),
       compositor_task_runner_(std::move(compositor_task_runner)),
       delayed_bind_client_extension_receiver_(
-          std::move(client_extension_receiver)) {}
+          std::move(client_extension_receiver)),
+      on_media_taint_changed_(std::move(on_media_taint_changed)) {}
 
 OHOSMediaPlayerRendererClient::~OHOSMediaPlayerRendererClient() {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
@@ -159,6 +161,14 @@ void OHOSMediaPlayerRendererClient::OnDurationChange(base::TimeDelta duration) {
 
 void OHOSMediaPlayerRendererClient::OnFrameUpdate(
     media::mojom::OhosSurfaceBufferHandlePtr ohos_surface_buffer_handle) {
+}
+
+void OHOSMediaPlayerRendererClient::OnMediaTaintChanged(bool tainted) {
+  DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
+
+  if (on_media_taint_changed_) {
+    on_media_taint_changed_.Run(tainted);
+  }
 }
 
 void OHOSMediaPlayerRendererClient::PaintNV12VideoFrame(

@@ -14,9 +14,11 @@
 #include "base/unguessable_token.h"
 #include "net/base/isolation_info.h"
 #include "net/base/net_errors.h"
+#include "net/url_request/redirect_info.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "url/gurl.h"
@@ -70,13 +72,19 @@ MediaSourceDownloadManager::MediaSourceDownloadManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     DevToolsNetworkEventSink* devtools_sink,
     const net::SiteForCookies& site_for_cookies,
-    const url::Origin& top_frame_origin)
+    const url::Origin& top_frame_origin,
+    MediaCorsMode cors_mode,
+    const url::Origin& frame_origin,
+    base::RepeatingCallback<void(bool tainted)> on_taint_changed)
     : task_runner_(std::move(task_runner)),
       url_loader_factory_(std::move(url_loader_factory)),
       player_(player),
       devtools_sink_(devtools_sink),
       site_for_cookies_(site_for_cookies),
-      top_frame_origin_(top_frame_origin) {
+      top_frame_origin_(top_frame_origin),
+      cors_mode_(cors_mode),
+      frame_origin_(frame_origin),
+      on_taint_changed_(std::move(on_taint_changed)) {
   DCHECK(task_runner_);
 }
 
@@ -85,6 +93,75 @@ MediaSourceDownloadManager::~MediaSourceDownloadManager() = default;
 base::WeakPtr<MediaSourceDownloadManager>
 MediaSourceDownloadManager::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
+}
+
+// static
+bool MediaSourceDownloadManager::ResponseTaintsOrigin(
+    MediaCorsMode cors_mode,
+    const url::Origin& frame_origin,
+    const GURL& response_url,
+    const net::HttpResponseHeaders* headers) {
+  // Non-http(s) URLs: taint if frame_origin is opaque or not same-origin.
+  // (Proxy-path HLS is always http/https, so this branch is theoretical.)
+  if (!response_url.is_valid() ||
+      (!response_url.SchemeIsHTTPOrHTTPS() && !response_url.SchemeIsWSOrWSS())) {
+    bool same = !frame_origin.opaque() && frame_origin.IsSameOriginWith(response_url);
+    LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: non-http(s) same_origin="
+               << same << " taint=" << !same;
+    return !same;
+  }
+
+  // Same-origin → never taints (basic response).
+  // An opaque frame_origin can never be same-origin with an http(s) URL,
+  // so this check naturally falls through to the cors mode switch below.
+  if (!frame_origin.opaque() && frame_origin.IsSameOriginWith(response_url)) {
+    LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: same-origin no taint";
+    return false;
+  }
+
+  switch (cors_mode) {
+    case MediaCorsMode::kUnspecified:
+      // no-cors: cross-origin (or opaque initiator) → opaque → taint.
+      // Opaque frame_origin with http URL is always cross-origin → taint.
+      LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: kUnspecified cross-origin taint";
+      return true;
+    case MediaCorsMode::kAnonymous:
+    case MediaCorsMode::kUseCredentials: {
+      // CORS check: need valid ACAO header matching frame_origin.
+      // Fail-closed if no headers.
+      // Opaque frame_origin is NOT short-circuited: it serializes to "null"
+      // in CheckAccess, so a server returning ACAO: null yields clean —
+      // aligning with the network layer's handling of sandboxed documents
+      // (fetch spec's legal channel for opaque origins).
+      if (!headers) {
+        LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: no response headers taint";
+        return true;
+      }
+      auto acao = headers->GetNormalizedHeader("access-control-allow-origin");
+      if (!acao.has_value()) {
+        LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: no ACAO header taint";
+        return true;
+      }
+      // Credentials mode: anonymous → kSameOrigin (no ACAC required),
+      // use-credentials → kInclude (ACAC must be "true").
+      network::mojom::CredentialsMode credentials_mode =
+          (cors_mode == MediaCorsMode::kUseCredentials)
+              ? network::mojom::CredentialsMode::kInclude
+              : network::mojom::CredentialsMode::kSameOrigin;
+      auto allow_credentials_header =
+          headers->GetNormalizedHeader("access-control-allow-credentials");
+      auto result = network::cors::CheckAccess(
+          response_url, acao,
+          allow_credentials_header, credentials_mode, frame_origin);
+      bool taints = !result.has_value();
+      LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: CheckAccess taints=" << taints;
+      return taints;
+    }
+    default:
+      // Fail-closed for unexpected/future enum values.
+      LOG(DEBUG) << "[HLS WEBGL]: ResponseTaintsOrigin: unknown cors_mode taint";
+      return true;
+  }
 }
 
 void MediaSourceDownloadManager::Open(
@@ -169,6 +246,25 @@ void MediaSourceDownloadManager::StartDownload(
     request->headers.SetHeader(entry.first, entry.second);
   }
 
+  // request->mode stays kNoCors (network service would reject cross-origin
+  // otherwise); we set Origin header + credentials_mode so the server returns
+  // ACAO/ACAC headers for analysis, matching the renderer's own fetch behavior.
+  // The Origin header is set AFTER the header copy loop above so page-supplied
+  // Origin values cannot override the analysis initiator.
+  if (cors_mode_ == MediaCorsMode::kAnonymous) {
+    request->credentials_mode = network::mojom::CredentialsMode::kSameOrigin;
+    if (!frame_origin_.opaque()) {
+      request->headers.SetHeader(net::HttpRequestHeaders::kOrigin,
+                                 frame_origin_.Serialize());
+    }
+  } else if (cors_mode_ == MediaCorsMode::kUseCredentials) {
+    // credentials_mode stays kInclude (default), add Origin header.
+    if (!frame_origin_.opaque()) {
+      request->headers.SetHeader(net::HttpRequestHeaders::kOrigin,
+                                 frame_origin_.Serialize());
+    }
+  }
+
   // Page cookie context. This is a browser-process SimpleURLLoader, so by
   // default it carries no frame context and the network service treats it as a
   // cross-site request → SameSite=Lax page cookies are EXCLUDEd (MGTV et al.
@@ -216,6 +312,12 @@ void MediaSourceDownloadManager::StartDownload(
 
   auto loader = network::SimpleURLLoader::Create(std::move(request),
                                                  traffic_annotation);
+  // Capture redirect responses for CORS analysis. Each redirect hop's
+  // (url_before_redirect, headers) is stored in the DownloadContext so
+  // OnDownloadComplete can analyze the full chain.
+  loader->SetOnRedirectCallback(base::BindRepeating(
+      &MediaSourceDownloadManager::OnRedirect, weak_factory_.GetWeakPtr(),
+      uuid));
   // Deliver the body (and populate ResponseInfo) even on HTTP errors so we
   // can distinguish 403 (anti-leech) / 404 from generic failures.
   loader->SetAllowHttpErrorResults(true);
@@ -229,6 +331,93 @@ void MediaSourceDownloadManager::StartDownload(
 
   it->second.pending_offset = offset;
   it->second.loader = std::move(loader);
+}
+
+void MediaSourceDownloadManager::OnRedirect(
+    int64_t uuid,
+    const GURL& url_before_redirect,
+    const net::RedirectInfo& redirect_info,
+    const network::mojom::URLResponseHead& response_head,
+    std::vector<std::string>* removed_headers) {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  auto it = downloads_.find(uuid);
+  if (it == downloads_.end()) {
+    return;
+  }
+  auto& ctx = it->second;
+
+  // Capture the redirect response (url + headers) for CORS analysis.
+  // CORS check applies to each redirect response per fetch spec.
+  scoped_refptr<net::HttpResponseHeaders> headers;
+  if (response_head.headers) {
+    headers = response_head.headers;
+  }
+  ctx.redirect_chain.emplace_back(url_before_redirect, headers);
+}
+
+bool MediaSourceDownloadManager::ComputeResponseTaint(
+    const DownloadContext& ctx,
+    const network::SimpleURLLoader* loader) const {
+  // Analyze each redirect hop + the final response (monotonic OR aggregate).
+  bool response_taints = false;
+  for (const auto& [hop_url, hop_headers] : ctx.redirect_chain) {
+    response_taints |= ResponseTaintsOrigin(cors_mode_, frame_origin_,
+                                            hop_url, hop_headers.get());
+  }
+
+  // Analyze final response.
+  GURL final_url = loader ? loader->GetFinalURL() : GURL(ctx.url);
+  if (!final_url.is_valid()) {
+    final_url = GURL(ctx.url);
+  }
+  net::HttpResponseHeaders* final_headers =
+      (loader && loader->ResponseInfo()) ? loader->ResponseInfo()->headers.get()
+                                         : nullptr;
+  response_taints |= ResponseTaintsOrigin(cors_mode_, frame_origin_,
+                                          final_url, final_headers);
+
+  // kUnspecified + cross-origin redirect hop → taint (replicates
+  // MultiBufferDataSource::WouldTaintOrigin HasSingleOrigin semantics,
+  // multi_buffer_data_source.cc:233: single_origin_ is set false when
+  // adjacent redirect hops have different origins).
+  if (cors_mode_ == MediaCorsMode::kUnspecified && !ctx.redirect_chain.empty()) {
+    GURL prev_url(ctx.url);
+    bool cross_origin_hop = false;
+    for (const auto& [hop_url, hop_headers] : ctx.redirect_chain) {
+      if (!url::Origin::Create(prev_url).IsSameOriginWith(
+              url::Origin::Create(hop_url))) {
+        cross_origin_hop = true;
+        break;
+      }
+      prev_url = hop_url;
+    }
+    if (!cross_origin_hop) {
+      GURL final_url_check = loader ? loader->GetFinalURL() : GURL(ctx.url);
+      if (!url::Origin::Create(prev_url).IsSameOriginWith(
+              url::Origin::Create(final_url_check))) {
+        cross_origin_hop = true;
+      }
+    }
+    if (cross_origin_hop) {
+      response_taints = true;
+    }
+  }
+
+  return response_taints;
+}
+
+void MediaSourceDownloadManager::MaybePushTaint(bool tainted) {
+  // Monotonic OR: can only flip clean→tainted, never back.
+  any_response_tainted_ |= tainted;
+
+  // Fire-and-forget: push verdict if it changed, then deliver bytes
+  // immediately. No ACK, no park, no gating.
+  if (any_response_tainted_ != last_sent_verdict_) {
+    last_sent_verdict_ = any_response_tainted_;
+    if (on_taint_changed_) {
+      on_taint_changed_.Run(any_response_tainted_);
+    }
+  }
 }
 
 void MediaSourceDownloadManager::OnDownloadComplete(
@@ -275,7 +464,10 @@ void MediaSourceDownloadManager::OnDownloadComplete(
     return;
   }
 
-  // Success: feed the fetched bytes back to the player.
+  // Analyze the full response chain, then aggregate + push on change.
+  // Never touches the data path below — bytes are delivered immediately.
+  MaybePushTaint(ComputeResponseTaint(ctx, loader));
+
   if (player_) {
     if (!ctx.header_sent) {
       std::map<std::string, std::string> resp_header;
@@ -299,7 +491,8 @@ void MediaSourceDownloadManager::OnDownloadComplete(
 
   if (devtools_sink_) {
     if (loader && loader->ResponseInfo()) {
-      devtools_sink_->NotifyResponseReceived(ctx.devtools_request_id, GURL(ctx.url),
+      devtools_sink_->NotifyResponseReceived(ctx.devtools_request_id,
+                                             GURL(ctx.url),
                                              *loader->ResponseInfo());
     }
     devtools_sink_->NotifyLoadingComplete(

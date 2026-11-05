@@ -5,17 +5,20 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
+#include "base/test/gmock_move_support.h"
+#include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_util.h"
+#include "services/network/public/cpp/cors/cors.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
@@ -24,7 +27,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 #include "url/origin.h"
-
+ 
 // White-box access to private members (DownloadContext, StartDownload,
 // OnDownloadComplete, downloads_ map) for branch coverage that cannot be
 // driven purely through the public API (e.g. direct OnDownloadComplete on an
@@ -36,7 +39,7 @@
 #undef protected
 #undef private
 // clang-format on
-
+ 
 using namespace media;
 using namespace testing;
 using OHOS::NWeb::IConsumerSurfaceAdapter;
@@ -44,9 +47,9 @@ using OHOS::NWeb::PlaybackRateMode;
 using OHOS::NWeb::PlayerAdapter;
 using OHOS::NWeb::PlayerCallbackAdapter;
 using OHOS::NWeb::PlayerSeekMode;
-
+ 
 namespace {
-
+ 
 // Mirror of the anonymous-namespace error codes in
 // ohos_media_source_download_manager.cc (LoadingRequestError as seen by the
 // HiStreamer player framework). Kept as plain ints to assert the wire contract.
@@ -58,11 +61,11 @@ constexpr int32_t kErrNetwork =
 constexpr int32_t kErrAbort = -4;      // net::ERR_ABORTED
 constexpr int32_t kErrForbidden = -5;  // HTTP 403
 constexpr int32_t kErrNotFound = -6;   // HTTP 404
-
+ 
 constexpr int64_t kUuid = 42;
 constexpr const char* kHttpUrl = "https://media.test/segment.ts";
 constexpr const char* kFtpUrl = "ftp://media.test/segment.ts";
-
+ 
 // Builds a URLResponseHead carrying an HTTP status line (and optional extra
 // header lines). |http_status| <= 0 yields a head with null headers, mirroring
 // a transport error that produced no response head.
@@ -86,9 +89,9 @@ network::mojom::URLResponseHeadPtr BuildHead(
   }
   return head;
 }
-
+ 
 }  // namespace
-
+ 
 // Full PlayerAdapter mock. The three OnData* callbacks are non-pure virtuals
 // (default empty body) but are exactly what MediaSourceDownloadManager pushes
 // back to the player, so they are mocked here.
@@ -125,7 +128,7 @@ class MockPlayerAdapter : public PlayerAdapter {
               (override));
   MOCK_METHOD(void, OnDataFinishLoading, (int64_t, int32_t), (override));
 };
-
+ 
 class MockDevToolsNetworkEventSink : public DevToolsNetworkEventSink {
  public:
   MOCK_METHOD(void,
@@ -143,18 +146,19 @@ class MockDevToolsNetworkEventSink : public DevToolsNetworkEventSink {
               (const std::string&, int, int64_t),
               (override));
 };
-
+ 
 class MediaSourceDownloadManagerTest : public testing::Test {
  protected:
   // The SingleThreadTaskEnvironment must be declared before |manager_| so that
   // GetCurrentDefault() is valid when the manager is constructed in SetUp().
   base::test::SingleThreadTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-
+ 
   void SetUp() override {
     site_for_cookies_ =
         net::SiteForCookies::FromUrl(GURL("https://example.test/"));
     top_frame_origin_ = url::Origin::Create(GURL("https://example.test/"));
+    frame_origin_ = top_frame_origin_;
     mock_player_ = std::make_unique<testing::NiceMock<MockPlayerAdapter>>();
     mock_devtools_sink_ =
         std::make_unique<testing::NiceMock<MockDevToolsNetworkEventSink>>();
@@ -168,7 +172,7 @@ class MediaSourceDownloadManagerTest : public testing::Test {
     testing::Mock::AllowLeak(mock_devtools_sink_.get());
     NewManager(/*with_player=*/true, /*with_devtools=*/true);
   }
-
+ 
   // The leak checker of the `media_unittests` driver runs BEFORE fixture member
   // destruction, so a mock still alive at that point is reported as a leak.
   // Destroy the manager (which holds raw pointers into the mocks) first, pump
@@ -180,18 +184,33 @@ class MediaSourceDownloadManagerTest : public testing::Test {
     mock_devtools_sink_.reset();
     mock_player_.reset();
   }
-
-  // (Re)creates the manager. Used to exercise the null-player / null-sink /
+ 
+  // (Re)creates the manager with default cors_mode=kUnspecified and null
+  // taint callback. Used to exercise the null-player / null-sink /
   // null-factory variants without disturbing the shared mocks.
   void NewManager(bool with_player, bool with_devtools) {
+    NewManager(with_player, with_devtools, MediaCorsMode::kUnspecified,
+               frame_origin_, /*on_taint_changed=*/{});
+  }
+ 
+  // Full-control overload: lets a test pick cors_mode, frame_origin, and a
+  // taint-changed callback (fire-and-forget exercises).
+  using TaintChangedCB =
+      base::RepeatingCallback<void(bool tainted)>;
+  void NewManager(bool with_player,
+                  bool with_devtools,
+                  MediaCorsMode cors_mode,
+                  const url::Origin& frame_origin,
+                  TaintChangedCB on_taint_changed) {
     manager_ = std::make_unique<MediaSourceDownloadManager>(
         with_player ? mock_player_.get() : nullptr,
         base::SingleThreadTaskRunner::GetCurrentDefault(),
         test_factory_.GetSafeWeakWrapper(),
         with_devtools ? mock_devtools_sink_.get() : nullptr, site_for_cookies_,
-        top_frame_origin_);
+        top_frame_origin_, cors_mode, frame_origin,
+        std::move(on_taint_changed));
   }
-
+ 
   // Presets a 2xx + body success response on the shared test factory.
   void AddOkResponse(const std::string& url,
                      const std::string& body,
@@ -201,7 +220,7 @@ class MediaSourceDownloadManagerTest : public testing::Test {
     test_factory_.AddResponse(GURL(url), BuildHead(http_status, extra_headers),
                               body, status);
   }
-
+ 
   // Presets a response that completes with a transport/HTTP-level state the
   // production code treats as failure. |net_error| != OK models a transport
   // error (body delivered as null); an HTTP error is modelled by |http_status|
@@ -214,13 +233,16 @@ class MediaSourceDownloadManagerTest : public testing::Test {
     status.error_code = net_error;
     test_factory_.AddResponse(GURL(url), BuildHead(http_status), body, status);
   }
-
+ 
   std::unique_ptr<testing::NiceMock<MockPlayerAdapter>> mock_player_;
   std::unique_ptr<testing::NiceMock<MockDevToolsNetworkEventSink>>
       mock_devtools_sink_;
   network::TestURLLoaderFactory test_factory_;
   net::SiteForCookies site_for_cookies_;
   url::Origin top_frame_origin_;
+  url::Origin frame_origin_;
+  base::MockCallback<base::RepeatingCallback<void(bool)>>
+      mock_taint_cb_;
   std::unique_ptr<MediaSourceDownloadManager> manager_;
 };
 
@@ -683,4 +705,39 @@ TEST_F(MediaSourceDownloadManagerTest,
   manager_->Open(kUuid, kHttpUrl, {});
   manager_->Read(kUuid, 0, -1);
   task_environment_.RunUntilIdle();
+}
+
+// =============================================================================
+// (G) ResponseTaintsOrigin — direct static analysis matrix
+// =============================================================================
+// These tests call the static method directly to exhaust every branch of the
+// CORS analysis logic without driving the full download pipeline.
+ 
+namespace {
+// Helpers for building HttpResponseHeaders with specific CORS headers.
+scoped_refptr<net::HttpResponseHeaders> MakeHeaders(
+    int status,
+    const std::vector<std::string>& extra_headers) {
+  std::string raw = "HTTP/1.1 " + std::to_string(status) + " OK\n";
+  for (const auto& h : extra_headers) {
+    raw += h + "\n";
+  }
+  return base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(raw));
+}
+}  // namespace
+ 
+TEST_F(MediaSourceDownloadManagerTest,
+       ResponseTaintsOrigin_SameOrigin_NeverTaints) {
+  auto origin = url::Origin::Create(GURL("https://media.test"));
+  auto headers = MakeHeaders(200, {});
+  EXPECT_FALSE(MediaSourceDownloadManager::ResponseTaintsOrigin(
+      MediaCorsMode::kUnspecified, origin, GURL("https://media.test/seg.ts"),
+      headers.get()));
+  EXPECT_FALSE(MediaSourceDownloadManager::ResponseTaintsOrigin(
+      MediaCorsMode::kAnonymous, origin, GURL("https://media.test/seg.ts"),
+      headers.get()));
+  EXPECT_FALSE(MediaSourceDownloadManager::ResponseTaintsOrigin(
+      MediaCorsMode::kUseCredentials, origin, GURL("https://media.test/seg.ts"),
+      headers.get()));
 }

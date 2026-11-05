@@ -85,6 +85,7 @@ class CONTENT_EXPORT OHOSMediaPlayerRenderer
   media::OHOSMediaResourceGetter* GetMediaResourceGetter() override;
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
   media::DevToolsNetworkEventSink* GetDevToolsNetworkEventSink() override;
+  void OnProxyDownloadTaintChanged(bool tainted) override;
   void OnMediaDurationChanged(base::TimeDelta duration) override;
   void OnPlaybackComplete() override;
   void OnError(int error) override;

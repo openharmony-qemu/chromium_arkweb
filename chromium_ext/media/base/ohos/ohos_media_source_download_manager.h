@@ -9,12 +9,16 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include "arkweb/chromium_ext/media/base/media_player_url_params.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "media/base/ohos/devtools_network_event_sink.h"
 #include "net/cookies/site_for_cookies.h"
+#include "net/http/http_response_headers.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "third_party/ohos_ndk/includes/ohos_adapter/media_adapter.h"
@@ -53,7 +57,13 @@ class MediaSourceDownloadManager {
       // service treats this browser-process proxy download as a same-site
       // request and attaches SameSite=Lax page cookies.
       const net::SiteForCookies& site_for_cookies,
-      const url::Origin& top_frame_origin);
+      const url::Origin& top_frame_origin,
+      // CORS mode and frame origin (fetch initiator) from the media element,
+      // used for aggregated taint analysis of proxy responses.
+      MediaCorsMode cors_mode,
+      const url::Origin& frame_origin,
+      // Callback invoked when the aggregated taint verdict changes.
+      base::RepeatingCallback<void(bool tainted)> on_taint_changed);
   ~MediaSourceDownloadManager();
 
   MediaSourceDownloadManager(const MediaSourceDownloadManager&) = delete;
@@ -64,6 +74,21 @@ class MediaSourceDownloadManager {
   // callback can dispatch onto task_runner_ and have its calls safely no-op
   // once this manager is destroyed.
   base::WeakPtr<MediaSourceDownloadManager> GetWeakPtr();
+
+  // Static CORS analysis: returns true if the given response would taint the
+  // frame origin. Aligns with network::cors::CheckAccess semantics.
+  // - Non-http(s) URLs: taint if frame_origin is opaque or not same-origin.
+  // - kUnspecified: taint if not same-origin (no-cors cross-origin → opaque);
+  //   opaque frame_origin is always cross-origin with http(s) URLs → taint.
+  // - kAnonymous/kUseCredentials: same-origin → clean; cross-origin → check
+  //   ACAO/ACAC headers per CORS spec (fail-closed if headers missing).
+  //   Opaque frame_origin is NOT short-circuited: it serializes to "null"
+  //   in CheckAccess, so ACAO: null yields clean (aligns with sandboxed
+  //   document handling in the network layer).
+  static bool ResponseTaintsOrigin(MediaCorsMode cors_mode,
+                                   const url::Origin& frame_origin,
+                                   const GURL& response_url,
+                                   const net::HttpResponseHeaders* headers);
 
   // task_runner_-only entry points, invoked via PostTask from
   // MediaSourceDataHandlerImpl. FIFO ordering on the single task_runner_
@@ -94,6 +119,10 @@ class MediaSourceDownloadManager {
     // NotifyRequestWillBeSent / NotifyResponseReceived / NotifyLoadingComplete
     // so the inspector can stitch the request lifecycle together. One per read.
     std::string devtools_request_id;
+    // Redirect chain captured for CORS analysis. Each entry is
+    // (url_before_redirect, response_headers of the redirect response).
+    std::vector<std::pair<GURL, scoped_refptr<net::HttpResponseHeaders>>>
+        redirect_chain;
   };
 
   void StartDownload(int64_t uuid,
@@ -103,6 +132,20 @@ class MediaSourceDownloadManager {
                      const std::map<std::string, std::string>& extra_header);
   void OnDownloadComplete(int64_t uuid,
                           std::unique_ptr<std::string> response_body);
+  void OnRedirect(int64_t uuid,
+                  const GURL& url_before_redirect,
+                  const net::RedirectInfo& redirect_info,
+                  const network::mojom::URLResponseHead& response_head,
+                  std::vector<std::string>* removed_headers);
+  // Analyzes the full response chain (redirect hops + final response) and
+  // returns whether it would taint the frame origin. Pure computation —
+  // no side effects on member state.
+  bool ComputeResponseTaint(const DownloadContext& ctx,
+                            const network::SimpleURLLoader* loader) const;
+  // Aggregates |tainted| into the monotonic any_response_tainted_ and pushes
+  // a fire-and-forget verdict via on_taint_changed_ if the aggregated value
+  // changed since the last push.
+  void MaybePushTaint(bool tainted);
 
   std::map<int64_t, DownloadContext> downloads_;
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
@@ -117,6 +160,17 @@ class MediaSourceDownloadManager {
   // network service attaches same-site page cookies.
   net::SiteForCookies site_for_cookies_;
   url::Origin top_frame_origin_;
+
+  // HLS proxy CORS analysis fields
+  MediaCorsMode cors_mode_ = MediaCorsMode::kUnspecified;
+  url::Origin frame_origin_;
+  base::RepeatingCallback<void(bool tainted)> on_taint_changed_;
+  // Monotonic OR aggregate within a pipeline lifecycle: starts clean, can
+  // only flip to tainted.
+  bool any_response_tainted_ = false;
+  // Last verdict sent to the renderer. Fail-closed initial: true (matches
+  // renderer-side default — a constant-tainted stream sends zero messages).
+  bool last_sent_verdict_ = true;
 
   // Must be the LAST member (Chromium rule): members destruct in reverse
   // declaration order, so this is destroyed first and invalidates all WeakPtrs

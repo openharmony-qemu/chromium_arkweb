@@ -274,7 +274,10 @@ std::unique_ptr<media::Renderer> WebMediaPlayerImplUtils::CreateRendererExtConfi
           impl->media_task_runner_, impl->worker_task_runner_,
           impl->audio_source_provider_.get(), impl->compositor_.get(),
           std::move(request_overlay_info_cb), impl->client_->TargetColorSpace(),
-          impl->GetPlayerId(), impl->media_player_url_params_);
+          impl->GetPlayerId(), impl->media_player_url_params_,
+          base::BindPostTaskToCurrentDefault(base::BindRepeating(
+              &WebMediaPlayerImplExt::OnHlsBrowserTaintChanged,
+              impl->WebMediaPlayerImplExtWeakThis())));
   } else if (impl->should_create_custom_renderer_) {
     impl->media_player_url_params_.SetMediaPlayerUrlType(media::MediaPlayerUrlType::kCustomMediaPlayer);
     auto renderer =
@@ -341,6 +344,13 @@ void WebMediaPlayerImplUtils::GenerateMediaPlayerUrlParams(base::flat_map<std::s
       std::move(impl->frame_->GetDocument().StorageAccessApiStatus()));
   impl->media_player_url_params_.SetPreloadType(impl->initial_preload_);
   impl->media_player_url_params_.SetMediaSourceType(static_cast<uint32_t>(impl->load_type_));
+  // Set frame origin (media element document's origin / fetch initiator) for
+  // HLS proxy CORS analysis. This is distinct from top_frame_origin which is
+  // used for cookie/isolation purposes.
+  url::Origin frame_origin = static_cast<url::Origin>(
+      impl->frame_->GetDocument().GetSecurityOrigin());
+
+  impl->media_player_url_params_.SetFrameOrigin(frame_origin);
 }
 
 // LCOV_EXCL_START

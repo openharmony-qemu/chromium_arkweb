@@ -47,7 +47,8 @@ OHOSMediaPlayerRendererClientFactory::CreateOHOSMediaPlayerRenderer(
     media::RequestOverlayInfoCB request_surface_cb,
     const gfx::ColorSpace& target_color_space,
     int player_id,
-    const media::MediaPlayerUrlParams& params) {
+    const media::MediaPlayerUrlParams& params,
+    media::RendererFactory::MediaTaintChangedCB on_media_taint_changed) {
   mojo::PendingRemote<media::mojom::MediaPlayerRendererClientExtension>
       client_extension_remote;
   auto client_extension_receiver =
@@ -65,7 +66,8 @@ OHOSMediaPlayerRendererClientFactory::CreateOHOSMediaPlayerRenderer(
       media_task_runner, compositor_task_runner_,
       std::move(mojo_renderer),
       std::move(native_texture_wrapper),
-      video_renderer_sink);
+      video_renderer_sink,
+      std::move(on_media_taint_changed));
 }
 
 }  // namespace content

@@ -9,6 +9,7 @@
 #include <map>
 
 #include "arkweb/build/features/features.h"
+#include "arkweb/chromium_ext/media/base/media_player_url_params.h"
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
@@ -75,6 +76,11 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
     virtual DevToolsNetworkEventSink* GetDevToolsNetworkEventSink() {
       return nullptr;
     }
+
+    // Called when the HLS proxy download path has updated the aggregated CORS
+    // taint verdict. `tainted` is true when the media data would taint the
+    // renderer's origin (canvas/WebGL reads must be blocked).
+    virtual void OnProxyDownloadTaintChanged(bool tainted) {}
   };
 
   enum MediaErrorType {
@@ -96,7 +102,9 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
       bool allow_credentials,
       bool is_hls,
       const base::flat_map<std::string, std::string> headers,
-      const std::vector<std::string>& grantMediaFileAccessDirs);
+      const std::vector<std::string>& grantMediaFileAccessDirs,
+      MediaCorsMode cors_mode = MediaCorsMode::kUnspecified,
+      const url::Origin& frame_origin = url::Origin());
   virtual ~OHOSMediaPlayerBridge();
 
   OHOSMediaPlayerBridge(const OHOSMediaPlayerBridge&) = delete;
@@ -179,6 +187,15 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 
   bool ShouldUseProxyDownload() const;
 
+  // Creates the MediaSourceDownloadManager with cors_mode/frame_origin and
+  // taint callback wired in. Called from both Prepare() and
+  // OnCookiesRetrieved() when ShouldUseProxyDownload() is true.
+  void CreateProxyDownloadManager();
+
+  // Forwards the aggregated taint verdict from the download manager to the
+  // client (browser→renderer mojom path). Fire-and-forget, no ACK.
+  void NotifyProxyTaintChanged(bool tainted);
+
 #if BUILDFLAG(ARKWEB_MEDIA)
   uint64_t uv__get_addr_tag(void* addr);
 #endif
@@ -258,6 +275,12 @@ class MEDIA_EXPORT OHOSMediaPlayerBridge {
 
   // Whether user credentials are allowed to be passed.
   bool allow_credentials_;
+
+  // HLS proxy CORS analysis: CORS mode and frame origin (fetch initiator)
+  // passed from the renderer for aggregated taint analysis in the download
+  // manager.
+  MediaCorsMode cors_mode_ = MediaCorsMode::kUnspecified;
+  url::Origin frame_origin_;
 
   int32_t native_window_id_ = -1;
 

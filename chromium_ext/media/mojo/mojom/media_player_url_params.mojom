@@ -13,4 +13,7 @@ struct MediaPlayerUrlParams {
   map<string, string> headers;
   uint32 preload_type;
   uint32 media_source_type;
+  url.mojom.Origin frame_origin;
+  uint32 cors_mode;
+  bool allow_credentials;
 };

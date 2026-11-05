@@ -32,6 +32,15 @@ enum class MediaPlayerUrlType : uint32_t {
   kCustomMediaPlayer,
   kNoMediaPlayer
 };
+
+// CORS mode for the media request, mirrors blink::CorsMode values.
+// Serialized as uint32 over mojo; out-of-range values are clamped to
+// kUnspecified on deserialization (fail-closed).
+enum class MediaCorsMode : uint32_t {
+  kUnspecified = 0,
+  kAnonymous = 1,
+  kUseCredentials = 2,
+};
 // OHOS custom media URL parameters.
 // This class contains all fields that were previously in MediaUrlParams,
 // which was deleted in Chromium 144. It is used to pass media URL information
@@ -118,6 +127,16 @@ class MediaPlayerUrlParams {
   MediaPlayerUrlType GetMediaPlayerUrlType() const { return media_player_type_; }
   void SetMediaPlayerUrlType(MediaPlayerUrlType type) { media_player_type_ = type; }
 
+  // Frame origin (the media element document's origin, i.e. the fetch initiator).
+  // Used for CORS analysis in the HLS proxy download path. Distinct from
+  // top_frame_origin_ which is used for cookie/isolation purposes.
+  const url::Origin& FrameOrigin() const { return frame_origin_; }
+  void SetFrameOrigin(const url::Origin& origin) { frame_origin_ = origin; }
+
+  // CORS mode of the media element (crossorigin attribute).
+  MediaCorsMode CorsMode() const { return cors_mode_; }
+  void SetCorsMode(MediaCorsMode mode) { cors_mode_ = mode; }
+
   // Check if the URL is valid
   bool IsValid() const { return media_url_.is_valid() && !media_url_.is_empty(); }
 
@@ -126,7 +145,7 @@ class MediaPlayerUrlParams {
   net::SiteForCookies site_for_cookies_;
   url::Origin top_frame_origin_;
   net::StorageAccessApiStatus storage_access_api_status_;
-  bool allow_credentials_;
+  bool allow_credentials_ = false;
   bool is_hls_ = true;
   base::flat_map<std::string, std::string> headers_;
 
@@ -134,6 +153,10 @@ class MediaPlayerUrlParams {
   uint32_t preload_type_ = 0;      // Default: none
   uint32_t media_source_type_ = 0;  // Default: URL
   MediaPlayerUrlType media_player_type_ = MediaPlayerUrlType::kNoMediaPlayer;
+
+  // HLS proxy CORS analysis fields
+  url::Origin frame_origin_;
+  MediaCorsMode cors_mode_ = MediaCorsMode::kUnspecified;
 };
 
 }  // namespace media
