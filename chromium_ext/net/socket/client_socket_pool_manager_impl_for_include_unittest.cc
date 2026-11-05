@@ -25,6 +25,7 @@
 
 #include "base/test/task_environment.h"
 #include "net/base/net_errors.h"
+#include "net/base/proxy_chain.h"
 #include "net/socket/client_socket_pool_manager.h"
 #include "net/socket/client_socket_pool_manager_impl.h"
 #include "net/socket/connect_job.h"
@@ -101,6 +102,21 @@ TEST_F(ClientSocketPoolManagerImplExtTest, SetConnectTimeout_PositiveValue) {
   EXPECT_NO_FATAL_FAILURE(manager.SetConnectTimeout(60));
   // Should not crash
 }
+
+// Test SetConnectTimeout with a populated socket pool - exercises the loop
+// body that propagates the timeout to each pool's utils.
+TEST_F(ClientSocketPoolManagerImplExtTest, SetConnectTimeout_WithPools) {
+  auto common_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+  auto websocket_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+
+  ClientSocketPoolManagerImpl manager(*common_params, *websocket_params,
+                                      HttpNetworkSession::NORMAL_SOCKET_POOL);
+  EXPECT_NE(manager.GetSocketPool(ProxyChain::Direct()), nullptr);
+
+  EXPECT_NO_FATAL_FAILURE(manager.SetConnectTimeout(60));
+}
 #endif  // BUILDFLAG(ARKWEB_EXT_NETWORK_CONNECTION)
 
 #if BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
@@ -133,6 +149,22 @@ TEST_F(ClientSocketPoolManagerImplExtTest,
   EXPECT_NO_FATAL_FAILURE(manager.SetConnectJobWithSecureDnsOnlyTimeout(0));
   // Should not crash
 }
+
+// Test SetConnectJobWithSecureDnsOnlyTimeout with a populated socket pool -
+// exercises the loop body propagating the timeout to each pool's utils.
+TEST_F(ClientSocketPoolManagerImplExtTest,
+       SetConnectJobWithSecureDnsOnlyTimeout_WithPools) {
+  auto common_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+  auto websocket_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+
+  ClientSocketPoolManagerImpl manager(*common_params, *websocket_params,
+                                      HttpNetworkSession::NORMAL_SOCKET_POOL);
+  EXPECT_NE(manager.GetSocketPool(ProxyChain::Direct()), nullptr);
+
+  EXPECT_NO_FATAL_FAILURE(manager.SetConnectJobWithSecureDnsOnlyTimeout(5));
+}
 #endif  // BUILDFLAG(ARKWEB_EXT_HTTP_DNS_FALLBACK)
 
 #if BUILDFLAG(ARKWEB_NETWORK_SERVICE)
@@ -162,6 +194,21 @@ TEST_F(ClientSocketPoolManagerImplExtTest, SetSocketIdleTimeout_Zero) {
 
   EXPECT_NO_FATAL_FAILURE(manager.SetSocketIdleTimeout(0));
   // Should not crash
+}
+
+// Test SetSocketIdleTimeout with a populated socket pool - exercises the loop
+// body propagating the timeout to each pool.
+TEST_F(ClientSocketPoolManagerImplExtTest, SetSocketIdleTimeout_WithPools) {
+  auto common_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+  auto websocket_params = std::make_unique<CommonConnectJobParams>(
+      http_network_session_->CreateCommonConnectJobParams());
+
+  ClientSocketPoolManagerImpl manager(*common_params, *websocket_params,
+                                      HttpNetworkSession::NORMAL_SOCKET_POOL);
+  EXPECT_NE(manager.GetSocketPool(ProxyChain::Direct()), nullptr);
+
+  EXPECT_NO_FATAL_FAILURE(manager.SetSocketIdleTimeout(300));
 }
 #endif  // BUILDFLAG(ARKWEB_NETWORK_SERVICE)
 

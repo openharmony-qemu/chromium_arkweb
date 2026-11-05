@@ -416,3 +416,25 @@ TEST_F(ArkWeb_HttpBodyStream_Test, OnInitComplete_WithNullPostDataStream) {
   EXPECT_NE(log_output.find("scheme_handler post_data_stream is nullptr."),
             std::string::npos);
 }
+
+TEST_F(ArkWeb_HttpBodyStream_Test, Read_WithNullBufferValidPostDataStream) {
+  // post_data_stream valid but buffer null -> "read buffer is nullptr."
+  testing::internal::CaptureStderr();
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  auto mock_stream = std::make_shared<MockPostDataStream>();
+  stream->post_data_stream = mock_stream.get();
+  void* null_buffer = nullptr;
+  int64_t buf_len = 10;
+  stream->Read(null_buffer, buf_len);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler read buffer is nullptr."),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_HttpBodyStream_Test, ResetOnIOThread_WithValidPostDataStream) {
+  // Success path: Reset() + Release() invoked without crash.
+  auto stream = std::make_shared<ArkWeb_HttpBodyStream_>(nullptr);
+  auto mock_stream = std::make_shared<MockPostDataStream>();
+  stream->post_data_stream = mock_stream.get();
+  EXPECT_NO_FATAL_FAILURE(stream->ResetOnIOThread());
+}

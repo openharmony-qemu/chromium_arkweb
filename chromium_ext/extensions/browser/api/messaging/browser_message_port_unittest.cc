@@ -4,6 +4,7 @@
 
 #include "arkweb/chromium_ext/extensions/browser/api/messaging/browser_message_port.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,7 +28,7 @@ namespace {
 class TestChannelDelegate : public MessagePort::ChannelDelegate {
 public:
   TestChannelDelegate() = default;
-  ~TestChannelDelegate() = default;
+  virtual ~TestChannelDelegate() = default;  // NOLINT
 
   base::WeakPtr<TestChannelDelegate> GetWeakPtr()
   {
@@ -141,6 +142,104 @@ TEST(BrowserMessagePortTest, TimesOutAndIgnoresLateResponse)
   std::move(response_callback).Run(R"({"appId":"late.browser"})");
   EXPECT_EQ(1u, delegate.posted_messages().size());
   EXPECT_EQ(1, delegate.close_channel_count());
+}
+
+TEST(BrowserMessagePortTest, DropsMessageWhenChannelDelegateDestroyed)
+{
+  base::test::TaskEnvironment task_environment;
+  std::optional<TestChannelDelegate> delegate = std::make_optional<TestChannelDelegate>();
+  const PortId port_id = CreateTestPortId();
+  BrowserMessagePort port(
+    delegate->GetWeakPtr(), port_id, "test_extension",
+    base::BindRepeating(
+      [](const ExtensionId &, const std::string &,
+         BrowserMessagePort::BrowserMessageResponseCallback) {}));
+
+  // Destroy the delegate so the weak pointer becomes invalid. The message must
+  // be dropped and the handler must not be invoked.
+  delegate.reset();
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo"})", mojom::SerializationFormat::kJson, false));
+
+  EXPECT_TRUE(port.IsValidPort());
+}
+
+TEST(BrowserMessagePortTest, DropsSecondMessageWhileResponsePending)
+{
+  base::test::TaskEnvironment task_environment;
+  TestChannelDelegate delegate;
+  const PortId port_id = CreateTestPortId();
+  BrowserMessagePort::BrowserMessageResponseCallback response_callback;
+  int handler_call_count = 0;
+  BrowserMessagePort port(
+    delegate.GetWeakPtr(), port_id, "test_extension",
+    base::BindRepeating(
+      [](BrowserMessagePort::BrowserMessageResponseCallback *saved_callback, int *call_count, const ExtensionId &,
+         const std::string &,
+         BrowserMessagePort::BrowserMessageResponseCallback callback) {
+        ++(*call_count);
+        *saved_callback = std::move(callback);
+      },
+      &response_callback, &handler_call_count));
+
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo"})", mojom::SerializationFormat::kJson, false));
+  // Second message while the first response is still pending: must be dropped.
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo2"})", mojom::SerializationFormat::kJson, false));
+
+  EXPECT_EQ(1, handler_call_count);
+  EXPECT_TRUE(delegate.posted_messages().empty());
+  EXPECT_EQ(0, delegate.close_channel_count());
+
+  std::move(response_callback).Run(R"({"appId":"test.browser"})");
+  ASSERT_EQ(1u, delegate.posted_messages().size());
+  EXPECT_EQ(R"({"appId":"test.browser"})", delegate.posted_messages()[0].data());
+  EXPECT_EQ(1, delegate.close_channel_count());
+}
+
+TEST(BrowserMessagePortTest, IgnoresResponseWhenNotPending)
+{
+  base::test::TaskEnvironment task_environment;
+  TestChannelDelegate delegate;
+  const PortId port_id = CreateTestPortId();
+  BrowserMessagePort::BrowserMessageResponseCallback response_callback;
+  BrowserMessagePort port(
+    delegate.GetWeakPtr(), port_id, "test_extension",
+    base::BindRepeating(
+      [](BrowserMessagePort::BrowserMessageResponseCallback *saved_callback, const ExtensionId &,
+         const std::string &,
+         BrowserMessagePort::BrowserMessageResponseCallback callback) { *saved_callback = std::move(callback); },
+      &response_callback));
+
+  // Deliver the response without any pending request. It must be dropped, and
+  // no message must be posted to the channel delegate.
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo"})", mojom::SerializationFormat::kJson, false));
+  std::move(response_callback).Run(R"({"appId":"test.browser"})");
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo2"})", mojom::SerializationFormat::kJson, false));
+  std::move(response_callback).Run(R"({"appId":"late2"})");
+
+  ASSERT_EQ(1u, delegate.posted_messages().size());
+  EXPECT_EQ(R"({"appId":"test.browser"})", delegate.posted_messages()[0].data());
+}
+
+TEST(BrowserMessagePortTest, CompletesWithoutPostingWhenDelegateDestroyed)
+{
+  base::test::TaskEnvironment task_environment;
+  std::optional<TestChannelDelegate> delegate = std::make_optional<TestChannelDelegate>();
+  const PortId port_id = CreateTestPortId();
+  BrowserMessagePort::BrowserMessageResponseCallback response_callback;
+  BrowserMessagePort port(
+    delegate->GetWeakPtr(), port_id, "test_extension",
+    base::BindRepeating(
+      [](BrowserMessagePort::BrowserMessageResponseCallback *saved_callback, const ExtensionId &,
+         const std::string &,
+         BrowserMessagePort::BrowserMessageResponseCallback callback) { *saved_callback = std::move(callback); },
+      &response_callback));
+
+  port.DispatchOnMessage(Message(R"({"id":"getAppInfo"})", mojom::SerializationFormat::kJson, false));
+
+  // Destroy the delegate, then deliver the response. Complete() runs with an
+  // invalid weak pointer and must not post or close anything.
+  delegate.reset();
+  std::move(response_callback).Run(R"({"appId":"test.browser"})");
 }
 
 }  // namespace extensions

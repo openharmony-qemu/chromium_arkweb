@@ -16,19 +16,98 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+// The arkweb mock adapter MUST be included before ohos_keystore.h (pulled in
+// transitively by ohos_crypto.cc): the mock header and the third_party NDK
+// ohos_adapter_helper.h share the same include guard (OHOS_ADAPTER_HELPER_H).
+// clang-format off
+#include "arkweb/build/features/features.h"  // nogncheck
+#include "arkweb/ohos_adapter_ndk/interfaces/mock/mock_ohos_adapter_helper.h"
+// clang-format on
+
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/lazy_instance.h"
+#include "base/path_service.h"
+#include "base/test/scoped_path_override.h"
+
 #define private public
 #include "ohos_crypto.cc"
 #undef private
 #include "ohos_keystore.h"
 
+using ::testing::_;
+using ::testing::Return;
+using ::testing::ReturnRef;
+
 namespace crypto {
 namespace ohos {
+
+// Replicate the keystore directory name from ohos_keystore.cc's anonymous
+// namespace for file-system assertions in TearDown.
+constexpr base::FilePath::CharType kNWebKeyStoreDir[] =
+    FILE_PATH_LITERAL("nwebks");
+
+class MockKeystoreAdapter : public OHOS::NWeb::KeystoreAdapter {
+ public:
+  MOCK_METHOD(std::string,
+              EncryptKey,
+              (const std::string alias, const std::string plainData),
+              (override));
+  MOCK_METHOD(std::string,
+              DecryptKey,
+              (const std::string alis, const std::string encryptedData),
+              (override));
+  MOCK_METHOD(std::string,
+              AssetQuery,
+              (const std::string assetHandle),
+              (override));
+};
+
 class KeyCacheTest : public ::testing::Test {
  protected:
-  void SetUp() { key_cache_ = std::make_shared<KeyCache>(); }
-  void TearDown() { key_cache_.reset(); }
+  void SetUp() {
+    key_cache_ = std::make_shared<KeyCache>();
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    // Force GetPath() to resolve DIR_USER_DATA to the temp dir.
+    path_override_ = std::make_unique<base::ScopedPathOverride>(
+        base::DIR_USER_DATA, temp_dir_.GetPath());
+    helper_ = std::make_unique<OHOS::NWeb::MockOhosAdapterHelper>();
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(helper_.get());
+    ON_CALL(*helper_, GetKeystoreAdapterInstance())
+        .WillByDefault(ReturnRef(keystore_));
+    // Make GetKey/GetKeyForOta return a non-empty key deterministically so
+    // the adapter-dependent branches in _generate_key / _generate_key_for_ota
+    // are exercised instead of relying on the on-device keystore service.
+    // EncryptKey/DecryptKey must behave like a round-trip (identity) so that a
+    // key written by GetKey's encrypt path is returned unchanged by the
+    // subsequent decrypt path: GetKey generates local_key, writes
+    // EncryptKey(local_key) to the key file and returns local_key, while the
+    // next call reads the file and returns DecryptKey(file_content). With a
+    // fixed 'K'-string mock these two differ and repeated-call tests fail.
+    ON_CALL(keystore_, EncryptKey(_, _))
+        .WillByDefault([](const std::string&, const std::string& plainData) {
+          return plainData;
+        });
+    ON_CALL(keystore_, DecryptKey(_, _))
+        .WillByDefault(
+            [](const std::string&, const std::string& encryptedData) {
+              return encryptedData;
+            });
+  }
+  void TearDown() {
+    OHOS::NWeb::OhosAdapterHelper::SetInstance(nullptr);
+    path_override_.reset();
+    if (base::PathExists(temp_dir_.GetPath().Append(kNWebKeyStoreDir))) {
+      base::DeletePathRecursively(temp_dir_.GetPath().Append(kNWebKeyStoreDir));
+    }
+    key_cache_.reset();
+  }
   std::shared_ptr<KeyCache> key_cache_ = nullptr;
+  base::ScopedTempDir temp_dir_;
+  std::unique_ptr<base::ScopedPathOverride> path_override_;
+  std::unique_ptr<OHOS::NWeb::MockOhosAdapterHelper> helper_;
+  MockKeystoreAdapter keystore_;
 };
 
 TEST_F(KeyCacheTest, get_key) {
@@ -134,6 +213,17 @@ TEST_F(KeyCacheTest, get_random_success) {
 
 TEST_F(KeyCacheTest, generate_key_for_ota) {
   std::string key_name = "name";
+  // _generate_key_for_ota calls GetKeyForOta(_hex_repr(SHA256(key_name))).
+  // Pre-create the key file under the mocked DIR_USER_DATA so GetKeyForOta
+  // returns a non-empty re-encrypted key instead of short-circuiting on a
+  // missing key dir.
+  std::string digest = crypto::SHA256HashString(key_name);
+  std::string alias = _hex_repr(digest);
+  base::FilePath key_dir = temp_dir_.GetPath().Append(kNWebKeyStoreDir);
+  ASSERT_TRUE(base::CreateDirectory(key_dir));
+  ASSERT_TRUE(
+      base::WriteFile(key_dir.AppendASCII(alias), std::string(32, '\x55')));
+
   auto result = _generate_key_for_ota(key_name);
   EXPECT_FALSE(result.empty());
 }

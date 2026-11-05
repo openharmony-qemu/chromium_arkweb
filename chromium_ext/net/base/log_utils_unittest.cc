@@ -118,4 +118,12 @@ TEST(LogUtilsTest, AnonymizeIpv4LargeOctets) {
   EXPECT_EQ(result, "100.200.**");
 }
 
+TEST(LogUtilsTest, AnonymizeEmptyAddress) {
+  // Default-constructed IPAddress is neither IPv4 nor IPv6; no masking occurs.
+  IPAddress ip_addr;
+  IPEndPoint endpoint(ip_addr, 0);
+  std::string result = LogUtils::AnonymizeIpAddress(endpoint);
+  EXPECT_TRUE(result.empty());
+}
+
 }  // namespace net

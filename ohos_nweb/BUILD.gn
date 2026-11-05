@@ -856,6 +856,7 @@ source_set("unittests") {
     "src/cef_delegate/nweb_extension_search_cef_delegate_unittest.cc",
     "src/cef_delegate/nweb_extension_sessions_handler_delegate_unittest.cc",
     "src/cef_delegate/nweb_extension_tab_groups_cef_delegate_unittest.cc",
+    "src/download/web_downloader_unittest.cc",
   ]
 
   if (defined(arkweb_arkweb_extensions) && arkweb_arkweb_extensions) {

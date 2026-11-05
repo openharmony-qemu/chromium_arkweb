@@ -101,7 +101,7 @@ CssPattern::UrlInfo::~UrlInfo() = default;
 CssPattern::CssPattern() = default;
 
 CssPattern::CssPattern(const flat::CssRule& rule)
-    : match_case_(rule.options() & flat::OptionFlag_IS_MATCH_CASE
+    : match_case_(rule.options() & flat::CssOptionFlag_IS_CASE_INSENSITIVE
                       ? MatchCase::kFalse
                       : MatchCase::kTrue) {}
 

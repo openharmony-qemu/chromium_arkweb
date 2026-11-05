@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 
 #include "gtest/gtest.h"
+#include "ohos_nweb/src/ndk/scheme_handler/error_info.h"
 #include "ohos_nweb/src/ndk/scheme_handler/mock_objects.h"
 
 using namespace testing;
@@ -324,4 +325,69 @@ TEST_F(ArkWeb_Response_Test, SetHeaderByName_NoOverwrite) {
   ASSERT_NE(value, nullptr);
   EXPECT_STREQ(value, "value1");
   free(value);
+}
+
+// ===== SetErrorInfo / SetCustomErrorCode / GetCustomErrorCode branches =====
+
+TEST_F(ArkWeb_Response_Test, SetErrorInfo_WithNullErrorInfo) {
+  testing::internal::CaptureStderr();
+  ArkWeb_ErrorInfo* null_error_info = nullptr;
+  _awrt->SetErrorInfo(null_error_info);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler errorInfo is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_Response_Test, SetErrorInfo_CreatesNewErrorInfo) {
+  // error_info_ is empty before call; SetErrorInfo should create one.
+  EXPECT_EQ(_awrt->GetErrorInfo(), nullptr);
+  ArkWeb_ErrorInfo_ error_info;
+  error_info.SetCompleteIfNoResponse(true);
+  error_info.SetCustomErrorCode(1001);
+  error_info.SetErrorCode(ARKWEB_ERR_NAME_NOT_RESOLVED);
+  _awrt->SetErrorInfo(&error_info);
+  ASSERT_NE(_awrt->GetErrorInfo(), nullptr);
+  EXPECT_EQ(_awrt->GetErrorInfo()->GetCompleteIfNoResponse(), true);
+  EXPECT_EQ(_awrt->GetErrorInfo()->GetCustomErrorCode(), 1001);
+  EXPECT_EQ(_awrt->GetErrorInfo()->GetErrorCode(),
+            ARKWEB_ERR_NAME_NOT_RESOLVED);
+  EXPECT_EQ(_awrt->GetCustomErrorCode(), 1001);
+}
+
+TEST_F(ArkWeb_Response_Test, SetErrorInfo_ReusesExistingErrorInfo) {
+  ArkWeb_ErrorInfo_ first;
+  first.SetCustomErrorCode(1);
+  _awrt->SetErrorInfo(&first);
+  ArkWeb_ErrorInfo* created = _awrt->GetErrorInfo();
+  ASSERT_NE(created, nullptr);
+
+  ArkWeb_ErrorInfo_ second;
+  second.SetCustomErrorCode(2);
+  _awrt->SetErrorInfo(&second);
+  // Same instance is reused (not a fresh allocation).
+  EXPECT_EQ(_awrt->GetErrorInfo(), created);
+  EXPECT_EQ(_awrt->GetCustomErrorCode(), 2);
+}
+
+TEST_F(ArkWeb_Response_Test, SetCustomErrorCode_WithNullCefResponse) {
+  testing::internal::CaptureStderr();
+  auto response = std::make_shared<ArkWeb_Response_>();
+  response->cef_response = nullptr;
+  response->SetCustomErrorCode(100);
+  std::string log_output = testing::internal::GetCapturedStderr();
+  EXPECT_NE(log_output.find("scheme_handler response is nullptr"),
+            std::string::npos);
+}
+
+TEST_F(ArkWeb_Response_Test, SetCustomErrorCode_CreatesNewErrorInfo) {
+  EXPECT_EQ(_awrt->GetCustomErrorCode(), 0);
+  _awrt->SetCustomErrorCode(200);
+  ASSERT_NE(_awrt->GetErrorInfo(), nullptr);
+  EXPECT_EQ(_awrt->GetCustomErrorCode(), 200);
+}
+
+TEST_F(ArkWeb_Response_Test, GetCustomErrorCode_WithNullErrorInfo) {
+  auto response = std::make_shared<ArkWeb_Response_>();
+  EXPECT_EQ(response->GetErrorInfo(), nullptr);
+  EXPECT_EQ(response->GetCustomErrorCode(), 0);
 }

@@ -111,3 +111,84 @@ TEST_F(NetworkContextTest, TesExtIsStrictLogModeIP003) {
   ASSERT_TRUE(result);
 }
 #endif  // ARKWEB_LOGGER_REPORT
+
+#if BUILDFLAG(ARKWEB_MEDIA)
+TEST_F(NetworkContextTest, TesExtLookupServerBasicAuthCredentials001) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  GURL url("http://example.com/");
+  url::SchemeHostPort scheme_host_port(url);
+  net::HttpAuthCache* cache = network_context->url_request_context()
+                                  ->http_transaction_factory()
+                                  ->GetSession()
+                                  ->http_auth_cache();
+  std::u16string user = u"user";
+  std::u16string password = u"pass";
+  cache->Add(scheme_host_port, net::HttpAuth::AUTH_SERVER, "Realm1",
+             net::HttpAuth::AUTH_SCHEME_BASIC, net::NetworkAnonymizationKey(),
+             "basic realm=Realm1", net::AuthCredentials(user, password), "/");
+
+  base::RunLoop run_loop;
+  std::optional<net::AuthCredentials> result;
+  network_context->LookupServerBasicAuthCredentials(
+      url, net::NetworkAnonymizationKey(),
+      base::BindLambdaForTesting(
+          [&](const std::optional<net::AuthCredentials>& credentials) {
+            result = credentials;
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->username(), user);
+  EXPECT_EQ(result->password(), password);
+}
+
+TEST_F(NetworkContextTest, TesExtLookupServerBasicAuthCredentials002) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  GURL url("http://example.com/");
+
+  base::RunLoop run_loop;
+  std::optional<net::AuthCredentials> result;
+  network_context->LookupServerBasicAuthCredentials(
+      url, net::NetworkAnonymizationKey(),
+      base::BindLambdaForTesting(
+          [&](const std::optional<net::AuthCredentials>& credentials) {
+            result = credentials;
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+  // No matching entry -> nullopt.
+  ASSERT_FALSE(result.has_value());
+}
+
+TEST_F(NetworkContextTest, TesExtLookupServerBasicAuthCredentials003) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  GURL url("http://example.com/");
+  url::SchemeHostPort scheme_host_port(url);
+  net::HttpAuthCache* cache = network_context->url_request_context()
+                                  ->http_transaction_factory()
+                                  ->GetSession()
+                                  ->http_auth_cache();
+  std::u16string user = u"user";
+  std::u16string password = u"pass";
+  // Entry with non-basic scheme -> LookupServerBasicAuthCredentials returns
+  // nullopt even though the entry matches.
+  cache->Add(scheme_host_port, net::HttpAuth::AUTH_SERVER, "Realm1",
+             net::HttpAuth::AUTH_SCHEME_DIGEST, net::NetworkAnonymizationKey(),
+             "digest realm=Realm1", net::AuthCredentials(user, password), "/");
+
+  base::RunLoop run_loop;
+  std::optional<net::AuthCredentials> result;
+  network_context->LookupServerBasicAuthCredentials(
+      url, net::NetworkAnonymizationKey(),
+      base::BindLambdaForTesting(
+          [&](const std::optional<net::AuthCredentials>& credentials) {
+            result = credentials;
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+  ASSERT_FALSE(result.has_value());
+}
+#endif  // ARKWEB_MEDIA

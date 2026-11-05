@@ -14,15 +14,12 @@
  */
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <ranges>
 #define private public
 #include "components/download/public/common/download_item_impl.h"
 #undef private
-#include "build/build_config.h"
-#include "build/buildflag.h"
-
 #include "arkweb/chromium_ext/components/download/internal/common/arkweb_download_item_impl_ext.h"
-
 #include "components/download/public/common/download_file_impl.h"
 #include "arkweb/chromium_ext/components/download/public/common/arkweb_download_file_impl_ext.h"
 #include "arkweb/chromium_ext/content/public/common/content_switches_ext.h"
@@ -30,6 +27,8 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback_forward.h"
 #include "base/test/task_environment.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "components/download/public/common/download_item_impl_delegate.h"
 #include "components/download/public/common/download_item_rename_handler.h"
 #include "components/download/public/common/download_task_runner.h"
@@ -46,7 +45,8 @@ class ArkWebDownloadItemImplExtTest : public ::testing::Test {
     DownloadJob::CancelRequestCallback callback = base::BindOnce(
         [](bool cancel_value, std::optional<std::string> optional_str) {});
     download_item_ = std::make_unique<ArkWebDownloadItemImplExt>(
-        delegate_.get(), 0, base::FilePath(), base::FilePath(), GURL(), "", std::move(callback));
+        delegate_.get(), 0, base::FilePath(), base::FilePath(), GURL(), "",
+        std::move(callback));
     base::CommandLine::Init(0, nullptr);
     original_command_line_ =
         base::CommandLine::ForCurrentProcess()->GetCommandLineString();
@@ -168,6 +168,7 @@ class ArkWebDownloadItemImplExtTest : public ::testing::Test {
     download_item_->total_bytes_ = 1;
     download_item_->destination_info_.received_bytes = 1;
   }
+
  protected:
   std::string original_command_line_;
   std::unique_ptr<MockDelegate> delegate_;
@@ -548,6 +549,12 @@ TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_002) {
   RunCallbackIfStateMatch();
   EXPECT_EQ(0u, task_environment_.GetPendingMainThreadTaskCount());
   EXPECT_FALSE(callback_called);
+  // Clear the callback before destruction so ~ArkWebDownloadItemImplExt ->
+  // RunCallbackIfExistsCallback does not post an async task to the download
+  // task runner (which would outlive this test and dereference the destroyed
+  // download file).
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_003) {
@@ -559,6 +566,12 @@ TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_003) {
   RunCallbackIfStateMatch();
   EXPECT_EQ(0u, task_environment_.GetPendingMainThreadTaskCount());
   EXPECT_FALSE(callback_called);
+  // Clear the callback before destruction so ~ArkWebDownloadItemImplExt ->
+  // RunCallbackIfExistsCallback does not post an async task to the download
+  // task runner (which would outlive this test and dereference the destroyed
+  // download file).
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_004) {
@@ -586,6 +599,11 @@ TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_004) {
   task_environment_.RunUntilIdle();
   EXPECT_EQ(1, read_data_callback_called_count);
   EXPECT_TRUE(callback_called);
+  // The callback is consumed in-test, but clear it anyway so the destructor
+  // never posts a task to the download task runner with a dangling
+  // download_file_ pointer.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_005) {
@@ -623,6 +641,10 @@ TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfStateMatch_008) {
   RunCallbackIfStateMatch();
   EXPECT_EQ(0u, task_environment_.GetPendingMainThreadTaskCount());
   EXPECT_FALSE(callback_called);
+  // Clear the callback so that the destructor does not run the dangling
+  // lambda which captures the stack variable |callback_called|.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, RunCallbackIfExistsCallback_001) {
@@ -721,6 +743,12 @@ TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_001) {
   EXPECT_FALSE(new_callback_called);
   EXPECT_FALSE(existing_callback_called);
   EXPECT_TRUE(IsReadDownload());
+  // The pre-existing callback is kept because ReadDownloadData early-returns
+  // when a callback already exists; clear it so that the destructor does not
+  // run the dangling lambda which captures the stack variable
+  // |existing_callback_called|.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_002) {
@@ -777,6 +805,10 @@ TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_003) {
   download_item_->ReadDownloadData("test_guid", 1024, std::move(callback));
   task_environment_.RunUntilIdle();
   EXPECT_EQ(1, read_data_callback_called_count);
+  // Clear the UI callback so the destructor never posts a task to the download
+  // task runner with a dangling download_file_ pointer.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_004) {
@@ -810,12 +842,17 @@ TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_004) {
   task_environment_.RunUntilIdle();
   EXPECT_EQ(1, read_and_run_callback_called_count);
   EXPECT_FALSE(callback_called);
+  // The mock never consumed the UI callback; clear it so the destructor does
+  // not run the dangling lambda (captures stack vars) through
+  // RunCallbackIfExistsCallback.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_005) {
   SetReadDownloadCallback(
-    base::OnceCallback<void(const std::vector<uint8_t>&)>());
-bool new_callback_called = false;
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
+  bool new_callback_called = false;
   base::OnceCallback<void(const std::vector<uint8_t>&)> new_callback =
       base::BindOnce([](bool* called,
                         const std::vector<uint8_t>& data) { *called = true; },
@@ -859,6 +896,10 @@ TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_006) {
   download_item_->ReadDownloadData("test_guid", 1024, std::move(callback));
   task_environment_.RunUntilIdle();
   EXPECT_EQ(1, read_data_callback_called_count);
+  // Clear the UI callback so the destructor never posts a task to the download
+  // task runner with a dangling download_file_ pointer.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
 }
 
 TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_007) {
@@ -896,5 +937,112 @@ TEST_F(ArkWebDownloadItemImplExtTest, ReadDownloadData_007) {
   download_item_->ReadDownloadData("test_guid", 1024, std::move(callback));
   task_environment_.RunUntilIdle();
   EXPECT_EQ(1, read_data_callback_called_count);
+  // Clear the UI callback so the destructor never posts a task to the download
+  // task runner with a dangling download_file_ pointer.
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, GetRequestMethod_001) {
+  download_item_->request_method_ = "GET";
+  EXPECT_EQ(download_item_->GetRequestMethod(), "GET");
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, GetRequestMethod_002) {
+  download_item_->request_method_ = "POST";
+  EXPECT_EQ(download_item_->GetRequestMethod(), "POST");
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, UpdateFullPath_001) {
+  base::FilePath new_path(FILE_PATH_LITERAL("/data/test/download.bin"));
+  download_item_->UpdateFullPath(new_path);
+  EXPECT_EQ(download_item_->destination_info_.current_path, new_path);
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, UpdateFullPathOverWriteState_001) {
+  download_item_->UpdateFullPathOverWriteState(true);
+  EXPECT_TRUE(download_item_->IsFullPathOverWrite());
+  download_item_->UpdateFullPathOverWriteState(false);
+  EXPECT_FALSE(download_item_->IsFullPathOverWrite());
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, SetByExtensionId_001) {
+  download_item_->SetByExtensionId("ext_id_1");
+  EXPECT_EQ(download_item_->GetByExtensionId(), "ext_id_1");
+  download_item_->SetByExtensionId("");
+  EXPECT_EQ(download_item_->GetByExtensionId(), "");
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, SetByExtensionName_001) {
+  download_item_->SetByExtensionName("ext_name_1");
+  EXPECT_EQ(download_item_->GetByExtensionName(), "ext_name_1");
+  download_item_->SetByExtensionName("");
+  EXPECT_EQ(download_item_->GetByExtensionName(), "");
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, SetConflictAction_001) {
+  download_item_->SetConflictAction(1);
+  EXPECT_EQ(download_item_->GetConflictAction(), 1);
+  download_item_->SetConflictAction(0);
+  EXPECT_EQ(download_item_->GetConflictAction(), 0);
+}
+
+TEST_F(ArkWebDownloadItemImplExtTest, SetContextType_001) {
+  download_item_->SetContextType("browser");
+  EXPECT_EQ(download_item_->GetContextType(), "browser");
+  download_item_->SetContextType("");
+  EXPECT_EQ(download_item_->GetContextType(), "");
+}
+
+// Cancel with a COMPLETE state short-circuits in InterruptWithPartialState;
+// the ext Cancel then invokes ReadDataFromDownloadFileDone with empty data.
+TEST_F(ArkWebDownloadItemImplExtTest, Cancel_CompleteState) {
+  bool callback_called = false;
+  SetReadDownloadCallback(base::BindOnce(
+      [](bool* called, const std::vector<uint8_t>& data) { *called = true; },
+      &callback_called));
+  SetState(DownloadItemImpl::COMPLETE_INTERNAL);
+  download_item_->Cancel(true);
+  EXPECT_TRUE(callback_called);
+  EXPECT_FALSE(IsReadDownload());
+}
+
+// Cancel with no pending callback returns early in
+// ReadDataFromDownloadFileDone.
+TEST_F(ArkWebDownloadItemImplExtTest, Cancel_NoCallback) {
+  SetReadDownloadCallback(
+      base::OnceCallback<void(const std::vector<uint8_t>&)>());
+  SetState(DownloadItemImpl::COMPLETE_INTERNAL);
+  download_item_->Cancel(false);
+  EXPECT_FALSE(IsReadDownload());
+}
+
+// AutoResume in a non-interrupted state: ResumeInterruptedDownload returns
+// early, so only auto_resume_count_++ and the resume call are exercised.
+TEST_F(ArkWebDownloadItemImplExtTest, AutoResume_NonInterrupted) {
+  SetState(DownloadItemImpl::IN_PROGRESS_INTERNAL);
+  EXPECT_CALL(*delegate_, ResumeInterruptedDownload(testing::_, testing::_))
+      .Times(0);
+  int32_t before = download_item_->auto_resume_count_;
+  download_item_->AutoResume();
+  EXPECT_EQ(download_item_->auto_resume_count_, before + 1);
+}
+
+// Destructor runs RunCallbackIfExistsCallback; with a pending callback and no
+// download file it flushes an empty vector through the callback.
+TEST_F(ArkWebDownloadItemImplExtTest, Destructor_RunsCallbackIfExists) {
+  bool callback_called = false;
+  std::vector<uint8_t> received_data;
+  SetReadDownloadCallback(base::BindOnce(
+      [](bool* called, std::vector<uint8_t>* data,
+         const std::vector<uint8_t>& result) {
+        *called = true;
+        *data = result;
+      },
+      &callback_called, &received_data));
+  SetState(DownloadItemImpl::COMPLETE_INTERNAL);
+  download_item_.reset();
+  EXPECT_TRUE(callback_called);
+  EXPECT_TRUE(received_data.empty());
 }
 }  // namespace download

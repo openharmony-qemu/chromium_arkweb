@@ -89,6 +89,7 @@ arkweb_services_network_unittest_sources = [
   "//arkweb/chromium_ext/services/network/network_service_proxy_delegate_for_include_unittest.cc",
   "//arkweb/chromium_ext/services/network/throttling/throttling_network_transaction_for_include_unittest.cc",
   "//arkweb/chromium_ext/services/network/url_loader_factory_utils_unittest.cc",
+  "//arkweb/chromium_ext/services/network/tests/url_loader_utils_unittest.cc",
 ]
 
 arkweb_power_save_blocker_source = [ "//arkweb/chromium_ext/service/device/wake_lock/power_save_blocker/power_save_blocker_ohos.cc" ]
@@ -404,6 +405,14 @@ arkweb_net_proxy_resolution_sources = [
   "//arkweb/chromium_ext/net/proxy_resolution/fallback_proxy_config.h",
   "//arkweb/chromium_ext/net/proxy_resolution/proxy_config_service_ohos.cc",
   "//arkweb/chromium_ext/net/proxy_resolution/proxy_config_service_ohos.h",
+]
+
+arkweb_net_proxy_resolution_unittest_sources = [
+  "//arkweb/chromium_ext/net/proxy_resolution/fallback_proxy_config_unittest.cc",
+]
+
+arkweb_net_http_unittest_sources = [
+  "//arkweb/chromium_ext/net/http/arkweb_http_util_unittest.cc",
 ]
 
 arkweb_net_cert_sources = [
@@ -857,6 +866,7 @@ arkweb_third_party_blink_renderer_core_paint_night_mode_sources = [
 ]
 
 arkweb_base_unittest_sources = [
+  "//arkweb/chromium_ext/base/arkweb_report_statistics_unittest.cc",
   "//arkweb/chromium_ext/base/base_paths_ohos_unittest.cc",
   "//arkweb/chromium_ext/base/datashare_uri_utils_unittest.cc",
   "//arkweb/chromium_ext/base/feature_list_utils_unittest.cc",
@@ -1568,6 +1578,8 @@ arkweb_content_browser_unittests_sources = [
   "//arkweb/chromium_ext/content/browser/devtools/protocol/browser_handler_unittest.cc",
   "//arkweb/chromium_ext/content/browser/devtools/protocol/emulation_handler_unittest.cc",
   "//arkweb/chromium_ext/content/browser/devtools/protocol/log_handler_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/permissions/permission_controller_impl_ext_unittest.cc",
+  "//arkweb/chromium_ext/content/browser/permissions/permission_controller_impl_grant_delegate_unittest.cc",
 ]
 
 arkweb_components_page_load_metrics_browser_sources = [ "//arkweb/chromium_ext/components/page_load_metrics/browser/ark_web_page_load_metrics_forward_observer.cc" ]
