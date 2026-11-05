@@ -24,6 +24,10 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+#include "arkweb/chromium_ext/base/ohos/sys_info_utils_ext.h"
+#endif
+
 using ::testing::_;
 using ::testing::Return;
 
@@ -59,6 +63,40 @@ class MediaSessionImplForIncludeTest : public RenderViewHostTestHarness {
 };
 
 #if BUILDFLAG(ARKWEB_MEDIA_POLICY)
+TEST_F(MediaSessionImplForIncludeTest, SuspendWebAudioPlayersIncludesAmbient) {
+  MockMediaSessionPlayerObserver ambient(main_rfh(),
+                                       media::MediaContentType::kAmbient);
+  const int ambient_id = ambient.StartNewPlayer();
+  ASSERT_TRUE(media_session_->AddPlayer(&ambient, ambient_id));
+
+  // A normal MediaSession suspend intentionally excludes ambient players.
+  media_session_->Suspend(MediaSession::SuspendType::kSystem);
+  EXPECT_EQ(ambient.received_suspend_calls(), 0);
+
+  media_session_->SuspendWebAudioPlayers();
+  EXPECT_EQ(ambient.received_suspend_calls(), base::ohos::IsPcDevice() ? 1 : 0);
+  EXPECT_EQ(ambient.IsPlaying(ambient_id), !base::ohos::IsPcDevice());
+  media_session_->RemovePlayer(&ambient, ambient_id);
+}
+
+TEST_F(MediaSessionImplForIncludeTest,
+       SuspendWebAudioPlayersDoesNotSuspendNormalPlayersTwice) {
+  const int normal_id = player_observer_->StartNewPlayer();
+  ASSERT_TRUE(media_session_->AddPlayer(player_observer_.get(), normal_id));
+  MockMediaSessionPlayerObserver ambient(main_rfh(),
+                                       media::MediaContentType::kAmbient);
+  const int ambient_id = ambient.StartNewPlayer();
+  ASSERT_TRUE(media_session_->AddPlayer(&ambient, ambient_id));
+
+  media_session_->Suspend(MediaSession::SuspendType::kSystem);
+  media_session_->SuspendWebAudioPlayers();
+  EXPECT_EQ(player_observer_->received_suspend_calls(), 1);
+  EXPECT_EQ(ambient.received_suspend_calls(), base::ohos::IsPcDevice() ? 1 : 0);
+
+  media_session_->RemovePlayer(&ambient, ambient_id);
+  media_session_->RemovePlayer(player_observer_.get(), normal_id);
+}
+
 TEST_F(MediaSessionImplForIncludeTest, NWebGetState1) {
   EXPECT_EQ(media_session_->NWebGetState(),
             MediaSessionImpl::NWebPlaybackState::NONE);

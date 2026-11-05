@@ -197,6 +197,16 @@ void OHOSAudioOutputStream::OnInterruptStop() {
     return;
   }
 
+  // WebAudio is an ambient MediaSession player. A normal session suspend does
+  // not notify it, so explicitly pause its destination instead of reporting a
+  // render error (which can cause a page-driven resume/error loop).
+  if (base::ohos::IsPcDevice() && !isCommunication_ &&
+      parameters_.latency_tag() == AudioLatency::Type::kInteractive) {
+    LOG(INFO) << "[PC_AUDIO_CONTEXT_SUSPEND] OnSuspendInternal";
+    OnSuspendInternal(/*suspend_web_audio=*/true);
+    return;
+  }
+
   OnSuspend();
 }
 
@@ -215,6 +225,10 @@ bool OHOSAudioOutputStream::ShouldHandleInterruptStopAsRenderError() const {
 
 // LCOV_EXCL_START
 void OHOSAudioOutputStream::OnSuspend() {
+  OnSuspendInternal(/*suspend_web_audio=*/false);
+}
+
+void OHOSAudioOutputStream::OnSuspendInternal(bool suspend_web_audio) {
   if (isDestroyed_.load()) {
     LOG(INFO) << "OHOSAudioOutputStream::OnSuspend during destroyed";
     return;
@@ -239,7 +253,11 @@ void OHOSAudioOutputStream::OnSuspend() {
       return;
     }
     main_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&OHOSAudioFocusController::OnSuspend, parameters));
+        FROM_HERE,
+        base::BindOnce(suspend_web_audio
+                           ? &OHOSAudioFocusController::OnSuspendWebAudio
+                           : &OHOSAudioFocusController::OnSuspend,
+                       parameters));
     isSuspended_ = true;
     // After stopping playback, it is necessary to continue obtaining audio
     // data, which will trigger the pause action of the render process.
