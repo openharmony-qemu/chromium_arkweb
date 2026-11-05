@@ -347,4 +347,158 @@ TEST_F(NativeScrollerOhosPropertyTest,
 
   configuration->set_virtual_pixel_ratio(original_pixel_ratio);
 }
+// Branch coverage: line 54 true (kTouchpad), line 62 false (friction="0"),
+// line 69 false (high velocity), line 83 true (pixel_ratio=0),
+// line 88 false (non-zero velocity), line 92 true (velocity_y > 0).
+TEST_F(NativeScrollerOhosPropertyTest, FlingTouchpadDevice_UsesTouchpadFriction) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(0.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, 5000, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchpad);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_TRUE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(250),
+                                           &offset, &velocity));
+  EXPECT_GT(offset.y(), 0);
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
+
+// Branch coverage: line 54 false (kTouchscreen), line 69 true (low velocity),
+// line 88 false (non-zero velocity), line 92 true (velocity_y > 0).
+TEST_F(NativeScrollerOhosPropertyTest, FlingLowVelocity_UsesSlowFriction) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(0.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, 100, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  // velocity=100 < velocity_threshold=120, so ShouldAbortAnimation returns
+  // true immediately and ComputeScrollOffset returns false.
+  EXPECT_FALSE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(100),
+                                            &offset, &velocity));
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
+
+// Branch coverage: line 88 true (zero velocity → signum_=0, diff_time=0),
+// line 102 false (finisheed_=false after Fling),
+// line 116 true (ShouldAbortAnimation returns true because
+//   curr_velocity_y_=0 ≤ velocity_threshold_).
+TEST_F(NativeScrollerOhosPropertyTest,
+       FlingZeroVelocity_SignumZero_AbortsImmediately) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(0.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, 0, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_FALSE(scroller.ComputeScrollOffset(
+      start_time + base::Milliseconds(100), &offset, &velocity));
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
+
+// Branch coverage: line 62 true (custom friction "0.5" is non-zero),
+// line 83 false (pixel_ratio=1.0 is non-zero),
+// line 92 false (velocity_y < 0 → signum_=-1.0).
+TEST_F(NativeScrollerOhosPropertyTest,
+       FlingCustomFriction_NonZeroPixelRatio_NegativeVelocity) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0.5"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(1.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, -5000, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_TRUE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(250),
+                                           &offset, &velocity));
+  EXPECT_LT(offset.y(), 0);
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
+
+// Branch coverage: line 102 true (finisheed_ defaults to true before Fling
+// is called, so ComputeScrollOffset returns false immediately).
+TEST_F(NativeScrollerOhosPropertyTest,
+       ComputeScrollOffset_BeforeFling_ReturnsFinished) {
+  NativeScrollerOhos scroller;
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_FALSE(scroller.ComputeScrollOffset(base::TimeTicks::Now(), &offset,
+                                            &velocity));
+  EXPECT_EQ(offset, gfx::Vector2dF(0, 0));
+  EXPECT_EQ(velocity, gfx::Vector2dF());
+}
+
+// Branch coverage: line 116 false (shortly after Fling, animation is still
+// in progress, ShouldAbortAnimation returns false).
+TEST_F(NativeScrollerOhosPropertyTest,
+       ComputeScrollOffset_AfterFling_AnimationNotAbort) {
+  EXPECT_CALL(helper_, GetSystemPropertiesInstance())
+      .WillOnce(testing::ReturnRef(system_properties_));
+  EXPECT_CALL(system_properties_, GetScrollFriction())
+      .WillOnce(testing::Return("0"));
+
+  GestureConfiguration* configuration = GestureConfiguration::GetInstance();
+  const float original_pixel_ratio = configuration->virtual_pixel_ratio();
+  configuration->set_virtual_pixel_ratio(1.0f);
+
+  NativeScrollerOhos scroller;
+  const base::TimeTicks start_time = base::TimeTicks::Now();
+  scroller.Fling(0, 0, 0, 5000, INT_MIN, static_cast<float>(INT_MAX), INT_MIN,
+                 static_cast<float>(INT_MAX), start_time,
+                 NativeScrollerOhos::GestureDevice::kTouchscreen);
+
+  gfx::Vector2dF offset;
+  gfx::Vector2dF velocity;
+  EXPECT_TRUE(scroller.ComputeScrollOffset(start_time + base::Milliseconds(10),
+                                           &offset, &velocity));
+  EXPECT_GT(offset.y(), 0);
+
+  configuration->set_virtual_pixel_ratio(original_pixel_ratio);
+}
 }  // namespace ui
