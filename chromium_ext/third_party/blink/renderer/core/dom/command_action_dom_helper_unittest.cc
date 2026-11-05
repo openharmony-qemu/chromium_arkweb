@@ -864,7 +864,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_InputReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputModify(
       &GetDocument(), "hello");
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_InputSuccess) {
@@ -902,7 +902,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_TextareaReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputModify(
       &GetDocument(), "hello");
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputModify_TextareaSuccess) {
@@ -1066,7 +1066,7 @@ TEST_F(CommandActionDOMHelperTest, ExecuteInputInsert_InputReadonly) {
   int32_t result = CommandActionDOMHelper::ExecuteInputInsert(
       &GetDocument(), "x", 0);
   EXPECT_EQ(result,
-            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
 }
 
 TEST_F(CommandActionDOMHelperTest, ExecuteInputInsert_ContentEditableSuccess) {
@@ -1454,6 +1454,247 @@ TEST_F(CommandActionDOMHelperTest, ExecuteSelectById_ElementTypeMismatch) {
   EXPECT_EQ(static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH),
             CommandActionDOMHelper::ExecuteSelectById(
                 WebFrame(), &GetDocument(), ElementId(*input), {0}, {}));
+}
+
+// ===== ExecuteAutoFill Tests =====
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_ElementNotFound) {
+  SetBodyContent("<div>no inputs</div>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='missing']", 0, "hello", 0, 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_FOUND));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_NodeIdNotFound_XPathFallback) {
+  SetBodyContent("<input id='target' type='text'>");
+  auto* const input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, input);
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='target']", 2147483647, "hello", 0, 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("hello", input->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_NotInputOrTextarea) {
+  SetBodyContent("<div id='target'>text</div>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//div[@id='target']", 0, "hello", 0, 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_DisabledInput) {
+  SetBodyContent("<input id='target' type='text' disabled>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='target']", 0, "hello", 0, 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_DisabledTextarea) {
+  SetBodyContent("<textarea id='target' disabled></textarea>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//textarea[@id='target']", 0, "hello", 0, 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_ReadonlyInput) {
+  SetBodyContent("<input id='target' type='text' readonly>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='target']", 0, "hello", 0, 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_ReadonlyTextarea) {
+  SetBodyContent("<textarea id='target' readonly></textarea>");
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//textarea[@id='target']", 0, "hello", 0, 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_NOT_INTERACTABLE));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_InsertInput) {
+  SetBodyContent("<input id='target' type='text' value='world'>");
+  auto* const input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, input);
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='target']", 0, "hello ", 0, 1);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("hello world", input->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_InsertTextarea) {
+  SetBodyContent("<textarea id='target'>abc</textarea>");
+  auto* const textarea = To<HTMLTextAreaElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, textarea);
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//textarea[@id='target']", 0, "XYZ", 1, 1);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("aXYZbc", textarea->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_OverwriteInput) {
+  SetBodyContent("<input id='target' type='text' value='old'>");
+  auto* const input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, input);
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//input[@id='target']", 0, "new", 0, 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("new", input->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_OverwriteTextarea) {
+  SetBodyContent("<textarea id='target'>old</textarea>");
+  auto* const textarea = To<HTMLTextAreaElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, textarea);
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "//textarea[@id='target']", 0, "new", 0, 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("new", textarea->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteAutoFill_ResolvedByNodeId) {
+  SetBodyContent("<input id='target' type='text' value='old'>");
+  auto* const input = To<HTMLInputElement>(
+      GetDocument().getElementById(AtomicString("target")));
+  ASSERT_NE(nullptr, input);
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteAutoFill(
+      &GetDocument(), "", input->GetDomNodeId(), "new", 0, 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("new", input->Value());
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputSetCursor_ContentEditableWithBr) {
+  SetBodyContent("<div id='editor' contenteditable='true'>ab<br>cd</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputSetCursor(
+      &GetDocument(), 3);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputSetCursor_ContentEditableBrFirstNode) {
+  SetBodyContent("<div id='editor' contenteditable='true'><br>cd</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputSetCursor(
+      &GetDocument(), 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputSetCursor_ContentEditableOffsetExceeds) {
+  SetBodyContent("<div id='editor' contenteditable='true'>hello</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputSetCursor(
+      &GetDocument(), 100);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteInputInsert_TextareaReadonly) {
+  SetBodyContent("<textarea id='desc' readonly>abc</textarea>");
+  auto* const textarea = To<HTMLTextAreaElement>(
+      GetDocument().getElementById(AtomicString("desc")));
+  ASSERT_NE(nullptr, textarea);
+  GetDocument().SetFocusedElement(textarea, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                        mojom::blink::FocusType::kNone,
+                                                        nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputInsert(
+      &GetDocument(), "x", 0);
+  EXPECT_EQ(result,
+            static_cast<int32_t>(WebCommandErrorCode::ELEMENT_TYPE_MISMATCH));
+}
+
+TEST_F(CommandActionDOMHelperTest, ExecuteScroll_ScrollableAncestor) {
+  SetBodyContent(
+      "<div id='scroller' style='overflow:scroll;height:50px'>"
+      "<div style='height:1000px'><div id='target'>content</div></div>"
+      "</div>");
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteScroll(
+      &GetDocument(), "//div[@id='target']", "top", 0);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputModify_ContentEditablePlaintextOnly) {
+  SetBodyContent("<div id='editor' contenteditable='plaintext-only'></div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputModify(
+      &GetDocument(), "new content");
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+  EXPECT_EQ("new content", el->innerText());
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputInsert_ContentEditablePlaintextOnly) {
+  SetBodyContent("<div id='editor' contenteditable='plaintext-only'>hello</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputInsert(
+      &GetDocument(), " world", 5);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputSelect_ContentEditablePlaintextOnly) {
+  SetBodyContent("<div id='editor' contenteditable='plaintext-only'>hello</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputSelect(
+      &GetDocument(), 0, 3);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
+}
+
+TEST_F(CommandActionDOMHelperTest,
+       ExecuteInputSetCursor_ContentEditablePlaintextOnly) {
+  SetBodyContent("<div id='editor' contenteditable='plaintext-only'>hello</div>");
+  auto* const el = GetDocument().getElementById(AtomicString("editor"));
+  ASSERT_NE(nullptr, el);
+  GetDocument().SetFocusedElement(el, FocusParams(SelectionBehaviorOnFocus::kNone,
+                                                  mojom::blink::FocusType::kNone,
+                                                  nullptr));
+  UpdateAllLifecyclePhasesForTest();
+  int32_t result = CommandActionDOMHelper::ExecuteInputSetCursor(
+      &GetDocument(), 3);
+  EXPECT_EQ(result, static_cast<int32_t>(WebCommandErrorCode::SUCCESS));
 }
 
 }  // namespace blink
