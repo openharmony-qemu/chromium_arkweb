@@ -24,6 +24,7 @@
 #define private public
 #include "arkweb/chromium_ext/third_party/blink/renderer/core/frame/arkweb_visual_viewport_utils.h"
 #endif
+#include "arkweb/chromium_ext/third_party/blink/renderer/core/paint/paint_layer_scrollable_area_ext.h"
 
 namespace blink {
 
@@ -488,6 +489,130 @@ TEST_P(VisualViewportTest, SetupOverlayVisualScrollbarLayerFeatureDisabled) {
   EXPECT_EQ(scrollbar_layer->scroll_element_id(), cc::ElementId());
   EXPECT_FALSE(scrollbar_layer->draws_content());
 }
+
+TEST_P(VisualViewportTest, GetScrollbarAvoidData_RemoteFrameNullDocument) {
+  helper_.InitializeRemote();
+  ASSERT_NE(WebView(), nullptr);
+  ASSERT_NE(WebView()->GetPage(), nullptr);
+
+  VisualViewport& visual_viewport = WebView()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+
+  const ArkWebVisualViewportUtils::ScrollbarAvoidData avoid_data =
+      utils->GetScrollbarAvoidData();
+  EXPECT_EQ(avoid_data.verticalTopAvoidArea, 0);
+  EXPECT_EQ(avoid_data.verticalBootomAvoidArea, 0);
+  EXPECT_EQ(avoid_data.horizontalBottomaAvoidRight, 0);
+  EXPECT_EQ(avoid_data.horizontalBottomaAvoidLeft, 0);
+}
+
+TEST_P(VisualViewportTest,
+       GetScrollbarLayerOrigin_RemoteFrameNullDocument_Horizontal) {
+  helper_.InitializeRemote();
+  ASSERT_NE(WebView(), nullptr);
+  ASSERT_NE(WebView()->GetPage(), nullptr);
+
+  VisualViewport& visual_viewport = WebView()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+
+  gfx::Point origin = utils->GetScrollbarLayerOrigin(true, 10);
+  EXPECT_EQ(origin.x(), 0);
+}
+
+TEST_P(VisualViewportTest,
+       GetScrollbarLayerOrigin_RemoteFrameNullDocument_Vertical) {
+  helper_.InitializeRemote();
+  ASSERT_NE(WebView(), nullptr);
+  ASSERT_NE(WebView()->GetPage(), nullptr);
+
+  VisualViewport& visual_viewport = WebView()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+
+  gfx::Point origin = utils->GetScrollbarLayerOrigin(false, 10);
+  EXPECT_EQ(origin.y(), 0);
+}
+
+TEST_P(VisualViewportTest, GetScrollbarAvoidData_WithAvoidAreaTop) {
+  InitializeWithDesktopSettings();
+  WebView()->MainFrameViewWidget()->Resize(gfx::Size(400, 300));
+  UpdateAllLifecyclePhases();
+
+  NavigateTo("about:blank");
+  ForceFullCompositingUpdate();
+
+  LocalFrameView* view = WebView()->MainFrameImpl()->GetFrameView();
+  ASSERT_NE(view, nullptr);
+
+  PaintLayerScrollableArea* layout_viewport = view->LayoutViewport();
+  ASSERT_NE(layout_viewport, nullptr);
+
+  PaintLayerScrollableAreaExt* layout_viewport_ext =
+      layout_viewport->AsPaintLayerScrollableAreaExt();
+  ASSERT_NE(layout_viewport_ext, nullptr);
+  layout_viewport_ext->SetScrollbarAvoidAreaTop(10.0);
+
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  const ArkWebVisualViewportUtils::ScrollbarAvoidData avoid_data =
+      utils->GetScrollbarAvoidData();
+
+  EXPECT_EQ(avoid_data.verticalTopAvoidArea, 10.0);
+}
+
+TEST_P(VisualViewportTest, GetScrollbarAvoidData_WithAvoidAreaBottom) {
+  InitializeWithDesktopSettings();
+  WebView()->MainFrameViewWidget()->Resize(gfx::Size(400, 300));
+  UpdateAllLifecyclePhases();
+
+  NavigateTo("about:blank");
+  ForceFullCompositingUpdate();
+
+  LocalFrameView* view = WebView()->MainFrameImpl()->GetFrameView();
+  ASSERT_NE(view, nullptr);
+
+  PaintLayerScrollableArea* layout_viewport = view->LayoutViewport();
+  ASSERT_NE(layout_viewport, nullptr);
+
+  PaintLayerScrollableAreaExt* layout_viewport_ext =
+      layout_viewport->AsPaintLayerScrollableAreaExt();
+  ASSERT_NE(layout_viewport_ext, nullptr);
+  layout_viewport_ext->SetScrollbarAvoidAreaBottom(20.0);
+
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+  const ArkWebVisualViewportUtils::ScrollbarAvoidData avoid_data =
+      utils->GetScrollbarAvoidData();
+
+  EXPECT_EQ(avoid_data.verticalBootomAvoidArea, 20.0);
+}
+
+TEST_P(VisualViewportTest, GetScrollbarLayerOrigin_Vertical_NonSystemPolicy) {
+  InitializeWithDesktopSettings();
+  WebView()->MainFrameViewWidget()->Resize(gfx::Size(400, 300));
+  UpdateAllLifecyclePhases();
+
+  NavigateTo("about:blank");
+  ForceFullCompositingUpdate();
+
+  Settings* settings = GetFrame()->GetSettings();
+  ASSERT_NE(settings, nullptr);
+  settings->SetIsSystemRtlEnable(true);
+
+  VisualViewport& visual_viewport = GetFrame()->GetPage()->GetVisualViewport();
+  auto utils =
+      MakeGarbageCollected<ArkWebVisualViewportUtils>(&visual_viewport);
+
+  gfx::Point origin = utils->GetScrollbarLayerOrigin(false, 10);
+
+  EXPECT_NE(origin.x(), 0);
+  EXPECT_GE(origin.y(), 0);
+}
+
 #endif
 }  // namespace
 }  // namespace blink
