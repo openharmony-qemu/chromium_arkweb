@@ -130,3 +130,13 @@ TEST_F(ChromeClientImplExtTest, GetVisibleRectToWebWithValidFrame) {
   request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
   gfx::Rect rect = chrome_client_impl_ext_->GetVisibleRectToWeb(frame);
 }
+
+TEST_F(ChromeClientImplExtTest, GetFoldStatus_WithValidFrame) {
+  ScopedPagePauser pauser;
+  LocalFrame* frame = To<WebLocalFrameImpl>(main_frame_)->GetFrame();
+  ASSERT_TRUE(frame);
+  FrameLoadRequest request(frame->DomWindow(), ResourceRequest());
+  request.SetNavigationPolicy(kNavigationPolicyNewForegroundTab);
+  uint32_t status = chrome_client_impl_ext_->GetFoldStatus(frame);
+  EXPECT_EQ(status, 0u);
+}
