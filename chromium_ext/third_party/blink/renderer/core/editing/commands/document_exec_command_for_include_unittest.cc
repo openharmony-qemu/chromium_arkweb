@@ -243,4 +243,39 @@ TEST_F(DocumentExecCommandUnitTest, CopyWithNWebExDisabledTest) {
 #endif  // BUILDFLAG(ARKWEB_CLIPBOARD)
 }
 
+TEST_F(DocumentExecCommandUnitTest, NonClipboardCommandWithNWebExTest) {
+#if BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+  SetNWebExCommandLineSwitch(true);
+
+  Document& doc = GetDocument();
+  SetBodyContent("<textarea id=test>foo\n</textarea>");
+  HTMLTextAreaElement& textarea = TestElement();
+  textarea.Focus();
+  GetFocusController().SetActive(true);
+  GetFocusController().SetFocused(true);
+
+  EXPECT_TRUE(doc.execCommand("selectall", false, "", ASSERT_NO_EXCEPTION));
+#endif  // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+}
+
+TEST_F(DocumentExecCommandUnitTest, PasteWhenClipboardNotAllowedTest) {
+#if BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+  SetNWebExCommandLineSwitch(true);
+
+  Document& doc = GetDocument();
+  SetBodyContent("<textarea id=test>foo\n</textarea>");
+  HTMLTextAreaElement& textarea = TestElement();
+  textarea.Focus();
+  GetFocusController().SetActive(true);
+  GetFocusController().SetFocused(true);
+
+  GetFrame().GetSettings()->SetJavaScriptCanAccessClipboard(true);
+  GetFrame().GetSettings()->SetClipboardSitePermissionEnabled(true);
+  GetFrame().GetSettings()->SetDOMPasteAllowed(false);
+
+  doc.execCommand("selectall", false, "", ASSERT_NO_EXCEPTION);
+  EXPECT_FALSE(doc.execCommand("paste", false, "", ASSERT_NO_EXCEPTION));
+#endif  // BUILDFLAG(ARKWEB_CLIPBOARD) && BUILDFLAG(ARKWEB_NWEB_EX)
+}
+
 }  // namespace blink
