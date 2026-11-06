@@ -458,6 +458,10 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void OnNavigationEntryCommitted(
       CefRefPtr<CefLoadCommittedDetails> details) override;
 
+#if BUILDFLAG(ARKWEB_DEVTOOLS)
+  void OnNavigationEntriesDeleted() override;
+#endif  // BUILDFLAG(ARKWEB_DEVTOOLS)
+
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
   void OnLoadStarted(CefRefPtr<CefFrame> frame,
                      const CefString& url) override;
