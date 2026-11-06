@@ -4465,7 +4465,9 @@ void NWebImpl::SetWindowId(uint32_t window_id) {
   if (!base::ohos::IsMobileDevice()) {
     nweb_delegate_->SetWindowId(window_id);
   }
-  inputmethod_handler_->SetWindowIdForIME(window_id);
+  if (inputmethod_handler_) {
+    inputmethod_handler_->SetWindowIdForIME(window_id);
+  }
 }
 
 void NWebImpl::SetFocusWindowId(uint32_t focus_window_id) {
@@ -9196,9 +9198,17 @@ int32_t NWebImpl::SendCommandAction(
       action->GetDuration(),
       action->GetOffset());
   } else if (action->GetEventType() == "inputCopy") {
+    if (!inputmethod_handler_) {
+      LOG(ERROR) << "inputmethod_handler_ is nullptr.";
+      return WEB_COMMAND_FAILED;
+    }
     inputmethod_handler_->HandleExtendAction(static_cast<int32_t>(OHOS::NWeb::NWebImpl::IMFAdapterExtendAction::COPY));
     return WEB_COMMAND_SUCCESS;
   } else if (action->GetEventType() == "inputCut") {
+    if (!inputmethod_handler_) {
+      LOG(ERROR) << "inputmethod_handler_ is nullptr.";
+      return WEB_COMMAND_FAILED;
+    }
     inputmethod_handler_->HandleExtendAction(static_cast<int32_t>(OHOS::NWeb::NWebImpl::IMFAdapterExtendAction::CUT));
     return WEB_COMMAND_SUCCESS;
   } else if (action->GetEventType() == "inputFocus") {
