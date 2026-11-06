@@ -2732,3 +2732,438 @@ TEST_F(MediaAVSessionAdapterImplTest, ErrorCallbackTest3) {
                                                                              nullptr, AV_SESSION_ERR_SUCCESS);
   EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_FAILURE);
 }
+
+// ProcessPosterQueue: GenerateAVMetadata failure path
+TEST_F(MediaAVSessionAdapterImplTest, ProcessPosterQueueGenerateFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->builder_ = reinterpret_cast<OH_AVMetadataBuilder*>(0x12345678);
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x1234567);
+  adapter->url_queue_.push_back("https://example.com/poster.jpg");
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_SetMediaImageUri(testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_GenerateAVMetadata(testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_ERROR_INVALID_PARAM));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadata_Destroy(testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(adapter->ProcessPosterQueue());
+  adapter->avSession_ = nullptr;
+}
+
+// ProcessPosterQueue: avSession_ null path (SetAVMetadata not called)
+TEST_F(MediaAVSessionAdapterImplTest, ProcessPosterQueueAvSessionNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->builder_ = reinterpret_cast<OH_AVMetadataBuilder*>(0x12345678);
+  adapter->avSession_ = nullptr;
+  adapter->url_queue_.push_back("https://example.com/poster.jpg");
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_SetMediaImageUri(testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_GenerateAVMetadata(testing::_, testing::_))
+      .WillRepeatedly(
+          testing::DoAll(testing::SetArgPointee<1>(
+                             reinterpret_cast<OH_AVMetadata*>(0x87654321)),
+                         testing::Return(AVMETADATA_SUCCESS)));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadata_Destroy(testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_SetAVMetadata(testing::_, testing::_))
+      .Times(0);
+  ASSERT_NO_FATAL_FAILURE(adapter->ProcessPosterQueue());
+}
+
+// ProcessPosterQueue: SetAVMetadata failure path
+TEST_F(MediaAVSessionAdapterImplTest, ProcessPosterQueueSetAVMetadataFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->builder_ = reinterpret_cast<OH_AVMetadataBuilder*>(0x12345678);
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x1234567);
+  adapter->url_queue_.push_back("https://example.com/poster.jpg");
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_SetMediaImageUri(testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadataBuilder_GenerateAVMetadata(testing::_, testing::_))
+      .WillRepeatedly(
+          testing::DoAll(testing::SetArgPointee<1>(
+                             reinterpret_cast<OH_AVMetadata*>(0x87654321)),
+                         testing::Return(AVMETADATA_SUCCESS)));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVMetadata_Destroy(testing::_))
+      .WillRepeatedly(testing::Return(AVMETADATA_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_SetAVMetadata(testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  ASSERT_NO_FATAL_FAILURE(adapter->ProcessPosterQueue());
+  adapter->avSession_ = nullptr;
+}
+
+// UpdateUiPlayPosition static: position == 0 returns early
+TEST_F(MediaAVSessionAdapterImplTest, UpdateUiPlayPositionStaticZeroTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(
+      MediaAVSessionAdapterImpl::UpdateUiPlayPosition(adapter, 0, false));
+}
+
+// UpdateUiPlayPosition static: >= UiTIME_UPDATE_INTERVAL calls
+// UpdateUiPlayPosition
+TEST_F(MediaAVSessionAdapterImplTest, UpdateUiPlayPositionStaticIntervalTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->lastUiTime_ = 0;
+  ASSERT_NO_FATAL_FAILURE(
+      MediaAVSessionAdapterImpl::UpdateUiPlayPosition(adapter, 300, false));
+  EXPECT_EQ(adapter->lastUiTime_, 300);
+}
+
+// UpdateUiPlayStateByClient: STOPPED state branch
+TEST_F(MediaAVSessionAdapterImplTest, UpdateUiPlayStateByClientStoppedTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->playbackState_ = AVSession_PlaybackState::PLAYBACK_STATE_PLAYING;
+  AVSession_PlaybackState state =
+      AVSession_PlaybackState::PLAYBACK_STATE_STOPPED;
+  ASSERT_NO_FATAL_FAILURE(adapter->UpdateUiPlayStateByClient(state));
+}
+
+// AVCastStateConnect: adapter is nullptr
+TEST_F(MediaAVSessionAdapterImplTest, AVCastStateConnectAdapterNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x1234);
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[adapter->avSession_] = nullptr;
+  AVSession_OutputDeviceInfo outputDeviceInfo = {};
+  ASSERT_NO_FATAL_FAILURE(
+      adapter->AVCastStateConnect(adapter->avSession_, &outputDeviceInfo));
+  adapter->avSession_ = nullptr;
+}
+
+// AVCastStateConnect: adapter avSession_ is nullptr
+TEST_F(MediaAVSessionAdapterImplTest,
+       AVCastStateConnectAdapterSessionNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSessionMapOther_.clear();
+  OH_AVSession* sess = reinterpret_cast<OH_AVSession*>(0x1234);
+  adapter->avSessionMapOther_[sess] = adapter.get();
+  adapter->avSession_ = nullptr;
+  AVSession_OutputDeviceInfo outputDeviceInfo = {};
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateConnect(sess, &outputDeviceInfo));
+}
+
+// AVCastStateDisconnect: is_error_ true && !is_avcast_ (no SeekNative)
+TEST_F(MediaAVSessionAdapterImplTest, AVCastStateDisconnectErrorNoSeekTest) {
+  SetAllMockType(true);
+  auto callback = std::make_shared<MediaAVSessionCallbackAdapterMock>();
+  EXPECT_CALL(*callback, SeekTo(testing::_)).Times(0);
+  EXPECT_CALL(*callback, Play()).Times(0);
+  EXPECT_CALL(*callback, Pause()).Times(1);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->callback_index_ = adapter->callback_wrapper_.AddCallback(callback);
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x1234567);
+  adapter->playbackState_ = AVSession_PlaybackState::PLAYBACK_STATE_PAUSED;
+  adapter->is_error_ = true;
+  adapter->is_avcast_ = false;
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[adapter->avSession_] = adapter.get();
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVCastController_UnregisterPlaybackStateChangedCallback(
+                  testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AV_SESSION_ERR_SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateDisconnect(adapter->avSession_));
+  EXPECT_FALSE(adapter->is_avcast_);
+  adapter->avSession_ = nullptr;
+}
+
+// AVCastStateDisconnect: IsAvCastPlaying false (PauseNative only)
+TEST_F(MediaAVSessionAdapterImplTest, AVCastStateDisconnectNotPlayingTest) {
+  SetAllMockType(true);
+  auto callback = std::make_shared<MediaAVSessionCallbackAdapterMock>();
+  EXPECT_CALL(*callback, SeekTo(testing::_)).Times(1);
+  EXPECT_CALL(*callback, Play()).Times(0);
+  EXPECT_CALL(*callback, Pause()).Times(1);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->callback_index_ = adapter->callback_wrapper_.AddCallback(callback);
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x1234567);
+  adapter->playbackState_ = AVSession_PlaybackState::PLAYBACK_STATE_PAUSED;
+  adapter->playbackPosition_.elapsedTime = 3000;
+  adapter->is_error_ = false;
+  adapter->is_avcast_ = true;
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[adapter->avSession_] = adapter.get();
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVCastController_UnregisterPlaybackStateChangedCallback(
+                  testing::_, testing::_))
+      .WillRepeatedly(testing::Return(AV_SESSION_ERR_SUCCESS));
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateDisconnect(adapter->avSession_));
+  EXPECT_FALSE(adapter->is_avcast_);
+  adapter->avSession_ = nullptr;
+}
+
+// AVCastStateDisconnectDefault: adapter is nullptr
+TEST_F(MediaAVSessionAdapterImplTest,
+       AVCastStateDisconnectDefaultAdapterNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  OH_AVSession* sess = reinterpret_cast<OH_AVSession*>(0x1234);
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[sess] = nullptr;
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateDisconnectDefault(sess));
+}
+
+// OutputDeviceChangeCallback: default state branch
+TEST_F(MediaAVSessionAdapterImplTest, OutputDeviceChangeCallbackDefaultTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = nullptr;
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[adapter->avSession_] = adapter.get();
+  AVSession_OutputDeviceInfo outputDeviceInfo = {};
+  AVSessionCallback_Result result = adapter->OutputDeviceChangeCallback(
+      adapter->avSession_, static_cast<AVSession_ConnectionState>(999),
+      &outputDeviceInfo);
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_FAILURE);
+}
+
+// UpdateAVCastDevice: GetDeviceName failure
+TEST_F(MediaAVSessionAdapterImplTest, UpdateAVCastDeviceGetDeviceNameFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  AVSession_OutputDeviceInfo outputDeviceInfo = {};
+  AVSession_DeviceInfo* deviceInfoPtr =
+      reinterpret_cast<AVSession_DeviceInfo*>(0x12345678);
+  outputDeviceInfo.deviceInfos = &deviceInfoPtr;
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_DeviceInfo_GetDeviceName(testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  ASSERT_NO_FATAL_FAILURE(adapter->UpdateAVCastDevice(&outputDeviceInfo));
+  EXPECT_EQ(adapter->deviceName_, "");
+}
+
+// RegistCallback: callback_index_ > 0 Clear path
+TEST_F(MediaAVSessionAdapterImplTest, RegistCallbackClearOldIndexTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = reinterpret_cast<OH_AVSession*>(0x12345678);
+  auto oldCallback = std::make_shared<MediaAVSessionCallbackAdapterMock>();
+  adapter->callback_index_ =
+      adapter->callback_wrapper_.AddCallback(oldCallback);
+  ASSERT_GT(adapter->callback_index_, 0);
+  auto newCallback = std::make_shared<MediaAVSessionCallbackAdapterMock>();
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_Activate(testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_SUCCESS));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_RegisterCommandCallback(testing::_, testing::_,
+                                                   testing::_, testing::_))
+      .Times(3)
+      .WillRepeatedly(testing::Return(AV_SESSION_ERR_SUCCESS));
+  EXPECT_CALL(
+      OhosInterfaceMock::GetInstance(),
+      OH_AVSession_RegisterSeekCallback(testing::_, testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  bool ret = adapter->RegistCallback(newCallback);
+  EXPECT_FALSE(ret);
+  adapter->avSession_ = nullptr;
+}
+
+// HandleStopMediaCast: failure path
+TEST_F(MediaAVSessionAdapterImplTest, HandleStopMediaCastFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = nullptr;
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_StopCasting(testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  ASSERT_NO_FATAL_FAILURE(adapter->HandleStopMediaCast());
+}
+
+// SetRemoteCastEnabled: failure path
+TEST_F(MediaAVSessionAdapterImplTest, SetRemoteCastEnabledFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = nullptr;
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_SetRemoteCastEnabled(testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  ASSERT_NO_FATAL_FAILURE(adapter->SetRemoteCastEnabled(true));
+}
+
+// RegistAVSessionCallbackOutputDeviceChange: failure path
+TEST_F(MediaAVSessionAdapterImplTest,
+       RegistAVSessionCallbackOutputDeviceChangeFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->avSession_ = nullptr;
+  EXPECT_CALL(
+      OhosInterfaceMock::GetInstance(),
+      OH_AVSession_RegisterOutputDeviceChangeCallback(testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  ASSERT_NO_FATAL_FAILURE(adapter->RegistAVSessionCallbackOutputDeviceChange());
+}
+
+// MediaCastStopped: media is null
+TEST_F(MediaAVSessionAdapterImplTest, MediaCastStoppedMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(adapter->MediaCastStopped());
+}
+
+// PullUpCastBackGround: media is null
+TEST_F(MediaAVSessionAdapterImplTest, PullUpCastBackGroundMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  adapter->deviceName_ = "TestDevice";
+  ASSERT_NO_FATAL_FAILURE(adapter->PullUpCastBackGround());
+}
+
+// SetAvCast: media is null
+TEST_F(MediaAVSessionAdapterImplTest, SetAvCastMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(adapter->SetAvCast(true));
+  EXPECT_TRUE(adapter->is_avcast_);
+}
+
+// UpdateUiPlayState: media is null
+TEST_F(MediaAVSessionAdapterImplTest, UpdateUiPlayStateMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(adapter->UpdateUiPlayState(true));
+}
+
+// UpdateUiPlayPosition instance: media is null
+TEST_F(MediaAVSessionAdapterImplTest, UpdateUiPlayPositionMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  int64_t position = 3000;
+  ASSERT_NO_FATAL_FAILURE(adapter->UpdateUiPlayPosition(position));
+}
+
+// SeekNative: media is null
+TEST_F(MediaAVSessionAdapterImplTest, SeekNativeMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  int64_t millis = 5000;
+  ASSERT_NO_FATAL_FAILURE(adapter->SeekNative(millis));
+}
+
+// PlayNative: media is null
+TEST_F(MediaAVSessionAdapterImplTest, PlayNativeMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(adapter->PlayNative());
+}
+
+// PauseNative: media is null
+TEST_F(MediaAVSessionAdapterImplTest, PauseNativeMediaNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  ASSERT_NO_FATAL_FAILURE(adapter->PauseNative());
+}
+
+// PlaybackStateChangedCallback: GetPlaybackState failure path
+TEST_F(MediaAVSessionAdapterImplTest,
+       PlaybackStateChangedCallbackGetStateFailTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  size_t callback_index =
+      adapter->avsession_callback_wrapper_.AddCallback(adapter);
+  OH_AVSession_AVPlaybackState* playbackState = nullptr;
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_GetPlaybackState(testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_GetPlaybackPosition(testing::_, testing::_))
+      .WillOnce(testing::Return(AV_SESSION_ERR_INVALID_PARAMETER));
+  AVSessionCallback_Result result = adapter->PlaybackStateChangedCallback(
+      nullptr, playbackState, reinterpret_cast<void*>(callback_index));
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_SUCCESS);
+}
+
+// PlaybackStateChangedCallback: adapter is null (invalid index)
+TEST_F(MediaAVSessionAdapterImplTest,
+       PlaybackStateChangedCallbackAdapterNullTest) {
+  SetAllMockType(true);
+  size_t callback_index = 9999;
+  AVSessionCallback_Result result =
+      MediaAVSessionAdapterImpl::PlaybackStateChangedCallback(
+          nullptr, nullptr, reinterpret_cast<void*>(callback_index));
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_FAILURE);
+}
+
+// PlaybackStateChangedCallback: PLAYBACK_STATE_INITIAL branch (no
+// SetUiPlayStateByClient)
+TEST_F(MediaAVSessionAdapterImplTest,
+       PlaybackStateChangedCallbackInitialStateTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  size_t callback_index =
+      adapter->avsession_callback_wrapper_.AddCallback(adapter);
+  OH_AVSession_AVPlaybackState* playbackState = nullptr;
+  AVSession_PlaybackState state =
+      AVSession_PlaybackState::PLAYBACK_STATE_INITIAL;
+  AVSession_PlaybackPosition position;
+  position.elapsedTime = 0;
+  position.updateTime = 6000;
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_GetPlaybackState(testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(state),
+                               testing::Return(AV_SESSION_ERR_SUCCESS)));
+  EXPECT_CALL(OhosInterfaceMock::GetInstance(),
+              OH_AVSession_GetPlaybackPosition(testing::_, testing::_))
+      .WillOnce(testing::DoAll(testing::SetArgPointee<1>(position),
+                               testing::Return(AV_SESSION_ERR_SUCCESS)));
+  AVSessionCallback_Result result = adapter->PlaybackStateChangedCallback(
+      nullptr, playbackState, reinterpret_cast<void*>(callback_index));
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_SUCCESS);
+}
+
+// SeekDoneCallback: adapter is null (invalid index)
+TEST_F(MediaAVSessionAdapterImplTest, SeekDoneCallbackAdapterNullTest) {
+  SetAllMockType(true);
+  size_t callback_index = 9999;
+  AVSessionCallback_Result result = MediaAVSessionAdapterImpl::SeekDoneCallback(
+      nullptr, 5000, reinterpret_cast<void*>(callback_index));
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_FAILURE);
+}
+
+// ErrorCallback: adapter is null (invalid index)
+TEST_F(MediaAVSessionAdapterImplTest, ErrorCallbackAdapterNullTest) {
+  SetAllMockType(true);
+  size_t callback_index = 9999;
+  AVSessionCallback_Result result = MediaAVSessionAdapterImpl::ErrorCallback(
+      nullptr, reinterpret_cast<void*>(callback_index),
+      AV_SESSION_ERR_INVALID_PARAMETER);
+  EXPECT_EQ(result, AVSESSION_CALLBACK_RESULT_FAILURE);
+}
+
+// AVCastStateDisconnect: adapter is nullptr
+TEST_F(MediaAVSessionAdapterImplTest, AVCastStateDisconnectAdapterNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  OH_AVSession* sess = reinterpret_cast<OH_AVSession*>(0x1234);
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[sess] = nullptr;
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateDisconnect(sess));
+}
+
+// AVCastStateDisconnect: adapter avSession_ is nullptr
+TEST_F(MediaAVSessionAdapterImplTest,
+       AVCastStateDisconnectAdapterSessionNullTest) {
+  SetAllMockType(true);
+  auto adapter = std::make_shared<MediaAVSessionAdapterImpl>();
+  OH_AVSession* sess = reinterpret_cast<OH_AVSession*>(0x1234);
+  adapter->avSessionMapOther_.clear();
+  adapter->avSessionMapOther_[sess] = adapter.get();
+  adapter->avSession_ = nullptr;
+  ASSERT_NO_FATAL_FAILURE(adapter->AVCastStateDisconnect(sess));
+}
