@@ -302,17 +302,22 @@ void CrashpadDfx::ProcessCrashReport(const std::string process_type,
     full_error_reason += " [gwp_asan: " + gwp_asan_crash + "]";
   }
 
+  const std::string final_happen_time = !happen_time.empty() ? happen_time
+      : (!g_happen_time.empty() ? g_happen_time : GetCurrentTime());
+  const std::string final_bundle_name = !bundle_name.empty() ? bundle_name
+      : (!g_bundle_name.empty() ? g_bundle_name : GetProcessBundleName());
+
   OHOS::NWeb::OhosAdapterHelper::GetInstance().GetHiSysEventAdapterInstance().Write(
       PROCESS_CRASH,
       OHOS::NWeb::HiSysEventAdapter::EventType::FAULT,
       {
-        BUNDLE_NAME, bundle_name,
+        BUNDLE_NAME, final_bundle_name,
         PROCESS_TYPE, process_type,
         ERROR_REASON, full_error_reason,
         CRASH_COUNT, crash_count,
         UID, std::to_string(uid),
         BUILDID, build_id,
-        HAPPEN_TIME, happen_time,
+        HAPPEN_TIME, final_happen_time,
         USERID, user_id
       });
 }
