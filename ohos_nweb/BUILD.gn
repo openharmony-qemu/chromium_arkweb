@@ -790,7 +790,11 @@ source_set("unittests") {
     ":cef_nweb_config",
   ]
 
-  include_dirs = [ "//ppapi/lib/gl/include", "//third_party/webrtc" ]
+  include_dirs = [
+    "//ppapi/lib/gl/include",
+    "//third_party/webrtc",
+    "//third_party/bounds_checking_function/include",
+  ]
 
   sources = [
     "src/cef_delegate/ai_page_command_dispatcher_unittest.cc",
@@ -864,6 +868,13 @@ source_set("unittests") {
     sources += [ "src/cef_delegate/nweb_extension_content_settings_cef_delegate_unittest.cc" ]
   }
 
+  if (defined(arkweb_unittests) && arkweb_unittests) {
+    sources += [
+      "//arkweb/ohos_adapter_ndk/arkts_adapter/arkts_hilog_adapter_unittest.cpp",
+      "//arkweb/ohos_adapter_ndk/mock_ndk_api/src/mock_napi_api.cpp",
+    ]
+  }
+
   deps = [
     ":nweb_sources",
     ":cef_nweb",
@@ -878,6 +889,13 @@ source_set("unittests") {
 
   if (enable_arkweb) {
     deps += [ "//arkweb/build/features" ]
+  }
+
+  if (defined(arkweb_unittests) && arkweb_unittests) {
+    deps += [
+      "//arkweb/ohos_adapter_ndk:adapter_ndk",
+      "//arkweb/ohos_adapter_ndk/mock_ndk_api:mock_base_ohos",
+    ]
   }
 
   public_deps = [
