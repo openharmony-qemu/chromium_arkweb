@@ -40,6 +40,19 @@ bool StructTraits<media::mojom::MediaPlayerUrlParamsDataView,
   out_params->preload_type_ = data.preload_type();
   out_params->media_source_type_ = data.media_source_type();
 
+  if (!data.ReadFrameOrigin(&out_params->frame_origin_))
+    return false;
+
+  uint32_t cors_mode_value = data.cors_mode();
+  // Clamp out-of-range values to kUnspecified (fail-closed, do not drop message).
+  if (cors_mode_value <= static_cast<uint32_t>(media::MediaCorsMode::kUseCredentials)) {
+    out_params->cors_mode_ = static_cast<media::MediaCorsMode>(cors_mode_value);
+  } else {
+    out_params->cors_mode_ = media::MediaCorsMode::kUnspecified;
+  }
+
+  out_params->allow_credentials_ = data.allow_credentials();
+
   return true;
 }
 

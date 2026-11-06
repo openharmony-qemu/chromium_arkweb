@@ -590,4 +590,16 @@ void WebMediaPlayerImplExt::MediaResumeFromBFCachePage(bool restoring_in_bfcache
   }
 }
 #endif  // BUILDFLAG(ARKWEB_BFCACHE)
+
+#if BUILDFLAG(ARKWEB_MEDIA_HLS)
+void WebMediaPlayerImplExt::OnHlsBrowserTaintChanged(bool tainted) {
+  DCHECK(main_task_runner_->BelongsToCurrentThread());
+
+  if (demuxer_manager_) {
+    demuxer_manager_->SetHlsBrowserWouldTaintOrigin(tainted);
+  } else {
+    LOG(WARNING) << "[HLS WEBGL] OnHlsBrowserTaintChanged: no demuxer_manager_";
+  }
+}
+#endif  // ARKWEB_MEDIA_HLS
 }

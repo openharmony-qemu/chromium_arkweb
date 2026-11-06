@@ -47,7 +47,9 @@ OHOSMediaPlayerBridge::OHOSMediaPlayerBridge(
     bool allow_credentials,
     bool is_hls,
     const base::flat_map<std::string, std::string> headers,
-    const std::vector<std::string>& grantMediaFileAccessDirs)
+    const std::vector<std::string>& grantMediaFileAccessDirs,
+    MediaCorsMode cors_mode,
+    const url::Origin& frame_origin)
     : client_(client),
       url_(url),
       prepared_(false),
@@ -64,7 +66,9 @@ OHOSMediaPlayerBridge::OHOSMediaPlayerBridge(
       should_prepare_on_retrieved_cookies_(false),
       storage_access_api_status_(storage_access_api_status),
       top_frame_origin_(top_frame_origin),
-      allow_credentials_(allow_credentials) {
+      allow_credentials_(allow_credentials),
+      cors_mode_(cors_mode),
+      frame_origin_(frame_origin) {
     for (auto& file_dir: grantMediaFileAccessDirs) {
       grantMediaFileAccessDirs_.emplace_back(file_dir);
     }
@@ -110,6 +114,25 @@ bool OHOSMediaPlayerBridge::ShouldUseProxyDownload() const {
   return media_proxy_enabled_ && native_window_id_ != -1;
 }
 
+void OHOSMediaPlayerBridge::CreateProxyDownloadManager() {
+  download_manager_ = std::make_unique<MediaSourceDownloadManager>(
+      player_.get(), task_runner_,
+      client_ ? client_->GetURLLoaderFactory() : nullptr,
+      client_ ? client_->GetDevToolsNetworkEventSink() : nullptr,
+      site_for_cookies_, top_frame_origin_,
+      cors_mode_, frame_origin_,
+      base::BindRepeating(&OHOSMediaPlayerBridge::NotifyProxyTaintChanged,
+                          weak_factory_.GetWeakPtr()));
+}
+
+void OHOSMediaPlayerBridge::NotifyProxyTaintChanged(bool tainted) {
+  if (client_) {
+    client_->OnProxyDownloadTaintChanged(tainted);
+  } else {
+    LOG(WARNING) << "[HLS WEBGL] NotifyProxyTaintChanged: no client_";
+  }
+}
+
 void OHOSMediaPlayerBridge::OnCookiesRetrieved(const std::string& cookies)
 {
     cookies_ = cookies;
@@ -132,11 +155,7 @@ void OHOSMediaPlayerBridge::OnCookiesRetrieved(const std::string& cookies)
         int32_t ret = -1;
         if (ShouldUseProxyDownload()) {
             LOG(INFO) << "Media proxy enabled (deferred prepare), using proxy download path";
-            download_manager_ = std::make_unique<MediaSourceDownloadManager>(
-                player_.get(), task_runner_,
-                client_ ? client_->GetURLLoaderFactory() : nullptr,
-                client_ ? client_->GetDevToolsNetworkEventSink() : nullptr,
-                site_for_cookies_, top_frame_origin_);
+            CreateProxyDownloadManager();
             auto handler = std::make_shared<MediaSourceDataHandlerImpl>(
                 task_runner_, download_manager_->GetWeakPtr());
             ret = player_->SetMediaSourceHeaderForHls(url_.spec(), player_headers, handler);
@@ -241,11 +260,7 @@ void OHOSMediaPlayerBridge::Prepare() {
     if (ShouldUseProxyDownload()) {
       // HLS proxy download (opt-in): route data through Chromium network stack
       LOG(INFO) << "Media proxy enabled, using proxy download path";
-      download_manager_ = std::make_unique<MediaSourceDownloadManager>(
-          player_.get(), task_runner_,
-          client_ ? client_->GetURLLoaderFactory() : nullptr,
-          client_ ? client_->GetDevToolsNetworkEventSink() : nullptr,
-          site_for_cookies_, top_frame_origin_);
+      CreateProxyDownloadManager();
 
       auto handler = std::make_shared<MediaSourceDataHandlerImpl>(
           task_runner_, download_manager_->GetWeakPtr());

@@ -40,6 +40,7 @@ class MockClientExtension
   void OnDurationChange(base::TimeDelta) override {}
   void OnVideoSizeChange(const gfx::Size&) override {}
   void OnFrameUpdate(media::mojom::OhosSurfaceBufferHandlePtr) override {}
+  void OnMediaTaintChanged(bool tainted) override {}
   mojo::Receiver<media::mojom::MediaPlayerRendererClientExtension> receiver{
       this};
 };

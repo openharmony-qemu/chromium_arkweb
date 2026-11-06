@@ -52,7 +52,9 @@ class CONTENT_EXPORT OHOSMediaPlayerRendererClientFactory
       media::RequestOverlayInfoCB request_surface_cb,
       const gfx::ColorSpace& target_color_space,
       int player_id,
-      const media::MediaPlayerUrlParams& params) override;
+      const media::MediaPlayerUrlParams& params,
+      media::RendererFactory::MediaTaintChangedCB on_media_taint_changed)
+      override;
   // Note: GetRequiredMediaResourceType() method removed in Chromium 141
   // MediaResource::Type enumeration no longer exists in the new architecture
 

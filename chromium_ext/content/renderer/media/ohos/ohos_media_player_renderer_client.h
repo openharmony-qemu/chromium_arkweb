@@ -39,7 +39,8 @@ class OHOSMediaPlayerRendererClient
       scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
       std::unique_ptr<media::MojoRenderer> mojo_renderer,
       media::ScopedNativeTextureWrapper native_texture_wrapper,
-      media::VideoRendererSink* sink);
+      media::VideoRendererSink* sink,
+      base::RepeatingCallback<void(bool)> on_media_taint_changed);
   ~OHOSMediaPlayerRendererClient() override;
 
   OHOSMediaPlayerRendererClient(const OHOSMediaPlayerRendererClient&) = delete;
@@ -61,6 +62,7 @@ class OHOSMediaPlayerRendererClient
   void OnVideoSizeChange(const gfx::Size& size) override;
   void OnFrameUpdate(media::mojom::OhosSurfaceBufferHandlePtr
                          ohos_surface_buffer_handle) override;
+  void OnMediaTaintChanged(bool tainted) override;
   void OnFrameAvailable();
 
  private:
@@ -100,6 +102,10 @@ class OHOSMediaPlayerRendererClient
   mojo::PendingReceiver<ClientExtension>  delayed_bind_client_extension_receiver_;
   mojo::Receiver<MediaPlayerRendererClientExtension> client_extension_receiver_{this};
   int native_window_id_ = -1;
+
+  // Callback to propagate browser-side HLS taint verdict to WebMediaPlayerImpl.
+  // Fire-and-forget: no ACK expected.
+  base::RepeatingCallback<void(bool)> on_media_taint_changed_;
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   media::RequestSurfaceCB request_surface_cb_;

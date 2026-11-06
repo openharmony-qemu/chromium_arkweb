@@ -64,6 +64,21 @@ struct StructTraits<media::mojom::MediaPlayerUrlParamsDataView,
     return params.media_source_type_;
   }
 
+  static const url::Origin& frame_origin(
+      const media::MediaPlayerUrlParams& params) {
+    return params.frame_origin_;
+  }
+
+  static uint32_t cors_mode(
+      const media::MediaPlayerUrlParams& params) {
+    return static_cast<uint32_t>(params.cors_mode_);
+  }
+
+  static bool allow_credentials(
+      const media::MediaPlayerUrlParams& params) {
+    return params.allow_credentials_;
+  }
+
   static bool Read(media::mojom::MediaPlayerUrlParamsDataView data,
                    media::MediaPlayerUrlParams* out_params);
 };

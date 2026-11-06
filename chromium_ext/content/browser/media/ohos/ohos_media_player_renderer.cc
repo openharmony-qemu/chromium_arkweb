@@ -12,8 +12,9 @@
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/devtools/protocol/network.h"
 #include "content/browser/media/ohos/ohos_media_player_renderer_web_contents_observer.h"
-#include "content/browser/media/session/media_session_impl.h"
 #include "content/browser/media/ohos/ohos_media_resource_getter_impl.h"
+#include "content/browser/media/session/media_session_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -25,7 +26,6 @@
 #include "content/public/common/content_client.h"
 #include "media/base/timestamp_constants.h"
 #include "media/mojo/mojom/renderer_extensions.mojom.h"
-#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "net/base/isolation_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -126,7 +126,8 @@ void OHOSMediaPlayerRenderer::CreateMediaPlayer() {
         url_params_->GetStorageAccessApiStatus(),
         false,  // hide_url_log
         this, url_params_->AllowCredentials(), url_params_->IsHls(),
-        url_params_->Headers(), grantMediaFileAccessDirs));
+        url_params_->Headers(), grantMediaFileAccessDirs, url_params_->CorsMode(),
+        url_params_->FrameOrigin()));
     if (!media_player_) {
       LOG(ERROR) << "CreateMediaPlayer failed, no media_player_";
       std::move(init_cb_).Run(media::PIPELINE_ERROR_INITIALIZATION_FAILED);
@@ -165,7 +166,8 @@ void OHOSMediaPlayerRenderer::Flush(base::OnceClosure flush_cb) {
 
 void OHOSMediaPlayerRenderer::StartPlayingFrom(base::TimeDelta time) {
   if (has_error_ || !media_player_ || renderer_client_ == nullptr) {
-    LOG(ERROR) << "StartPlayingFrom fail, has_error or no media_player_ or no renderer_client_ ";
+    LOG(ERROR) << "StartPlayingFrom fail, has_error or no media_player_ or no "
+                  "renderer_client_ ";
     return;
   }
   media_player_->SeekTo(time);
@@ -227,20 +229,20 @@ void OHOSMediaPlayerRenderer::OnFrameAvailable(int fd,
                                                int32_t coded_height,
                                                int32_t visible_width,
                                                int32_t visible_height,
-                                               int32_t format) {
-}
+                                               int32_t format) {}
 
 // LCOV_EXCL_START
-media::OHOSMediaResourceGetter* OHOSMediaPlayerRenderer::GetMediaResourceGetter()
-{
+media::OHOSMediaResourceGetter*
+OHOSMediaPlayerRenderer::GetMediaResourceGetter() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (!media_resource_getter_.get()) {
     RenderProcessHost* host = RenderProcessHost::FromID(render_process_id_);
     // The RenderFrameHost/RenderProcessHost may have been destroyed already,
     // as there might be a delay between the frame closing and
     // MojoRendererService receiving a connection closing error.
-    if (!host)
+    if (!host) {
       return nullptr;
+    }
     BrowserContext* context = host->GetBrowserContext();
     media_resource_getter_ = std::make_unique<OHOSMediaResourceGetterImpl>(
         context, render_process_id_, routing_id_);
@@ -249,27 +251,38 @@ media::OHOSMediaResourceGetter* OHOSMediaPlayerRenderer::GetMediaResourceGetter(
 }
 // LCOV_EXCL_STOP
 
-scoped_refptr<network::SharedURLLoaderFactory> OHOSMediaPlayerRenderer::GetURLLoaderFactory() {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    if (url_loader_factory_)
-      return url_loader_factory_;
-
-    RenderProcessHost* host = RenderProcessHost::FromID(render_process_id_);
-    if (!host || !host->GetBrowserContext() ||
-        !host->GetBrowserContext()->GetDefaultStoragePartition()) {
-      LOG(ERROR) << "OHOSMediaPlayerRenderer::GetURLLoaderFactory host is nullptr";
-      return nullptr;
-    }
-
-    url_loader_factory_ = host->GetBrowserContext()
-                              ->GetDefaultStoragePartition()
-                              ->GetURLLoaderFactoryForBrowserProcess();
+scoped_refptr<network::SharedURLLoaderFactory>
+OHOSMediaPlayerRenderer::GetURLLoaderFactory() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (url_loader_factory_) {
     return url_loader_factory_;
   }
 
-media::DevToolsNetworkEventSink* OHOSMediaPlayerRenderer::GetDevToolsNetworkEventSink() {
+  RenderProcessHost* host = RenderProcessHost::FromID(render_process_id_);
+  if (!host || !host->GetBrowserContext() ||
+      !host->GetBrowserContext()->GetDefaultStoragePartition()) {
+    LOG(ERROR)
+        << "OHOSMediaPlayerRenderer::GetURLLoaderFactory host is nullptr";
+    return nullptr;
+  }
+
+  url_loader_factory_ = host->GetBrowserContext()
+                            ->GetDefaultStoragePartition()
+                            ->GetURLLoaderFactoryForBrowserProcess();
+  return url_loader_factory_;
+}
+
+media::DevToolsNetworkEventSink*
+OHOSMediaPlayerRenderer::GetDevToolsNetworkEventSink() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   return this;
+}
+
+void OHOSMediaPlayerRenderer::OnProxyDownloadTaintChanged(bool tainted) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (IsClientExtensionValid()) {
+    client_extension_->OnMediaTaintChanged(tainted);
+  }
 }
 
 void OHOSMediaPlayerRenderer::EnsureDevToolsFrameResolved() {
@@ -338,8 +351,9 @@ void OHOSMediaPlayerRenderer::NotifyLoadingComplete(
     int net_error_code,
     int64_t encoded_data_length) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!devtools_frame_ok_)
+  if (!devtools_frame_ok_) {
     return;
+  }
   network::URLLoaderCompletionStatus status;
   status.error_code = net_error_code;
   status.encoded_data_length = encoded_data_length;
@@ -363,8 +377,9 @@ void OHOSMediaPlayerRenderer::OnMediaDurationChanged(base::TimeDelta duration) {
 }
 
 void OHOSMediaPlayerRenderer::OnPlaybackComplete() {
-  if (renderer_client_)
+  if (renderer_client_) {
     renderer_client_->OnEnded();
+  }
 }
 
 void OHOSMediaPlayerRenderer::OnError(int error) {
@@ -429,9 +444,9 @@ void OHOSMediaPlayerRenderer::OnPlayerInterruptEvent(int32_t value) {
 
 bool OHOSMediaPlayerRenderer::isNeedResume(int32_t resumeInterval) {
   return resumeInterval < 0 ||
-      (resumeInterval > 0 &&
-      std::time(nullptr) - intervalSinceLastSuspend_ <=
-      static_cast<double>(resumeInterval));
+         (resumeInterval > 0 &&
+          std::time(nullptr) - intervalSinceLastSuspend_ <=
+              static_cast<double>(resumeInterval));
 }
 
 void OHOSMediaPlayerRenderer::SetVolume(float volume) {
@@ -491,21 +506,23 @@ media::RendererType OHOSMediaPlayerRenderer::GetRendererType() {
 
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
 void OHOSMediaPlayerRenderer::SetVideoSurface(int32_t surface_id) {
-  LOG(INFO) << "OHOSMediaPlayerRenderer::SetVideoSurface, component surface_id:" << surface_id;
+  LOG(INFO) << "OHOSMediaPlayerRenderer::SetVideoSurface, component surface_id:"
+            << surface_id;
   if (media_player_) {
     media_player_->SetVideoSurface(surface_id);
   } else {
     LOG(INFO) << "SetVideoSurface, no media_player_";
   }
 }
-#endif // ARKWEB_VIDEO_ASSISTANT
+#endif  // ARKWEB_VIDEO_ASSISTANT
 // LCOV_EXCL_STOP
 
-void OHOSMediaPlayerRenderer::GetGrantMediaFileAccessDirs(std::vector<std::string>& grantMediaFileAccessDirs) {
+void OHOSMediaPlayerRenderer::GetGrantMediaFileAccessDirs(
+    std::vector<std::string>& grantMediaFileAccessDirs) {
   if (web_contents_.get() == nullptr) {
-     LOG(ERROR) << "web contents is nullptr";
-     return;
-   }
+    LOG(ERROR) << "web contents is nullptr";
+    return;
+  }
   MediaSessionImpl* mediaSession = MediaSessionImpl::Get(web_contents_.get());
   if (mediaSession == nullptr) {
     LOG(ERROR) << "get mediaSession is nullptr";
@@ -513,7 +530,7 @@ void OHOSMediaPlayerRenderer::GetGrantMediaFileAccessDirs(std::vector<std::strin
   }
   // if setPathAllowingUniversalAccess called, use it
   if (!mediaSession->grantMediaFileAccessDirs_.empty()) {
-    for (const auto& dir: mediaSession->grantMediaFileAccessDirs_) {
+    for (const auto& dir : mediaSession->grantMediaFileAccessDirs_) {
       grantMediaFileAccessDirs.emplace_back(dir);
     }
     return;
@@ -521,7 +538,8 @@ void OHOSMediaPlayerRenderer::GetGrantMediaFileAccessDirs(std::vector<std::strin
 
   // if fileAccess is false. use default path
   if (!mediaSession->fileAccess_) {
-    grantMediaFileAccessDirs.emplace_back("/data/storage/el1/bundle/entry/resources/resfile");
+    grantMediaFileAccessDirs.emplace_back(
+        "/data/storage/el1/bundle/entry/resources/resfile");
     LOG(INFO) << "USE DEFAULT PATH";
   }
 }

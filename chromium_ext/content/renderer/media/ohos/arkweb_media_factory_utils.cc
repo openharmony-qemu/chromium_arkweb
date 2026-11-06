@@ -153,9 +153,9 @@ ArkwebMediaFactoryUtils::ArkwebMediaFactoryUtils(MediaFactory* media_factory)
 void ArkwebMediaFactoryUtils::AddOhosAndCustomMediaFactory(media::RendererFactorySelector* factory_selector,
     RenderThreadImpl* render_thread) {
 #if BUILDFLAG(ARKWEB_MEDIA_HLS)
-  gl::ohos::TextureOwnerMode texture_owner_mode = features::IsUsingVulkan()
-      ? gl::ohos::TextureOwnerMode::kHwVideoZeroCopyNativeBuffer
-      : gl::ohos::TextureOwnerMode::kNativeImageTexture;
+  gl::ohos::TextureOwnerMode texture_owner_mode = base::ohos::IsEmulator() || base::SysInfo::IsLowEndDevice()
+          ? gl::ohos::TextureOwnerMode::kNativeImageTexture
+          : gl::ohos::TextureOwnerMode::kHwVideoZeroCopyNativeBuffer;
   auto ohos_media_player_factory =
       std::make_unique<OHOSMediaPlayerRendererClientFactory>(
         render_thread->compositor_task_runner(), media_factory_->CreateMojoRendererFactory(),
