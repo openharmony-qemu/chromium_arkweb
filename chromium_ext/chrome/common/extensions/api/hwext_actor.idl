@@ -1,0 +1,137 @@
+// Copyright (c) 2026 Huawei Device Co., Ltd.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// ArkWeb extension API to manage actor tasks. Mirrors the createTask /
+// stopActorTask functionality of the glic web client (glic_api.ts) and falls
+// back on the kernel actor implementation in chrome/browser/actor/.
+[implemented_in="arkweb/chromium_ext/chrome/browser/extensions/api/hwext_actor/hwext_actor_api.h"]
+namespace hwext.actor {
+  // Reason why an actor task was stopped.
+  enum ActorTaskStopReason {
+    TASK_COMPLETE,
+    STOPPED_BY_USER,
+    MODEL_ERROR,
+    USER_STARTED_NEW_CHAT,
+    USER_LOADED_PREVIOUS_CHAT
+  };
+
+  // The state of an actor task. Mirrors ActorTask::State in
+  // chrome/browser/actor/actor_task.h.
+  enum ActorTaskState {
+    CREATED,
+    ACTING,
+    REFLECTING,
+    PAUSED_BY_ACTOR,
+    PAUSED_BY_USER,
+    CANCELLED,
+    FINISHED,
+    WAITING_ON_USER,
+    FAILED
+  };
+
+  // Reason for pausing an actor task.
+  enum ActorTaskPauseReason {
+    // Paused by the actor (model) itself.
+    BY_ACTOR,
+    // Paused by the user.
+    BY_USER
+  };
+
+  // Options for creating a new actor task.
+  dictionary TaskOptions {
+    // A user-facing string that describes the task.
+    DOMString? title;
+  };
+
+  // Information about an actor task, returned by getTasks and getTaskState.
+  dictionary TaskInfo {
+    // The task ID.
+    long taskId;
+    // The current state of the task.
+    ActorTaskState state;
+    // The optional title of the task.
+    DOMString? title;
+  };
+
+  callback TaskIdCallback = void(long taskId);
+  callback TaskStateCallback = void(ActorTaskState state);
+  callback TaskListCallback = void(TaskInfo[] tasks);
+  callback ClosureCallback = void();
+  callback DataCallback = void(ArrayBuffer data);
+
+  interface Functions {
+    // Creates an actor task and returns its task ID.
+    // When no callback is provided, this returns a promise that resolves to
+    // the task ID.
+    static void createTask(optional TaskOptions taskOptions,
+                           optional TaskIdCallback callback);
+
+    // Stops an actor task. Stopping a task that does not exist is a no-op.
+    // When no callback is provided, this returns a promise that resolves to
+    // undefined once the stop request has been processed.
+    static void stopTask(long taskId,
+                         optional ActorTaskStopReason stopReason,
+                         optional ClosureCallback callback);
+
+    // Pauses an actor task. The pauseReason determines whether the pause is
+    // initiated by the actor or the user. Pausing a task that does not exist
+    // is an error.
+    // When no callback is provided, this returns a promise that resolves to
+    // undefined once the pause request has been processed.
+    static void pauseTask(long taskId,
+                          optional ActorTaskPauseReason pauseReason,
+                          optional ClosureCallback callback);
+
+    // Resumes a paused actor task. Resuming a task that does not exist or is
+    // not paused is an error.
+    // When no callback is provided, this returns a promise that resolves to
+    // undefined once the resume request has been processed.
+    static void resumeTask(long taskId,
+                           optional ClosureCallback callback);
+
+    // Gets the state of an actor task.
+    // When no callback is provided, this returns a promise that resolves to
+    // a TaskInfo object.
+    static void getTaskState(long taskId,
+                             optional TaskStateCallback callback);
+
+    // Gets all active actor tasks.
+    // When no callback is provided, this returns a promise that resolves to
+    // an array of TaskInfo objects.
+    static void getTasks(optional TaskListCallback callback);
+
+    // Cancels any in-progress action batch for the task. The task state is
+    // not changed; the task remains active and the caller may issue a
+    // subsequent performActions call. Cancelling a task that has no action
+    // in progress is a no-op.
+    // When no callback is provided, this returns a promise that resolves to
+    // undefined once the cancel request has been processed.
+    static void cancelActions(long taskId,
+                              optional ClosureCallback callback);
+  };
+
+  interface Events {
+    // Fired when an actor task is removed (stopped or completed).
+    static void onTaskRemoved(long taskId);
+
+    // Fired when an actor task's state changes.
+    static void onTaskStateChanged(long taskId, ActorTaskState state);
+
+    // Fired when the extension's service worker starts (or restarts after
+    // suspension) to deliver the current snapshot of active tasks. This
+    // allows the extension to rebuild its in-memory task state after the
+    // service worker context has been destroyed and recreated.
+    // |tasks| contains all active tasks owned by the extension.
+    static void onTasksRestored(TaskInfo[] tasks);
+  };
+};

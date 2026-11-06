@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//extensions/buildflags/buildflags.gni")
+import("//arkweb/build/features/features.gni")
+
+assert(enable_extensions,
+       "Cannot depend on extensions because enable_extensions=false.")
+
+source_set("hwext_actor") {
+  sources = [
+    "hwext_actor_api.cc",
+    "hwext_actor_api.h",
+    "hwext_actor_event_router.cc",
+    "hwext_actor_event_router.h",
+    "hwext_actor_event_router_factory.cc",
+    "hwext_actor_event_router_factory.h",
+    "hwext_actor_owner_registry.cc",
+    "hwext_actor_owner_registry.h",
+    "hwext_actor_owner_registry_factory.cc",
+    "hwext_actor_owner_registry_factory.h",
+    "hwext_actor_worker_observer.cc",
+    "hwext_actor_worker_observer.h",
+    "hwext_actor_worker_observer_factory.cc",
+    "hwext_actor_worker_observer_factory.h",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/actor",
+    "//chrome/browser/extensions",
+    "//chrome/common:actor_webui_mojom",
+    "//chrome/common/extensions/api",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+    "//extensions/browser",
+  ]
+
+  if (is_arkweb) {
+    deps += [ "//arkweb/build/features:features" ]
+  }
+}

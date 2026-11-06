@@ -308,6 +308,7 @@ declare_args() {
     arkweb_ext_https_upgrades=false
     arkweb_web_app = false
     arkweb_ext_safebrowsing = false
+    arkweb_ext_actor = false
   }
 }
 

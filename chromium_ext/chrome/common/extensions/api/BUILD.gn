@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//chrome/common/extensions/api/api_sources.gni")
+import("//tools/json_schema_compiler/json_schema_api.gni")
+
+assert(is_arkweb,
+       "ArkWeb extension API types are only available in ArkWeb builds.")
+
+generated_types("generated_arkweb_api_types") {
+  sources = [ "//arkweb/chromium_ext/chrome/common/extensions/api/hwext_actor.idl" ]
+  configs = [ "//build/config:precompiled_headers" ]
+  schema_include_rules = chrome_extensions_api_schema_include_rules
+  root_namespace = chrome_extensions_api_root_namespace
+  deps = [ "//extensions/common/api" ]
+}
+
+generated_json_strings("generated_arkweb_api_json_strings") {
+  sources = [ "//arkweb/chromium_ext/chrome/common/extensions/api/hwext_actor.idl" ]
+  configs = [ "//build/config:precompiled_headers" ]
+  bundle_name = "ArkWeb"
+  schema_include_rules = chrome_extensions_api_schema_include_rules
+  root_namespace = chrome_extensions_api_root_namespace
+  deps = [ "//extensions/common/api" ]
+}
