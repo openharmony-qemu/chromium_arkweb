@@ -83,6 +83,8 @@ const char kEnableNwebExGetZoomLevel[] = "enable-nweb-ex-get-zoom-level";
 const char kEnableNwebExPullToRefresh[] = "enable-nweb-ex-pull-to-refresh";
 const char kEnableNwebExDelegateCompositing[] = "enable-web-delegate-compositing";
 const char kNwebExContentRenderingDelay[] = "nweb-ex-content-rendering-delay";
+const char kEnableNwebExStandardCompliantNonSpecialSchemeUrlParsing[] =
+    "enable-nweb-ex-standard-compliant-non-special-scheme-url-parsing";
 #endif
 
 #if BUILDFLAG(ARKWEB_BFCACHE)

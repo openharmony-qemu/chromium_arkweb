@@ -309,6 +309,7 @@ declare_args() {
     arkweb_web_app = false
     arkweb_ext_safebrowsing = false
     arkweb_ext_actor = false
+    arkweb_ext_standard_compliant_non_special_scheme_url_parsing = false
   }
 }
 

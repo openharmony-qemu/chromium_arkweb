@@ -27,6 +27,10 @@
 #include "components/prefs/pref_service.h"
 #endif
 
+#if BUILDFLAG(ARKWEB_EXT_STANDARD_COMPLIANT_NON_SPECIAL_SCHEME_URL_PARSING)
+#include "base/command_line.h"
+#endif
+
 namespace {
 
 #if BUILDFLAG(ARKWEB_SAFEBROWSING)
@@ -101,8 +105,30 @@ void AddGlobalConfigFeaturesSwitchesToCommandLine(PrefService* local_state) {
   }
 }
 
+#if BUILDFLAG(ARKWEB_EXT_STANDARD_COMPLIANT_NON_SPECIAL_SCHEME_URL_PARSING)
+void AddStandardCompliantUrlParsingSwitchToCommandLine(
+    PrefService* local_state) {
+  if (!local_state) {
+    return;
+  }
+  bool enabled = local_state->GetBoolean(
+      OHOS::NWeb::kStandardCompliantNonSpecialSchemeUrlParsing);
+  if (enabled) {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kEnableNwebExStandardCompliantNonSpecialSchemeUrlParsing);
+  }
+}
+#endif
+
 void DealGlobalConfig(PrefService* local_state) {
   AddGlobalConfigFeaturesSwitchesToCommandLine(local_state);
+#if BUILDFLAG(ARKWEB_EXT_STANDARD_COMPLIANT_NON_SPECIAL_SCHEME_URL_PARSING)
+  if (base::CommandLine::ForCurrentProcess() &&
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kEnableNwebEx)) {
+    AddStandardCompliantUrlParsingSwitchToCommandLine(local_state);
+  }
+#endif
 
   OHOS::NWeb::NwebCloudControlGlobalConfig::GetInstance().HandleGlobalConfig(local_state);
 }
