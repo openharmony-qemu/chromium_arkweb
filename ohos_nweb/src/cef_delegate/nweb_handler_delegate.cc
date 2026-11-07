@@ -1676,6 +1676,13 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
       main_browser_->GetHost()->EnableAppLinking(is_arkweb_applinking_enabled_);
     }
 #endif
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+    if (main_browser_ && main_browser_->GetHost()) {
+      LOG(DEBUG) << "NWebHandlerDelegate::OnAfterCreated, auto_reload_enabled_: "
+                  << auto_reload_enabled_;
+      main_browser_->GetHost()->SetAutoReloadEnabled(auto_reload_enabled_);
+    }
+#endif
     return;
   }
 #endif  // BUILDFLAG(ARKWEB_MULTI_WINDOW)
@@ -1709,6 +1716,13 @@ void NWebHandlerDelegate::OnAfterCreated(CefRefPtr<CefBrowser> browser) {
   } else {
     LOG(ERROR) << "Failed to set browser to settings delegate";
   }
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  if (main_browser_ && main_browser_->GetHost()) {
+    LOG(DEBUG) << "NWebHandlerDelegate::OnAfterCreated, auto_reload_enabled_: "
+                << auto_reload_enabled_;
+    main_browser_->GetHost()->SetAutoReloadEnabled(auto_reload_enabled_);
+  }
+#endif
 #if BUILDFLAG(ARKWEB_VIDEO_ASSISTANT)
   if (video_assistant_enabled_) {
     if (main_browser_ && main_browser_->GetHost()) {

@@ -7455,6 +7455,31 @@ bool NWebDelegate::GetSubframeErrorPageEnabled() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+void NWebDelegate::SetAutoReloadEnabled(bool enable) {
+  if (handler_delegate_) {
+    handler_delegate_->SaveAutoReloadEnabled(enable);
+  }
+  if (GetBrowser() == nullptr || GetBrowser()->GetHost() == nullptr) {
+    LOG(WARNING)
+      << "SetAutoReloadEnabled: browser not ready, saved for OnAfterCreated"
+      << ", nweb_id_[" << nweb_id_ << "]";
+    return;
+  }
+  GetBrowser()->GetHost()->SetAutoReloadEnabled(enable);
+}
+
+bool NWebDelegate::GetAutoReloadEnabled() {
+  if (GetBrowser() != nullptr && GetBrowser()->GetHost() != nullptr) {
+    return GetBrowser()->GetHost()->GetAutoReloadEnabled();
+  }
+  if (handler_delegate_) {
+    return handler_delegate_->GetSavedAutoReloadEnabled();
+  }
+  return false;
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
 void NWebDelegate::SetBlankScreenDetectionConfig(
     bool enable,

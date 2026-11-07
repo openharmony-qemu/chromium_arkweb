@@ -846,6 +846,10 @@ class MockCefBrowserHost : public ArkWebBrowserHostExt {
   void EnableAppLinking(bool enable) override {}
   bool IsAppLinkingEnabled() const override { return false; }
 #endif
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  void SetAutoReloadEnabled(bool enable) override {}
+  bool GetAutoReloadEnabled() const override { return false; }
+#endif
 
   void RunJavaScriptInFrames(
       const std::string& jsString,

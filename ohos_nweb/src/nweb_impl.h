@@ -1450,6 +1450,11 @@ void SetVisibility(bool isVisible) override;
   bool GetSubframeErrorPageEnabled() override;
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  void SetAutoReloadEnabled(bool enable) override;
+  bool GetAutoReloadEnabled() override;
+#endif
+
 #if BUILDFLAG(ARKWEB_NETWORK_LOAD)
   static void EnablePrivateNetworkAccess(bool enable);
   static bool IsPrivateNetworkAccessEnabled();

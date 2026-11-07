@@ -844,6 +844,10 @@ class MockBrowserHost : public ArkWebBrowserHostExt {
   MOCK_METHOD(void, EnableAppLinking, (bool), (override));
   MOCK_METHOD(bool, IsAppLinkingEnabled, (), (const, override));
 #endif
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  MOCK_METHOD(void, SetAutoReloadEnabled, (bool), (override));
+  MOCK_METHOD(bool, GetAutoReloadEnabled, (), (const, override));
+#endif
 #if BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
   MOCK_METHOD(int32_t, GetLastCommittedEntryPageTransition, (), (override));
 #endif  // BUILDFLAG(ARKWEB_EXT_RECEIVE_RESPONSE)
