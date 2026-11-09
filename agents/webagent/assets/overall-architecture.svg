@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2240" height="1504" viewBox="0 0 1120 752" role="img" aria-labelledby="title desc">
+<title id="title">鸿途 WebAgent · 系统架构</title>
+<desc id="desc">核心模块负责组织任务，浏览器插件负责感知页面与执行操作。</desc>
+<rect x="0" y="0" width="1120" height="752" rx="0" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2"/>
+<text x="40" y="44" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">鸿途 WebAgent · 系统架构</text>
+<text x="40" y="84" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">核心模块负责组织任务，浏览器插件负责感知页面与执行操作。</text>
+<rect x="40" y="120" width="1040" height="330" rx="12" fill="#F5F7FA" stroke="#DCE5EF" stroke-width="2"/>
+<text x="64" y="151" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="26" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">核心模块 WebAgentCore</text>
+<rect x="64" y="181" width="992" height="50" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="86" y="206" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">交互控制</text>
+<text x="285" y="206" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">任务输入 · 进度展示 · 接管与恢复</text>
+<rect x="64" y="243" width="992" height="50" rx="12" fill="#EDF4FF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="86" y="268" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#2563EB">任务编排</text>
+<text x="285" y="268" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">分析 · 感知 · 推理 · 执行 · 总结</text>
+<rect x="64" y="305" width="992" height="50" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="86" y="330" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">能力支撑</text>
+<text x="285" y="330" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">安全 · 感知 · 工具 · 知识与技能 · 记忆</text>
+<rect x="64" y="367" width="992" height="50" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="86" y="392" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">浏览器通信</text>
+<text x="285" y="392" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">指令下发 · 页面信息回传 · 执行结果回传</text>
+<polyline points="430,450 430,541" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="430,541 435,530 425,530" fill="#2563EB"/>
+<text x="355" y="495" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#2563EB">操作指令</text>
+<polyline points="690,541 690,450" fill="none" stroke="#13836E" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="690,450 685,461 695,461" fill="#13836E"/>
+<text x="825" y="495" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#13836E">页面信息与执行结果</text>
+<rect x="40" y="542" width="1040" height="166" rx="12" fill="#ECF8F3" stroke="#A8D8C8" stroke-width="2"/>
+<text x="64" y="575" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="26" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#13836E">浏览器插件</text>
+<rect x="64" y="606" width="304" height="77" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="216" y="628.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">通信管理</text>
+<text x="216" y="665.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">连接 · 消息收发</text>
+<rect x="408" y="606" width="304" height="77" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="560" y="628.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">任务控制</text>
+<text x="560" y="665.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">任务生命周期 · 状态管理</text>
+<rect x="752" y="606" width="304" height="77" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="904" y="628.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">页面感知与操作</text>
+<text x="904" y="665.5" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">元素采集 · CDP 操作</text>
+</svg>

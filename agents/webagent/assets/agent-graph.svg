@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2240" height="1284" viewBox="0 0 1120 642" role="img" aria-labelledby="title desc">
+<title id="title">AgentGraph · 多步任务的持续推进</title>
+<desc id="desc">以页面反馈驱动下一轮决策；下图展示主要流程。</desc>
+<rect x="0" y="0" width="1120" height="642" rx="0" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2"/>
+<text x="40" y="44" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">AgentGraph · 多步任务的持续推进</text>
+<text x="40" y="84" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">以页面反馈驱动下一轮决策；下图展示主要流程。</text>
+<rect x="60" y="122" width="250" height="70" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="185" y="157" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">任务初始化与分析</text>
+<polyline points="185,192 185,246" fill="none" stroke="#8C9EB1" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="185,246 190,235 180,235" fill="#8C9EB1"/>
+<rect x="60" y="248" width="250" height="84" rx="12" fill="#ECF8F3" stroke="#A8D8C8" stroke-width="2"/>
+<text x="185" y="274" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#13836E">感知页面</text>
+<text x="185" y="311" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">获取当前页面状态</text>
+<rect x="430" y="248" width="250" height="84" rx="12" fill="#EDF4FF" stroke="#A7C3FC" stroke-width="2"/>
+<text x="555" y="274" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#2563EB">推理决策</text>
+<text x="555" y="311" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">选择动作或判断结束</text>
+<rect x="800" y="248" width="250" height="84" rx="12" fill="#ECF8F3" stroke="#A8D8C8" stroke-width="2"/>
+<text x="925" y="274" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#13836E">执行动作</text>
+<text x="925" y="311" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">调用插件执行操作</text>
+<polyline points="310,290 424,290" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="424,290 413,285 413,295" fill="#2563EB"/>
+<polyline points="680,290 794,290" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="794,290 783,285 783,295" fill="#2563EB"/>
+<polyline points="920,332 920,402 185,402 185,338" fill="none" stroke="#13836E" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="185,338 180,349 190,349" fill="#13836E"/>
+<rect x="363" y="382" width="406" height="40" rx="0" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2"/>
+<text x="566" y="402" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#13836E">更新页面状态，继续下一轮</text>
+<polyline points="1050,290 1080,290 1080,526 1050,526" fill="none" stroke="#8C9EB1" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="1050,526 1061,531 1061,521" fill="#8C9EB1"/>
+<text x="1004" y="451" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="20" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">结束条件满足</text>
+<rect x="800" y="488" width="250" height="80" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="925" y="512" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">总结与结束</text>
+<text x="925" y="549" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="middle" dominant-baseline="central" fill="#60758B">返回任务状态和摘要</text>
+<rect x="60" y="485" width="650" height="93" rx="12" fill="#F5F7FA" stroke="#DCE5EF" stroke-width="2"/>
+<text x="84" y="516" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">按需分发子任务</text>
+<text x="84" y="551" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">执行节点可调用专用流程，完成后返回主流程。</text>
+<text x="40" y="613" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="19" font-weight="400" text-anchor="start" dominant-baseline="central" fill="#60758B">重试、异常处理及其他节点转移未在图中展开。</text>
+</svg>

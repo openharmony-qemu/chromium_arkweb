@@ -37,6 +37,7 @@
                 <filteritem type="filepath" name="build/ohpm/resources/.*" desc="ohpm configuration filter"/>
                 <filteritem type="filepath" name="ut_tools/filters/.*" desc="test filter configuration filter"/>
                 <filteritem type="filepath" name="ci_tools/.*" desc="CI tools filter"/>
+                <filteritem type="filepath" name="agents/webagent/assets/.*" desc="webagent example filter"/>
             </filefilter>
         </filefilterlist>
         <licensematcherlist>
