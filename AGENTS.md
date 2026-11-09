@@ -50,6 +50,7 @@
 
 | 场景 | 先读 |
 |---|---|
+| 需求分析、方案设计或开发涉及渲染、媒体、输入、控件、页面适配或进程等业务行为，即使需求未提及设备 | [`docs/knowledge/device-differences.md`](docs/knowledge/device-differences.md)：业务配置映射与差异识别入口 |
 | 顶层目录职责、模块边界、术语约定 | [`docs/knowledge/module-map.md`](docs/knowledge/module-map.md) |
 | 修改 `chromium_ext/`，或任务涉及源码注册、特性开关、`BUILDFLAG` | [`docs/knowledge/chromium-ext-architecture.md`](docs/knowledge/chromium-ext-architecture.md) |
 | 任务涉及构建入口、GN args、`coreut`、`allut`、`smokeut` | [`docs/knowledge/build-system.md`](docs/knowledge/build-system.md) |
