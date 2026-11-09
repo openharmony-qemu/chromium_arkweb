@@ -294,6 +294,10 @@ static_library("cef_nweb") {
       "src/cef_delegate/nweb_extension_window_cef_delegate.cc",
       "src/cef_delegate/nweb_extension_top_sites_cef_delegate.cc",
       "src/cef_delegate/nweb_extension_top_sites_cef_delegate.h",
+      "src/cef_delegate/nweb_extension_agent_handler_delegate.cc",
+      "src/cef_delegate/nweb_extension_agent_handler_delegate.h",
+      "//arkweb/chromium_ext/chrome/browser/extensions/api/hwext_agent/hwext_agent_api.cc",
+      "//arkweb/chromium_ext/chrome/browser/extensions/api/hwext_agent/hwext_agent_api.h",
     ]
 
     deps += [
