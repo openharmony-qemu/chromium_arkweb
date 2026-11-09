@@ -489,6 +489,13 @@ class NWebDelegateInterface
   virtual bool RestoreWebState(const std::vector<uint8_t>& state) = 0;
 #endif  // BUILDFLAG(ARKWEB_NAVIGATION)
 
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+  virtual void SetNavigationEntryUserData(const std::string& key,
+                                          const std::string& value) = 0;
+  virtual std::string GetNavigationEntryUserData(const std::string& key) = 0;
+  virtual void RemoveNavigationEntryUserData(const std::string& key) = 0;
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+
 #if BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)
   virtual void SetAudioMuted(bool muted) = 0;
 #endif  // BUILDFLAG(ARKWEB_MEDIA_MUTE_AUDIO)

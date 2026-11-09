@@ -117,6 +117,7 @@ declare_args() {
   arkweb_multi_window = true
   arkweb_mojo_connector_teardown_guard = true
   arkweb_navigation = true
+  arkweb_navigation_entry_userdata = true
   arkweb_network_conninfo = true
   arkweb_network_load = true
   arkweb_network_proxy = true

@@ -522,6 +522,19 @@ class NWebImpl : public NWeb {
   std::shared_ptr<NWebHistoryList> GetHistoryList() override;
   std::vector<uint8_t> SerializeWebState() override;
   bool RestoreWebState(const std::vector<uint8_t>& state) override;
+#if BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
+  void SetNavigationEntryUserData(const std::string& key,
+                                  const std::string& value) override;
+  std::string GetNavigationEntryUserData(const std::string& key) override;
+  void RemoveNavigationEntryUserData(const std::string& key) override;
+#else
+  // NWeb base class unconditionally declares these as virtual, so
+  // NWebImpl must still override them when the feature is disabled.
+  void SetNavigationEntryUserData(const std::string& key,
+                                  const std::string& value) override;
+  std::string GetNavigationEntryUserData(const std::string& key) override;
+  void RemoveNavigationEntryUserData(const std::string& key) override;
+#endif  // BUILDFLAG(ARKWEB_NAVIGATION_ENTRY_USERDATA)
 
 #if BUILDFLAG(ARKWEB_PAGE_UP_DOWN)
   void PageUp(bool top) override;
