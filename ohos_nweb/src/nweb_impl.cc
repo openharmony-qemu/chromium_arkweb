@@ -9309,6 +9309,24 @@ bool NWebImpl::GetSubframeErrorPageEnabled() {
 }
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+void NWebImpl::SetAutoReloadEnabled(bool enable) {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "SetAutoReloadEnabled: nweb delegate has not init.";
+    return;
+  }
+  nweb_delegate_->SetAutoReloadEnabled(enable);
+}
+
+bool NWebImpl::GetAutoReloadEnabled() {
+  if (nweb_delegate_ == nullptr) {
+    LOG(ERROR) << "GetAutoReloadEnabled: nweb delegate has not init.";
+    return false;
+  }
+  return nweb_delegate_->GetAutoReloadEnabled();
+}
+#endif
+
 #if BUILDFLAG(ARKWEB_BLANK_SCREEN_DETECTION)
 void NWebImpl::SetBlankScreenDetectionConfig(
     bool enable,

@@ -279,6 +279,7 @@ declare_args() {
   arkweb_viewport_avoid = true
   arkweb_gwp_asan = true
   arkweb_error_page = true
+  arkweb_error_page_auto_reload = true
   arkweb_blank_prop_config = true
   arkweb_autolayout = true
   arkweb_enable_prebuild = false

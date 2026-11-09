@@ -346,6 +346,7 @@ if (!enable_arkweb) {
   arkweb_viewport_avoid = false
   arkweb_gwp_asan = false
   arkweb_error_page = false
+  arkweb_error_page_auto_reload = false
   arkweb_blank_prop_config = true
   arkweb_autolayout = false
   arkweb_ex_fallback_proxy = false
@@ -653,6 +654,7 @@ buildflag_header("features") {
     "ARKWEB_VIEWPORT_AVOID=$arkweb_viewport_avoid",
     "ARKWEB_GWP_ASAN=$arkweb_gwp_asan",
     "ARKWEB_ERROR_PAGE=$arkweb_error_page",
+    "ARKWEB_ERROR_PAGE_AUTO_RELOAD=$arkweb_error_page_auto_reload",
     "ARKWEB_BLANK_PROP_CONFIG=$arkweb_blank_prop_config",
     "ARKWEB_AUTOLAYOUT=$arkweb_autolayout",
     "ARKWEB_EX_FALLBACK_PROXY=$arkweb_ex_fallback_proxy",

@@ -1069,6 +1069,11 @@ void AbortDistill() override;
   bool GetSubframeErrorPageEnabled() override;
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  void SetAutoReloadEnabled(bool enable) override;
+  bool GetAutoReloadEnabled() override;
+#endif
+
 #if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
   void EnableHttpsUpgrades(bool enable) override;
 #endif

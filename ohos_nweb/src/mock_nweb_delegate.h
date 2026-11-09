@@ -1094,6 +1094,10 @@ class MockNWebDelegate : public NWebDelegateInterface {
 #if BUILDFLAG(IS_ARKWEB)
   MOCK_METHOD(void, EnableAppLinking, (bool enable), (override));
 #endif
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  MOCK_METHOD(void, SetAutoReloadEnabled, (bool enable), (override));
+  MOCK_METHOD(bool, GetAutoReloadEnabled, (), (override));
+#endif
 #if BUILDFLAG(ARKWEB_MEDIA_NETWORK_TRAFFIC_PROMPT)
   MOCK_METHOD(void, EnableMediaNetworkTrafficPrompt, (bool enable), (override));
 #endif  // ARKWEB_MEDIA_NETWORK_TRAFFIC_PROMPT

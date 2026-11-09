@@ -958,6 +958,15 @@ class NWebHandlerDelegate : public ArkWebClientExt,
   void SaveEnableAppLinking(bool enable);
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  void SaveAutoReloadEnabled(bool enable) {
+    auto_reload_enabled_ = enable;
+  }
+  bool GetSavedAutoReloadEnabled() const {
+    return auto_reload_enabled_;
+  }
+#endif
+
 #if BUILDFLAG(ARKWEB_DRAG_DROP)
   bool IsDragEnter() const { return is_drag_enter_; }
   void SetDragEnter(bool enter) { is_drag_enter_ = enter; }
@@ -1319,6 +1328,11 @@ void OnMediaCastEnter() override;
 #if BUILDFLAG(IS_ARKWEB)
   bool is_arkweb_applinking_enabled_ = true;
 #endif
+
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  bool auto_reload_enabled_ = false;
+#endif
+
   std::unique_ptr<LinkToTextMenuManager> link_to_text_menu_manager_;
   void OnLinkGenerationCompleted(bool has_link);
   void InitLinkToTextMenuManager(CefRefPtr<CefBrowser> browser,

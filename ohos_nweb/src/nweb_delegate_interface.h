@@ -1089,6 +1089,11 @@ class NWebDelegateInterface
   virtual bool GetSubframeErrorPageEnabled() = 0;
 #endif
 
+#if BUILDFLAG(ARKWEB_ERROR_PAGE_AUTO_RELOAD)
+  virtual void SetAutoReloadEnabled(bool enable) = 0;
+  virtual bool GetAutoReloadEnabled() = 0;
+#endif
+
 #if BUILDFLAG(ARKWEB_EXT_HTTPS_UPGRADES)
   virtual void EnableHttpsUpgrades(bool enable) = 0;
 #endif
