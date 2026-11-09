@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2240" height="1608" viewBox="0 0 1120 804" role="img" aria-labelledby="title desc">
+<title id="title">三方对接 · 两条目标接入路径</title>
+<desc id="desc">系统规划：三方智能体通过网页操控工具集接入，网页应用通过 ArkWeb 接口接入浏览器执行引擎。</desc>
+<rect x="0" y="0" width="1120" height="804" fill="#FFFFFF"/>
+<text x="40" y="44" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="32" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#19334D">三方对接 · 两条目标接入路径</text>
+<text x="40" y="84" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" text-anchor="start" dominant-baseline="central" fill="#60758B">系统规划：由调用方选择网页操控工具集或浏览器执行能力。</text>
+<rect x="80" y="134" width="420" height="78" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="290" y="173" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">三方智能体</text>
+<rect x="620" y="134" width="420" height="78" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="830" y="173" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">网页应用</text>
+<rect x="40" y="284" width="1040" height="458" rx="12" fill="#F5F7FA" stroke="#DCE5EF" stroke-width="2"/>
+<text x="62" y="314" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="23" font-weight="700" text-anchor="start" dominant-baseline="central" fill="#60758B">鸿蒙系统</text>
+<polyline points="290,212 290,390" fill="none" stroke="#13836E" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="290,390 295,379 285,379" fill="#13836E"/>
+<rect x="80" y="232" width="420" height="38" fill="#FFFFFF"/>
+<text x="290" y="251" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="20" text-anchor="middle" dominant-baseline="central" fill="#13836E">模型上下文协议 MCP + 技能</text>
+<polyline points="830,212 830,626" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="830,626 835,615 825,615" fill="#2563EB"/>
+<rect x="620" y="232" width="420" height="38" fill="#FFFFFF"/>
+<text x="830" y="251" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="21" text-anchor="middle" dominant-baseline="central" fill="#2563EB">ArkWeb 接口</text>
+<rect x="80" y="392" width="420" height="124" rx="12" fill="#ECF8F3" stroke="#A8D8C8" stroke-width="2"/>
+<text x="290" y="432" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#13836E">网页操控工具集</text>
+<text x="290" y="478" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="18" text-anchor="middle" dominant-baseline="central" fill="#60758B">浏览器启动 · 操作调度 · 生命周期 · 安全管控</text>
+<polyline points="290,516 290,626" fill="none" stroke="#13836E" stroke-width="2.5" stroke-linejoin="round"/>
+<polygon points="290,626 295,615 285,615" fill="#13836E"/>
+<rect x="80" y="628" width="960" height="90" rx="12" fill="#FFFFFF" stroke="#DCE5EF" stroke-width="2"/>
+<text x="560" y="658" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="25" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="#19334D">浏览器执行引擎</text>
+<text x="560" y="694" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="22" text-anchor="middle" dominant-baseline="central" fill="#60758B">感知页面变化 · 采集页面内容 · 执行滚动、点击和填写</text>
+<text x="40" y="776" font-family="Microsoft YaHei UI, Microsoft YaHei, sans-serif" font-size="20" text-anchor="start" dominant-baseline="central" fill="#60758B">目标接入方式，当前样例工程尚未提供上述对外接口。</text>
+</svg>
