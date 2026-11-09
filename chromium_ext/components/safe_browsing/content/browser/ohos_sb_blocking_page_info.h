@@ -18,6 +18,7 @@
  
 #include "ohos_sb_threat_type.h"
 #include "url/gurl.h"
+#include "arkweb/ohos_nweb/src/capi/nweb_safe_browsing_detection_result_item.h"
  
 namespace ohos_safe_browsing {
 struct OhosSbBlockingPageInfo {
@@ -44,13 +45,22 @@ struct OhosSbBlockingPageInfo {
     return info_url.is_valid() && !info_url.is_empty();
   }
  
+  int req_id{-1};
   GURL info_url = GURL("");
   int info_hw_code{-1};
+  std::string mapping_type;
   OHSBThreatType info_block_type = OHSBThreatType::THREAT_DEFAULT;
   OHSBThreatType info_original_block_type = OHSBThreatType::THREAT_DEFAULT;
   int info_policy{-1};
   OHSBPolicyLevel info_policy_level = OHSBPolicyLevel::POLICY_LEVEL_DEFAULT;
   GURL info_redirect_url = GURL("");
+  std::string desensitized_url;
+  bool is_content_check{false};
+  std::string content_check_parameters;
+  std::string uuid;
+  std::string appname;
+  bool is_from_af_detect{false};
+  bool is_minor_protection{false};
 };
 }
 #endif  // ARKWEB_CHROMIUM_EXT_COMPONENTS_SAFE_BROWSING_CONTENT_BROWSER_OHOS_SB_BLOCKING_PAGE_INFO_H_
