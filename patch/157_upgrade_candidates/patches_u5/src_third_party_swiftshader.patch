@@ -1,0 +1,233 @@
+diff --git a/src/Reactor/BUILD.gn b/src/Reactor/BUILD.gn
+index 67dfeb0ec886da072ad8b0aae84685aebcc68e23..533d2afa21d4a4d8ce2cfe12afbf552c65c44e39 100644
+--- a/src/Reactor/BUILD.gn
++++ b/src/Reactor/BUILD.gn
+@@ -66,11 +66,11 @@ if (supports_subzero) {
+     ]
+ 
+     if (current_cpu == "x64") {
+       defines += [
+         "SZTARGET=X8664",
+-        "SUBZERO_TARGET=X8664",
++        # "SUBZERO_TARGET=X8664",
+       ]
+     } else if (current_cpu == "x86") {
+       defines += [
+         "SZTARGET=X8632",
+         "SUBZERO_TARGET=X8632",
+@@ -81,11 +81,11 @@ if (supports_subzero) {
+         "SUBZERO_TARGET=MIPS32",
+       ]
+     } else if (current_cpu == "arm") {
+       defines += [
+         "SZTARGET=ARM32",
+-        "SUBZERO_TARGET=ARM32",
++        # "SUBZERO_TARGET=ARM32",
+       ]
+     }
+ 
+     include_dirs = [
+       "../../third_party/subzero",
+@@ -101,10 +101,12 @@ if (supports_subzero) {
+     } else if (is_fuchsia) {
+       include_dirs +=
+           [ "../../third_party/llvm-subzero/build/Fuchsia/include/" ]
+     } else if (is_mac) {
+       include_dirs += [ "../../third_party/llvm-subzero/build/MacOS/include/" ]
++    } else {
++      include_dirs += [ "../../third_party/llvm-subzero/build/Linux/include/" ]
+     }
+   }
+ 
+   config("swiftshader_subzero_private_config") {
+     cflags = []
+@@ -325,11 +327,11 @@ if (supports_llvm) {
+     include_dirs = [
+       "$llvm_dir/llvm/include/",
+       "$llvm_dir/configs/common/include/",
+     ]
+ 
+-    if (is_linux || is_chromeos) {
++    if (is_linux || is_chromeos || is_ohos) {
+       include_dirs += [ "$llvm_dir/configs/linux/include/" ]
+     } else if (is_fuchsia) {
+       include_dirs += [ "$llvm_dir/configs/fuchsia/include/" ]
+     } else if (is_win) {
+       include_dirs += [ "$llvm_dir/configs/windows/include/" ]
+diff --git a/src/Reactor/reactor.gni b/src/Reactor/reactor.gni
+index 51cb8fbfe6e47b63b6adb93503711de5edf3b60f..0512a812da95b2f2178a7668453a0af082237a6b 100644
+--- a/src/Reactor/reactor.gni
++++ b/src/Reactor/reactor.gni
+@@ -12,11 +12,11 @@ declare_args() {
+   # Subzero doesn't support ARM64, LOONGARCH64, MIPS64, PPC64, and RISCV64 (only x86 and ARMv7a).
+   supports_subzero = current_cpu != "arm64" && current_cpu != "mips64el" && current_cpu != "ppc64" && current_cpu != "riscv64" && current_cpu != "loong64"
+ }
+ 
+ declare_args() {
+-  supports_llvm = is_linux || is_chromeos || is_fuchsia || is_win || is_android
++  supports_llvm = is_linux || is_chromeos || is_fuchsia || is_win || is_android || is_ohos
+     # LLVM uses C++17 features which require macOS 10.12, while Chrome's minimum platform for x86 is 10.11.
+     # Don't build LLVM on Mac, unless we have to. This only happens on ARM64 devices, which launched with 11.0.
+     # TODO(b/174843857): Remove check for !supports_subzero once Chrome supports macOS 10.12
+     || (is_mac && !supports_subzero)
+ }
+diff --git a/src/System/BUILD.gn b/src/System/BUILD.gn
+index 6f61d9f76d72eaa3c0efd7cb58be73e550401b70..bed58a57bc972becd38b40157c3883ead7b5a1d5 100644
+--- a/src/System/BUILD.gn
++++ b/src/System/BUILD.gn
+@@ -27,11 +27,11 @@ swiftshader_source_set("System_headers") {
+     "Socket.cpp",
+     "Socket.hpp",
+     "SwiftConfig.hpp",
+     "Timer.hpp",
+   ]
+-  if (is_linux || is_chromeos || is_android) {
++  if (is_linux || is_chromeos || is_android || is_ohos) {
+     sources += [
+       "Linux/MemFd.hpp",
+     ]
+   }
+ }
+@@ -46,11 +46,11 @@ swiftshader_source_set("System") {
+     "Math.cpp",
+     "Memory.cpp",
+     "SwiftConfig.cpp",
+     "Timer.cpp",
+   ]
+-  if (is_linux || is_chromeos || is_android) {
++  if (is_linux || is_chromeos || is_android || is_ohos) {
+     sources += [
+       "Linux/MemFd.cpp",
+     ]
+   }
+ 
+diff --git a/src/Vulkan/BUILD.gn b/src/Vulkan/BUILD.gn
+index 852068cade0a9d3f400bd18cce29e909193fc8d6..c10bdd05444fd5d68b3ccb8f421123b85f4a1adb 100644
+--- a/src/Vulkan/BUILD.gn
++++ b/src/Vulkan/BUILD.gn
+@@ -18,11 +18,11 @@ import("//build_overrides/wayland.gni")
+ import("../swiftshader.gni")
+ import("vulkan.gni")
+ 
+ # Need a separate config to ensure the warnings are added to the end.
+ config("swiftshader_libvulkan_private_config") {
+-  if (is_linux) {
++  if (is_linux || is_ohos) {
+     defines = [ "VK_EXPORT=__attribute__((visibility(\"default\")))" ]
+     if (ozone_platform_x11) {
+       defines += [ "VK_USE_PLATFORM_XCB_KHR" ]
+     }
+     if (ozone_platform_wayland) {
+@@ -112,11 +112,11 @@ swiftshader_source_set("swiftshader_libvulkan_headers") {
+     "VkStringify.hpp",
+     "VkStructConversion.hpp",
+     "VkTimelineSemaphore.hpp",
+     "VulkanPlatform.hpp",
+   ]
+-  if (is_linux || is_chromeos || is_android) {
++  if (is_linux || is_chromeos || is_android || is_ohos) {
+     sources += [
+       "VkDeviceMemoryExternalLinux.hpp",
+       "VkSemaphoreExternalLinux.hpp",
+     ]
+   } else if (is_mac) {
+@@ -215,11 +215,11 @@ swiftshader_shared_library("swiftshader_libvulkan") {
+     ldflags = [
+       "-Wl,-install_name,@rpath/libvk_swiftshader.dylib",
+       "-Wl,-exported_symbols_list," +
+           rebase_path("vk_swiftshader.exports", root_build_dir),
+     ]
+-  } else if (is_linux || is_chromeos || is_fuchsia) {
++  } else if (is_linux || is_chromeos || is_fuchsia || is_ohos) {
+     inputs = [ "vk_swiftshader.lds" ]
+     ldflags = [
+       # -Bsymbolic binds symbol references to their global definitions within
+       # a shared object, thereby preventing symbol preemption.
+       "-Wl,-Bsymbolic",
+diff --git a/src/Vulkan/libVulkan.cpp b/src/Vulkan/libVulkan.cpp
+index 92619a954c94c0d4aa44d18fc3654ed43288c395..9640765067d76c01d25ea69ea1000491d3912624 100644
+--- a/src/Vulkan/libVulkan.cpp
++++ b/src/Vulkan/libVulkan.cpp
+@@ -320,10 +320,13 @@ static const ExtensionProperties instanceExtensionProperties[] = {
+ 	{ { VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME, VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_SPEC_VERSION } },
+ 	{ { VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_SPEC_VERSION } },
+ 	{ { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_SPEC_VERSION } },
+ 	{ { VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_SPEC_VERSION } },
+ 	{ { VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME, VK_EXT_HEADLESS_SURFACE_SPEC_VERSION } },
++#if defined(OSOHOS)
++	{ { VK_KHR_DISPLAY_EXTENSION_NAME, VK_KHR_DISPLAY_SPEC_VERSION } },
++#endif
+ #ifndef __ANDROID__
+ 	{ { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_SPEC_VERSION } },
+ 	{ { VK_KHR_SURFACE_MAINTENANCE_1_EXTENSION_NAME, VK_KHR_SURFACE_MAINTENANCE_1_SPEC_VERSION } },
+ 	{ { VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME, VK_EXT_SURFACE_MAINTENANCE_1_SPEC_VERSION } },
+ 	{ { VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, VK_KHR_GET_SURFACE_CAPABILITIES_2_SPEC_VERSION } },
+diff --git a/third_party/llvm-10.0/BUILD.gn b/third_party/llvm-10.0/BUILD.gn
+index f99abba3778a6d460f390e087959591d9505600c..53b16fd6047723f0b95860be8ebd69bc2bf60439 100644
+--- a/third_party/llvm-10.0/BUILD.gn
++++ b/third_party/llvm-10.0/BUILD.gn
+@@ -101,11 +101,11 @@ llvm_include_dirs = [
+   "configs/common/lib/Target/RISCV/",
+   "configs/common/lib/Target/X86/",
+   "configs/common/lib/Transforms/InstCombine/",
+ ]
+ 
+-if (is_linux || is_chromeos) {
++if (is_linux || is_chromeos || is_ohos) {
+   llvm_include_dirs += [ "configs/linux/include/" ]
+ } else if (is_fuchsia) {
+   llvm_include_dirs += [ "configs/fuchsia/include/" ]
+ } else if (is_win) {
+   llvm_include_dirs += [ "configs/windows/include/" ]
+diff --git a/third_party/marl/src/thread.cpp b/third_party/marl/src/thread.cpp
+index 3a275c99da6d71bc0f6620e6cfa18e5ffc0734c0..7d0599bb15d0d72aa8decb3fcb50b301e8f7f00d 100644
+--- a/third_party/marl/src/thread.cpp
++++ b/third_party/marl/src/thread.cpp
+@@ -139,10 +139,11 @@ Thread::Affinity::Affinity(const containers::vector<Core, 32>& coreList,
+ 
+ Thread::Affinity Thread::Affinity::all(
+     Allocator* allocator /* = Allocator::Default */) {
+   Thread::Affinity affinity(allocator);
+ 
++#if !defined(OSOHOS)
+ #if defined(_WIN32)
+   const auto& groups = getProcessorGroups();
+   for (size_t groupIdx = 0; groupIdx < groups.count; groupIdx++) {
+     const auto& group = groups.groups[groupIdx];
+     Core core;
+@@ -180,10 +181,11 @@ Thread::Affinity Thread::Affinity::all(
+   }
+ #else
+   static_assert(!supported,
+                 "marl::Thread::Affinity::supported is true, but "
+                 "Thread::Affinity::all() is not implemented for this platform");
++#endif
+ #endif
+ 
+   return affinity;
+ }
+ 
+@@ -395,10 +397,11 @@ class Thread::Impl {
+     auto count = affinity.count();
+     if (count == 0) {
+       return;
+     }
+ 
++#if !defined(OSOHOS)
+ #if defined(__linux__) && !defined(__ANDROID__) && !defined(__BIONIC__)
+     cpu_set_t cpuset;
+     CPU_ZERO(&cpuset);
+     for (size_t i = 0; i < count; i++) {
+       CPU_SET(affinity[i].pthread.index, &cpuset);
+@@ -414,10 +417,11 @@ class Thread::Impl {
+     auto thread = pthread_self();
+     pthread_setaffinity_np(thread, sizeof(cpuset_t), &cpuset);
+ #else
+     MARL_ASSERT(!marl::Thread::Affinity::supported,
+                 "Attempting to use thread affinity on a unsupported platform");
++#endif
+ #endif
+   }
+ };
+ 
+ Thread::Thread(Affinity&& affinity, Func&& func)

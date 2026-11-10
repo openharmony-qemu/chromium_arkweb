@@ -1,0 +1,51 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 5a73707d4683f6fadea3d6e84b86d05c49dad0ae..65215663009d369929994f3ce17a77151bf658bb 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -51,11 +51,11 @@ config("vulkan_internal_config") {
+     defines += [
+       "SYSCONFDIR=\"/config\"",
+       "EXTRASYSCONFDIR=\"/pkg/data\"",
+     ]
+   }
+-  if (is_linux || is_chromeos || is_mac) {
++  if (is_linux || is_chromeos || is_mac || is_ohos) {
+     defines += [
+       "SYSCONFDIR=\"/etc\"",
+       "FALLBACK_CONFIG_DIRS=\"/etc/xdg\"",
+       "FALLBACK_DATA_DIRS=\"/usr/local/share:/usr/share\"",
+     ]
+diff --git a/loader/generated/vk_loader_extensions.c b/loader/generated/vk_loader_extensions.c
+index c8474761db6a622b8d92c0e48208752332392f54..c4005d633fdff12a38a0383bdad66ba8a7db21d7 100644
+--- a/loader/generated/vk_loader_extensions.c
++++ b/loader/generated/vk_loader_extensions.c
+@@ -10938,12 +10938,13 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateSurfaceOHOS(
+         loader_log(
+             NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
+             "vkCreateSurfaceOHOS: Invalid instance [VUID-vkCreateSurfaceOHOS-instance-parameter]");
+         abort(); /* Intentionally fail so user can correct issue. */
+     }
+-#error("Not implemented. Likely needs to be manually generated!");
+-    return inst->disp->CreateSurfaceOHOS(instance, pCreateInfo, pAllocator, pSurface);
++// #error("Not implemented. Likely needs to be manually generated!");
++//     return inst->disp->CreateSurfaceOHOS(instance, pCreateInfo, pAllocator, pSurface);
++    return VK_ERROR_FEATURE_NOT_PRESENT;
+ }
+ 
+ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateSurfaceOHOS(
+     VkInstance                                  instance,
+     const VkSurfaceCreateInfoOHOS*              pCreateInfo,
+@@ -10954,11 +10955,12 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateSurfaceOHOS(
+         loader_log(
+             NULL, VULKAN_LOADER_FATAL_ERROR_BIT | VULKAN_LOADER_ERROR_BIT | VULKAN_LOADER_VALIDATION_BIT, 0,
+             "vkCreateSurfaceOHOS: Invalid instance [VUID-vkCreateSurfaceOHOS-instance-parameter]");
+         abort(); /* Intentionally fail so user can correct issue. */
+     }
+-#error("Not implemented. Likely needs to be manually generated!");
++// #error("Not implemented. Likely needs to be manually generated!");
++    return VK_ERROR_FEATURE_NOT_PRESENT;
+ }
+ 
+ #endif // VK_USE_PLATFORM_OHOS
+ 
+ // ---- VK_OHOS_native_buffer extension trampoline/terminators

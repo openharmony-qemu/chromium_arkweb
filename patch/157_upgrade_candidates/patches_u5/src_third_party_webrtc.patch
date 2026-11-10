@@ -1,0 +1,2057 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 9b17a0b62770c0cfd541a5689bf30f0d0a98bcba..a002538c8f7f331da87c1931d6c67edd80ed16e8 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -238,10 +238,16 @@ config("common_inherited_config") {
+ 
+     if (build_with_mozilla) {
+       defines += [ "WEBRTC_ANDROID_OPENSLES" ]
+     }
+   }
++  if (is_ohos) {
++    defines += [
++      "WEBRTC_LINUX",
++      "WEBRTC_OHOS",
++    ]
++  }
+   if (is_chromeos) {
+     defines += [ "CHROMEOS" ]
+   }
+ 
+   if (rtc_sanitize_coverage != "") {
+diff --git a/api/peer_connection_interface.h b/api/peer_connection_interface.h
+index 7906c9eb0f53424a319ca29a6becdbfd580073a4..7ed30d56ebf138caa40e765e94cdcd543dbf7418 100644
+--- a/api/peer_connection_interface.h
++++ b/api/peer_connection_interface.h
+@@ -414,10 +414,14 @@ class RTC_EXPORT PeerConnectionInterface : public RefCountInterface {
+     static const int kUndefined = -1;
+     // Default maximum number of packets in the audio jitter buffer.
+     static const int kAudioJitterBufferMaxPackets = 200;
+     // ICE connection receiving timeout for aggressive configuration.
+     static const int kAggressiveIceConnectionReceivingTimeout = 1000;
++    // Maximum number of certificates allowed in the configuration.
++    // Capped at 1000 which still provides ample headroom for interoperability
++    // of multiple key algorithms.
++    static const int kMaxCertificates = 1000;
+ 
+     ////////////////////////////////////////////////////////////////////////
+     // The below few fields mirror the standard RTCConfiguration dictionary:
+     // https://w3c.github.io/webrtc-pc/#rtcconfiguration-dictionary
+     ////////////////////////////////////////////////////////////////////////
+diff --git a/call/call.cc b/call/call.cc
+index f920064d3c66e5e92b3717bf7e8bef1de94c4067..dbf1ce0176ec273b27852e72def0730487ba51ba 100644
+--- a/call/call.cc
++++ b/call/call.cc
+@@ -1290,11 +1290,15 @@ void Call::OnLocalSsrcUpdated(FlexfecReceiveStream& stream,
+ void Call::OnUpdateSyncGroup(webrtc::AudioReceiveStreamInterface& stream,
+                              absl::string_view sync_group) {
+   RTC_DCHECK_RUN_ON(worker_thread_);
+   webrtc::AudioReceiveStreamImpl& receive_stream =
+       static_cast<webrtc::AudioReceiveStreamImpl&>(stream);
++  std::string old_sync_group(receive_stream.sync_group());
+   receive_stream.SetSyncGroup(sync_group);
++  if (old_sync_group != sync_group) {
++    ConfigureSync(old_sync_group);
++  }
+   ConfigureSync(sync_group);
+ }
+ 
+ void Call::OnSentPacket(const SentPacketInfo& sent_packet) {
+   RTC_DCHECK_RUN_ON(&sent_packet_sequence_checker_);
+diff --git a/media/engine/webrtc_voice_engine.cc b/media/engine/webrtc_voice_engine.cc
+index 199831792481a6ec72e40d8f9b7c9be2f5c00b02..6b0fc960165567a4c87edce1b3f367687c14121d 100644
+--- a/media/engine/webrtc_voice_engine.cc
++++ b/media/engine/webrtc_voice_engine.cc
+@@ -2653,13 +2653,18 @@ bool WebRtcVoiceReceiveChannel::MaybeCreateDefaultReceiveStream(
+ 
+   // The default sink can only be attached to one stream at a time, so we hook
+   // it up to the *latest* unsignaled stream we've seen, in order to support
+   // the case where the SSRC of one unsignaled stream changes.
+   if (default_sink_) {
+-    for (uint32_t drop_ssrc : unsignaled_recv_ssrcs_) {
+-      auto it = recv_streams_.find(drop_ssrc);
+-      it->second->SetRawAudioSink(nullptr);
++    // The new ssrc has already been appended to `unsignaled_recv_ssrcs_`.
++    // If there are 2 or more streams, the stream at `size - 2` is the previous
++    // latest stream which currently possesses the default sink.
++    if (unsignaled_recv_ssrcs_.size() >= 2) {
++      // Detach the default sink from the previous latest stream.
++      uint32_t prev_ssrc =
++          unsignaled_recv_ssrcs_[unsignaled_recv_ssrcs_.size() - 2];
++      SetRawAudioSink(prev_ssrc, nullptr);
+     }
+     std::unique_ptr<AudioSinkInterface> proxy_sink(
+         new ProxySink(default_sink_.get()));
+     SetRawAudioSink(ssrc, std::move(proxy_sink));
+   }
+@@ -2862,11 +2867,26 @@ RtcpMode WebRtcVoiceReceiveChannel::RtcpMode() const {
+ bool WebRtcVoiceReceiveChannel::MaybeDeregisterUnsignaledRecvStream(
+     uint32_t ssrc) {
+   RTC_DCHECK_RUN_ON(worker_thread_);
+   auto it = absl::c_find(unsignaled_recv_ssrcs_, ssrc);
+   if (it != unsignaled_recv_ssrcs_.end()) {
++    bool is_latest_unsignaled = (it == unsignaled_recv_ssrcs_.end() - 1);
+     unsignaled_recv_ssrcs_.erase(it);
++    if (default_sink_) {
++      // Detach the default sink from the deregistered stream. This is needed
++      // to prevent the ProxySink from holding a dangling pointer to the
++      // default_sink_.
++      SetRawAudioSink(ssrc, nullptr);
++      if (is_latest_unsignaled && !unsignaled_recv_ssrcs_.empty()) {
++        // The deregistered stream was the latest unsignaled stream, so it held
++        // the default sink. Since it was removed, we must pass the default sink
++        // to the *new* latest unsignaled stream via a new ProxySink.
++        std::unique_ptr<webrtc::AudioSinkInterface> proxy_sink(
++            new ProxySink(default_sink_.get()));
++        SetRawAudioSink(unsignaled_recv_ssrcs_.back(), std::move(proxy_sink));
++      }
++    }
+     return true;
+   }
+   return false;
+ }
+ }  // namespace webrtc
+diff --git a/modules/audio_coding/acm2/acm_resampler.cc b/modules/audio_coding/acm2/acm_resampler.cc
+index 9daa04d14b881c9ae67915f9ca338ff2fd735435..84ca572b497d1a1e4596a8d5ceb02f6f904818c2 100644
+--- a/modules/audio_coding/acm2/acm_resampler.cc
++++ b/modules/audio_coding/acm2/acm_resampler.cc
+@@ -9,15 +9,18 @@
+  */
+ 
+ #include "modules/audio_coding/acm2/acm_resampler.h"
+ 
+ #include <array>
++#include <cstddef>
+ #include <cstdint>
+ 
+ #include "api/audio/audio_frame.h"
+ #include "api/audio/audio_view.h"
+ #include "rtc_base/checks.h"
++#include "audio/utility/audio_frame_operations.h"
++#include "rtc_base/logging.h"
+ 
+ namespace webrtc {
+ namespace acm2 {
+ 
+ ResamplerHelper::ResamplerHelper() {
+@@ -35,10 +38,22 @@ bool ResamplerHelper::MaybeResample(int desired_sample_rate_hz,
+   // Remove the first check.
+   const bool need_resampling =
+       (desired_sample_rate_hz != -1) &&
+       (current_sample_rate_hz != desired_sample_rate_hz);
+ 
++  if (need_resampling) {
++    const size_t target_size =
++        audio_frame->num_channels_ *
++        SampleRateToDefaultChannelSize(desired_sample_rate_hz);
++    if (target_size > AudioFrame::kMaxDataSizeSamples) {
++      RTC_LOG(LS_ERROR) << "AudioFrame cannot hold resampled data.";
++      AudioFrameOperations::Mute(audio_frame);
++      audio_frame->SetSampleRateAndChannelSize(desired_sample_rate_hz);
++      return false;
++    }
++  }
++
+   if (need_resampling && !resampled_last_output_frame_) {
+     // Prime the resampler with the last frame.
+     InterleavedView<const int16_t> src(last_audio_buffer_.data(),
+                                        audio_frame->samples_per_channel(),
+                                        audio_frame->num_channels());
+diff --git a/modules/audio_coding/neteq/normal.cc b/modules/audio_coding/neteq/normal.cc
+index 909e955684dda7ca3d154cf0aa9b60766bc47535..34f279e6560ece89deebe6686afa1c5aeee3be2e 100644
+--- a/modules/audio_coding/neteq/normal.cc
++++ b/modules/audio_coding/neteq/normal.cc
+@@ -20,16 +20,36 @@
+ #include "common_audio/signal_processing/dot_product_with_scale.h"
+ #include "common_audio/signal_processing/include/signal_processing_library.h"
+ #include "common_audio/signal_processing/include/spl_inl.h"
+ #include "modules/audio_coding/codecs/cng/webrtc_cng.h"
+ #include "modules/audio_coding/neteq/audio_multi_vector.h"
++#include "modules/audio_coding/neteq/audio_vector.h"
+ #include "modules/audio_coding/neteq/background_noise.h"
+ #include "modules/audio_coding/neteq/decoder_database.h"
+ #include "modules/audio_coding/neteq/expand.h"
+ #include "rtc_base/checks.h"
+ 
+ namespace webrtc {
++namespace {
++
++void Crossfade(const AudioVector& from, AudioVector& to, size_t win_length) {
++  const size_t win_length_clamped =
++      std::min({win_length, from.Size(), to.Size()});
++  if (win_length_clamped == 0) {
++    return;
++  }
++  int16_t win_slope_Q14 = (1 << 14) / static_cast<int16_t>(win_length_clamped);
++  int16_t win_up_Q14 = 0;
++  for (size_t i = 0; i < win_length_clamped; i++) {
++    win_up_Q14 += win_slope_Q14;
++    to[i] =
++        (win_up_Q14 * to[i] + ((1 << 14) - win_up_Q14) * from[i] + (1 << 13)) >>
++        14;
++  }
++}
++
++}  // namespace
+ 
+ int Normal::Process(const int16_t* input,
+                     size_t length,
+                     NetEq::Mode last_mode,
+                     AudioMultiVector* output) {
+@@ -136,27 +156,11 @@ int Normal::Process(const int16_t* input,
+             static_cast<int16_t>(std::min(mute_factor + increment, 16384));
+       }
+ 
+       // Interpolate the expanded data into the new vector.
+       // (NB/WB/SWB32/SWB48 8/16/32/48 samples.)
+-      size_t win_length = samples_per_ms_;
+-      int16_t win_slope_Q14 = default_win_slope_Q14_;
+-      RTC_DCHECK_LT(channel_ix, output->Channels());
+-      if (win_length > output->Size()) {
+-        win_length = output->Size();
+-        win_slope_Q14 = (1 << 14) / static_cast<int16_t>(win_length);
+-      }
+-      int16_t win_up_Q14 = 0;
+-      for (size_t i = 0; i < win_length; i++) {
+-        win_up_Q14 += win_slope_Q14;
+-        (*output)[channel_ix][i] =
+-            (win_up_Q14 * (*output)[channel_ix][i] +
+-             ((1 << 14) - win_up_Q14) * expanded[channel_ix][i] + (1 << 13)) >>
+-            14;
+-      }
+-      RTC_DCHECK_GT(win_up_Q14,
+-                    (1 << 14) - 32);  // Worst case rouding is a length of 34
++      Crossfade(expanded[channel_ix], (*output)[channel_ix], samples_per_ms_);
+     }
+   } else if (last_mode == NetEq::Mode::kRfc3389Cng) {
+     RTC_DCHECK_EQ(output->Channels(), 1);  // Not adapted for multi-channel yet.
+     static const size_t kCngLength = 48;
+     RTC_DCHECK_LE(8 * fs_mult, kCngLength);
+@@ -174,26 +178,13 @@ int Normal::Process(const int16_t* input,
+       // (This will result in interpolating the decoded with itself.)
+       (*output)[0].CopyTo(fs_mult * 8, 0, cng_output);
+     }
+     // Interpolate the CNG into the new vector.
+     // (NB/WB/SWB32/SWB48 8/16/32/48 samples.)
+-    size_t win_length = samples_per_ms_;
+-    int16_t win_slope_Q14 = default_win_slope_Q14_;
+-    if (win_length > kCngLength) {
+-      win_length = kCngLength;
+-      win_slope_Q14 = (1 << 14) / static_cast<int16_t>(win_length);
+-    }
+-    int16_t win_up_Q14 = 0;
+-    for (size_t i = 0; i < win_length; i++) {
+-      win_up_Q14 += win_slope_Q14;
+-      (*output)[0][i] =
+-          (win_up_Q14 * (*output)[0][i] +
+-           ((1 << 14) - win_up_Q14) * cng_output[i] + (1 << 13)) >>
+-          14;
+-    }
+-    RTC_DCHECK_GT(win_up_Q14,
+-                  (1 << 14) - 32);  // Worst case rouding is a length of 34
++    AudioVector temp_vector(kCngLength);
++    temp_vector.OverwriteAt(cng_output, kCngLength, 0);
++    Crossfade(temp_vector, (*output)[0], samples_per_ms_);
+   }
+ 
+   return static_cast<int>(length);
+ }
+ 
+diff --git a/modules/audio_coding/neteq/normal.h b/modules/audio_coding/neteq/normal.h
+index e6c918764fe13055221ebf94642047b0a6c39d56..d0dfc2f6cbb3058f72c219ff05f6a82a4d9a1dc4 100644
+--- a/modules/audio_coding/neteq/normal.h
++++ b/modules/audio_coding/neteq/normal.h
+@@ -15,11 +15,10 @@
+ #include <string.h>  // Access to size_t.
+ 
+ #include "api/neteq/neteq.h"
+ #include "modules/audio_coding/neteq/statistics_calculator.h"
+ #include "rtc_base/checks.h"
+-#include "rtc_base/numerics/safe_conversions.h"
+ 
+ namespace webrtc {
+ 
+ // Forward declarations.
+ class AudioMultiVector;
+@@ -40,12 +39,10 @@ class Normal {
+       : fs_hz_(fs_hz),
+         decoder_database_(decoder_database),
+         background_noise_(background_noise),
+         expand_(expand),
+         samples_per_ms_(CheckedDivExact(fs_hz_, 1000)),
+-        default_win_slope_Q14_(
+-            dchecked_cast<uint16_t>((1 << 14) / samples_per_ms_)),
+         statistics_(statistics) {}
+ 
+   virtual ~Normal() {}
+ 
+   Normal(const Normal&) = delete;
+@@ -66,11 +63,10 @@ class Normal {
+   int fs_hz_;
+   DecoderDatabase* decoder_database_;
+   const BackgroundNoise& background_noise_;
+   Expand* expand_;
+   const size_t samples_per_ms_;
+-  const int16_t default_win_slope_Q14_;
+   StatisticsCalculator* const statistics_;
+ };
+ 
+ }  // namespace webrtc
+ #endif  // MODULES_AUDIO_CODING_NETEQ_NORMAL_H_
+diff --git a/modules/desktop_capture/BUILD.gn b/modules/desktop_capture/BUILD.gn
+index 82c10e4c5f516110fd5b681fbdfd957b4e794dc1..5e6e3772c7568cb85e4f5fc2c75ea1199a390c03 100644
+--- a/modules/desktop_capture/BUILD.gn
++++ b/modules/desktop_capture/BUILD.gn
+@@ -7,10 +7,17 @@
+ # be found in the AUTHORS file in the root of the source tree.
+ 
+ import("//build/config/linux/gtk/gtk.gni")
+ import("//build/config/ui.gni")
+ import("../../webrtc.gni")
++if (is_ohos) {
++  import("//build/config/ohos/config.gni")
++}
++
++if(is_arkweb) {
++  import("//arkweb/build/features/features.gni")
++}
+ 
+ use_desktop_capture_differ_sse2 = current_cpu == "x86" || current_cpu == "x64"
+ 
+ config("x11_config") {
+   if (rtc_use_x11_extensions) {
+@@ -417,11 +424,50 @@ rtc_library("desktop_capture") {
+       "Xrender",
+       "Xtst",
+     ]
+   }
+ 
+-  if (!is_win && !is_mac && !rtc_use_x11_extensions && !rtc_use_pipewire &&
++  if (is_ohos) {
++    sources += [
++      "mouse_cursor_monitor_null.cc",
++      "ohos/capturer_event_callback.h",
++      "ohos/desktop_capture_frame.cc",
++      "ohos/desktop_capture_frame.h",
++      "ohos/native_frame.cc",
++      "ohos/native_frame.h",
++      "ohos/window_capturer_notify.cc",
++      "ohos/window_capturer_notify.h",
++    ]
++    libs = [
++      "native_avscreen_capture",
++      "native_buffer",
++      "native_media_core",
++    ]
++    deps += [ "//ohos_glue:ohos_adapter_glue_source", "//third_party:huawei_securec", "//ohos/adapter" ]
++  }
++
++  if(is_arkweb) {
++    deps += [ "//arkweb/build/features" ]
++  }
++
++  if(arkweb_webrtc) {
++    import("//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/ohos/arkweb_third_party_webrtc_modules_desktop_capture_ohos_ext.gni")
++    import("//arkweb/chromium_ext/third_party/webrtc/modules/desktop_capture/arkweb_third_party_webrtc_modules_desktop_capture_ext.gni")
++    sources += arkweb_third_party_webrtc_modules_desktop_capture_ohos_sources
++    sources += arkweb_third_party_webrtc_modules_desktop_capture_sources
++
++    include_dirs = ohos_src_includes
++    #libs += [ "nweb_ohos_adapter.z" ]
++    #libs += ["ohcamera"]
++    deps += [ "//ohos/adapter" ]
++
++    cflags_cc = [
++      "-Wno-exit-time-destructors"
++    ]
++  }
++
++  if (!is_ohos && !is_win && !is_mac && !rtc_use_x11_extensions && !rtc_use_pipewire &&
+       !is_fuchsia) {
+     sources += [
+       "mouse_cursor_monitor_null.cc",
+       "screen_capturer_null.cc",
+       "window_capturer_null.cc",
+diff --git a/modules/desktop_capture/desktop_capture_options.h b/modules/desktop_capture/desktop_capture_options.h
+index bc1342a648a7477f18e522571615588abbe0a201..094834f9c33bda4f862e047837f8e38e0b775562 100644
+--- a/modules/desktop_capture/desktop_capture_options.h
++++ b/modules/desktop_capture/desktop_capture_options.h
+@@ -26,10 +26,11 @@
+ #if defined(WEBRTC_MAC) && !defined(WEBRTC_IOS)
+ #include "modules/desktop_capture/mac/desktop_configuration_monitor.h"
+ #endif
+ 
+ #include "modules/desktop_capture/full_screen_window_detector.h"
++#include "arkweb/build/features/features.h"
+ 
+ namespace webrtc {
+ 
+ // An object that stores initialization parameters for screen and window
+ // capturers.
+@@ -252,10 +253,21 @@ class RTC_EXPORT DesktopCaptureOptions {
+   }
+   bool pipewire_use_damage_region() const {
+     return pipewire_use_damage_region_;
+   }
+ #endif
++#if defined(WEBRTC_OHOS)
++  bool allow_sync_capturer() const { return allow_sync_capturer_; }
++  void set_allow_sync_capturer(bool allow) { allow_sync_capturer_ = allow; }
++#endif
++
++#if BUILDFLAG(ARKWEB_EX_SCREEN_CAPTURE)
++  bool get_picker_show() const { return is_picker_show_; }
++  void set_picker_show(bool is_picker_show) { is_picker_show_ = is_picker_show; }
++  int get_nweb_id() const { return nweb_id_; }
++  void set_nweb_id(int nweb_id) { nweb_id_ = nweb_id; }
++#endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
+ 
+  private:
+ #if defined(WEBRTC_USE_X11)
+   scoped_refptr<SharedXDisplay> x_display_;
+ #endif
+@@ -299,10 +311,18 @@ class RTC_EXPORT DesktopCaptureOptions {
+   bool allow_pipewire_ = false;
+   bool pipewire_use_damage_region_ = true;
+   uint32_t width_ = 0;
+   uint32_t height_ = 0;
+ #endif
++#if defined(WEBRTC_OHOS)
++  bool allow_sync_capturer_ = false;
++#endif
++
++#if BUILDFLAG(ARKWEB_EX_SCREEN_CAPTURE)
++  bool is_picker_show_ = false;
++  int nweb_id_ = 0;
++#endif  // defined(ARKWEB_EX_SCREEN_CAPTURE)
+ };
+ 
+ }  // namespace webrtc
+ 
+ #endif  // MODULES_DESKTOP_CAPTURE_DESKTOP_CAPTURE_OPTIONS_H_
+diff --git a/modules/desktop_capture/mouse_cursor_monitor_mac.mm b/modules/desktop_capture/mouse_cursor_monitor_mac.mm
+index 248a78276236ae4ff633a44b793dc193a500f041..3e6a6cb3c663f213e1183c93789e0649c904a215 100644
+--- a/modules/desktop_capture/mouse_cursor_monitor_mac.mm
++++ b/modules/desktop_capture/mouse_cursor_monitor_mac.mm
+@@ -152,19 +152,21 @@ void MouseCursorMonitorMac::CaptureImage(float scale) {
+ 
+   // Before 10.12, OSX may report 1X cursor on Retina screen. (See
+   // crbug.com/632995.) After 10.12, OSX may report 2X cursor on non-Retina
+   // screen. (See crbug.com/671436.) So scaling the cursor if needed.
+   CGImageRef scaled_cg_image = nil;
+-  if (CGImageGetWidth(cg_image) != static_cast<size_t>(size.width())) {
++  if (CGImageGetWidth(cg_image) != static_cast<size_t>(size.width()) ||
++      CGImageGetHeight(cg_image) != static_cast<size_t>(size.height())) {
+     scaled_cg_image =
+         CreateScaledCGImage(cg_image, size.width(), size.height());
+     if (scaled_cg_image != nil) {
+       cg_image = scaled_cg_image;
+     }
+   }
+   if (CGImageGetBitsPerPixel(cg_image) != DesktopFrame::kBytesPerPixel * 8 ||
+       CGImageGetWidth(cg_image) != static_cast<size_t>(size.width()) ||
++      CGImageGetHeight(cg_image) != static_cast<size_t>(size.height()) ||
+       CGImageGetBitsPerComponent(cg_image) != 8) {
+     if (scaled_cg_image != nil) CGImageRelease(scaled_cg_image);
+     return;
+   }
+ 
+diff --git a/modules/desktop_capture/ohos/capturer_event_callback.h b/modules/desktop_capture/ohos/capturer_event_callback.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3172003c342d54f52e056bf52629f1d73538aba
+--- /dev/null
++++ b/modules/desktop_capture/ohos/capturer_event_callback.h
+@@ -0,0 +1,26 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_EVENT_CALLBACK_H_
++#define MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_EVENT_CALLBACK_H_
++
++#include "multimedia/player_framework/native_avscreen_capture.h"
++
++namespace webrtc {
++
++struct CapturerEventCallBack {
++ public:
++  virtual void OnStateChange(OH_AVScreenCaptureStateCode stateCode,
++                             void* userData) {}
++
++  virtual void OnError(int32_t errorCode, void* userData) {}
++
++  virtual void OnBufferAvailable(OH_AVBuffer* buffer,
++                                 OH_AVScreenCaptureBufferType bufferType,
++                                 int64_t timestamp,
++                                 void* userData) {}
++};
++
++}  // namespace webrtc
++#endif  // MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_EVENT_CALLBACK_H_
+diff --git a/modules/desktop_capture/ohos/desktop_capture_frame.cc b/modules/desktop_capture/ohos/desktop_capture_frame.cc
+new file mode 100644
+index 0000000000000000000000000000000000000000..68dc5cd0390fe5dba4d57c9cdaa5fa4a6b33f5b4
+--- /dev/null
++++ b/modules/desktop_capture/ohos/desktop_capture_frame.cc
+@@ -0,0 +1,51 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "modules/desktop_capture/ohos/desktop_capture_frame.h"
++
++#include <utility>
++
++#include "base/logging.h"
++#include "rtc_base/checks.h"
++
++namespace webrtc {
++
++DesktopCaptureFrame::DesktopCaptureFrame(SharedMemoryFactory* factory)
++    : factory_(factory) {}
++
++DesktopCaptureFrame::~DesktopCaptureFrame() = default;
++
++bool DesktopCaptureFrame::Prepare(DesktopSize size) {
++  if (resolution_tracker_.SetResolution(size)) {
++    // Once the output size changed, recreate the SharedDesktopFrame.
++    frame_.reset();
++  }
++
++  if (!frame_) {
++    std::unique_ptr<DesktopFrame> frame;
++    if (factory_) {
++      frame = SharedMemoryDesktopFrame::Create(size, FOURCC_ARGB, factory_);
++      if (!frame) {
++        LOG(WARNING) << "cannot create a new DesktopFrame.";
++        return false;
++      }
++
++      RTC_DCHECK_EQ(frame->stride(),
++                    frame->size().width() * DesktopFrame::kBytesPerPixel);
++    } else {
++      frame.reset(new BasicDesktopFrame(size));
++    }
++
++    frame_ = SharedDesktopFrame::Wrap(std::move(frame));
++  }
++
++  return !!frame_;
++}
++
++SharedDesktopFrame* DesktopCaptureFrame::frame() const {
++  RTC_DCHECK(frame_);
++  return frame_.get();
++}
++
++}  // namespace webrtc
+diff --git a/modules/desktop_capture/ohos/desktop_capture_frame.h b/modules/desktop_capture/ohos/desktop_capture_frame.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ce8a5cf66fa6f7e6cbe1dc7afa65284148723833
+--- /dev/null
++++ b/modules/desktop_capture/ohos/desktop_capture_frame.h
+@@ -0,0 +1,41 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef MODULES_DESKTOP_CAPTURE_OHOS_CAPTURE_FRAME_H_
++#define MODULES_DESKTOP_CAPTURE_OHOS_CAPTURE_FRAME_H_
++
++#include <memory>
++#include <vector>
++
++#include "modules/desktop_capture/desktop_capture_types.h"
++#include "modules/desktop_capture/desktop_capturer.h"
++#include "modules/desktop_capture/desktop_geometry.h"
++#include "modules/desktop_capture/resolution_tracker.h"
++#include "modules/desktop_capture/shared_desktop_frame.h"
++#include "modules/desktop_capture/shared_memory.h"
++
++namespace webrtc {
++
++class DesktopCaptureFrame final {
++ public:
++  // DesktopCaptureFrame does not take ownership of `factory`, consumers should
++  // ensure it outlives this instance. nullptr is acceptable.
++  explicit DesktopCaptureFrame(SharedMemoryFactory* factory);
++  ~DesktopCaptureFrame();
++
++  // Should not be called if Prepare() is not executed or returns false.
++  SharedDesktopFrame* frame() const;
++
++  // Prepares current instance with desktop size.
++  bool Prepare(DesktopSize size);
++
++ private:
++  SharedMemoryFactory* const factory_;
++  ResolutionTracker resolution_tracker_;
++  std::unique_ptr<SharedDesktopFrame> frame_;
++};
++
++}  // namespace webrtc
++
++#endif  // MODULES_DESKTOP_CAPTURE_OHOS_CAPTURE_FRAME_H_
+diff --git a/modules/desktop_capture/ohos/native_frame.cc b/modules/desktop_capture/ohos/native_frame.cc
+new file mode 100644
+index 0000000000000000000000000000000000000000..fcdd64566ccdcab865504820581bbc57f458397c
+--- /dev/null
++++ b/modules/desktop_capture/ohos/native_frame.cc
+@@ -0,0 +1,131 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "modules/desktop_capture/ohos/native_frame.h"
++
++#include <utility>
++
++#include "base/logging.h"
++#include "modules/desktop_capture/desktop_frame.h"
++#include "rtc_base/checks.h"
++
++namespace webrtc {
++
++// static
++std::unique_ptr<NativeFrame> NativeFrame::Create(
++    OH_AVScreenCapture* screen_capture) {
++  RTC_DCHECK(screen_capture);
++
++  std::unique_ptr<NativeFrame> native_frame =
++      std::make_unique<NativeFrame>(screen_capture);
++  if (!native_frame.get()->Init()) {
++    return nullptr;
++  }
++
++  return native_frame;
++}
++
++// static
++std::unique_ptr<NativeFrame> NativeFrame::Create(OH_AVBuffer* buffer) {
++  RTC_DCHECK(buffer);
++
++  std::unique_ptr<NativeFrame> native_frame =
++      std::make_unique<NativeFrame>(buffer);
++  if (!native_frame.get()->Init()) {
++    return nullptr;
++  }
++
++  return native_frame;
++}
++
++NativeFrame::NativeFrame(OH_AVScreenCapture* screen_capture)
++    : screen_capture_(screen_capture) {}
++
++NativeFrame::NativeFrame(OH_AVBuffer* buffer) : buffer_(buffer) {}
++
++NativeFrame::~NativeFrame() {
++  if (native_buffer_) {
++    OH_NativeBuffer_Unreference(native_buffer_);
++  }
++}
++
++bool NativeFrame::Init() {
++  if (screen_capture_) {
++    return InitWithScreenCapture();
++  } else if (buffer_) {
++    return InitWithBuffer();
++  }
++
++  return false;
++}
++
++bool NativeFrame::InitWithScreenCapture() {
++  int32_t fence = 0;
++  int64_t timestamp = 0;
++  OH_Rect region = {0};
++  native_buffer_ = OH_AVScreenCapture_AcquireVideoBuffer(
++      screen_capture_, &fence, &timestamp, &region);
++  if (!native_buffer_) {
++    LOG(ERROR) << "acquire video buffer failed";
++    return false;
++  }
++
++  OH_NativeBuffer_GetConfig(native_buffer_, &config_);
++  int32_t format = config_.format;
++  if (format != OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBA_8888) {
++    LOG(ERROR) << "buffer format error";
++    return false;
++  }
++
++  return true;
++}
++
++bool NativeFrame::InitWithBuffer() {
++  native_buffer_ = OH_AVBuffer_GetNativeBuffer(buffer_);
++  if (!native_buffer_) {
++    LOG(ERROR) << "get native buffer from video buffer failed";
++    return false;
++  }
++
++  OH_NativeBuffer_GetConfig(native_buffer_, &config_);
++  int32_t format = config_.format;
++  if (format != OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBA_8888) {
++    LOG(ERROR) << "buffer format error";
++    return false;
++  }
++
++  return true;
++}
++
++OH_NativeBuffer* NativeFrame::GetNativeBuffer() const {
++  RTC_DCHECK(native_buffer_);
++  return native_buffer_;
++}
++
++uint8_t* NativeFrame::Map() {
++  OH_NativeBuffer_Map(native_buffer_, (void**)&src_data_);
++  if (!src_data_) {
++    LOG(ERROR) << "native buffer map failed";
++    return nullptr;
++  }
++  return src_data_;
++}
++
++void NativeFrame::UnMap() {
++  if (native_buffer_) {
++    OH_NativeBuffer_Unmap(native_buffer_);
++  }
++}
++
++uint8_t* NativeFrame::GetBuffer() {
++  RTC_DCHECK(buffer_);
++  return OH_AVBuffer_GetAddr(buffer_);
++}
++
++int32_t NativeFrame::GetCapacity() {
++  RTC_DCHECK(buffer_);
++  return OH_AVBuffer_GetCapacity(buffer_);
++}
++
++}  // namespace webrtc
+diff --git a/modules/desktop_capture/ohos/native_frame.h b/modules/desktop_capture/ohos/native_frame.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..3b7267947a4cb9a6174f4a3f7ec633ffa3b6b50b
+--- /dev/null
++++ b/modules/desktop_capture/ohos/native_frame.h
+@@ -0,0 +1,49 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_FRAME_H_
++#define MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_FRAME_H_
++
++#include <memory>
++
++#include "multimedia/player_framework/native_avscreen_capture.h"
++#include "native_buffer/native_buffer.h"
++
++namespace webrtc {
++
++class NativeFrame final {
++ public:
++  static std::unique_ptr<NativeFrame> Create(
++      OH_AVScreenCapture* screen_capture);
++
++  static std::unique_ptr<NativeFrame> Create(OH_AVBuffer* buffer);
++
++  explicit NativeFrame(OH_AVScreenCapture* screen_capture);
++  explicit NativeFrame(OH_AVBuffer* buffer);
++  ~NativeFrame();
++
++  OH_NativeBuffer* GetNativeBuffer() const;
++
++  bool Init();
++  uint8_t* Map();
++  void UnMap();
++  uint8_t* GetBuffer();
++  int32_t GetCapacity();
++  int32_t image_width() const { return config_.width; }
++  int32_t image_height() const { return config_.height; }
++  int32_t image_stride() const { return config_.stride; }
++
++ private:
++  bool InitWithScreenCapture();
++  bool InitWithBuffer();
++  OH_AVScreenCapture* screen_capture_ = nullptr;
++  OH_AVBuffer* buffer_ = nullptr;
++  OH_NativeBuffer* native_buffer_ = nullptr;
++  OH_NativeBuffer_Config config_;
++  uint8_t* src_data_ = nullptr;
++};
++
++}  // namespace webrtc
++
++#endif  // MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_FRAME_H_
+diff --git a/modules/desktop_capture/ohos/window_capturer_notify.cc b/modules/desktop_capture/ohos/window_capturer_notify.cc
+new file mode 100644
+index 0000000000000000000000000000000000000000..2a0df767809bea326ff4c82bc43fefb9ee00b86e
+--- /dev/null
++++ b/modules/desktop_capture/ohos/window_capturer_notify.cc
+@@ -0,0 +1,110 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "modules/desktop_capture/ohos/window_capturer_notify.h"
++
++#include "base/logging.h"
++#include "base/memory/singleton.h"
++
++namespace webrtc {
++
++void OnStateChange(struct OH_AVScreenCapture* capture,
++                   OH_AVScreenCaptureStateCode stateCode,
++                   void* userData) {
++  auto callback =
++      WindowCapturerNotify::GetInstance()->GetEventCallBack(capture);
++  if (callback == nullptr) {
++    LOG(ERROR) << "Get capturer callback error,capture=" << capture;
++    return;
++  }
++  callback->OnStateChange(stateCode, userData);
++}
++
++void OnError(OH_AVScreenCapture* capture, int32_t errorCode, void* userData) {
++  auto callback =
++      WindowCapturerNotify::GetInstance()->GetEventCallBack(capture);
++  if (callback == nullptr) {
++    LOG(ERROR) << "Get capturer callback error,capture=" << capture;
++    return;
++  }
++  callback->OnError(errorCode, userData);
++}
++
++void OnBufferAvailable(OH_AVScreenCapture* capture,
++                       OH_AVBuffer* buffer,
++                       OH_AVScreenCaptureBufferType bufferType,
++                       int64_t timestamp,
++                       void* userData) {
++  auto callback =
++      WindowCapturerNotify::GetInstance()->GetEventCallBack(capture);
++  if (callback == nullptr) {
++    LOG(ERROR) << "Get capturer callback error,capture=" << capture;
++    return;
++  }
++  callback->OnBufferAvailable(buffer, bufferType, timestamp, userData);
++}
++
++WindowCapturerNotify* WindowCapturerNotify::GetInstance() {
++  return base::Singleton<WindowCapturerNotify>::get();
++}
++
++WindowCapturerNotify::WindowCapturerNotify() {}
++
++WindowCapturerNotify::~WindowCapturerNotify() {
++  callback_map_.clear();
++}
++
++CapturerEventCallBack* WindowCapturerNotify::GetEventCallBack(
++    OH_AVScreenCapture* capture) {
++  if (callback_map_.find(capture) != callback_map_.end()) {
++    return callback_map_[capture].get();
++  }
++
++  return nullptr;
++}
++
++bool WindowCapturerNotify::RegisterEventCallback(
++    OH_AVScreenCapture* capture,
++    std::shared_ptr<CapturerEventCallBack> callback,
++    void* userData) {
++  if (callback_map_.count(capture)) {
++    return true;
++  }
++
++  OH_AVSCREEN_CAPTURE_ErrCode errCode =
++      OH_AVScreenCapture_SetErrorCallback(capture, OnError, userData);
++  if (errCode != AV_SCREEN_CAPTURE_ERR_OK) {
++    LOG(ERROR) << "screen capture set error callback failed, errCode:"
++               << errCode;
++    return false;
++  }
++
++  errCode =
++      OH_AVScreenCapture_SetStateCallback(capture, OnStateChange, userData);
++  if (errCode != AV_SCREEN_CAPTURE_ERR_OK) {
++    LOG(ERROR) << "screen capture set state callback failed, errCode:"
++               << errCode;
++    return false;
++  }
++
++  errCode =
++      OH_AVScreenCapture_SetDataCallback(capture, OnBufferAvailable, userData);
++  if (errCode != AV_SCREEN_CAPTURE_ERR_OK) {
++    LOG(ERROR) << "screen capture set data callback failed, errCode:"
++               << errCode;
++    return false;
++  }
++  callback_map_[capture] = std::move(callback);
++  return true;
++}
++
++void WindowCapturerNotify::UnRegisterEventCallback(
++    OH_AVScreenCapture* capture) {
++  if (!callback_map_.count(capture)) {
++    return;
++  }
++  callback_map_.erase(capture);
++}
++
++}  // namespace webrtc
+diff --git a/modules/desktop_capture/ohos/window_capturer_notify.h b/modules/desktop_capture/ohos/window_capturer_notify.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ac794256777c9c97317411822b7af3e9bd3a716d
+--- /dev/null
++++ b/modules/desktop_capture/ohos/window_capturer_notify.h
+@@ -0,0 +1,52 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_NOTIFY_H_
++#define MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_NOTIFY_H_
++
++#include <memory>
++#include <unordered_map>
++
++#include "modules/desktop_capture/ohos/capturer_event_callback.h"
++
++namespace webrtc {
++
++class hash_ {
++ public:
++  size_t operator()(OH_AVScreenCapture* val) const {
++    return std::hash<unsigned long>()(reinterpret_cast<unsigned long>(val));
++  }
++};
++
++class equal_ {
++ public:
++  bool operator()(OH_AVScreenCapture* val1, OH_AVScreenCapture* val2) const {
++    return val1 == val2;
++  }
++};
++
++class WindowCapturerNotify {
++ public:
++  WindowCapturerNotify();
++  ~WindowCapturerNotify();
++  WindowCapturerNotify(WindowCapturerNotify& other) = delete;
++  void operator=(const WindowCapturerNotify&) = delete;
++
++  static WindowCapturerNotify* GetInstance();
++
++  CapturerEventCallBack* GetEventCallBack(OH_AVScreenCapture* capture);
++  bool RegisterEventCallback(OH_AVScreenCapture* capture,
++                             std::shared_ptr<CapturerEventCallBack> callback,
++                             void* userData);
++  void UnRegisterEventCallback(OH_AVScreenCapture* capture);
++
++ private:
++  std::unordered_map<OH_AVScreenCapture*,
++                     std::shared_ptr<CapturerEventCallBack>,
++                     hash_,
++                     equal_>
++      callback_map_;
++};
++}  // namespace webrtc
++#endif  // MODULES_DESKTOP_CAPTURE_OHOS_WINDOW_CAPTURER_NOTIFY_H_
+diff --git a/modules/desktop_capture/win/wgc_capture_session.cc b/modules/desktop_capture/win/wgc_capture_session.cc
+index 3969654bce79912e3e1f99348f0269e83a102130..f61fbd4e4fd63e082e7792d4c37e80ef2d0d7918 100644
+--- a/modules/desktop_capture/win/wgc_capture_session.cc
++++ b/modules/desktop_capture/win/wgc_capture_session.cc
+@@ -515,18 +515,10 @@ HRESULT WgcCaptureSession::ProcessFrame() {
+   if (FAILED(hr)) {
+     RecordGetFrameResult(GetFrameResult::kTexture2dCastFailed);
+     return hr;
+   }
+ 
+-  if (!mapped_texture_) {
+-    hr = CreateMappedTexture(texture_2D);
+-    if (FAILED(hr)) {
+-      RecordGetFrameResult(GetFrameResult::kCreateMappedTextureFailed);
+-      return hr;
+-    }
+-  }
+-
+   // We need to copy `texture_2D` into `mapped_texture_` as the latter has the
+   // D3D11_CPU_ACCESS_READ flag set, which lets us access the image data.
+   // Otherwise it would only be readable by the GPU.
+   ComPtr<ID3D11DeviceContext> d3d_context;
+   d3d11_device_->GetImmediateContext(&d3d_context);
+@@ -539,21 +531,31 @@ HRESULT WgcCaptureSession::ProcessFrame() {
+   }
+ 
+   // If the size changed, we must resize `mapped_texture_` and `frame_pool_` to
+   // fit the new size. This must be done before `CopySubresourceRegion` so that
+   // the textures are the same size.
+-  if (SizeHasChanged(new_size, size_)) {
++  const bool needs_resize = SizeHasChanged(new_size, size_);
++
++  if (!mapped_texture_ || needs_resize) {
+     hr = CreateMappedTexture(texture_2D, new_size.Width, new_size.Height);
+     if (FAILED(hr)) {
+-      RecordGetFrameResult(GetFrameResult::kResizeMappedTextureFailed);
++      RecordGetFrameResult(GetFrameResult::kCreateMappedTextureFailed);
+       return hr;
+     }
+-
++  }
++  if (needs_resize) {
+     hr = frame_pool_->Recreate(direct3d_device_.Get(), kPixelFormat,
+                                kNumBuffers, new_size);
+     if (FAILED(hr)) {
+       RecordGetFrameResult(GetFrameResult::kRecreateFramePoolFailed);
++      // On failure, `frame_pool_` remains at `size_`. Reset `mapped_texture_`
++      // because `mapped_texture_` and `frame_pool_` are now at inconsistent
++      // sizes. Clearing it forces a consistent recreation on the next frame.
++      // Note that it's not sufficient to simply leave `mapped_texture_` at it's
++      // current size, because if the window were to be resized back to `size_`,
++      // then we would erroneously think we don't need to re-create the texture.
++      mapped_texture_.Reset();
+       return hr;
+     }
+   }
+ 
+   // If the size has changed since the last capture, we must be sure to use
+diff --git a/modules/video_coding/codecs/av1/dav1d_decoder.cc b/modules/video_coding/codecs/av1/dav1d_decoder.cc
+index 7a52dfa1a3c22c9311bec754e6bd831cef0edf7f..33549c780ab5f49ac00f2eaf00bec13c300c0671 100644
+--- a/modules/video_coding/codecs/av1/dav1d_decoder.cc
++++ b/modules/video_coding/codecs/av1/dav1d_decoder.cc
+@@ -80,13 +80,10 @@ class ScopedDav1dPicture : public RefCountedNonVirtual<ScopedDav1dPicture> {
+   Dav1dPicture picture_ = {};
+ };
+ 
+ constexpr char kDav1dName[] = "dav1d";
+ 
+-// Calling `dav1d_data_wrap` requires a `free_callback` to be registered.
+-void NullFreeCallback(const uint8_t* /* buffer */, void* /* opaque */) {}
+-
+ Dav1dDecoder::Dav1dDecoder() = default;
+ 
+ Dav1dDecoder::Dav1dDecoder(const Environment& env)
+     : crop_to_render_resolution_(env.field_trials().IsEnabled(
+           "WebRTC-Dav1dDecoder-CropToRenderResolution")) {}
+@@ -140,13 +137,29 @@ int32_t Dav1dDecoder::Decode(const EncodedImage& encoded_image,
+     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
+   }
+ 
+   ScopedDav1dData scoped_dav1d_data;
+   Dav1dData& dav1d_data = scoped_dav1d_data.Data();
+-  dav1d_data_wrap(&dav1d_data, encoded_image.data(), encoded_image.size(),
+-                  /*free_callback=*/&NullFreeCallback,
+-                  /*user_data=*/nullptr);
++
++  // Calling GetEncodedData will create a new `scoped_refptr` and increment the
++  // ref count. By simply releasing we are now responsible for decrementing
++  // the ref count when appropriate, which is when dav1d calls the
++  // `free_callback` to indicate that the buffer is no longer needed.
++  EncodedImageBufferInterface* bitstream_buffer =
++      encoded_image.GetEncodedData().release();
++ 
++  // Note that the `bitstream_buffer` can have a higher capacity than what is
++  // actually being used, so `encoded_image.size()` should be used to get the
++  // actual size of the bitstream.
++  dav1d_data_wrap(
++      &dav1d_data, encoded_image.data(), encoded_image.size(),
++      /*free_callback=*/
++      [](const uint8_t* /* buffer */, void* user_data) {
++        auto* bb = static_cast<EncodedImageBufferInterface*>(user_data);
++        bb->Release();
++      },
++      /*user_data=*/bitstream_buffer);
+ 
+   if (int decode_res = dav1d_send_data(context_, &dav1d_data)) {
+     RTC_LOG(LS_WARNING)
+         << "Dav1dDecoder::Decode decoding failed with error code "
+         << decode_res;
+diff --git a/p2p/base/stun_request.cc b/p2p/base/stun_request.cc
+index c5867be0cd3e2096c25b5ca0fe6a8a2bbaf8adfd..4679f028b015e4f381d07d233f7b482d1afd50e1 100644
+--- a/p2p/base/stun_request.cc
++++ b/p2p/base/stun_request.cc
+@@ -30,10 +30,11 @@
+ #include "api/units/timestamp.h"
+ #include "rtc_base/byte_buffer.h"
+ #include "rtc_base/checks.h"
+ #include "rtc_base/logging.h"
+ #include "rtc_base/string_encode.h"
++#include "rtc_base/string_utils.h"
+ 
+ namespace webrtc {
+ 
+ // RFC 5389 says SHOULD be 500ms.
+ // For years, this was 100ms, but for networks that
+@@ -120,12 +121,32 @@ bool StunRequestManager::CheckResponse(StunMessage* msg) {
+   // And we suspect that for some tests, the message integrity is not set in the
+   // request. Complain, and then don't check.
+   bool skip_integrity_checking =
+       (request->msg()->integrity() == StunMessage::IntegrityStatus::kNotSet);
+   if (!request->AuthenticationRequired()) {
+-    // This is a STUN_BINDING to from stun_port.cc or
+-    // the initial (unauthenticated) TURN_ALLOCATE_REQUEST.
++    if (request->type() != STUN_BINDING_REQUEST) {
++      if (msg->type() == GetStunSuccessResponseType(request->type())) {
++        RTC_LOG(LS_WARNING)
++            << "Discarding unauthenticated success response (0x"
++            << ToHex(msg->type()) << ") to TURN request of type 0x"
++            << ToHex(request->type())
++            << ", id=" << hex_encode(msg->transaction_id());
++        return false;
++      }
++      if (msg->type() == GetStunErrorResponseType(request->type())) {
++        int error_code = msg->GetErrorCodeValue();
++        if (error_code != STUN_ERROR_UNAUTHORIZED &&
++            error_code != STUN_ERROR_TRY_ALTERNATE) {
++          RTC_LOG(LS_WARNING)
++              << "Discarding unauthenticated error response with code "
++              << error_code << " to TURN request of type 0x"
++              << ToHex(request->type())
++              << ", id=" << hex_encode(msg->transaction_id());
++          return false;
++        }
++      }
++    }
+   } else if (skip_integrity_checking) {
+     // TODO(chromium:1177125): Remove below!
+     // This indicates lazy test writing (not adding integrity attribute).
+     // Complain, but only in debug mode (while developing).
+     RTC_LOG(LS_ERROR)
+diff --git a/p2p/base/turn_port_unittest.cc b/p2p/base/turn_port_unittest.cc
+index 81a7c55a311c3b5a479c46d7b16da9371f151833..a503baf5157748540aa0733586b13b48997ed3e0 100644
+--- a/p2p/base/turn_port_unittest.cc
++++ b/p2p/base/turn_port_unittest.cc
+@@ -1988,10 +1988,69 @@ class MessageObserver : public StunMessageObserver {
+ 
+   // Number of TurnMessages that had STUN_ATTR_COUNTER.
+   unsigned int* attr_counter_ = nullptr;
+ };
+ 
++// Test that an unauthenticated TURN ALLOCATE success response is NOT accepted
++// if integrity is expected but not present.
++// This is a regression test for b/504572664.
++TEST_F(TurnPortTest, TestUnauthenticatedAllocateSuccessRejected) {
++  SocketAddress fake_server_addr("99.99.99.99", 3478);
++  CreateTurnPort(kTurnUsername, kTurnPassword,
++                 ProtocolAddress(fake_server_addr, PROTO_UDP));
++
++  std::unique_ptr<AsyncPacketSocket> server_socket =
++      socket_factory()->CreateUdpSocket(env_, fake_server_addr, 0, 0);
++
++  std::string transaction_id;
++  server_socket->RegisterReceivedPacketCallback(
++      [&](AsyncPacketSocket* /* socket */, const ReceivedIpPacket& packet) {
++        ByteBufferReader reader(packet.payload());
++        TurnMessage msg;
++        if (msg.Read(&reader) && msg.type() == STUN_ALLOCATE_REQUEST) {
++          transaction_id = msg.transaction_id();
++        }
++      });
++
++  turn_port_->PrepareAddress();
++
++  // Wait for the request to reach the server.
++  ASSERT_TRUE(
++      WaitUntil([&] { return !transaction_id.empty(); },
++                {.timeout = kSimulatedRtt, .clock = &time_controller_}));
++
++  TurnMessage forged_success(STUN_ALLOCATE_RESPONSE, transaction_id);
++
++  // Add required attributes for ALLOCATE success.
++  SocketAddress relayed_addr("198.51.100.99", 6666);
++  SocketAddress mapped_addr("203.0.113.77", 5555);
++
++  forged_success.AddAttribute(std::make_unique<StunXorAddressAttribute>(
++      STUN_ATTR_XOR_RELAYED_ADDRESS, relayed_addr));
++  forged_success.AddAttribute(std::make_unique<StunXorAddressAttribute>(
++      STUN_ATTR_XOR_MAPPED_ADDRESS, mapped_addr));
++  forged_success.AddAttribute(
++      std::make_unique<StunUInt32Attribute>(STUN_ATTR_LIFETIME, 300));
++
++  ByteBufferWriter buf;
++  forged_success.Write(&buf);
++
++  // Send the forged response to the TurnPort.
++  SocketAddress local_addr = turn_port_->socket()->GetLocalAddress();
++  AsyncSocketPacketOptions local_options;
++  server_socket->SendTo(buf.Data(), buf.Length(), local_addr, local_options);
++
++  // Wait a bit for the packet to be processed.
++  time_controller_.AdvanceTime(kSimulatedRtt);
++
++  // If vulnerable, turn_ready_ would be true because it accepted the forged
++  // success. The correct behavior is to reject it and eventually fail or
++  // receive the 401.
++  EXPECT_FALSE(turn_ready_)
++      << "Vulnerability present: Unauthenticated ALLOCATE success accepted!";
++}
++
+ // Do a TURN allocation, establish a TLS connection, and send some data.
+ // Add customizer and check that it get called.
+ TEST_F(TurnPortTest, TestTurnCustomizerCount) {
+   unsigned int observer_message_counter = 0;
+   unsigned int observer_channel_data_counter = 0;
+diff --git a/pc/BUILD.gn b/pc/BUILD.gn
+index f6a1f3767a3f3c31f72ed94311c5a40a6b950cba..a75291ea25e70a66322a19ba56069b7f58be81ce 100644
+--- a/pc/BUILD.gn
++++ b/pc/BUILD.gn
+@@ -1473,10 +1473,11 @@ rtc_library("legacy_stats_collector") {
+     "../rtc_base:ssl_adapter",
+     "../rtc_base:stringutils",
+     "../rtc_base:threading",
+     "../rtc_base:timeutils",
+     "../system_wrappers",
++    "//third_party/abseil-cpp/absl/container:flat_hash_set",
+     "//third_party/abseil-cpp/absl/strings",
+     "//third_party/abseil-cpp/absl/strings:string_view",
+   ]
+ }
+ rtc_source_set("stream_collection") {
+diff --git a/pc/jsep_transport_collection.cc b/pc/jsep_transport_collection.cc
+index 35d1c1c918d3321e487e5bb6c7c41b65377445a1..2f614a12d1e74ea097a7d2f6b2e2b087d8410d92 100644
+--- a/pc/jsep_transport_collection.cc
++++ b/pc/jsep_transport_collection.cc
+@@ -35,16 +35,15 @@ void BundleManager::Update(const SessionDescription* description,
+                            SdpType type) {
+   RTC_DCHECK_RUN_ON(&sequence_checker_);
+   // Rollbacks should call Rollback, not Update.
+   RTC_DCHECK(type != SdpType::kRollback);
+   bool bundle_groups_changed = false;
+-  // TODO(bugs.webrtc.org/3349): Do this for kPrAnswer as well. To make this
+-  // work, we also need to make sure PRANSWERs don't call
+-  // MaybeDestroyJsepTransport, because the final answer may need the destroyed
+-  // transport if it changes the BUNDLE group.
++  // TODO: bugs.webrtc.org/42228228 - Evaluate whether a PR-Answer can establish
++  // a bundle and a final Answer can remove it again. If this happens, PRAnswer
++  // should not destroy the unused transport.
+   if (bundle_policy_ == PeerConnectionInterface::kBundlePolicyMaxBundle ||
+-      type == SdpType::kAnswer) {
++      type == SdpType::kAnswer || type == SdpType::kPrAnswer) {
+     // If our policy is "max-bundle" or this is an answer, update all bundle
+     // groups.
+     bundle_groups_changed = true;
+     bundle_groups_.clear();
+     for (const ContentGroup* new_bundle_group :
+@@ -268,18 +267,20 @@ bool JsepTransportCollection::RollbackTransports() {
+   RTC_DCHECK_RUN_ON(&sequence_checker_);
+   bool ret = true;
+   // First, remove any new mid->transport mappings.
+   for (const auto& kv : mid_to_transport_) {
+     if (stable_mid_to_transport_.count(kv.first) == 0) {
+-      ret = ret && map_change_callback_(kv.first, nullptr);
++      bool success = map_change_callback_(kv.first, nullptr);
++      ret = ret && success;
+     }
+   }
+   // Next, restore old mappings.
+   for (const auto& kv : stable_mid_to_transport_) {
+     auto it = mid_to_transport_.find(kv.first);
+     if (it == mid_to_transport_.end() || it->second != kv.second) {
+-      ret = ret && map_change_callback_(kv.first, kv.second);
++      bool success = map_change_callback_(kv.first, kv.second);
++      ret = ret && success;
+     }
+   }
+   mid_to_transport_ = stable_mid_to_transport_;
+   // Moving a transport back to mid_to_transport_ means it's now included in
+   // the aggregate state if it wasn't previously.
+diff --git a/pc/legacy_stats_collector.cc b/pc/legacy_stats_collector.cc
+index f43f33e48e5af014584727d4a7ac273a88949f0c..de6a2a7da36669d343ccfc3e6c94075695adac5d 100644
+--- a/pc/legacy_stats_collector.cc
++++ b/pc/legacy_stats_collector.cc
+@@ -19,10 +19,11 @@
+ #include <set>
+ #include <string>
+ #include <utility>
+ #include <vector>
+ 
++#include "absl/container/flat_hash_set.h"
+ #include "absl/strings/str_cat.h"
+ #include "absl/strings/string_view.h"
+ #include "api/audio/audio_processing_statistics.h"
+ #include "api/audio_codecs/audio_encoder.h"
+ #include "api/candidate.h"
+@@ -748,12 +749,17 @@ StatsReport* LegacyStatsCollector::AddCertificateReports(
+     std::unique_ptr<SSLCertificateStats> cert_stats) {
+   RTC_DCHECK_RUN_ON(pc_->signaling_thread());
+ 
+   StatsReport* first_report = nullptr;
+   StatsReport* prev_report = nullptr;
++  absl::flat_hash_set<std::string> visited_fingerprints;
+   for (SSLCertificateStats* stats = cert_stats.get(); stats;
+        stats = stats->issuer.get()) {
++    if (!visited_fingerprints.insert(stats->fingerprint).second) {
++      break;
++    }
++
+     StatsReport::Id id(StatsReport::NewTypedId(
+         StatsReport::kStatsReportTypeCertificate, stats->fingerprint));
+ 
+     StatsReport* report = reports_.ReplaceOrAddNew(id);
+     report->set_timestamp(stats_gathering_started_);
+diff --git a/pc/legacy_stats_collector.h b/pc/legacy_stats_collector.h
+index 791fb2c416be59763169fde7d65fcf423d13fc1e..ac29da054e9f846ad95588eefb38d828bdec4fb8 100644
+--- a/pc/legacy_stats_collector.h
++++ b/pc/legacy_stats_collector.h
+@@ -108,10 +108,15 @@ class LegacyStatsCollector : public LegacyStatsCollectorInterface {
+   // stats have been made.
+   void InvalidateCache();
+ 
+   bool UseStandardBytesStats() const { return use_standard_bytes_stats_; }
+ 
++  StatsReport* AddCertificateReportsForTest(
++      std::unique_ptr<SSLCertificateStats> cert_stats) {
++    return AddCertificateReports(std::move(cert_stats));
++  }
++
+  private:
+   friend class LegacyStatsCollectorTest;
+ 
+   // Struct that's populated on the network thread and carries the values to
+   // the signaling thread where the stats are added to the stats reports.
+diff --git a/pc/peer_connection_factory.cc b/pc/peer_connection_factory.cc
+index 299d151774e4e7505fc9286543e71ca85aab1ad8..e0022d5456061075bc20b01ba058dd9af1808e20 100644
+--- a/pc/peer_connection_factory.cc
++++ b/pc/peer_connection_factory.cc
+@@ -234,10 +234,16 @@ PeerConnectionFactory::CreatePeerConnectionOrError(
+   if (!err.ok()) {
+     RTC_LOG(LS_ERROR) << "Invalid ICE configuration: " << err.message();
+     return err;
+   }
+ 
++  if (configuration.certificates.size() >
++      PeerConnectionInterface::RTCConfiguration::kMaxCertificates) {
++    return RTCError(RTCErrorType::INVALID_PARAMETER,
++                    "Too many certificates in RTCConfiguration.");
++  }
++
+   ServerAddresses stun_servers;
+   std::vector<RelayServerConfig> turn_servers;
+   err = ParseAndValidateIceServersFromConfiguration(configuration, stun_servers,
+                                                     turn_servers);
+   if (!err.ok()) {
+@@ -353,13 +359,21 @@ std::unique_ptr<Call> PeerConnectionFactory::CreateCall_w(
+   call_config.audio_state = media_engine()->voice().GetAudioState();
+ 
+   FieldTrialParameter<DataRate> min_bandwidth("min",
+                                               DataRate::KilobitsPerSec(30));
+   FieldTrialParameter<DataRate> start_bandwidth("start",
++#if BUILDFLAG(ARKWEB_MEDIA)
++                                                DataRate::KilobitsPerSec(2000));
++#else
+                                                 DataRate::KilobitsPerSec(300));
++#endif
+   FieldTrialParameter<DataRate> max_bandwidth("max",
++#if BUILDFLAG(ARKWEB_MEDIA)
++                                              DataRate::KilobitsPerSec(4000));
++#else
+                                               DataRate::KilobitsPerSec(2000));
++#endif
+   ParseFieldTrial({&min_bandwidth, &start_bandwidth, &max_bandwidth},
+                   env.field_trials().Lookup("WebRTC-PcFactoryDefaultBitrates"));
+ 
+   call_config.bitrate_config.min_bitrate_bps =
+       saturated_cast<int>(min_bandwidth->bps());
+diff --git a/pc/peer_connection_integrationtest.cc b/pc/peer_connection_integrationtest.cc
+index 291a7a12dd97a9c3c9dc928f8646732ce0f34cb6..b181b2f9348816eeeade93df94e7f920e01c0c05 100644
+--- a/pc/peer_connection_integrationtest.cc
++++ b/pc/peer_connection_integrationtest.cc
+@@ -28,10 +28,11 @@
+ #include "absl/algorithm/container.h"
+ #include "absl/memory/memory.h"
+ #include "absl/strings/string_view.h"
+ #include "api/candidate.h"
+ #include "api/crypto/crypto_options.h"
++#include "api/data_channel_interface.h"
+ #include "api/dtmf_sender_interface.h"
+ #include "api/jsep.h"
+ #include "api/make_ref_counted.h"
+ #include "api/media_stream_interface.h"
+ #include "api/media_types.h"
+@@ -87,10 +88,11 @@
+ #include "rtc_base/ssl_identity.h"
+ #include "rtc_base/ssl_stream_adapter.h"
+ #include "rtc_base/string_encode.h"
+ #include "rtc_base/task_queue_for_test.h"
+ #include "rtc_base/test_certificate_verifier.h"
++#include "rtc_base/thread.h"
+ #include "rtc_base/virtual_socket_server.h"
+ #include "system_wrappers/include/metrics.h"
+ #include "test/gmock.h"
+ #include "test/gtest.h"
+ #include "test/wait_until.h"
+@@ -111,10 +113,11 @@ using ::testing::IsTrue;
+ using ::testing::MockFunction;
+ using ::testing::NiceMock;
+ using ::testing::Not;
+ using ::testing::NotNull;
+ using ::testing::Return;
++using ::testing::SizeIs;
+ using ::testing::WithParamInterface;
+ 
+ class PeerConnectionIntegrationTest : public PeerConnectionIntegrationBaseTest,
+                                       public WithParamInterface<SdpSemantics> {
+  protected:
+@@ -5119,8 +5122,232 @@ TEST_P(PeerConnectionIntegrationTest, PerPeerConnectionHeaderExtensions) {
+                     ->rtp_header_extensions(),
+                 Not(Contains(Field(&RtpExtension::uri, uri))));
+   }
+ }
+ 
++#ifdef WEBRTC_HAVE_SCTP
++
++class DowngradeLogSink : public LogSink {
++ public:
++  void OnLogMessage(const std::string& message) override {
++    if (message.find("Received unexpected non-DTLS packet") !=
++        std::string::npos) {
++      found_ = true;
++    }
++  }
++  bool found() const { return found_; }
++
++ private:
++  bool found_ = false;
++};
++
++// This test reproduces the vulnerability where a kPrAnswer with a BUNDLE group
++// but no fingerprint for a media section can cause that media section to use
++// an unencrypted transport.
++TEST_P(PeerConnectionIntegrationTest,
++       DataChannelEncryptionDowngradeViaBundleDesyncInPrAnswer) {
++  RTCConfiguration config;
++  config.bundle_policy = PeerConnectionInterface::kBundlePolicyBalanced;
++  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
++  ConnectFakeSignaling();
++
++  // 1. Initial negotiation without BUNDLE.
++  // We munge the answer to remove BUNDLE so that separate transports are
++  // created.
++  callee()->SetGeneratedSdpMunger(
++      [](std::unique_ptr<SessionDescriptionInterface>& desc) {
++        desc->description()->RemoveGroupByName(GROUP_TYPE_BUNDLE);
++      });
++
++  caller()->AddVideoTrack();
++  caller()->CreateDataChannel();
++  caller()->CreateAndSetAndSignalOffer();
++  ASSERT_TRUE(WaitUntil([&] { return SignalingStateStable(); }));
++  ASSERT_TRUE(WaitUntil([&] { return DtlsConnected(); }));
++
++  // 2. Renegotiation with BUNDLE in offer, and malicious prAnswer.
++  // The malicious prAnswer will have a BUNDLE group containing mid 0 and mid 1,
++  // but mid 1 (Data Channel) will have no fingerprint.
++  callee()->SetGeneratedSdpMunger(nullptr);
++
++  // Create an offer.
++  std::unique_ptr<SessionDescriptionInterface> offer =
++      caller()->CreateOfferAndWait();
++  ASSERT_THAT(offer, NotNull());
++
++  // Set local offer on caller.
++  auto observer = make_ref_counted<FakeSetLocalDescriptionObserver>();
++  caller()->pc()->SetLocalDescription(std::move(offer), observer);
++  ASSERT_TRUE(WaitUntil([&] { return observer->called(); }));
++
++  // Set remote offer on callee.
++  std::unique_ptr<SessionDescriptionInterface> offer_for_callee =
++      caller()->CreateOfferAndWait();
++  ASSERT_THAT(offer_for_callee, NotNull());
++  ASSERT_TRUE(callee()->SetRemoteDescription(std::move(offer_for_callee)));
++
++  // Callee creates a normal answer first.
++  auto answer_observer =
++      make_ref_counted<MockCreateSessionDescriptionObserver>();
++  callee()->pc()->CreateAnswer(
++      answer_observer.get(), PeerConnectionInterface::RTCOfferAnswerOptions());
++  ASSERT_TRUE(WaitUntil([&] { return answer_observer->called(); }));
++  std::unique_ptr<SessionDescriptionInterface> answer =
++      answer_observer->MoveDescription();
++  ASSERT_THAT(answer, NotNull());
++
++  // Convert the answer to a prAnswer by serializing and re-parsing.
++  std::string sdp = answer->ToString();
++  ASSERT_FALSE(sdp.empty());
++  std::unique_ptr<SessionDescriptionInterface> pr_answer =
++      CreateSessionDescription(SdpType::kPrAnswer, sdp);
++  ASSERT_THAT(pr_answer, NotNull());
++
++  // Munge the prAnswer:
++  // - Ensure BUNDLE group is present.
++  // - Remove fingerprint from the second media section (mid 1).
++  SessionDescription* desc = pr_answer->description();
++  const ContentGroup* bundle_group = desc->GetGroupByName(GROUP_TYPE_BUNDLE);
++  ASSERT_THAT(bundle_group, NotNull());
++  ASSERT_THAT(bundle_group->content_names(), SizeIs(2));
++
++  // Remove fingerprint from the second content.
++  const ContentInfos& contents = desc->contents();
++  ASSERT_GE(contents.size(), 2u);
++  TransportInfo* transport_info =
++      desc->GetTransportInfoByName(contents[1].mid());
++  ASSERT_THAT(transport_info, NotNull());
++  transport_info->description.identity_fingerprint.reset();
++
++  // Set the remote prAnswer on the caller.
++  // This succeeds because VerifyCrypto skips the fingerprint check for
++  // bundled sections (except the first).
++  ASSERT_TRUE(caller()->SetRemoteDescription(std::move(pr_answer)));
++
++  // With the fix, the Data Channel's transport will now be BUNDLED into mid 0.
++  // Since mid 0 has DTLS active, mid 1's data will also be DTLS-wrapped.
++  // We can verify this by checking that the SCTP transport's internal DTLS
++  // transport is active.
++  EXPECT_TRUE(network_thread()->BlockingCall([&] {
++    return static_cast<SctpTransport*>(caller()->pc()->GetSctpTransport().get())
++        ->internal()
++        ->dtls_transport()
++        ->IsDtlsActive();
++  }));
++
++  // If the bug were present, it would be sent as raw SCTP and trigger an error
++  // on the peer.
++
++  DowngradeLogSink downgrade_log_sink;
++  LogMessage::AddLogToStream(&downgrade_log_sink, LS_ERROR);
++
++  // Send data from caller.
++  ASSERT_EQ(caller()->data_channels().size(), 1u);
++  ASSERT_TRUE(WaitUntil([&] {
++    return caller()->data_channels()[0]->state() == DataChannelInterface::kOpen;
++  }));
++  caller()->data_channels()[0]->Send(DataBuffer("SECRET-PLAINTEXT"));
++
++  // If the fix is correct, no non-DTLS packets should be received.
++  // We wait a bit to ensure packets have time to arrive.
++  Thread::Current()->ProcessMessages(500);
++
++  bool found = downgrade_log_sink.found();
++  LogMessage::RemoveLogToStream(&downgrade_log_sink);
++
++  EXPECT_FALSE(found) << "Security downgrade detected: raw SCTP packets sent "
++                         "instead of DTLS-wrapped packets.";
++}
++
++// This test verifies that establishing BUNDLE in a prAnswer does not cause
++// the destruction of transports that might be needed if the final answer
++// removes BUNDLE.
++TEST_P(PeerConnectionIntegrationTest,
++       BundleEstablishedInPrAnswerThenRemovedInFinalAnswer) {
++  RTCConfiguration config;
++  config.bundle_policy = PeerConnectionInterface::kBundlePolicyBalanced;
++  ASSERT_TRUE(CreatePeerConnectionWrappersWithConfig(config, config));
++  ConnectFakeSignaling();
++
++  // 1. Initial negotiation without BUNDLE.
++  callee()->SetGeneratedSdpMunger(
++      [](std::unique_ptr<SessionDescriptionInterface>& desc) {
++        desc->description()->RemoveGroupByName(GROUP_TYPE_BUNDLE);
++      });
++
++  caller()->AddVideoTrack();
++  caller()->CreateDataChannel();
++  caller()->CreateAndSetAndSignalOffer();
++  ASSERT_TRUE(WaitUntil([&] { return SignalingStateStable(); }));
++  ASSERT_TRUE(WaitUntil([&] { return DtlsConnected(); }));
++
++  // 2. Renegotiation with BUNDLE in offer and prAnswer, then NO BUNDLE in
++  // answer.
++  std::unique_ptr<SessionDescriptionInterface> offer =
++      caller()->CreateOfferAndWait();
++  ASSERT_THAT(offer, NotNull());
++
++  // Set local offer on caller.
++  auto observer = make_ref_counted<FakeSetLocalDescriptionObserver>();
++  caller()->pc()->SetLocalDescription(std::move(offer), observer);
++  ASSERT_TRUE(WaitUntil([&] { return observer->called(); }));
++
++  // Set remote offer on callee.
++  std::unique_ptr<SessionDescriptionInterface> offer_for_callee =
++      caller()->CreateOfferAndWait();
++  ASSERT_THAT(offer_for_callee, NotNull());
++  ASSERT_TRUE(callee()->SetRemoteDescription(std::move(offer_for_callee)));
++
++  // Callee creates a prAnswer WITH BUNDLE.
++  auto answer_observer =
++      make_ref_counted<MockCreateSessionDescriptionObserver>();
++  callee()->pc()->CreateAnswer(
++      answer_observer.get(), PeerConnectionInterface::RTCOfferAnswerOptions());
++  ASSERT_TRUE(WaitUntil([&] { return answer_observer->called(); }));
++  std::unique_ptr<SessionDescriptionInterface> answer =
++      answer_observer->MoveDescription();
++  ASSERT_THAT(answer, NotNull());
++
++  std::string sdp = answer->ToString();
++  ASSERT_FALSE(sdp.empty());
++  std::unique_ptr<SessionDescriptionInterface> pr_answer =
++      CreateSessionDescription(SdpType::kPrAnswer, sdp);
++  ASSERT_THAT(pr_answer, NotNull());
++
++  // Set the remote prAnswer on the caller.
++  // This establishes BUNDLE.
++  const ContentGroup* bundle_group =
++      pr_answer->description()->GetGroupByName(GROUP_TYPE_BUNDLE);
++  ASSERT_THAT(bundle_group, NotNull());
++  ASSERT_THAT(bundle_group->content_names(), SizeIs(2));
++
++  ASSERT_TRUE(caller()->SetRemoteDescription(std::move(pr_answer)));
++
++  // 3. Final answer WITHOUT BUNDLE.
++  auto final_answer_observer =
++      make_ref_counted<MockCreateSessionDescriptionObserver>();
++  callee()->pc()->CreateAnswer(
++      final_answer_observer.get(),
++      PeerConnectionInterface::RTCOfferAnswerOptions());
++  ASSERT_TRUE(WaitUntil([&] { return final_answer_observer->called(); }));
++  std::unique_ptr<SessionDescriptionInterface> final_answer =
++      final_answer_observer->MoveDescription();
++  ASSERT_THAT(final_answer, NotNull());
++
++  // Munge it to remove BUNDLE.
++  final_answer->description()->RemoveGroupByName(GROUP_TYPE_BUNDLE);
++
++  // Verify it has no bundle.
++  ASSERT_FALSE(final_answer->description()->GetGroupByName(GROUP_TYPE_BUNDLE));
++
++  // Set the final remote answer on the caller.
++  // This should FAIL because mid 0 was already bundled with mid 1 in the
++  // prAnswer, and RFC 8843 says you can't remove an m= section from a BUNDLE
++  // group once it's been established.
++  ASSERT_FALSE(caller()->SetRemoteDescription(std::move(final_answer)));
++}
++
++#endif  // WEBRTC_HAVE_SCTP
++
+ }  // namespace
+ 
+ }  // namespace webrtc
+diff --git a/pc/sctp_data_channel.cc b/pc/sctp_data_channel.cc
+index 18a8e8ab6b354bac7c3bc8f1833661042790a964..32820491922f370ba9cdcb4ef6d7d3f26c163938 100644
+--- a/pc/sctp_data_channel.cc
++++ b/pc/sctp_data_channel.cc
+@@ -342,20 +342,18 @@ SctpDataChannel::SctpDataChannel(
+       max_retransmits_(config.maxRetransmits),
+       priority_(config.priority),
+       negotiated_(config.negotiated),
+       ordered_(config.ordered),
+       observer_(nullptr),
+-      controller_(std::move(controller)) {
++      controller_(std::move(controller)),
++      connected_to_transport_(connected_to_transport) {
+   RTC_DCHECK_RUN_ON(network_thread_);
+   // Since we constructed on the network thread we can't (yet) check the
+   // `controller_` pointer since doing so will trigger a thread check.
+   RTC_UNUSED(network_thread_);
+   RTC_DCHECK(config.IsValid());
+ 
+-  if (connected_to_transport)
+-    network_safety_->SetAlive();
+-
+   switch (config.open_handshake_role) {
+     case InternalDataChannelInit::kNone:  // pre-negotiated
+       handshake_state_ = kHandshakeReady;
+       break;
+     case InternalDataChannelInit::kOpener:
+@@ -607,18 +605,21 @@ void SctpDataChannel::SendAsync(
+   // owned, on other platforms it might be the signaling thread, or in Chrome
+   // it can be the JS thread. We also don't know if it's consistently the same
+   // thread. So we always post to the network thread (even if the current thread
+   // might be the network thread - in theory a call could even come from within
+   // the `on_complete` callback).
+-  network_thread_->PostTask(SafeTask(
+-      network_safety_, [this, buffer = std::move(buffer),
+-                        on_complete = std::move(on_complete)]() mutable {
+-        RTC_DCHECK_RUN_ON(network_thread_);
+-        RTCError err = SendImpl(std::move(buffer));
+-        if (on_complete)
+-          std::move(on_complete)(err);
+-      }));
++  scoped_refptr<SctpDataChannel> me(this);
++  network_thread_->PostTask([me = std::move(me), buffer = std::move(buffer),
++                             on_complete = std::move(on_complete)]() mutable {
++    RTC_DCHECK_RUN_ON(me->network_thread_);
++    if (!me->connected_to_transport()) {
++      return;
++    }
++    RTCError err = me->SendImpl(std::move(buffer));
++    if (on_complete)
++      std::move(on_complete)(err);
++  });
+ }
+ 
+ void SctpDataChannel::SetSctpSid_n(StreamId sid) {
+   RTC_DCHECK_RUN_ON(network_thread_);
+   RTC_DCHECK(!id_n_.has_value());
+@@ -657,11 +658,11 @@ void SctpDataChannel::OnClosingProcedureComplete() {
+   SetState(kClosed);
+ }
+ 
+ void SctpDataChannel::OnTransportChannelCreated() {
+   RTC_DCHECK_RUN_ON(network_thread_);
+-  network_safety_->SetAlive();
++  connected_to_transport_ = true;
+ }
+ 
+ void SctpDataChannel::OnTransportChannelClosed(RTCError error) {
+   RTC_DCHECK_RUN_ON(network_thread_);
+   // The SctpTransport is unusable, which could come from multiple reasons:
+@@ -769,11 +770,11 @@ void SctpDataChannel::CloseAbruptlyWithError(RTCError error) {
+ 
+   if (state_ == kClosed) {
+     return;
+   }
+ 
+-  network_safety_->SetNotAlive();
++  connected_to_transport_ = false;
+ 
+   // Still go to "kClosing" before "kClosed", since observers may be expecting
+   // that.
+   SetState(kClosing);
+   error_ = std::move(error);
+diff --git a/pc/sctp_data_channel.h b/pc/sctp_data_channel.h
+index b8b954dab7d2fda186e87c0c724b8070c3f75f1e..3709bcfa0b7b752d80d4f2cd058e7f11e59c14ec 100644
+--- a/pc/sctp_data_channel.h
++++ b/pc/sctp_data_channel.h
+@@ -257,11 +257,11 @@ class SctpDataChannel : public DataChannelInterface {
+ 
+   bool SendControlMessage(const CopyOnWriteBuffer& buffer)
+       RTC_RUN_ON(network_thread_);
+ 
+   bool connected_to_transport() const RTC_RUN_ON(network_thread_) {
+-    return network_safety_->alive();
++    return connected_to_transport_;
+   }
+   void MaybeSendOnBufferedAmountChanged() RTC_RUN_ON(network_thread_);
+ 
+   Thread* const signaling_thread_;
+   Thread* const network_thread_;
+@@ -289,13 +289,12 @@ class SctpDataChannel : public DataChannelInterface {
+       RTC_GUARDED_BY(network_thread_);
+   HandshakeState handshake_state_ RTC_GUARDED_BY(network_thread_) =
+       kHandshakeInit;
+   // Did we already start the graceful SCTP closing procedure?
+   bool started_closing_procedure_ RTC_GUARDED_BY(network_thread_) = false;
++  bool connected_to_transport_ RTC_GUARDED_BY(network_thread_) = false;
+   PacketQueue queued_received_data_ RTC_GUARDED_BY(network_thread_);
+-  scoped_refptr<PendingTaskSafetyFlag> network_safety_ =
+-      PendingTaskSafetyFlag::CreateDetachedInactive();
+ };
+ 
+ }  // namespace webrtc
+ 
+ #endif  // PC_SCTP_DATA_CHANNEL_H_
+diff --git a/pc/sdp_offer_answer.cc b/pc/sdp_offer_answer.cc
+index 9aca3d1da344fd638102d89ff63e227e635d561d..2651a2a12b0aae445d3bf02cc2e572203ee10292 100644
+--- a/pc/sdp_offer_answer.cc
++++ b/pc/sdp_offer_answer.cc
+@@ -5421,11 +5421,15 @@ bool SdpOfferAnswerHandler::UseCandidate(const IceCandidate* candidate) {
+     return false;
+ 
+   const Candidate& c = candidate->candidate();
+   RTCError error = VerifyCandidate(c);
+   if (!error.ok()) {
++#if BUILDFLAG(ARKWEB_WEBRTC)
++    RTC_DLOG(LS_VERBOSE) << "Invalid candidate: " << c.ToString();
++#else
+     RTC_LOG(LS_WARNING) << "Invalid candidate: " << c.ToString();
++#endif
+     return true;
+   }
+ 
+   pc_->AddRemoteCandidate(result.value()->mid(), c);
+ 
+diff --git a/pc/sdp_offer_answer.h b/pc/sdp_offer_answer.h
+index 7ffc743c66257c2c0fe4c7f061b18df78b6c0e8b..71ba3f87168bf090abc690e6fcb19e5007df1a8e 100644
+--- a/pc/sdp_offer_answer.h
++++ b/pc/sdp_offer_answer.h
+@@ -63,10 +63,11 @@
+ #include "rtc_base/ssl_stream_adapter.h"
+ #include "rtc_base/thread.h"
+ #include "rtc_base/thread_annotations.h"
+ #include "rtc_base/unique_id_generator.h"
+ #include "rtc_base/weak_ptr.h"
++#include "arkweb/build/features/features.h"
+ 
+ namespace webrtc {
+ 
+ // SdpOfferAnswerHandler is a component
+ // of the PeerConnection object as defined
+diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
+index 341fdb21ca7918f377c81923346f3185c4d67eeb..2de7391b8ee2e7d3125c7b29a96a727e94770b86 100644
+--- a/rtc_base/BUILD.gn
++++ b/rtc_base/BUILD.gn
+@@ -368,20 +368,23 @@ rtc_library("platform_thread_types") {
+     "platform_thread_types.h",
+   ]
+   deps = [ ":checks" ]
+ }
+ 
+-rtc_source_set("refcount") {
++rtc_library("refcount") {
+   visibility = [ "*" ]
+   sources = [
+     "ref_count.h",
+     "ref_counted_object.h",
++    "ref_counter.cc",
+     "ref_counter.h",
+   ]
+   deps = [
++    ":checks",
+     "../api:ref_count",
+     "../api:scoped_refptr",
++    "system:rtc_export",
+   ]
+ }
+ 
+ rtc_library("criticalsection") {
+   sources = [
+diff --git a/rtc_base/platform_thread_types.cc b/rtc_base/platform_thread_types.cc
+index 20bf4afc44c82cfa659ee14666984f92f9c713ed..1e330245c0f1e2157b84f110f19c8f4f9730f03a 100644
+--- a/rtc_base/platform_thread_types.cc
++++ b/rtc_base/platform_thread_types.cc
+@@ -10,12 +10,16 @@
+ 
+ #include "rtc_base/platform_thread_types.h"
+ 
+ // IWYU pragma: begin_keep
+ #if defined(WEBRTC_LINUX)
++#if defined(OS_OHOS)
++#include <sys/prctl.h>
++#else
+ #include <linux/prctl.h>
+ #include <sys/prctl.h>
++#endif
+ #include <sys/syscall.h>
+ 
+ #if !defined(WEBRTC_ARCH_ARM) && !defined(WEBRTC_ARCH_ARM64)
+ #include <asm/unistd_64.h>
+ #endif
+diff --git a/rtc_base/ref_counter.cc b/rtc_base/ref_counter.cc
+new file mode 100644
+index 0000000000000000000000000000000000000000..bc3c6a765b52c45d29d46e7d6b37cb84568d130b
+--- /dev/null
++++ b/rtc_base/ref_counter.cc
+@@ -0,0 +1,30 @@
++/*
++ *  Copyright 2026 The WebRTC Project Authors. All rights reserved.
++ *
++ *  Use of this source code is governed by a BSD-style license
++ *  that can be found in the LICENSE file in the root of the source
++ *  tree. An additional intellectual property rights grant can be found
++ *  in the file PATENTS.  All contributing project authors may
++ *  be found in the AUTHORS file in the root of the source tree.
++ */
++
++#include "rtc_base/ref_counter.h"
++
++#include <atomic>
++#include <climits>
++
++#include "rtc_base/checks.h"
++
++namespace webrtc {
++namespace webrtc_impl {
++
++void RefCounter::IncRef() {
++  // Relaxed memory order: The current thread is allowed to act on the
++  // resource protected by the reference counter both before and after the
++  // atomic op, so this function doesn't prevent memory access reordering.
++  int prev = ref_count_.fetch_add(1, std::memory_order_relaxed);
++  RTC_CHECK_LT(prev, INT_MAX);
++}
++
++}  // namespace webrtc_impl
++}  // namespace webrtc
+diff --git a/rtc_base/ref_counter.h b/rtc_base/ref_counter.h
+index af253914b43cc8bbaeb48b79a8bb7068df26bd2c..6e52e4ef547807963414da0c385fdb4fc8e57f94 100644
+--- a/rtc_base/ref_counter.h
++++ b/rtc_base/ref_counter.h
+@@ -11,25 +11,21 @@
+ #define RTC_BASE_REF_COUNTER_H_
+ 
+ #include <atomic>
+ 
+ #include "api/ref_count.h"
++#include "rtc_base/system/rtc_export.h"
+ 
+ namespace webrtc {
+ namespace webrtc_impl {
+ 
+-class RefCounter {
++class RTC_EXPORT RefCounter {
+  public:
+   explicit RefCounter(int ref_count) : ref_count_(ref_count) {}
+   RefCounter() = delete;
+ 
+-  void IncRef() {
+-    // Relaxed memory order: The current thread is allowed to act on the
+-    // resource protected by the reference counter both before and after the
+-    // atomic op, so this function doesn't prevent memory access reordering.
+-    ref_count_.fetch_add(1, std::memory_order_relaxed);
+-  }
++  void IncRef();
+ 
+   // Returns kDroppedLastRef if this call dropped the last reference; the caller
+   // should therefore free the resource protected by the reference counter.
+   // Otherwise, returns kOtherRefsRemained (note that in case of multithreading,
+   // some other caller may have dropped the last reference by the time this call
+diff --git a/video/encoder_bitrate_adjuster.cc b/video/encoder_bitrate_adjuster.cc
+index 10c73343ea20c661d0a85758a6eab4d350e7063b..d8aa226b2c5c2a7972b50c0c59b24ab940c63c22 100644
+--- a/video/encoder_bitrate_adjuster.cc
++++ b/video/encoder_bitrate_adjuster.cc
+@@ -74,30 +74,51 @@ EncoderBitrateAdjuster::EncoderBitrateAdjuster(
+   // SVC streams, EncoderBitrateAdjuster needs to be updated to care about both
+   // `simulcastStream` and `spatialLayers` at the same time.
+   if (codec_settings.codecType == VideoCodecType::kVideoCodecAV1 &&
+       codec_settings.numberOfSimulcastStreams <= 1 &&
+       codec_settings.GetScalabilityMode().has_value()) {
+-    for (int si = 0; si < ScalabilityModeToNumSpatialLayers(
+-                              *(codec_settings.GetScalabilityMode()));
+-         ++si) {
++    const int num_spatial_layers = ScalabilityModeToNumSpatialLayers(
++        *(codec_settings.GetScalabilityMode()));
++    for (int si = 0; si < num_spatial_layers; ++si) {
++      if (si >= static_cast<int>(kMaxSpatialLayers)) {
++        RTC_LOG(LS_WARNING)
++            << "AV1 scalability mode specifies " << num_spatial_layers
++            << " spatial layers, which exceeds kMaxSpatialLayers ("
++            << kMaxSpatialLayers << ")";
++        break;
++      }
+       if (codec_settings.spatialLayers[si].active) {
+         min_bitrates_bps_[si] =
+             std::max(codec_settings.minBitrate * 1000,
+                      codec_settings.spatialLayers[si].minBitrate * 1000);
+       }
+     }
+   } else if (codec_settings.codecType == VideoCodecType::kVideoCodecVP9 &&
+              codec_settings.numberOfSimulcastStreams <= 1) {
+     for (size_t si = 0; si < codec_settings.VP9().numberOfSpatialLayers; ++si) {
++      if (si >= kMaxSpatialLayers) {
++        RTC_LOG(LS_WARNING)
++            << "VP9 specifies " << codec_settings.VP9().numberOfSpatialLayers
++            << " spatial layers, which exceeds kMaxSpatialLayers ("
++            << kMaxSpatialLayers << ")";
++        break;
++      }
+       if (codec_settings.spatialLayers[si].active) {
+         min_bitrates_bps_[si] =
+             std::max(codec_settings.minBitrate * 1000,
+                      codec_settings.spatialLayers[si].minBitrate * 1000);
+       }
+     }
+   } else {
+     for (size_t si = 0; si < codec_settings.numberOfSimulcastStreams; ++si) {
++      if (si >= kMaxSpatialLayers) {
++        RTC_LOG(LS_WARNING)
++            << "Codec specifies " << codec_settings.numberOfSimulcastStreams
++            << " simulcast streams, which exceeds kMaxSpatialLayers ("
++            << kMaxSpatialLayers << ")";
++        break;
++      }
+       if (codec_settings.simulcastStream[si].active) {
+         min_bitrates_bps_[si] =
+             std::max(codec_settings.minBitrate * 1000,
+                      codec_settings.simulcastStream[si].minBitrate * 1000);
+       }
+@@ -370,19 +391,34 @@ VideoBitrateAllocation EncoderBitrateAdjuster::AdjustRateAllocation(
+ void EncoderBitrateAdjuster::OnEncoderInfo(
+     const VideoEncoder::EncoderInfo& encoder_info) {
+   // Copy allocation into current state and re-allocate.
+   for (size_t si = 0; si < kMaxSpatialLayers; ++si) {
+     current_fps_allocation_[si] = encoder_info.fps_allocation[si];
++    if (current_fps_allocation_[si].size() > kMaxTemporalStreams) {
++      RTC_LOG(LS_WARNING) << "fps_allocation has more than "
++                          << kMaxTemporalStreams
++                          << " temporal streams. Truncating.";
++      current_fps_allocation_[si].resize(kMaxTemporalStreams);
++    }
+   }
+ 
+   // Trigger re-allocation so that overshoot detectors have correct targets.
+   AdjustRateAllocation(current_rate_control_parameters_);
+ }
+ 
+ void EncoderBitrateAdjuster::OnEncodedFrame(DataSize size,
+                                             int stream_index,
+                                             int temporal_index) {
++  if (stream_index < 0 || stream_index >= static_cast<int>(kMaxSpatialLayers) ||
++      temporal_index < 0 ||
++      temporal_index >= static_cast<int>(kMaxTemporalStreams)) {
++    RTC_LOG(LS_WARNING) << "OnEncodedFrame called with invalid layer: "
++                        << "stream_index = " << stream_index
++                        << ", temporal_index = " << temporal_index;
++    return;
++  }
++
+   ++frames_since_layout_change_;
+   // Detectors may not exist, for instance if ScreenshareLayers is used.
+   auto& detector = overshoot_detectors_[stream_index][temporal_index];
+   if (detector) {
+     // Due to http://bugs.webrtc.org/439515766, and sensitivity of some
+diff --git a/video/encoder_bitrate_adjuster_unittest.cc b/video/encoder_bitrate_adjuster_unittest.cc
+index 7514405567568c41697eaa85179c168c0b348fb1..14bb11ee7cd76418a832a2971dfba1554fe21d3a 100644
+--- a/video/encoder_bitrate_adjuster_unittest.cc
++++ b/video/encoder_bitrate_adjuster_unittest.cc
+@@ -579,10 +579,44 @@ TEST_P(EncoderBitrateAdjusterTest, HonorsMinBitrateWithAv1) {
+   // Adjusted allocation near input. Allow 1% error margin due to rounding
+   // errors etc.
+   ExpectNear(expected_input_allocation, current_adjusted_allocation_, 0.01);
+ }
+ 
++TEST_P(EncoderBitrateAdjusterTest, OnEncodedFrameInvalidLayers) {
++  current_input_allocation_.SetBitrate(0, 0, 300000);
++  target_framerate_fps_ = 30;
++  SetUpAdjuster(1, 1, false);
++
++  // Call OnEncodedFrame with invalid stream indices and make sure it doesn't
++  // crash.
++  adjuster_->OnEncodedFrame(DataSize::Bytes(1000), -1, 0);
++  adjuster_->OnEncodedFrame(DataSize::Bytes(1000), kMaxSpatialLayers, 0);
++
++  // Call OnEncodedFrame with invalid temporal indices and make sure it doesn't
++  // crash.
++  adjuster_->OnEncodedFrame(DataSize::Bytes(1000), 0, -1);
++  adjuster_->OnEncodedFrame(DataSize::Bytes(1000), 0, kMaxTemporalStreams);
++}
++
++TEST_P(EncoderBitrateAdjusterTest,
++       OnEncoderInfoTruncatesTooManyTemporalStreams) {
++  current_input_allocation_.SetBitrate(0, 0, 300000);
++  target_framerate_fps_ = 30;
++  SetUpAdjuster(1, 1, false);
++
++  // Create an EncoderInfo with a temporal allocation larger than
++  // kMaxTemporalStreams.
++  VideoEncoder::EncoderInfo encoder_info;
++  encoder_info.fps_allocation[0].resize(kMaxTemporalStreams + 2);
++  for (size_t ti = 0; ti < kMaxTemporalStreams + 2; ++ti) {
++    encoder_info.fps_allocation[0][ti] = 255;
++  }
++
++  // This should truncate to kMaxTemporalStreams and not crash.
++  adjuster_->OnEncoderInfo(encoder_info);
++}
++
+ INSTANTIATE_TEST_SUITE_P(
+     AdjustWithHeadroomVariations,
+     EncoderBitrateAdjusterTest,
+     Values("WebRTC-VideoRateControl/adjuster_use_headroom:false/",
+            "WebRTC-VideoRateControl/adjuster_use_headroom:true/",
+diff --git a/video/video_stream_encoder.cc b/video/video_stream_encoder.cc
+index b3a715967611fea5b6d36850102ab04fd7651819..9004c31ff8399db0834e7e8a6d46feec4799e491 100644
+--- a/video/video_stream_encoder.cc
++++ b/video/video_stream_encoder.cc
+@@ -1067,10 +1067,11 @@ void VideoStreamEncoder::ReconfigureEncoder() {
+   bool encoder_reset_required = false;
+   if (pending_encoder_creation_) {
+     // Destroy existing encoder instance before creating a new one. Otherwise
+     // attempt to create another instance will fail if encoder factory
+     // supports only single instance of encoder of given type.
++    ReleaseEncoder();
+     encoder_.reset();
+ 
+     encoder_ = MaybeCreateFrameDumpingEncoderWrapper(
+         env_,
+         settings_.encoder_factory->Create(env_, encoder_config_.video_format));
