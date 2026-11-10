@@ -5476,17 +5476,20 @@ int NWebHandlerDelegate::ProcessNativeProxyResultNewFlowbuf(
   auto it = syncProxyObjMap_.find(object_name);
   if (it == syncProxyObjMap_.end()) {
     // object name not found
+    close(fd);
     return 1;
   }
   auto& methodMap = it->second;
   auto methodIt = methodMap.find(method);
   if (methodIt == methodMap.end()) {
     // method name not found
+    close(fd);
     return 1;
   }
 
   if (!args) {
     LOG(ERROR) << "args is nullptr";
+    close(fd);
     return 1;
   }
 
@@ -5680,6 +5683,7 @@ int NWebHandlerDelegate::NotifyJavaScriptResultFlowbuf(
     int32_t routing_id,
     int32_t object_id) {
   if (args.get() == nullptr || result.get() == nullptr) {
+    close(fd);
     return 0;
   }
 
@@ -5689,6 +5693,7 @@ int NWebHandlerDelegate::NotifyJavaScriptResultFlowbuf(
   }  // ets proxy object
 
   if (!nweb_javascript_callback_) {
+    close(fd);
     return 1;
   }
 
