@@ -1,0 +1,17 @@
+diff --git a/linux_syscall_support.h b/linux_syscall_support.h
+index af7d2dd8a12e0c6595ad3226a047f46e936a7ed9..5ca4cc8d189389b1c93c9d2582739b4fee16d31d 100644
+--- a/linux_syscall_support.h
++++ b/linux_syscall_support.h
+@@ -87,11 +87,11 @@
+  */
+ #if (defined(__i386__) || defined(__x86_64__) || defined(__ARM_ARCH_3__) ||   \
+      defined(__mips__) || defined(__PPC__) || defined(__ARM_EABI__) || \
+      defined(__aarch64__) || defined(__s390__) || defined(__e2k__) ||  \
+      (defined(__riscv) && __riscv_xlen == 64) || defined(__loongarch_lp64))  \
+-  && (defined(__linux) || defined(__ANDROID__))
++  && (defined(__linux) || defined(__ANDROID__) || defined(__MUSL__))
+ 
+ #ifndef SYS_CPLUSPLUS
+ #ifdef __cplusplus
+ /* Some system header files in older versions of gcc neglect to properly
+  * handle being included from C++. As it appears to be harmless to have

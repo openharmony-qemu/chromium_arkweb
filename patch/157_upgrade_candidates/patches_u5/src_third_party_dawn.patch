@@ -1,0 +1,45 @@
+diff --git a/src/dawn/common/BUILD.gn b/src/dawn/common/BUILD.gn
+index ecaebcd0091a1fea3b03fb4822186beae5746cbc..20e95fac722329e2bf047517da69d0b2ed53a11f 100644
+--- a/src/dawn/common/BUILD.gn
++++ b/src/dawn/common/BUILD.gn
+@@ -257,11 +257,11 @@ dawn_generator("dawn_gpu_info_gen") {
+ 
+ # This GN file is discovered by all Chromium builds, but common doesn't support
+ # all of Chromium's OSes so we explicitly make the target visible only on
+ # systems we know Dawn is able to compile on.
+ if (is_win || is_linux || is_chromeos || is_mac || is_fuchsia || is_android ||
+-    is_ios || is_wasm) {
++    is_ios || is_wasm || is_ohos) {
+   static_library("common") {
+     sources = [
+       "AlignedAlloc.cpp",
+       "AlignedAlloc.h",
+       "Alloc.h",
+diff --git a/src/dawn/native/BUILD.gn b/src/dawn/native/BUILD.gn
+index 195d382b09f94346a6a04012af55f50ec85f2dbe..41f9a505ed8036a42eb69f6360ddf457696c5cde 100644
+--- a/src/dawn/native/BUILD.gn
++++ b/src/dawn/native/BUILD.gn
+@@ -932,21 +932,21 @@ source_set("sources") {
+       "vulkan/external_semaphore/SemaphoreService.h",
+       "vulkan/external_semaphore/SemaphoreServiceImplementation.cpp",
+       "vulkan/external_semaphore/SemaphoreServiceImplementation.h",
+     ]
+ 
+-    if (is_android || is_linux || is_chromeos) {
++    if (is_android || is_linux || is_chromeos || is_ohos) {
+       sources += [
+         "vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp",
+         "vulkan/external_semaphore/SemaphoreServiceImplementationFD.h",
+       ]
+       if (is_android) {
+         sources += [
+           "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.cpp",
+           "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.h",
+         ]
+-      } else if (is_linux || is_chromeos) {
++      } else if (is_linux || is_chromeos || is_ohos) {
+         sources += [
+           "vulkan/external_memory/MemoryServiceImplementationDmaBuf.cpp",
+           "vulkan/external_memory/MemoryServiceImplementationDmaBuf.h",
+           "vulkan/external_memory/MemoryServiceImplementationOpaqueFD.cpp",
+           "vulkan/external_memory/MemoryServiceImplementationOpaqueFD.h",

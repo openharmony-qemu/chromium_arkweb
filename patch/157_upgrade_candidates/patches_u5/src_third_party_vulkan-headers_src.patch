@@ -1,0 +1,259 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 42a76b5836b301aae6c361220fe3428a2311b241..063c82d925ec0cc0b057243f91160a181154b36e 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -1,10 +1,11 @@
+ # Copyright 2018-2023 The ANGLE Project Authors.
+ # Copyright 2019-2023 LunarG, Inc.
+ #
+ # SPDX-License-Identifier: Apache-2.0
+ 
++import("//arkweb/build/features/features.gni")
+ import("//build_overrides/vulkan_headers.gni")
+ 
+ config("vulkan_headers_config") {
+   include_dirs = [ "include" ]
+   defines = []
+@@ -40,10 +41,14 @@ config("vulkan_headers_config") {
+     defines += [ "VK_USE_PLATFORM_IOS_MVK" ]
+   }
+   if (defined(is_ggp) && is_ggp) {
+     defines += [ "VK_USE_PLATFORM_GGP" ]
+   }
++  if (arkweb_vulkan) {
++    defines += [ "VK_USE_PLATFORM_OHOS" ]
++    include_dirs += ["//arkweb/chromium_ext/third_party/vulkan-headers/src/include/vulkan"]
++  }
+   if (is_clang) {
+     cflags = [
+       "-Wno-redundant-parens",
+     ]
+   }
+diff --git a/include/vulkan/vulkan_core.h b/include/vulkan/vulkan_core.h
+index 70f9e8619381f4f6526252ce46391d61f9532552..b83986ba99e334f01dcd3f0eba94c8b1434fa4b8 100644
+--- a/include/vulkan/vulkan_core.h
++++ b/include/vulkan/vulkan_core.h
+@@ -1038,10 +1038,11 @@ typedef enum VkStructureType {
+     VK_STRUCTURE_TYPE_PIPELINE_INDIRECT_DEVICE_ADDRESS_INFO_NV = 1000428002,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_LINEAR_SWEPT_SPHERES_FEATURES_NV = 1000429008,
+     VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_LINEAR_SWEPT_SPHERES_DATA_NV = 1000429009,
+     VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_SPHERES_DATA_NV = 1000429010,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINEAR_COLOR_ATTACHMENT_FEATURES_NV = 1000430000,
++    VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS = 1000685000,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_MAXIMAL_RECONVERGENCE_FEATURES_KHR = 1000434000,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_COMPRESSION_CONTROL_SWAPCHAIN_FEATURES_EXT = 1000437000,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_PROCESSING_FEATURES_QCOM = 1000440000,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_PROCESSING_PROPERTIES_QCOM = 1000440001,
+     VK_STRUCTURE_TYPE_IMAGE_VIEW_SAMPLE_WEIGHT_CREATE_INFO_QCOM = 1000440002,
+@@ -1331,11 +1332,10 @@ typedef enum VkStructureType {
+     VK_STRUCTURE_TYPE_QUEUE_FAMILY_OWNERSHIP_TRANSFER_PROPERTIES_KHR = 1000584002,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VIDEO_MAINTENANCE_2_FEATURES_KHR = 1000586000,
+     VK_STRUCTURE_TYPE_VIDEO_DECODE_H264_INLINE_SESSION_PARAMETERS_INFO_KHR = 1000586001,
+     VK_STRUCTURE_TYPE_VIDEO_DECODE_H265_INLINE_SESSION_PARAMETERS_INFO_KHR = 1000586002,
+     VK_STRUCTURE_TYPE_VIDEO_DECODE_AV1_INLINE_SESSION_PARAMETERS_INFO_KHR = 1000586003,
+-    VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS = 1000685000,
+     VK_STRUCTURE_TYPE_NATIVE_BUFFER_OHOS = 1000453001,
+     VK_STRUCTURE_TYPE_SWAPCHAIN_IMAGE_CREATE_INFO_OHOS = 1000453002,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_OHOS = 1000453003,
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HDR_VIVID_FEATURES_HUAWEI = 1000590000,
+     VK_STRUCTURE_TYPE_HDR_VIVID_DYNAMIC_METADATA_HUAWEI = 1000590001,
+@@ -5409,10 +5409,11 @@ typedef enum VkExternalMemoryHandleTypeFlagBits {
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID = 0x00000400,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT = 0x00000080,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT = 0x00000100,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA = 0x00000800,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_RDMA_ADDRESS_BIT_NV = 0x00001000,
++    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OHOS_NATIVE_BUFFER_BIT_OHOS = 0x00002000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_OH_NATIVE_BUFFER_BIT_OHOS = 0x00008000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_SCREEN_BUFFER_BIT_QNX = 0x00004000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_EXT = 0x00010000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_EXT = 0x00020000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLHEAP_BIT_EXT = 0x00040000,
+diff --git a/include/vulkan/vulkan_ohos.h b/include/vulkan/vulkan_ohos.h
+deleted file mode 100644
+index 0731e5512d7c20872c860b5039288392dbdad2a9..0000000000000000000000000000000000000000
+--- a/include/vulkan/vulkan_ohos.h
++++ /dev/null
+@@ -1,182 +0,0 @@
+-#ifndef VULKAN_OHOS_H_
+-#define VULKAN_OHOS_H_ 1
+-
+-/*
+-** Copyright 2015-2025 The Khronos Group Inc.
+-**
+-** SPDX-License-Identifier: Apache-2.0
+-*/
+-
+-/*
+-** This header is generated from the Khronos Vulkan XML API Registry.
+-**
+-*/
+-
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-
+-
+-// VK_OHOS_external_memory is a preprocessor guard. Do not pass it to API calls.
+-#define VK_OHOS_external_memory 1
+-struct OH_NativeBuffer;
+-#define VK_OHOS_EXTERNAL_MEMORY_SPEC_VERSION 1
+-#define VK_OHOS_EXTERNAL_MEMORY_EXTENSION_NAME "VK_OHOS_external_memory"
+-typedef struct VkNativeBufferUsageOHOS {
+-    VkStructureType    sType;
+-    void*              pNext;
+-    uint64_t           OHOSNativeBufferUsage;
+-} VkNativeBufferUsageOHOS;
+-
+-typedef struct VkNativeBufferPropertiesOHOS {
+-    VkStructureType    sType;
+-    void*              pNext;
+-    VkDeviceSize       allocationSize;
+-    uint32_t           memoryTypeBits;
+-} VkNativeBufferPropertiesOHOS;
+-
+-typedef struct VkNativeBufferFormatPropertiesOHOS {
+-    VkStructureType                  sType;
+-    void*                            pNext;
+-    VkFormat                         format;
+-    uint64_t                         externalFormat;
+-    VkFormatFeatureFlags             formatFeatures;
+-    VkComponentMapping               samplerYcbcrConversionComponents;
+-    VkSamplerYcbcrModelConversion    suggestedYcbcrModel;
+-    VkSamplerYcbcrRange              suggestedYcbcrRange;
+-    VkChromaLocation                 suggestedXChromaOffset;
+-    VkChromaLocation                 suggestedYChromaOffset;
+-} VkNativeBufferFormatPropertiesOHOS;
+-
+-typedef struct VkImportNativeBufferInfoOHOS {
+-    VkStructureType            sType;
+-    const void*                pNext;
+-    struct OH_NativeBuffer*    buffer;
+-} VkImportNativeBufferInfoOHOS;
+-
+-typedef struct VkMemoryGetNativeBufferInfoOHOS {
+-    VkStructureType    sType;
+-    const void*        pNext;
+-    VkDeviceMemory     memory;
+-} VkMemoryGetNativeBufferInfoOHOS;
+-
+-typedef struct VkExternalFormatOHOS {
+-    VkStructureType    sType;
+-    void*              pNext;
+-    uint64_t           externalFormat;
+-} VkExternalFormatOHOS;
+-
+-typedef VkResult (VKAPI_PTR *PFN_vkGetNativeBufferPropertiesOHOS)(VkDevice device, const struct OH_NativeBuffer* buffer, VkNativeBufferPropertiesOHOS* pProperties);
+-typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryNativeBufferOHOS)(VkDevice device, const VkMemoryGetNativeBufferInfoOHOS* pInfo, struct OH_NativeBuffer** pBuffer);
+-
+-#ifndef VK_NO_PROTOTYPES
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkGetNativeBufferPropertiesOHOS(
+-    VkDevice                                    device,
+-    const struct OH_NativeBuffer*               buffer,
+-    VkNativeBufferPropertiesOHOS*               pProperties);
+-#endif
+-
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkGetMemoryNativeBufferOHOS(
+-    VkDevice                                    device,
+-    const VkMemoryGetNativeBufferInfoOHOS*      pInfo,
+-    struct OH_NativeBuffer**                    pBuffer);
+-#endif
+-#endif
+-
+-
+-// VK_OHOS_surface is a preprocessor guard. Do not pass it to API calls.
+-#define VK_OHOS_surface 1
+-typedef struct NativeWindow OHNativeWindow;
+-#define VK_OHOS_SURFACE_SPEC_VERSION      1
+-#define VK_OHOS_SURFACE_EXTENSION_NAME    "VK_OHOS_surface"
+-typedef VkFlags VkSurfaceCreateFlagsOHOS;
+-typedef struct VkSurfaceCreateInfoOHOS {
+-    VkStructureType             sType;
+-    const void*                 pNext;
+-    VkSurfaceCreateFlagsOHOS    flags;
+-    OHNativeWindow*             window;
+-} VkSurfaceCreateInfoOHOS;
+-
+-typedef VkResult (VKAPI_PTR *PFN_vkCreateSurfaceOHOS)(VkInstance instance, const VkSurfaceCreateInfoOHOS* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+-
+-#ifndef VK_NO_PROTOTYPES
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkCreateSurfaceOHOS(
+-    VkInstance                                  instance,
+-    const VkSurfaceCreateInfoOHOS*              pCreateInfo,
+-    const VkAllocationCallbacks*                pAllocator,
+-    VkSurfaceKHR*                               pSurface);
+-#endif
+-#endif
+-
+-
+-// VK_OHOS_native_buffer is a preprocessor guard. Do not pass it to API calls.
+-#define VK_OHOS_native_buffer 1
+-struct OHBufferHandle;
+-#define VK_OHOS_NATIVE_BUFFER_SPEC_VERSION 1
+-#define VK_OHOS_NATIVE_BUFFER_EXTENSION_NAME "VK_OHOS_native_buffer"
+-
+-typedef enum VkSwapchainImageUsageFlagBitsOHOS {
+-    VK_SWAPCHAIN_IMAGE_USAGE_SHARED_BIT_OHOS = 0x00000001,
+-    VK_SWAPCHAIN_IMAGE_USAGE_FLAG_BITS_MAX_ENUM_OHOS = 0x7FFFFFFF
+-} VkSwapchainImageUsageFlagBitsOHOS;
+-typedef VkFlags VkSwapchainImageUsageFlagsOHOS;
+-typedef struct VkNativeBufferOHOS {
+-    VkStructureType           sType;
+-    const void*               pNext;
+-    struct OHBufferHandle*    handle;
+-} VkNativeBufferOHOS;
+-
+-typedef struct VkSwapchainImageCreateInfoOHOS {
+-    VkStructureType                   sType;
+-    const void*                       pNext;
+-    VkSwapchainImageUsageFlagsOHOS    usage;
+-} VkSwapchainImageCreateInfoOHOS;
+-
+-typedef struct VkPhysicalDevicePresentationPropertiesOHOS {
+-    VkStructureType    sType;
+-    void*              pNext;
+-    VkBool32           sharedImage;
+-} VkPhysicalDevicePresentationPropertiesOHOS;
+-
+-typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsageOHOS)(VkDevice device, VkFormat format, VkImageUsageFlags imageUsage, uint64_t* grallocUsage);
+-typedef VkResult (VKAPI_PTR *PFN_vkAcquireImageOHOS)(VkDevice device, VkImage image, int32_t nativeFenceFd, VkSemaphore semaphore, VkFence fence);
+-typedef VkResult (VKAPI_PTR *PFN_vkQueueSignalReleaseImageOHOS)(VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image, int32_t* pNativeFenceFd);
+-
+-#ifndef VK_NO_PROTOTYPES
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainGrallocUsageOHOS(
+-    VkDevice                                    device,
+-    VkFormat                                    format,
+-    VkImageUsageFlags                           imageUsage,
+-    uint64_t*                                   grallocUsage);
+-#endif
+-
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkAcquireImageOHOS(
+-    VkDevice                                    device,
+-    VkImage                                     image,
+-    int32_t                                     nativeFenceFd,
+-    VkSemaphore                                 semaphore,
+-    VkFence                                     fence);
+-#endif
+-
+-#ifndef VK_ONLY_EXPORTED_PROTOTYPES
+-VKAPI_ATTR VkResult VKAPI_CALL vkQueueSignalReleaseImageOHOS(
+-    VkQueue                                     queue,
+-    uint32_t                                    waitSemaphoreCount,
+-    const VkSemaphore*                          pWaitSemaphores,
+-    VkImage                                     image,
+-    int32_t*                                    pNativeFenceFd);
+-#endif
+-#endif
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#endif

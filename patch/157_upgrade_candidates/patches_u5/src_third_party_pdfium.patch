@@ -1,0 +1,1587 @@
+diff --git a/core/fpdfapi/page/BUILD.gn b/core/fpdfapi/page/BUILD.gn
+index f752eae5009dbb1a8fb43868a602313a096ba943..3558e0319470a6851240df30b821496e6c13d701 100644
+--- a/core/fpdfapi/page/BUILD.gn
++++ b/core/fpdfapi/page/BUILD.gn
+@@ -143,18 +143,22 @@ source_set("unit_test_support") {
+ pdfium_unittest_source_set("unittests") {
+   sources = [
+     "cpdf_colorspace_unittest.cpp",
+     "cpdf_devicecs_unittest.cpp",
+     "cpdf_function_unittest.cpp",
++    "cpdf_page_unittest.cpp",
+     "cpdf_pageimagecache_unittest.cpp",
+     "cpdf_pageobjectholder_unittest.cpp",
+     "cpdf_psengine_unittest.cpp",
+     "cpdf_streamcontentparser_unittest.cpp",
+     "cpdf_streamparser_unittest.cpp",
+   ]
+   deps = [
+     ":page",
++    ":unit_test_support",
++    "../../../constants",
+     "../parser",
++    "../parser:unit_test_support",
+     "../render",
+   ]
+   pdfium_root_dir = "../../../"
+ }
+diff --git a/core/fpdfapi/page/cpdf_page.cpp b/core/fpdfapi/page/cpdf_page.cpp
+index 57ca4f5363369eeabd86077d301c8081a7a8054e..ac5ad067451037c321801d4fe7d18ffa818f4dfa 100644
+--- a/core/fpdfapi/page/cpdf_page.cpp
++++ b/core/fpdfapi/page/cpdf_page.cpp
+@@ -13,20 +13,30 @@
+ #include "core/fpdfapi/page/cpdf_contentparser.h"
+ #include "core/fpdfapi/page/cpdf_pageimagecache.h"
+ #include "core/fpdfapi/page/cpdf_pageobject.h"
+ #include "core/fpdfapi/parser/cpdf_array.h"
+ #include "core/fpdfapi/parser/cpdf_dictionary.h"
++#include "core/fpdfapi/parser/cpdf_name.h"
+ #include "core/fpdfapi/parser/cpdf_object.h"
+ #include "core/fxcrt/check.h"
+ #include "core/fxcrt/check_op.h"
+ #include "core/fxcrt/containers/contains.h"
+ 
+ CPDF_Page::CPDF_Page(CPDF_Document* document,
+                      RetainPtr<CPDF_Dictionary> pPageDict)
+     : CPDF_PageObjectHolder(document, std::move(pPageDict), nullptr, nullptr),
+       page_size_(100, 100),
+       pdf_document_(document) {
++  // Retrieves `pPageDict` and validates it.
++  RetainPtr<CPDF_Dictionary> mutable_page_dict = GetMutableDict();
++  CHECK(IsValidPageDictLoose(mutable_page_dict));
++  // Then fix it up if /Type is missing.
++  if (!mutable_page_dict->KeyExist(pdfium::page_object::kType)) {
++    mutable_page_dict->SetNewFor<CPDF_Name>(pdfium::page_object::kType, "Page");
++    CHECK(IsValidPageDict(mutable_page_dict));
++  }
++
+   // Cannot initialize |resources_| and |page_resources_| via the
+   // CPDF_PageObjectHolder ctor because GetPageAttr() requires
+   // CPDF_PageObjectHolder to finish initializing first.
+   RetainPtr<CPDF_Object> pPageAttr =
+       GetMutablePageAttr(pdfium::page_object::kResources);
+@@ -38,10 +48,29 @@ CPDF_Page::CPDF_Page(CPDF_Document* document,
+   LoadTransparencyInfo();
+ }
+ 
+ CPDF_Page::~CPDF_Page() = default;
+ 
++// static
++bool CPDF_Page::IsValidPageDict(const CPDF_Dictionary* page_dict) {
++  return IsValidPageDictLoose(page_dict) &&
++         page_dict->KeyExist(pdfium::page_object::kType);
++}
++
++// static
++bool CPDF_Page::IsValidPageDictLoose(const CPDF_Dictionary* page_dict) {
++  if (!page_dict) {
++    return false;
++  }
++  if (!page_dict->KeyExist(pdfium::page_object::kType)) {
++    return true;
++  }
++  RetainPtr<const CPDF_Name> name =
++      ToName(page_dict->GetObjectFor(pdfium::page_object::kType)->GetDirect());
++  return name && name->GetString() == "Page";
++}
++
+ CPDF_Page* CPDF_Page::AsPDFPage() {
+   return this;
+ }
+ 
+ CPDFXFA_Page* CPDF_Page::AsXFAPage() {
+diff --git a/core/fpdfapi/page/cpdf_page.h b/core/fpdfapi/page/cpdf_page.h
+index 7ccdf67b88aef018d188700d191425ffc17df346..34db26359b325808e3c61d5690ec7921a917d366 100644
+--- a/core/fpdfapi/page/cpdf_page.h
++++ b/core/fpdfapi/page/cpdf_page.h
+@@ -49,10 +49,15 @@ class CPDF_Page final : public IPDF_Page, public CPDF_PageObjectHolder {
+     UnownedPtr<CPDF_Page> const page_;
+   };
+ 
+   CONSTRUCT_VIA_MAKE_RETAIN;
+ 
++  // Ensures `page_dict` is non-null and has a /Type key with name value /Page.
++  static bool IsValidPageDict(const CPDF_Dictionary* page_dict);
++  // Like IsValidPageDict(), but allows the /Type key to be missing.
++  static bool IsValidPageDictLoose(const CPDF_Dictionary* page_dict);
++
+   // IPDF_Page:
+   CPDF_Page* AsPDFPage() override;
+   CPDFXFA_Page* AsXFAPage() override;
+   CPDF_Document* GetDocument() const override;
+   float GetPageWidth() const override;
+diff --git a/core/fpdfapi/page/cpdf_page_unittest.cpp b/core/fpdfapi/page/cpdf_page_unittest.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..fd1f632e51ccf43a47a67f36d91433398c999c26
+--- /dev/null
++++ b/core/fpdfapi/page/cpdf_page_unittest.cpp
+@@ -0,0 +1,99 @@
++// Copyright 2026 The PDFium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "core/fpdfapi/page/cpdf_page.h"
++
++#include "constants/page_object.h"
++#include "core/fpdfapi/page/test_with_page_module.h"
++#include "core/fpdfapi/parser/cpdf_dictionary.h"
++#include "core/fpdfapi/parser/cpdf_name.h"
++#include "core/fpdfapi/parser/cpdf_null.h"
++#include "core/fpdfapi/parser/cpdf_reference.h"
++#include "core/fpdfapi/parser/cpdf_string.h"
++#include "core/fpdfapi/parser/cpdf_test_document.h"
++#include "testing/gtest/include/gtest/gtest.h"
++
++using CPDF_PageTest = TestWithPageModule;
++
++TEST_F(CPDF_PageTest, IsValidPageDict) {
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(nullptr));
++
++  auto page_dict = pdfium::MakeRetain<CPDF_Dictionary>();
++  page_dict->SetNewFor<CPDF_Name>(pdfium::page_object::kType, "Page");
++  EXPECT_TRUE(CPDF_Page::IsValidPageDict(page_dict));
++}
++
++TEST_F(CPDF_PageTest, IsValidPageDictWrongTypes) {
++  auto page_dict = pdfium::MakeRetain<CPDF_Dictionary>();
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++
++  page_dict->SetNewFor<CPDF_Name>(pdfium::page_object::kType, "Font");
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++
++  page_dict->SetNewFor<CPDF_String>(pdfium::page_object::kType, "Page");
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++
++  page_dict->SetNewFor<CPDF_Null>(pdfium::page_object::kType);
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++}
++
++TEST_F(CPDF_PageTest, IsValidPageDictReference) {
++  CPDF_TestDocument doc;
++  auto page_dict = doc.NewIndirect<CPDF_Dictionary>();
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Name>(nullptr, "Page")));
++  EXPECT_TRUE(CPDF_Page::IsValidPageDict(page_dict));
++
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Name>(nullptr, "Pages")));
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Null>()));
++  EXPECT_FALSE(CPDF_Page::IsValidPageDict(page_dict));
++}
++
++TEST_F(CPDF_PageTest, IsValidPageDictLoose) {
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(nullptr));
++
++  auto page_dict = pdfium::MakeRetain<CPDF_Dictionary>();
++  EXPECT_TRUE(CPDF_Page::IsValidPageDictLoose(page_dict));
++
++  page_dict->SetNewFor<CPDF_Name>(pdfium::page_object::kType, "Page");
++  EXPECT_TRUE(CPDF_Page::IsValidPageDictLoose(page_dict));
++}
++
++TEST_F(CPDF_PageTest, IsValidPageDictLooseWrongTypes) {
++  auto page_dict = pdfium::MakeRetain<CPDF_Dictionary>();
++  page_dict->SetNewFor<CPDF_Name>(pdfium::page_object::kType, "Font");
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(page_dict));
++
++  page_dict->SetNewFor<CPDF_String>(pdfium::page_object::kType, "Page");
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(page_dict));
++
++  page_dict->SetNewFor<CPDF_Null>(pdfium::page_object::kType);
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(page_dict));
++}
++
++TEST_F(CPDF_PageTest, IsValidPageDictLooseReference) {
++  CPDF_TestDocument doc;
++  auto page_dict = doc.NewIndirect<CPDF_Dictionary>();
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Name>(nullptr, "Page")));
++  EXPECT_TRUE(CPDF_Page::IsValidPageDictLoose(page_dict));
++
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Name>(nullptr, "Pages")));
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(page_dict));
++
++  page_dict->SetNewFor<CPDF_Reference>(
++      pdfium::page_object::kType, &doc,
++      doc.AddIndirectObject(pdfium::MakeRetain<CPDF_Null>()));
++  EXPECT_FALSE(CPDF_Page::IsValidPageDictLoose(page_dict));
++}
+diff --git a/core/fpdfapi/parser/cpdf_document.cpp b/core/fpdfapi/parser/cpdf_document.cpp
+index 3398b469c836458abb5bae96214fb05a3a6f0a61..43d2937e5611bf52217a12d9263f3f31dc1d1bfe 100644
+--- a/core/fpdfapi/parser/cpdf_document.cpp
++++ b/core/fpdfapi/parser/cpdf_document.cpp
+@@ -267,10 +267,13 @@ RetainPtr<CPDF_Dictionary> CPDF_Document::TraversePDFPages(int iPage,
+   if (!pKidList) {
+     tree_traversal_.pop_back();
+     if (*nPagesToGo != 1) {
+       return nullptr;
+     }
++    if (GetNodeType(pPages) == NodeType::kBranch) {
++      return nullptr;
++    }
+     page_list_[iPage] = pPages->GetObjNum();
+     return pPages;
+   }
+   if (level >= kMaxPageLevel) {
+     tree_traversal_.pop_back();
+diff --git a/core/fpdfapi/parser/cpdf_document_unittest.cpp b/core/fpdfapi/parser/cpdf_document_unittest.cpp
+index 27a5a16102766d400faf1a8ce9ae33e212c8a60d..64d7fc11d52b70c9f7a6c72ef60467cf8d01f88f 100644
+--- a/core/fpdfapi/parser/cpdf_document_unittest.cpp
++++ b/core/fpdfapi/parser/cpdf_document_unittest.cpp
+@@ -297,13 +297,12 @@ TEST_F(DocumentTest, CountGreaterThanPageTree) {
+ }
+ 
+ TEST_F(DocumentTest, PagesWithoutKids) {
+   // Set up a document with Pages dict without kids, and Count = 3
+   auto doc = std::make_unique<CPDF_TestDocPagesWithoutKids>();
+-  EXPECT_TRUE(doc->GetPageDictionary(0));
+-  // Test GetPage does not fetch pages out of range
+-  for (int i = 1; i < 5; i++) {
++  // Since there are no Page nodes in the Page Tree, GetPageDictionary() will
++  // never return non-null.
++  for (int i = 0; i < 5; i++) {
+     EXPECT_FALSE(doc->GetPageDictionary(i));
+   }
+-
+-  EXPECT_TRUE(doc->GetPageDictionary(0));
++  EXPECT_FALSE(doc->GetPageDictionary(0));
+ }
+diff --git a/core/fpdfdoc/cpdf_nametree.cpp b/core/fpdfdoc/cpdf_nametree.cpp
+index b4f65c7a28931bce53926c3ad2ad7ef4c3c68885..28ac0de2d0782e152f8661506171aa3686f4202c 100644
+--- a/core/fpdfdoc/cpdf_nametree.cpp
++++ b/core/fpdfdoc/cpdf_nametree.cpp
+@@ -28,26 +28,28 @@ constexpr int kNameTreeMaxRecursion = 32;
+ struct NodeToInsert {
+   RetainPtr<CPDF_Array> names;
+   int index = -1;
+ };
+ 
+-std::pair<WideString, WideString> GetNodeLimitsAndSanitize(
+-    CPDF_Array* pLimits) {
+-  DCHECK(pLimits);
+-  WideString csLeft = pLimits->GetUnicodeTextAt(0);
+-  WideString csRight = pLimits->GetUnicodeTextAt(1);
++std::pair<WideString, WideString> GetNodeLimits(CPDF_Array* limits) {
++  WideString left = limits->GetUnicodeTextAt(0);
++  WideString right = limits->GetUnicodeTextAt(1);
++
+   // If the lower limit is greater than the upper limit, swap them.
+-  if (csLeft.Compare(csRight) > 0) {
+-    pLimits->SetNewAt<CPDF_String>(0, csRight.AsStringView());
+-    pLimits->SetNewAt<CPDF_String>(1, csLeft.AsStringView());
+-    csLeft = pLimits->GetUnicodeTextAt(0);
+-    csRight = pLimits->GetUnicodeTextAt(1);
++  if (left.Compare(right) > 0) {
++    std::swap(left, right);
++    limits->SetNewAt<CPDF_String>(0, left.AsStringView());
++    limits->SetNewAt<CPDF_String>(1, right.AsStringView());
+   }
+-  while (pLimits->size() > 2) {
+-    pLimits->RemoveAt(pLimits->size() - 1);
++
++  return {std::move(left), std::move(right)};
++}
++
++void TrimNodeLimits(CPDF_Array* limits) {
++  while (limits->size() > 2) {
++    limits->RemoveAt(limits->size() - 1);
+   }
+-  return {csLeft, csRight};
+ }
+ 
+ // Get the limit arrays that leaf array |pFind| is under in the tree with root
+ // |pNode|. |pLimits| will hold all the limit arrays from the leaf up to before
+ // the root. Return true if successful.
+@@ -106,11 +108,12 @@ bool UpdateNodesAndLimitsUponDeletion(CPDF_Dictionary* pNode,
+ 
+   RetainPtr<CPDF_Array> pLimits = pNode->GetMutableArrayFor("Limits");
+   WideString csLeft;
+   WideString csRight;
+   if (pLimits) {
+-    std::tie(csLeft, csRight) = GetNodeLimitsAndSanitize(pLimits.Get());
++    TrimNodeLimits(pLimits.Get());
++    std::tie(csLeft, csRight) = GetNodeLimits(pLimits.Get());
+   }
+ 
+   RetainPtr<const CPDF_Array> pNames = pNode->GetArrayFor("Names");
+   if (pNames) {
+     if (pNames != pFind) {
+@@ -240,17 +243,22 @@ RetainPtr<const CPDF_Object> SearchNameNodeByNameInternal(
+   if (pLimits && IsArrayWithTraversedObject(pLimits.Get(), seen_obj_nums)) {
+     pLimits.Reset();
+   }
+ 
+   if (pLimits) {
+-    auto [csLeft, csRight] = GetNodeLimitsAndSanitize(pLimits.Get());
++    // When lookup-only: do not truncate the /Limits array.
++    if (node_to_insert) {
++      TrimNodeLimits(pLimits.Get());
++    }
++    auto [left, right] = GetNodeLimits(pLimits.Get());
++
+     // Skip this node if the name to look for is smaller than its lower limit.
+-    if (csName.Compare(csLeft) < 0) {
++    if (csName.Compare(left) < 0) {
+       return nullptr;
+     }
+ 
+-    if (csName.Compare(csRight) > 0) {
++    if (csName.Compare(right) > 0) {
+       // If only trying to find the name node, and not where the name should be
+       // added, skip this node.
+       if (!node_to_insert) {
+         return nullptr;
+       }
+diff --git a/core/fpdfdoc/cpdf_nametree_unittest.cpp b/core/fpdfdoc/cpdf_nametree_unittest.cpp
+index 939dd9a6ea33457c33dde63ab58ed0caf3f8e09b..4f12ca1b76d7c4d9c5a719c0d4af8dd8415a77cf 100644
+--- a/core/fpdfdoc/cpdf_nametree_unittest.cpp
++++ b/core/fpdfdoc/cpdf_nametree_unittest.cpp
+@@ -38,14 +38,16 @@ void CheckLimitsArray(const CPDF_Dictionary* node,
+                       const char* least,
+                       const char* greatest) {
+   ASSERT_TRUE(node);
+   RetainPtr<const CPDF_Array> limits = node->GetArrayFor("Limits");
+   ASSERT_TRUE(limits);
+-  EXPECT_EQ(2u, limits->size());
++
++  // Sorted, but not always truncated.
++  EXPECT_GE(limits->size(), 2u);
+   RetainPtr<const CPDF_String> left = limits->GetStringAt(0);
+-  ASSERT_TRUE(left);
+   RetainPtr<const CPDF_String> right = limits->GetStringAt(1);
++  ASSERT_TRUE(left);
+   ASSERT_TRUE(right);
+   EXPECT_EQ(least, left->GetString());
+   EXPECT_EQ(greatest, right->GetString());
+ }
+ 
+@@ -123,32 +125,57 @@ TEST(CPDFNameTreeTest, GetUnicodeNameWithBOM) {
+   ASSERT_TRUE(pNumber);
+   EXPECT_EQ(100, pNumber->GetInteger());
+ }
+ 
+ TEST(CPDFNameTreeTest, GetFromTreeWithLimitsArrayWith4Items) {
+-  // After creating a name tree, mutate a /Limits array so it has excess
+-  // elements.
+   auto pRootDict = pdfium::MakeRetain<CPDF_Dictionary>();
+   FillNameTreeDict(pRootDict.Get());
+   RetainPtr<CPDF_Dictionary> pKid1 =
+       pRootDict->GetMutableArrayFor("Kids")->GetMutableDictAt(0);
++
++  // GrandKid2 is an intermediate node.
++  RetainPtr<CPDF_Dictionary> pGrandKid2 =
++      pKid1->GetMutableArrayFor("Kids")->GetMutableDictAt(0);
++  RetainPtr<CPDF_Array> pGrandKid2Limits =
++      pGrandKid2->GetMutableArrayFor("Limits");
++  ASSERT_EQ(2u, pGrandKid2Limits->size());
++  pGrandKid2Limits->AppendNew<CPDF_Number>(5);
++  pGrandKid2Limits->AppendNew<CPDF_Number>(6);
++  ASSERT_EQ(4u, pGrandKid2Limits->size());
++
++  // GrandKid3 is a leaf node.
+   RetainPtr<CPDF_Dictionary> pGrandKid3 =
+       pKid1->GetMutableArrayFor("Kids")->GetMutableDictAt(1);
+-  RetainPtr<CPDF_Array> pLimits = pGrandKid3->GetMutableArrayFor("Limits");
+-  ASSERT_EQ(2u, pLimits->size());
+-  pLimits->AppendNew<CPDF_Number>(5);
+-  pLimits->AppendNew<CPDF_Number>(6);
+-  ASSERT_EQ(4u, pLimits->size());
++  RetainPtr<CPDF_Array> pGrandKid3Limits =
++      pGrandKid3->GetMutableArrayFor("Limits");
++  ASSERT_EQ(2u, pGrandKid3Limits->size());
++  pGrandKid3Limits->AppendNew<CPDF_Number>(5);
++  pGrandKid3Limits->AppendNew<CPDF_Number>(6);
++  ASSERT_EQ(4u, pGrandKid3Limits->size());
++
+   std::unique_ptr<CPDF_NameTree> name_tree =
+       CPDF_NameTree::CreateForTesting(pRootDict.Get());
+ 
++  // 1. Lookup-only on leaf node: should NOT trim limits.
+   RetainPtr<const CPDF_Number> pNumber =
+       ToNumber(name_tree->LookupValue(L"9.txt"));
+   ASSERT_TRUE(pNumber);
+   EXPECT_EQ(999, pNumber->GetInteger());
+-  CheckLimitsArray(pKid1.Get(), "1.txt", "9.txt");
+-  CheckLimitsArray(pGrandKid3.Get(), "9.txt", "9.txt");
++  EXPECT_EQ(4u, pGrandKid3Limits->size());
++
++  // 2. Lookup-only on intermediate node: should NOT trim limits.
++  pNumber = ToNumber(name_tree->LookupValue(L"2.txt"));
++  ASSERT_TRUE(pNumber);
++  EXPECT_EQ(222, pNumber->GetInteger());
++  EXPECT_EQ(4u, pGrandKid2Limits->size());
++
++  // 3. Insertion: should trim traversed intermediate node limits to 2,
++  // and also leaf node limits to 2 (because it is visited during search).
++  EXPECT_TRUE(name_tree->AddValueAndName(pdfium::MakeRetain<CPDF_Number>(150),
++                                         L"1a.txt"));
++  EXPECT_EQ(2u, pGrandKid2Limits->size());
++  EXPECT_EQ(2u, pGrandKid3Limits->size());
+ }
+ 
+ TEST(CPDFNameTreeTest, AddIntoNames) {
+   // Set up a name tree with a single Names array.
+   auto pRootDict = pdfium::MakeRetain<CPDF_Dictionary>();
+diff --git a/core/fxcrt/BUILD.gn b/core/fxcrt/BUILD.gn
+index 796a10a4d2d71ab4ac37f4b86fefc393993278aa..27d1463536f4e5a065f9afacad53a1b18c5bc1dd 100644
+--- a/core/fxcrt/BUILD.gn
++++ b/core/fxcrt/BUILD.gn
+@@ -145,10 +145,15 @@ source_set("fxcrt") {
+   ]
+   configs += [
+     "../../:pdfium_strict_config",
+     "../../:pdfium_noshorten_config",
+   ]
++  # arkweb_pdf DTS2025060325046: pdfium upgrade START
++  if (is_ohos) {
++    configs += [ "//build/config/ohos:compiler" ]
++  }
++  # arkweb_pdf DTS2025060325046: pdfium upgrade END
+   deps = [ "//third_party/fast_float" ]
+   public_deps = [
+     "../../:freetype_common",
+     "//third_party/abseil-cpp:absl",
+     "//third_party/icu:icuuc",
+diff --git a/core/fxge/BUILD.gn b/core/fxge/BUILD.gn
+index 933f53891a7e7fb194e5d449e1e3c706e529955b..417e70ad3e5053c2fcc75949f543c0f23ff051fd 100644
+--- a/core/fxge/BUILD.gn
++++ b/core/fxge/BUILD.gn
+@@ -148,11 +148,13 @@ source_set("fxge") {
+       defines += [ "PDF_USE_SKIA_CUSTOM_FONT_MANAGER" ]
+       deps += [ pdf_skia_font_manager_target ]
+     }
+   }
+ 
+-  if (is_android) {
++  # arkweb_pdf DTS2025060325046: pdfium upgrade START
++  if (is_android || is_ohos) {
++  # arkweb_pdf DTS2025060325046: pdfium upgrade END
+     sources += [
+       "android/cfpf_skiadevicemodule.cpp",
+       "android/cfpf_skiadevicemodule.h",
+       "android/cfpf_skiafont.cpp",
+       "android/cfpf_skiafont.h",
+diff --git a/core/fxge/cfx_face.cpp b/core/fxge/cfx_face.cpp
+index a79c397c8d9394d6783669058c396b92fd725433..593f3e96dd8f790de11a86e7ab710c08a34bf101 100644
+--- a/core/fxge/cfx_face.cpp
++++ b/core/fxge/cfx_face.cpp
+@@ -337,11 +337,11 @@ RetainPtr<CFX_Face> CFX_Face::New(FT_Library library,
+   }
+   // Private ctor.
+   return pdfium::WrapRetain(new CFX_Face(pRec, std::move(pDesc)));
+ }
+ 
+-#if BUILDFLAG(IS_ANDROID) || defined(PDF_ENABLE_XFA)
++#if BUILDFLAG(IS_ANDROID) || defined(PDF_ENABLE_XFA) || BUILDFLAG(IS_OHOS)
+ // static
+ RetainPtr<CFX_Face> CFX_Face::Open(FT_Library library,
+                                    const FT_Open_Args* args,
+                                    FT_Long face_index) {
+   if (!library) {
+@@ -355,11 +355,11 @@ RetainPtr<CFX_Face> CFX_Face::Open(FT_Library library,
+   // Private ctor.
+   return pdfium::WrapRetain(new CFX_Face(pRec, nullptr));
+ }
+ #endif
+ 
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ RetainPtr<CFX_Face> CFX_Face::OpenFromFilePath(FT_Library library,
+                                                ByteStringView path,
+                                                int32_t face_index) {
+   if (path.IsEmpty()) {
+     return nullptr;
+diff --git a/core/fxge/cfx_face.h b/core/fxge/cfx_face.h
+index 048cf14c897d79acbc3f1bc59a67f8da08309f89..cf868dd56090a6a6921498efcde2036b98fec17e 100644
+--- a/core/fxge/cfx_face.h
++++ b/core/fxge/cfx_face.h
+@@ -70,11 +70,11 @@ class CFX_Face final : public Retainable, public Observable {
+   static RetainPtr<CFX_Face> OpenFromStream(
+       FT_Library library,
+       const RetainPtr<IFX_SeekableReadStream>& font_stream,
+       FT_Long face_index);
+ #endif
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   static RetainPtr<CFX_Face> OpenFromFilePath(FT_Library library,
+                                               ByteStringView path,
+                                               int32_t face_index);
+ #endif
+   bool HasGlyphNames() const;
+@@ -169,11 +169,11 @@ private:
+   FXFT_FaceRec* GetRec() { return rec_.get(); }
+   const FXFT_FaceRec* GetRec() const { return rec_.get(); }
+ 
+   void AdjustVariationParams(int glyph_index, int dest_width, int weight);
+   std::optional<std::array<uint8_t, 2>> GetOs2Panose();
+-#if BUILDFLAG(IS_ANDROID) || defined(PDF_ENABLE_XFA)
++#if BUILDFLAG(IS_ANDROID) || defined(PDF_ENABLE_XFA) || BUILDFLAG(IS_OHOS)
+   static RetainPtr<CFX_Face> Open(FT_Library library,
+                                   const FT_Open_Args* args,
+                                   FT_Long face_index);
+ #endif
+ 
+diff --git a/core/fxge/cfx_folderfontinfo.cpp b/core/fxge/cfx_folderfontinfo.cpp
+index 86937f0bfaa3fa89994475eca546a1af4c1ab478..9d64aa7f6bf4141d00d1ad92b6da533ebcd8c2bb 100644
+--- a/core/fxge/cfx_folderfontinfo.cpp
++++ b/core/fxge/cfx_folderfontinfo.cpp
+@@ -8,10 +8,13 @@
+ 
+ #include <array>
+ #include <iterator>
+ #include <limits>
+ #include <utility>
++#if BUILDFLAG(IS_OHOS)
++#include <hilog/log.h>
++#endif
+ 
+ #include "build/build_config.h"
+ #include "core/fxcrt/byteorder.h"
+ #include "core/fxcrt/check_op.h"
+ #include "core/fxcrt/compiler_specific.h"
+@@ -153,10 +156,13 @@ void CFX_FolderFontInfo::EnumFontList(CFX_FontMapper* pMapper) {
+ }
+ 
+ void CFX_FolderFontInfo::ScanPath(const ByteString& path) {
+   std::unique_ptr<FX_Folder> handle = FX_Folder::OpenFolder(path);
+   if (!handle) {
++#if BUILDFLAG(IS_OHOS)
++    OH_LOG_Print(LOG_APP, LOG_ERROR, LOG_DOMAIN, "PDF", "Load font failed, path: %{public}s.\n", path.c_str());
++#endif
+     return;
+   }
+ 
+   ByteString filename;
+   bool bFolder;
+diff --git a/fpdfsdk/formfiller/cffl_checkbox.cpp b/fpdfsdk/formfiller/cffl_checkbox.cpp
+index 03453a33ee2e4772d5ce975b519d632c2e136cbe..0fd3857ad908278686a146415d17b0df142a393a 100644
+--- a/fpdfsdk/formfiller/cffl_checkbox.cpp
++++ b/fpdfsdk/formfiller/cffl_checkbox.cpp
+@@ -49,19 +49,14 @@ bool CFFL_CheckBox::OnChar(CPDFSDK_Widget* pWidget,
+     case pdfium::ascii::kReturn:
+     case pdfium::ascii::kSpace: {
+       CPDFSDK_PageView* pPageView = pWidget->GetPageView();
+       DCHECK(pPageView);
+ 
+-      ObservedPtr<CPDFSDK_Widget> pObserved(widget_);
+-      if (form_filler_->OnButtonUp(pObserved, pPageView, nFlags)) {
+-        if (!pObserved) {
+-          widget_ = nullptr;
+-        }
+-        return true;
+-      }
+-      if (!pObserved) {
+-        widget_ = nullptr;
++      // If OnButtonUp() destroys `observed` (the owning CPDFSDK_Widget), its
++      // destructor has already destroyed `this`.
++      ObservedPtr<CPDFSDK_Widget> observed(widget_);
++      if (form_filler_->OnButtonUp(observed, pPageView, nFlags) || !observed) {
+         return true;
+       }
+ 
+       CFFL_FormField::OnChar(pWidget, nChar, nFlags);
+ 
+diff --git a/fpdfsdk/fpdf_editpage.cpp b/fpdfsdk/fpdf_editpage.cpp
+index 59cfbba912a84d42b769dd3164504072da4c203c..5940d24fd71818bd6144a5423fdac3a10051ec5d 100644
+--- a/fpdfsdk/fpdf_editpage.cpp
++++ b/fpdfsdk/fpdf_editpage.cpp
+@@ -25,11 +25,10 @@
+ #include "core/fpdfapi/page/cpdf_shadingobject.h"
+ #include "core/fpdfapi/page/cpdf_textobject.h"
+ #include "core/fpdfapi/parser/cpdf_array.h"
+ #include "core/fpdfapi/parser/cpdf_dictionary.h"
+ #include "core/fpdfapi/parser/cpdf_document.h"
+-#include "core/fpdfapi/parser/cpdf_name.h"
+ #include "core/fpdfapi/parser/cpdf_number.h"
+ #include "core/fpdfapi/parser/cpdf_string.h"
+ #include "core/fpdfapi/render/cpdf_docrenderdata.h"
+ #include "core/fpdfdoc/cpdf_annot.h"
+ #include "core/fpdfdoc/cpdf_annotlist.h"
+@@ -65,23 +64,12 @@ static_assert(FPDF_PAGEOBJ_SHADING ==
+               "FPDF_PAGEOBJ_SHADING/CPDF_PageObject::SHADING mismatch");
+ static_assert(FPDF_PAGEOBJ_FORM ==
+                   static_cast<int>(CPDF_PageObject::Type::kForm),
+               "FPDF_PAGEOBJ_FORM/CPDF_PageObject::FORM mismatch");
+ 
+-bool IsPageObject(CPDF_Page* pPage) {
+-  if (!pPage) {
+-    return false;
+-  }
+-
+-  RetainPtr<const CPDF_Dictionary> pFormDict = pPage->GetDict();
+-  if (!pFormDict->KeyExist(pdfium::page_object::kType)) {
+-    return false;
+-  }
+-
+-  RetainPtr<const CPDF_Name> pName =
+-      ToName(pFormDict->GetObjectFor(pdfium::page_object::kType)->GetDirect());
+-  return pName && pName->GetString() == "Page";
++bool IsPageObject(CPDF_Page* page) {
++  return page && CPDF_Page::IsValidPageDict(page->GetDict());
+ }
+ 
+ void CalcBoundingBox(CPDF_PageObject* pPageObj) {
+   switch (pPageObj->GetType()) {
+     case CPDF_PageObject::Type::kText: {
+@@ -226,29 +214,29 @@ FPDF_EXPORT FPDF_PAGE FPDF_CALLCONV FPDFPage_New(FPDF_DOCUMENT document,
+   if (!doc) {
+     return nullptr;
+   }
+ 
+   page_index = std::clamp(page_index, 0, doc->GetPageCount());
+-  RetainPtr<CPDF_Dictionary> pPageDict(doc->CreateNewPage(page_index));
+-  if (!pPageDict) {
++  RetainPtr<CPDF_Dictionary> page_dict(doc->CreateNewPage(page_index));
++  if (!page_dict) {
+     return nullptr;
+   }
+ 
+-  pPageDict->SetRectFor(pdfium::page_object::kMediaBox,
++  page_dict->SetRectFor(pdfium::page_object::kMediaBox,
+                         CFX_FloatRect(0, 0, width, height));
+-  pPageDict->SetNewFor<CPDF_Number>(pdfium::page_object::kRotate, 0);
+-  pPageDict->SetNewFor<CPDF_Dictionary>(pdfium::page_object::kResources);
++  page_dict->SetNewFor<CPDF_Number>(pdfium::page_object::kRotate, 0);
++  page_dict->SetNewFor<CPDF_Dictionary>(pdfium::page_object::kResources);
+ 
+ #ifdef PDF_ENABLE_XFA
+   if (doc->GetExtension()) {
+-    auto pXFAPage = pdfium::MakeRetain<CPDFXFA_Page>(doc, page_index);
+-    pXFAPage->LoadPDFPageFromDict(pPageDict);
+-    return FPDFPageFromIPDFPage(pXFAPage.Leak());  // Caller takes ownership.
++    auto xfa_page = pdfium::MakeRetain<CPDFXFA_Page>(doc, page_index);
++    CHECK(xfa_page->LoadPDFPageFromDict(std::move(page_dict)));
++    return FPDFPageFromIPDFPage(xfa_page.Leak());  // Caller takes ownership.
+   }
+ #endif  // PDF_ENABLE_XFA
+ 
+-  auto pPage = pdfium::MakeRetain<CPDF_Page>(doc, pPageDict);
++  auto pPage = pdfium::MakeRetain<CPDF_Page>(doc, std::move(page_dict));
+   pPage->AddPageImageCache();
+   pPage->ParseContent();
+ 
+   return FPDFPageFromIPDFPage(pPage.Leak());  // Caller takes ownership.
+ }
+diff --git a/fpdfsdk/fpdf_view.cpp b/fpdfsdk/fpdf_view.cpp
+index e2cdd8954a9b97f862d01c773ac21bc2b03c81c2..54124ec2f208c6f8c330ddfec4c2d5fdaa8028ec 100644
+--- a/fpdfsdk/fpdf_view.cpp
++++ b/fpdfsdk/fpdf_view.cpp
+@@ -484,11 +484,11 @@ FPDF_EXPORT FPDF_PAGE FPDF_CALLCONV FPDF_LoadPage(FPDF_DOCUMENT document,
+     return FPDFPageFromIPDFPage(context->GetOrCreateXFAPage(page_index).Leak());
+   }
+ #endif  // PDF_ENABLE_XFA
+ 
+   RetainPtr<CPDF_Dictionary> dict = doc->GetMutablePageDictionary(page_index);
+-  if (!dict) {
++  if (!CPDF_Page::IsValidPageDictLoose(dict)) {
+     return nullptr;
+   }
+ 
+   auto pPage = pdfium::MakeRetain<CPDF_Page>(doc, std::move(dict));
+   pPage->AddPageImageCache();
+@@ -1133,11 +1133,11 @@ FPDF_GetPageSizeByIndexF(FPDF_DOCUMENT document,
+     return true;
+   }
+ #endif  // PDF_ENABLE_XFA
+ 
+   RetainPtr<CPDF_Dictionary> dict = doc->GetMutablePageDictionary(page_index);
+-  if (!dict) {
++  if (!CPDF_Page::IsValidPageDictLoose(dict)) {
+     return false;
+   }
+ 
+   auto page = pdfium::MakeRetain<CPDF_Page>(doc, std::move(dict));
+   page->AddPageImageCache();
+diff --git a/fpdfsdk/fpdfxfa/cpdfxfa_page.cpp b/fpdfsdk/fpdfxfa/cpdfxfa_page.cpp
+index acd9a1af1152d7bd724aa6d4ab7c4d29a03d007f..19fb95d04406a792df1269178c3daa7367f8a783 100644
+--- a/fpdfsdk/fpdfxfa/cpdfxfa_page.cpp
++++ b/fpdfsdk/fpdfxfa/cpdfxfa_page.cpp
+@@ -101,11 +101,13 @@ bool CPDFXFA_Page::LoadPDFPage() {
+   if (!dict) {
+     return false;
+   }
+ 
+   if (!pdfpage_ || pdfpage_->GetDict() != dict) {
+-    LoadPDFPageFromDict(std::move(dict));
++    if (!LoadPDFPageFromDict(std::move(dict))) {
++      return false;
++    }
+   }
+ 
+   return true;
+ }
+ 
+@@ -125,15 +127,20 @@ bool CPDFXFA_Page::LoadPage() {
+     case FormType::kXFAFull:
+       return !!GetXFAPageView();
+   }
+ }
+ 
+-void CPDFXFA_Page::LoadPDFPageFromDict(RetainPtr<CPDF_Dictionary> pPageDict) {
+-  DCHECK(pPageDict);
+-  pdfpage_ = pdfium::MakeRetain<CPDF_Page>(GetDocument(), std::move(pPageDict));
++bool CPDFXFA_Page::LoadPDFPageFromDict(RetainPtr<CPDF_Dictionary> page_dict) {
++  CHECK(page_dict);
++  if (!CPDF_Page::IsValidPageDictLoose(page_dict)) {
++    return false;
++  }
++
++  pdfpage_ = pdfium::MakeRetain<CPDF_Page>(GetDocument(), std::move(page_dict));
+   pdfpage_->AddPageImageCache();
+   pdfpage_->ParseContent();
++  return true;
+ }
+ 
+ float CPDFXFA_Page::GetPageWidth() const {
+   CXFA_FFPageView* pPageView = GetXFAPageView();
+   if (!pdfpage_ && !pPageView) {
+@@ -325,10 +332,11 @@ void CPDFXFA_Page::DrawFocusAnnot(CFX_RenderDevice* pDevice,
+   CXFA_FFPageView* xfaView = GetXFAPageView();
+   CXFA_FFPageWidgetIterator pWidgetIterator(
+       xfaView, Mask<XFA_WidgetStatus>{XFA_WidgetStatus::kVisible,
+                                       XFA_WidgetStatus::kViewable});
+ 
++  ObservedPtr<CPDFSDK_Annot> pObservedAnnot(pAnnot);
+   while (true) {
+     CXFA_FFWidget* pWidget = pWidgetIterator.MoveToNext();
+     if (!pWidget) {
+       break;
+     }
+@@ -339,11 +347,11 @@ void CPDFXFA_Page::DrawFocusAnnot(CFX_RenderDevice* pDevice,
+     if (rtWidgetBox.IntersectWith(rectClip)) {
+       pWidget->RenderWidget(&gs, mtUser2Device, CXFA_FFWidget::kHighlight);
+     }
+   }
+ 
+-  CPDFXFA_Widget* pXFAWidget = ToXFAWidget(pAnnot);
++  CPDFXFA_Widget* pXFAWidget = ToXFAWidget(pObservedAnnot.Get());
+   if (!pXFAWidget) {
+     return;
+   }
+ 
+   CXFA_FFDocView* docView = xfaView->GetDocView();
+diff --git a/fpdfsdk/fpdfxfa/cpdfxfa_page.h b/fpdfsdk/fpdfxfa/cpdfxfa_page.h
+index 888bc30b92796505703584439ac359590b88026c..248b076dca2ac3b4b6b2a320ba4b9ee77072bec1 100644
+--- a/fpdfsdk/fpdfxfa/cpdfxfa_page.h
++++ b/fpdfsdk/fpdfxfa/cpdfxfa_page.h
+@@ -42,11 +42,11 @@ class CPDFXFA_Page final : public IPDF_Page {
+       const FX_RECT& rect,
+       int rotation,
+       const CFX_PointF& page_point) const override;
+ 
+   bool LoadPage();
+-  void LoadPDFPageFromDict(RetainPtr<CPDF_Dictionary> pPageDict);
++  bool LoadPDFPageFromDict(RetainPtr<CPDF_Dictionary> page_dict);
+   int GetPageIndex() const { return page_index_; }
+   void SetXFAPageViewIndex(int index) { page_index_ = index; }
+   CXFA_FFPageView* GetXFAPageView() const;
+   CPDFSDK_Annot* GetNextXFAAnnot(CPDFSDK_Annot* pSDKAnnot) const;
+   CPDFSDK_Annot* GetPrevXFAAnnot(CPDFSDK_Annot* pSDKAnnot) const;
+diff --git a/fxjs/cjs_field.cpp b/fxjs/cjs_field.cpp
+index e0680bf818153ebb73521f5615bf19cb9ab7ed8d..48d0af60a1304576a0f2d7f92affc0cac86bbdee 100644
+--- a/fxjs/cjs_field.cpp
++++ b/fxjs/cjs_field.cpp
+@@ -1270,16 +1270,18 @@ CJS_Result CJS_Field::get_display(CJS_Runtime* pRuntime) {
+ CJS_Result CJS_Field::set_display(CJS_Runtime* pRuntime,
+                                   v8::Local<v8::Value> vp) {
+   if (!can_set_) {
+     return CJS_Result::Failure(JSMessage::kReadOnlyError);
+   }
+-
++  int value = pRuntime->ToInt32(vp);  // Re-entrant.
++  if (!form_fill_env_) {
++    return CJS_Result::Failure(JSMessage::kBadObjectError);
++  }
+   if (delay_) {
+-    AddDelay_Int(FP_DISPLAY, pRuntime->ToInt32(vp));
++    AddDelay_Int(FP_DISPLAY, value);
+   } else {
+-    SetDisplay(form_fill_env_.Get(), field_name_, form_control_index_,
+-               pRuntime->ToInt32(vp));
++    SetDisplay(form_fill_env_.Get(), field_name_, form_control_index_, value);
+   }
+   return CJS_Result::Success();
+ }
+ 
+ CJS_Result CJS_Field::get_doc(CJS_Runtime* pRuntime) {
+diff --git a/fxjs/gc/heap.cpp b/fxjs/gc/heap.cpp
+index 7161cf440685e578262652cec75471810d3d7ea6..4cbc860183ade1c3e545f0cd2f27238134a617da 100644
+--- a/fxjs/gc/heap.cpp
++++ b/fxjs/gc/heap.cpp
+@@ -39,10 +39,18 @@ class CFXGC_Platform final : public cppgc::Platform {
+     // v8::Isolate pointer the first time. For non-default platforms this will
+     // require getting the appropriate task runner.
+     return g_platform->GetForegroundTaskRunner(g_isolate);
+   }
+ 
++  std::shared_ptr<cppgc::TaskRunner> GetForegroundTaskRunner(
++      cppgc::TaskPriority priority) override {
++    // V8's default platform creates a new task runner when passed the
++    // v8::Isolate pointer the first time. For non-default platforms this will
++    // require getting the appropriate task runner.
++    return g_platform->GetForegroundTaskRunner(g_isolate, priority);
++  }
++
+   std::unique_ptr<cppgc::JobHandle> PostJob(
+       cppgc::TaskPriority priority,
+       std::unique_ptr<cppgc::JobTask> job_task) override {
+     return g_platform->PostJob(priority, std::move(job_task));
+   }
+diff --git a/fxjs/xfa/cfxjse_engine.cpp b/fxjs/xfa/cfxjse_engine.cpp
+index 117f75c52cc1d7546b1fef8e0089bf2c7fcc02f3..35f5a6eed60a51fba1c863f589b157ddc876511e 100644
+--- a/fxjs/xfa/cfxjse_engine.cpp
++++ b/fxjs/xfa/cfxjse_engine.cpp
+@@ -925,15 +925,11 @@ v8::Local<v8::Object> CFXJSE_Engine::GetOrCreateJSBindingFromMap(
+   auto iter = map_object_to_object_.find(pCJXObject);
+   if (iter != map_object_to_object_.end()) {
+     return v8::Local<v8::Object>::New(GetIsolate(), iter->second);
+   }
+ 
+-  v8::Local<v8::Object> binding = pCJXObject->NewBoundV8Object(
+-      GetIsolate(), js_class_->GetTemplate(GetIsolate()));
+-
+-  map_object_to_object_[pCJXObject].Reset(GetIsolate(), binding);
+-  return binding;
++  return NewNormalXFAObject(pObject);
+ }
+ 
+ void CFXJSE_Engine::SetNodesOfRunScript(
+     std::vector<cppgc::Persistent<CXFA_Node>>* pArray) {
+   script_node_array_ = pArray;
+@@ -962,9 +958,11 @@ CXFA_Object* CFXJSE_Engine::ToXFAObject(v8::Local<v8::Value> obj) {
+   return pJSObject ? pJSObject->GetXFAObject() : nullptr;
+ }
+ 
+ v8::Local<v8::Object> CFXJSE_Engine::NewNormalXFAObject(CXFA_Object* obj) {
+   v8::EscapableHandleScope scope(GetIsolate());
+-  v8::Local<v8::Object> object = obj->JSObject()->NewBoundV8Object(
++  CJX_Object* js_object = obj->JSObject();
++  v8::Local<v8::Object> binding = js_object->NewBoundV8Object(
+       GetIsolate(), GetJseNormalClass()->GetTemplate(GetIsolate()));
+-  return scope.Escape(object);
++  map_object_to_object_[js_object].Reset(GetIsolate(), binding);
++  return scope.Escape(binding);
+ }
+diff --git a/fxjs/xfa/cjx_list_embeddertest.cpp b/fxjs/xfa/cjx_list_embeddertest.cpp
+index a9b5427fe24682f14d4530c8d5ea8a91659a383a..f793e7e69ba678cf43e6c720118a5f395ce40e64 100644
+--- a/fxjs/xfa/cjx_list_embeddertest.cpp
++++ b/fxjs/xfa/cjx_list_embeddertest.cpp
+@@ -1,15 +1,37 @@
+ // Copyright 2019 The PDFium Authors
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#include "testing/embedder_test_environment.h"
++#include "testing/embedder_test_timer_handling_delegate.h"
+ #include "testing/gtest/include/gtest/gtest.h"
++#include "testing/v8_test_environment.h"
+ #include "testing/xfa_js_embedder_test.h"
+ 
+ class CJXListEmbedderTest : public XFAJSEmbedderTest {};
+ 
+ // Should not crash.
+ TEST_F(CJXListEmbedderTest, Bug1263) {
+   ASSERT_TRUE(OpenDocument("simple_xfa.pdf"));
+ 
+   EXPECT_FALSE(Execute("nodes.insert($form,$)"));
+ }
++
++// Should not crash.
++TEST_F(CJXListEmbedderTest, Bug504416752) {
++  EmbedderTestTimerHandlingDelegate delegate;
++  SetDelegate(&delegate);
++
++  ASSERT_TRUE(OpenDocument("bug_504416752.pdf"));
++  ScopedPage page = LoadScopedPage(0);
++  ASSERT_TRUE(page);
++  DoOpenActions();
++
++  ForceCppGarbageCollection();
++
++  for (int i = 0; i < 1000; ++i) {
++    delegate.AdvanceTime(10);
++    V8TestEnvironment::PumpPlatformMessageLoop(
++        V8TestEnvironment::GetInstance()->isolate());
++  }
++}
+diff --git a/testing/resources/bug_504416752.in b/testing/resources/bug_504416752.in
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b8e37dd8736895ec699dacecd40ccf7c44ef822
+--- /dev/null
++++ b/testing/resources/bug_504416752.in
+@@ -0,0 +1,67 @@
++{{header}}
++{{include xfa_catalog_1_0.fragment}}
++{{include xfa_object_2_0.fragment}}
++{{include xfa_preamble_3_0.fragment}}
++{{include xfa_config_4_0.fragment}}
++{{object 5 0}} <<
++  {{streamlen}}
++>>
++stream
++<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/">
++  <subform layout="tb" name="my_doc">
++    <pageSet id="page" relation="orderedOccurrence">
++      <occur initial="1" max="1" min="1"/>
++      <pageArea id="Page1" name="Page1">
++        <occur max="1" min="1"/>
++        <contentArea h="100mm" w="200mm" x="0.25in" y="0.25in"/>
++      </pageArea>
++    </pageSet>
++    <subform name="S">
++      <proto>
++        <subform name="vchild"/>
++      </proto>
++    </subform>
++    <event activity="docReady" ref="$host">
++      <script contentType="application/x-javascript"><![CDATA[
++        try {
++          var ts = xfa.resolveNode("$template.my_doc.S");
++          var L = ts.nodes;      // CXFA_AttachNodeList
++          // Obtain the victim via list.item() which goes through
++          // CFXJSE_Engine::NewNormalXFAObject.
++          var v = null;
++          for (var i = 0; i < L.length; ++i) {
++            var c = L.item(i);
++            if (c.className == "proto") { v = c; break; }
++          }
++          L.remove(v);
++          // Stash the unsafe wrapper on the AcroForm global so it survives
++          // across script turns (the v8 wrapper is rooted, the CJX_Object is not).
++          __stash__ = v;
++          __pump__ = "for (var j = 0; j < 30000; ++j) xfa.template.createNode('subform','p');";
++          __hit__  = "try { __stash__.className; } catch(e) {}";
++          for (var k = 0; k < 25; ++k) {
++            app.setTimeOut(__pump__, 100 + k * 120);
++            app.setTimeOut(__hit__,  150 + k * 120);
++          }
++        } catch (e) {
++          app.alert("setup error: " + e);
++        }
++      ]]></script>
++    </event>
++  </subform>
++</template>
++endstream
++endobj
++{{include xfa_locale_6_0.fragment}}
++{{include xfa_postamble_7_0.fragment}}
++{{include xfa_pages_8_0.fragment}}
++{{object 9 0}} <<
++  /Type /Page
++  /Parent 8 0 R
++  /MediaBox [0 0 612 792]
++>>
++endobj
++{{xref}}
++{{trailer}}
++{{startxref}}
++%%EOF
+diff --git a/testing/resources/bug_504416752.pdf b/testing/resources/bug_504416752.pdf
+new file mode 100644
+index 0000000000000000000000000000000000000000..e83b172eccf4570a276af5e2913ba5c88f7d96e0
+--- /dev/null
++++ b/testing/resources/bug_504416752.pdf
+@@ -0,0 +1,276 @@
++%PDF-1.7
++% ò¤ô
++1 0 obj <<
++  /AcroForm 2 0 R
++  /Extensions <<
++    /ADBE <<
++      /BaseVersion /1.7
++      /ExtensionLevel 8
++    >>
++  >>
++  /NeedsRendering true
++  /Pages 8 0 R
++  /Type /Catalog
++>>
++endobj
++2 0 obj <<
++  /XFA [
++    (preamble)
++    3 0 R
++    (config)
++    4 0 R
++    (template)
++    5 0 R
++    (localeSet)
++    6 0 R
++    (postamble)
++    7 0 R
++  ]
++>>
++endobj
++3 0 obj <<
++  /Length 123
++>>
++stream
++<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/" timeStamp="2018-02-23T21:37:11Z" uuid="21482798-7bf0-40a4-bc5d-3cefdccf32b5">
++endstream
++endobj
++4 0 obj <<
++  /Length 641
++>>
++stream
++<config xmlns="http://www.xfa.org/schema/xci/3.0/">
++<agent name="designer">
++  <destination>pdf</destination>
++  <pdf>
++    <fontInfo/>
++  </pdf>
++</agent>
++<present>
++  <pdf>
++    <version>1.7</version>
++    <adobeExtensionLevel>8</adobeExtensionLevel>
++    <renderPolicy>client</renderPolicy>
++    <scriptModel>XFA</scriptModel>
++    <interactive>1</interactive>
++  </pdf>
++  <xdp>
++    <packets>*</packets>
++  </xdp>
++  <destination>pdf</destination>
++  <script>
++    <runScripts>server</runScripts>
++  </script>
++</present>
++<acrobat>
++  <acrobat7>
++    <dynamicRender>required</dynamicRender>
++  </acrobat7>
++  <validate>preSubmit</validate>
++</acrobat>
++</config>
++endstream
++endobj
++5 0 obj <<
++  /Length 1648
++>>
++stream
++<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/">
++  <subform layout="tb" name="my_doc">
++    <pageSet id="page" relation="orderedOccurrence">
++      <occur initial="1" max="1" min="1"/>
++      <pageArea id="Page1" name="Page1">
++        <occur max="1" min="1"/>
++        <contentArea h="100mm" w="200mm" x="0.25in" y="0.25in"/>
++      </pageArea>
++    </pageSet>
++    <subform name="S">
++      <proto>
++        <subform name="vchild"/>
++      </proto>
++    </subform>
++    <event activity="docReady" ref="$host">
++      <script contentType="application/x-javascript"><![CDATA[
++        try {
++          var ts = xfa.resolveNode("$template.my_doc.S");
++          var L = ts.nodes;      // CXFA_AttachNodeList
++          // Obtain the victim via list.item() which goes through
++          // CFXJSE_Engine::NewNormalXFAObject.
++          var v = null;
++          for (var i = 0; i < L.length; ++i) {
++            var c = L.item(i);
++            if (c.className == "proto") { v = c; break; }
++          }
++          L.remove(v);
++          // Stash the unsafe wrapper on the AcroForm global so it survives
++          // across script turns (the v8 wrapper is rooted, the CJX_Object is not).
++          __stash__ = v;
++          __pump__ = "for (var j = 0; j < 30000; ++j) xfa.template.createNode('subform','p');";
++          __hit__  = "try { __stash__.className; } catch(e) {}";
++          for (var k = 0; k < 25; ++k) {
++            app.setTimeOut(__pump__, 100 + k * 120);
++            app.setTimeOut(__hit__,  150 + k * 120);
++          }
++        } catch (e) {
++          app.alert("setup error: " + e);
++        }
++      ]]></script>
++    </event>
++  </subform>
++</template>
++endstream
++endobj
++6 0 obj <<
++  /Length 3454
++>>
++stream
++<localeSet xmlns="http://www.xfa.org/schema/xfa-locale-set/2.7/">
++  <locale name="en_US" desc="English (United States)">
++    <calendarSymbols name="gregorian">
++      <monthNames>
++        <month>January</month>
++        <month>February</month>
++        <month>March</month>
++        <month>April</month>
++        <month>May</month>
++        <month>June</month>
++        <month>July</month>
++        <month>August</month>
++        <month>September</month>
++        <month>October</month>
++        <month>November</month>
++        <month>December</month>
++      </monthNames>
++      <monthNames abbr="1">
++        <month>Jan</month>
++        <month>Feb</month>
++        <month>Mar</month>
++        <month>Apr</month>
++        <month>May</month>
++        <month>Jun</month>
++        <month>Jul</month>
++        <month>Aug</month>
++        <month>Sep</month>
++        <month>Oct</month>
++        <month>Nov</month>
++        <month>Dec</month>
++      </monthNames>
++      <dayNames>
++        <day>Sunday</day>
++        <day>Monday</day>
++        <day>Tuesday</day>
++        <day>Wednesday</day>
++        <day>Thursday</day>
++        <day>Friday</day>
++        <day>Saturday</day>
++      </dayNames>
++      <dayNames abbr="1">
++        <day>Sun</day>
++        <day>Mon</day>
++        <day>Tue</day>
++        <day>Wed</day>
++        <day>Thu</day>
++        <day>Fri</day>
++        <day>Sat</day>
++      </dayNames>
++      <meridiemNames>
++        <meridiem>AM</meridiem>
++        <meridiem>PM</meridiem>
++      </meridiemNames>
++      <eraNames>
++        <era>BC</era>
++        <era>AD</era>
++      </eraNames>
++    </calendarSymbols>
++    <datePatterns>
++      <datePattern name="full">EEEE, MMMM D, YYYY</datePattern>
++      <datePattern name="long">MMMM D, YYYY</datePattern>
++      <datePattern name="med">MMM D, YYYY</datePattern>
++      <datePattern name="short">M/D/YY</datePattern>
++    </datePatterns>
++    <timePatterns>
++      <timePattern name="full">h:MM:SS A Z</timePattern>
++      <timePattern name="long">h:MM:SS A Z</timePattern>
++      <timePattern name="med">h:MM:SS A</timePattern>
++      <timePattern name="short">h:MM A</timePattern>
++    </timePatterns>
++    <dateTimeSymbols>GyMdkHmsSEDFwWahKzZ</dateTimeSymbols>
++    <numberPatterns>
++      <numberPattern name="numeric">z,zz9.zzz</numberPattern>
++      <numberPattern name="currency">$z,zz9.99|($z,zz9.99)</numberPattern>
++      <numberPattern name="percent">z,zz9%</numberPattern>
++    </numberPatterns>
++    <numberSymbols>
++      <numberSymbol name="decimal">.</numberSymbol>
++      <numberSymbol name="grouping">,</numberSymbol>
++      <numberSymbol name="percent">%</numberSymbol>
++      <numberSymbol name="minus">-</numberSymbol>
++      <numberSymbol name="zero">0</numberSymbol>
++    </numberSymbols>
++    <currencySymbols>
++      <currencySymbol name="symbol">$</currencySymbol>
++      <currencySymbol name="isoname">USD</currencySymbol>
++      <currencySymbol name="decimal">.</currencySymbol>
++    </currencySymbols>
++    <typefaces>
++      <typeface name="Myriad Pro"/>
++      <typeface name="Minion Pro"/>
++      <typeface name="Courier Std"/>
++      <typeface name="Adobe Pi Std"/>
++      <typeface name="Adobe Hebrew"/>
++      <typeface name="Adobe Arabic"/>
++      <typeface name="Adobe Thai"/>
++      <typeface name="Kozuka Gothic Pro-VI M"/>
++      <typeface name="Kozuka Mincho Pro-VI R"/>
++      <typeface name="Adobe Ming Std L"/>
++      <typeface name="Adobe Song Std L"/>
++      <typeface name="Adobe Myungjo Std M"/>
++    </typefaces>
++  </locale>
++</localeSet>
++endstream
++endobj
++7 0 obj <<
++  /Length 10
++>>
++stream
++</xdp:xdp>
++endstream
++endobj
++8 0 obj <<
++  /Type /Pages
++  /Count 1
++  /Kids [9 0 R]
++>>
++endobj
++9 0 obj <<
++  /Type /Page
++  /Parent 8 0 R
++  /MediaBox [0 0 612 792]
++>>
++endobj
++9 0 obj <<
++  /Type /Page
++  /Parent 8 0 R
++  /MediaBox [0 0 612 792]
++>>
++endobj
++xref
++0 10
++0000000000 65535 f 
++0000000015 00000 n 
++0000000199 00000 n 
++0000000358 00000 n 
++0000000534 00000 n 
++0000001228 00000 n 
++0000002930 00000 n 
++0000006438 00000 n 
++0000006500 00000 n 
++0000006640 00000 n 
++trailer <<
++  /Root 1 0 R
++  /Size 10
++>>
++startxref
++6717
++%%EOF
+diff --git a/testing/resources/redirect.in b/testing/resources/redirect.in
+new file mode 100644
+index 0000000000000000000000000000000000000000..efa5e76c1ec605084296bc8339ad5dea6b6cc05b
+--- /dev/null
++++ b/testing/resources/redirect.in
+@@ -0,0 +1,29 @@
++{{header}}
++{{object 1 0}} <<
++  /Type /Catalog
++  /Pages 2 0 R
++  /OpenAction 4 0 R
++>>
++endobj
++{{object 2 0}} <<
++  /Type /Pages
++  /MediaBox [0 0 200 200]
++  /Count 1
++  /Kids [3 0 R]
++>>
++endobj
++{{object 3 0}} <<
++  /Type /Page
++  /Parent 2 0 R
++>>
++endobj
++{{object 4 0}} <<
++  /Type /Action
++  /S /URI
++  /URI (http://evilzone.org)
++>>
++endobj
++{{xref}}
++{{trailer}}
++{{startxref}}
++%%EOF
+diff --git a/testing/resources/redirect.pdf b/testing/resources/redirect.pdf
+index 517bd5a599c5b86c449c990fcbc9fcf66958f587..cbc3f01a20eed8a228f7e0d4845d272e1979af05 100644
+--- a/testing/resources/redirect.pdf
++++ b/testing/resources/redirect.pdf
+@@ -1,22 +1,40 @@
+-%PDF-1.7
+-trailer
+-<<
+-/Root 1 0 R
+->>
+-1 0 obj
+-<<
+-/Type /Catalog
+-/Pages 2 0 R
+-/OpenAction 2 0 R
+->>
+-endobj
+-
+-2 0 obj
+-<<
+-/Type /Action
+-/S /URI
+-/URI (http://evilzone.org) // URL HERE
+->>
+-endobj
+-
+-%%EOF
++%PDF-1.7
++% ò¤ô
++1 0 obj <<
++  /Type /Catalog
++  /Pages 2 0 R
++  /OpenAction 4 0 R
++>>
++endobj
++2 0 obj <<
++  /Type /Pages
++  /MediaBox [0 0 200 200]
++  /Count 1
++  /Kids [3 0 R]
++>>
++endobj
++3 0 obj <<
++  /Type /Page
++  /Parent 2 0 R
++>>
++endobj
++4 0 obj <<
++  /Type /Action
++  /S /URI
++  /URI (http://evilzone.org)
++>>
++endobj
++xref
++0 5
++0000000000 65535 f 
++0000000015 00000 n 
++0000000088 00000 n 
++0000000177 00000 n 
++0000000228 00000 n 
++trailer <<
++  /Root 1 0 R
++  /Size 5
++>>
++startxref
++304
++%%EOF
+diff --git a/testing/xfa_js_embedder_test.cpp b/testing/xfa_js_embedder_test.cpp
+index 933df922e94b066f527c66d41fee7b3fb932da41..0b77a735f5d437aac1a7bb2ab76db17aa4eb1d16 100644
+--- a/testing/xfa_js_embedder_test.cpp
++++ b/testing/xfa_js_embedder_test.cpp
+@@ -116,5 +116,11 @@ bool XFAJSEmbedderTest::ExecuteHelper(ByteStringView input) {
+       CXFA_Script::Type::Formcalc, WideString::FromUTF8(input).AsStringView(),
+       GetXFADocument()->GetRoot());
+   value_.Reset(isolate(), exec_result.value->GetValue(isolate()));
+   return exec_result.status;
+ }
++
++void XFAJSEmbedderTest::ForceCppGarbageCollection() {
++  auto* doc = CPDFDocumentFromFPDFDocument(document());
++  auto* context = static_cast<CPDFXFA_Context*>(doc->GetExtension());
++  FXGC_ForceGarbageCollection(context->GetGCHeap());
++}
+diff --git a/testing/xfa_js_embedder_test.h b/testing/xfa_js_embedder_test.h
+index 9c148679d8947591725de70ba20d162cf3eb3980..dbc7a5b5c8fe7015ba5bcfdc51a6f93d8622e044 100644
+--- a/testing/xfa_js_embedder_test.h
++++ b/testing/xfa_js_embedder_test.h
+@@ -33,10 +33,11 @@ class XFAJSEmbedderTest : public JSEmbedderTest {
+   CFXJSE_Engine* GetScriptContext() const { return script_context_; }
+   v8::Local<v8::Value> GetValue() const;
+ 
+   bool Execute(ByteStringView input);
+   bool ExecuteSilenceFailure(ByteStringView input);
++  void ForceCppGarbageCollection();
+ 
+  private:
+   bool ExecuteHelper(ByteStringView input);
+ 
+   v8::Global<v8::Value> value_;
+diff --git a/third_party/libopenjpeg/0047-opj_j2k_read_sod.patch b/third_party/libopenjpeg/0047-opj_j2k_read_sod.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..708c5e04500782504f170be2875961b3358468b0
+--- /dev/null
++++ b/third_party/libopenjpeg/0047-opj_j2k_read_sod.patch
+@@ -0,0 +1,27 @@
++diff --git a/third_party/libopenjpeg/j2k.c b/third_party/libopenjpeg/j2k.c
++index 5e9d75076..fc5ce62df 100644
++--- a/third_party/libopenjpeg/j2k.c
+++++ b/third_party/libopenjpeg/j2k.c
++@@ -5082,13 +5082,15 @@ static OPJ_BOOL opj_j2k_read_sod(opj_j2k_t *p_j2k,
++
++         OPJ_UINT32 l_current_tile_part =
++             l_cstr_index->tile_index[p_j2k->m_current_tile_number].current_tpsno;
++-        l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_header
++-            =
++-                l_current_pos;
++-        l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_pos
++-            =
++-                l_current_pos + p_j2k->m_specific_param.m_decoder.m_sot_length + 2;
++-
+++        if (l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index &&
+++            l_current_tile_part < l_cstr_index->tile_index[p_j2k->m_current_tile_number].nb_tps) {
+++          l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_header
+++              =
+++              l_current_pos;
+++          l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_pos
+++              =
+++              l_current_pos + p_j2k->m_specific_param.m_decoder.m_sot_length + 2;
+++        }
++         if (OPJ_FALSE == opj_j2k_add_tlmarker(p_j2k->m_current_tile_number,
++                                               l_cstr_index,
++                                               J2K_MS_SOD,
+diff --git a/third_party/libopenjpeg/j2k.c b/third_party/libopenjpeg/j2k.c
+index 5e9d75076e52387ed9fa1453029f6810d1b7bc98..aef6e3022701bcb6c4239319a8aadd45262f85b3 100644
+--- a/third_party/libopenjpeg/j2k.c
++++ b/third_party/libopenjpeg/j2k.c
+@@ -5080,16 +5080,19 @@ static OPJ_BOOL opj_j2k_read_sod(opj_j2k_t *p_j2k,
+     {
+         OPJ_OFF_T l_current_pos = opj_stream_tell(p_stream) - 2;
+ 
+         OPJ_UINT32 l_current_tile_part =
+             l_cstr_index->tile_index[p_j2k->m_current_tile_number].current_tpsno;
+-        l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_header
+-            =
+-                l_current_pos;
+-        l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_pos
+-            =
+-                l_current_pos + p_j2k->m_specific_param.m_decoder.m_sot_length + 2;
++        if (l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index &&
++            l_current_tile_part < l_cstr_index->tile_index[p_j2k->m_current_tile_number].nb_tps) {
++          l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_header
++              =
++              l_current_pos;
++          l_cstr_index->tile_index[p_j2k->m_current_tile_number].tp_index[l_current_tile_part].end_pos
++              =
++              l_current_pos + p_j2k->m_specific_param.m_decoder.m_sot_length + 2;
++        }
+ 
+         if (OPJ_FALSE == opj_j2k_add_tlmarker(p_j2k->m_current_tile_number,
+                                               l_cstr_index,
+                                               J2K_MS_SOD,
+                                               l_current_pos,
+diff --git a/third_party/libopenjpeg/pi.c b/third_party/libopenjpeg/pi.c
+index ad96f47eb50c5ba050448ac7262888b43adecb77..b199a7b2a1dee3b6dc87ccc9e1b32724c29b634e 100644
+--- a/third_party/libopenjpeg/pi.c
++++ b/third_party/libopenjpeg/pi.c
+@@ -1701,13 +1701,16 @@ opj_pi_iterator_t *opj_pi_initialise_encode(const opj_image_t *p_image,
+     /* set values for first packet iterator*/
+     l_pi->tp_on = (OPJ_BYTE)p_cp->m_specific_param.m_enc.m_tp_on;
+     l_current_pi = l_pi;
+ 
+     /* memory allocation for include*/
+-    l_current_pi->include_size = l_tcp->numlayers * l_step_l;
+-    l_current_pi->include = (OPJ_INT16*) opj_calloc(l_current_pi->include_size,
+-                            sizeof(OPJ_INT16));
++    l_current_pi->include = NULL;
++    if (l_step_l <= UINT_MAX / l_tcp->numlayers) {
++        l_current_pi->include_size = l_tcp->numlayers * l_step_l;
++        l_current_pi->include = (OPJ_INT16*) opj_calloc(l_current_pi->include_size,
++                                sizeof(OPJ_INT16));
++    }
+     if (!l_current_pi->include) {
+         opj_free(l_tmp_data);
+         opj_free(l_tmp_ptr);
+         opj_pi_destroy(l_pi, l_bound);
+         return 00;
+diff --git a/xfa/fwl/cfwl_caret.cpp b/xfa/fwl/cfwl_caret.cpp
+index 8aef853f66bbfc2626174fd93e56f25fd4c5672c..276b7676896de8ed548c2072b45022f78392aff3 100644
+--- a/xfa/fwl/cfwl_caret.cpp
++++ b/xfa/fwl/cfwl_caret.cpp
+@@ -30,10 +30,15 @@ CFWL_Caret::CFWL_Caret(CFWL_App* app,
+   SetStates(kStateHighlight);
+ }
+ 
+ CFWL_Caret::~CFWL_Caret() = default;
+ 
++void CFWL_Caret::PreFinalize() {
++  timer_.reset();
++  CFWL_Widget::PreFinalize();
++}
++
+ FWL_Type CFWL_Caret::GetClassID() const {
+   return FWL_Type::Caret;
+ }
+ 
+ void CFWL_Caret::Update() {}
+diff --git a/xfa/fwl/cfwl_caret.h b/xfa/fwl/cfwl_caret.h
+index e2626ed403170afdde4b663cc1e8ff0859a6c6e2..939515456f7a800006fed5cd225a6ceae2cdb4ae 100644
+--- a/xfa/fwl/cfwl_caret.h
++++ b/xfa/fwl/cfwl_caret.h
+@@ -19,10 +19,11 @@ class CFWL_Caret final : public CFWL_Widget, public CFX_Timer::CallbackIface {
+  public:
+   CONSTRUCT_VIA_MAKE_GARBAGE_COLLECTED;
+   ~CFWL_Caret() override;
+ 
+   // CFWL_Widget:
++  void PreFinalize() override;
+   FWL_Type GetClassID() const override;
+   void DrawWidget(CFGAS_GEGraphics* pGraphics,
+                   const CFX_Matrix& matrix) override;
+   void OnProcessMessage(CFWL_Message* pMessage) override;
+   void OnDrawWidget(CFGAS_GEGraphics* pGraphics,
+diff --git a/xfa/fwl/cfwl_scrollbar.cpp b/xfa/fwl/cfwl_scrollbar.cpp
+index bb8145d94f5703df2f819fb3a6acaace7626186c..68d5aa56fa17a29f73976729d4eec4b3ce1ab25d 100644
+--- a/xfa/fwl/cfwl_scrollbar.cpp
++++ b/xfa/fwl/cfwl_scrollbar.cpp
+@@ -32,10 +32,15 @@ CFWL_ScrollBar::CFWL_ScrollBar(CFWL_App* app,
+                                CFWL_Widget* pOuter)
+     : CFWL_Widget(app, properties, pOuter) {}
+ 
+ CFWL_ScrollBar::~CFWL_ScrollBar() = default;
+ 
++void CFWL_ScrollBar::PreFinalize() {
++  timer_.reset();
++  CFWL_Widget::PreFinalize();
++}
++
+ FWL_Type CFWL_ScrollBar::GetClassID() const {
+   return FWL_Type::ScrollBar;
+ }
+ 
+ void CFWL_ScrollBar::Update() {
+diff --git a/xfa/fwl/cfwl_scrollbar.h b/xfa/fwl/cfwl_scrollbar.h
+index 41d71374d8f26f4cc5311b9216d3492880e40892..b01d78973778a9046f1010897e6edfdc4ff16c1a 100644
+--- a/xfa/fwl/cfwl_scrollbar.h
++++ b/xfa/fwl/cfwl_scrollbar.h
+@@ -27,10 +27,11 @@ class CFWL_ScrollBar final : public CFWL_Widget,
+  public:
+   CONSTRUCT_VIA_MAKE_GARBAGE_COLLECTED;
+   ~CFWL_ScrollBar() override;
+ 
+   // CFWL_Widget:
++  void PreFinalize() override;
+   FWL_Type GetClassID() const override;
+   void Update() override;
+   void DrawWidget(CFGAS_GEGraphics* pGraphics,
+                   const CFX_Matrix& matrix) override;
+   void OnProcessMessage(CFWL_Message* pMessage) override;
+diff --git a/xfa/fxfa/parser/cxfa_document_builder_embeddertest.cpp b/xfa/fxfa/parser/cxfa_document_builder_embeddertest.cpp
+index becb51905b2bfb4c7f1ef2782f33225de6113163..b02a3d564dbb61a0d6d52823907261827eb950ff 100644
+--- a/xfa/fxfa/parser/cxfa_document_builder_embeddertest.cpp
++++ b/xfa/fxfa/parser/cxfa_document_builder_embeddertest.cpp
+@@ -3,16 +3,17 @@
+ // found in the LICENSE file.
+ 
+ #include "testing/embedder_test.h"
+ #include "testing/gtest/include/gtest/gtest.h"
+ 
+-class CXFASimpleParserEmbedderTest : public EmbedderTest {};
++using CXFASimpleParserEmbedderTest = EmbedderTest;
+ 
++// Should not crash.
+ TEST_F(CXFASimpleParserEmbedderTest, Bug216) {
+   ASSERT_TRUE(OpenDocument("bug_216.pdf"));
+   ScopedPage page = LoadScopedPage(0);
+-  EXPECT_TRUE(page);
++  EXPECT_FALSE(page);
+ }
+ 
+ TEST_F(CXFASimpleParserEmbedderTest, Bug709793) {
+   ASSERT_TRUE(OpenDocument("bug_709793.pdf"));
+   ScopedPage page = LoadScopedPage(0);
