@@ -2826,7 +2826,9 @@ void NWebHandlerDelegate::OnRenderProcessTerminated(
   LOG(ERROR) << "OnRenderExited NWebId: " << nweb_id_
              << " render process exit, reason = " << static_cast<int>(reason)
              << " reason info = " << error_desc;
-  crashpad::CrashpadDfx::ProcessCrashReport("render", "", "", error_desc);
+  if (status != TS_PROCESS_CRASHED) {
+    crashpad::CrashpadDfx::ProcessCrashReport("render", "", "", error_desc);
+  }
   nweb_handler_->OnRenderExited(reason);
 
 #if BUILDFLAG(ARKWEB_NWEB_EX) && BUILDFLAG(ARKWEB_CRASHPAD)
