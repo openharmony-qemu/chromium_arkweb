@@ -45,6 +45,61 @@ TEST_F(NWebOutputHandlerTest, Create_ValidCallback) {
   EXPECT_NE(handler_, nullptr);
 }
 
+TEST_F(NWebOutputHandlerTest, FullSizeWithoutDumpDoesNotAllocateBuffer) {
+  auto handler = NWebOutputHandler::Create(1260, 2402, MockFrameCallback);
+  ASSERT_NE(handler, nullptr);
+  EXPECT_EQ(handler->frame_size_, 12106080u);
+  EXPECT_EQ(handler->dump_buf_, nullptr);
+  handler->Resize(1280, 2542);
+  EXPECT_EQ(handler->dump_buf_, nullptr);
+}
+
+TEST_F(NWebOutputHandlerTest, EnableDumpAfterResizeAllocatesCurrentSize) {
+  handler_->Resize(1260, 2402);
+  EXPECT_EQ(handler_->dump_buf_, nullptr);
+  handler_->SetDumpPath("/tmp/dump");
+  ASSERT_NE(handler_->dump_buf_, nullptr);
+  handler_->dump_buf_[handler_->frame_size_ - 1] = 'x';
+  EXPECT_EQ(handler_->dump_buf_[12106079], 'x');
+}
+
+TEST_F(NWebOutputHandlerTest, DisableResizeAndReenableDumpUsesNewSize) {
+  handler_->SetDumpPath("/tmp/dump");
+  ASSERT_NE(handler_->dump_buf_, nullptr);
+  handler_->SetDumpPath("");
+  EXPECT_EQ(handler_->dump_buf_, nullptr);
+  handler_->Resize(1260, 2402);
+  EXPECT_EQ(handler_->dump_buf_, nullptr);
+  handler_->SetDumpPath("/tmp/dump");
+  ASSERT_NE(handler_->dump_buf_, nullptr);
+  handler_->dump_buf_[handler_->frame_size_ - 1] = 'y';
+  EXPECT_EQ(handler_->dump_buf_[12106079], 'y');
+}
+
+TEST_F(NWebOutputHandlerTest, Resize_OverflowPreservesPreviousFrame) {
+  handler_->SetDumpPath("/tmp/dump");
+  ASSERT_NE(handler_->dump_buf_, nullptr);
+  char* old_buf = handler_->dump_buf_.get();
+  old_buf[handler_->frame_size_ - 1] = 'x';
+
+  handler_->Resize(65536, 65536);
+  uint32_t width = 0;
+  uint32_t height = 0;
+  handler_->GetWindowInfo(width, height);
+  EXPECT_EQ(width, 100u);
+  EXPECT_EQ(height, 100u);
+  EXPECT_EQ(handler_->frame_size_, 40000u);
+  ASSERT_EQ(handler_->dump_buf_.get(), old_buf);
+  EXPECT_EQ(handler_->dump_buf_[39999], 'x');
+
+  handler_->Resize(200, 150);
+  handler_->GetWindowInfo(width, height);
+  EXPECT_EQ(width, 200u);
+  EXPECT_EQ(height, 150u);
+  EXPECT_EQ(handler_->frame_size_, 120000u);
+  EXPECT_NE(handler_->dump_buf_, nullptr);
+}
+
 TEST_F(NWebOutputHandlerTest, Resize_SameSize) {
   handler_->Resize(100, 100);
   uint32_t w, h;

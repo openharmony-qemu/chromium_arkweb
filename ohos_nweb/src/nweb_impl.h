@@ -1479,6 +1479,8 @@ void SetVisibility(bool isVisible) override;
 #endif
 
  private:
+  void ReleaseLifecycleReferences();
+
   void ProcessInitArgs(std::shared_ptr<NWebEngineInitArgs> init_args);
   void InitWebEngineArgs(std::shared_ptr<NWebEngineInitArgs> init_args);
   bool InitWebEngine(std::shared_ptr<NWebCreateInfo> create_info);

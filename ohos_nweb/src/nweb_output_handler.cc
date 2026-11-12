@@ -24,6 +24,7 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <new>
 #include <thread>
 
 #include "base/numerics/safe_math.h"
@@ -99,6 +100,7 @@ void NWebOutputHandler::GetWindowInfo(uint32_t& width, uint32_t& height) {
 }
 
 void NWebOutputHandler::Resize(uint32_t width, uint32_t height) {
+  std::unique_lock<std::mutex> lock(dump_mtx_);
   if (width_ != width || height_ != height) {
     WVLOG_I(
         "NWeb size change from %{public}u*%{public}u to "
@@ -111,19 +113,24 @@ void NWebOutputHandler::Resize(uint32_t width, uint32_t height) {
                                    ", nweb id = " + std::to_string(nweb_id_);
     TRACE_EVENT1("base", "NWebOutputHandler::Resize", "change info",
                  trace_output_str.c_str());
-    width_ = width;
-    height_ = height;
-    if (!(base::CheckMul(width_, height_) * kBitsPerPixel).AssignIfValid(&frame_size_)) {
+    uint32_t new_frame_size = 0;
+    if (!(base::CheckMul(width, height) * kBitsPerPixel)
+             .AssignIfValid(&new_frame_size)) {
       WVLOG_E("frame_size_ is Invalid");
       return;
     }
-    if (!dump_path_.empty() || dump_buf_ == nullptr) {
-      auto buf = new char[frame_size_];
-      if (!buf) {
+    std::unique_ptr<char[]> new_dump_buf;
+    if (!dump_path_.empty() && new_frame_size > 0) {
+      new_dump_buf.reset(new (std::nothrow) char[new_frame_size]);
+      if (!new_dump_buf) {
+        WVLOG_E("Failed to allocate dump buffer");
         return;
       }
-      dump_buf_.reset(buf);
     }
+    width_ = width;
+    height_ = height;
+    frame_size_ = new_frame_size;
+    dump_buf_.swap(new_dump_buf);
 
     if (!is_initialized_resize_) {
       int32_t ret = OHOS::NWeb::OhosAdapterHelperExt::GetWindowAdapterNdkInstance()
@@ -217,7 +224,16 @@ void NWebOutputHandler::SetFrameInfoDump(bool flag) {
 }
 
 void NWebOutputHandler::SetDumpPath(const std::string& path) {
+  std::unique_lock<std::mutex> lock(dump_mtx_);
   dump_path_ = path;
+  if (dump_path_.empty()) {
+    dump_buf_.reset();
+    return;
+  }
+  // Init/Resize runs before the dump path is configured.
+  if (!dump_buf_ && frame_size_ > 0) {
+    dump_buf_.reset(new char[frame_size_]);
+  }
 }
 
 void NWebOutputHandler::BmpDumpHelper::DumpToBmp(const std::string& filename,

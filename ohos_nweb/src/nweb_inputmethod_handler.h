@@ -44,6 +44,7 @@ class NWebInputMethodHandler : public NWebInputMethodClient {
   };
   NWebInputMethodHandler();
   ~NWebInputMethodHandler() override;
+  void ClearBrowser();
   NWebInputMethodHandler(const NWebInputMethodHandler&) = delete;
   NWebInputMethodHandler& operator=(const NWebInputMethodHandler&) = delete;
 
