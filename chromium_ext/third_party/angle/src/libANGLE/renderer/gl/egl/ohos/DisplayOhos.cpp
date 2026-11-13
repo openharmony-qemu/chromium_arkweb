@@ -17,7 +17,7 @@
 
 #include "DisplayOhos.h"
 
-#include "../../../../../../../../src/third_party/angle/src/libANGLE/Display.h"
+#include "libANGLE/Display.h"
 #include "NativeBufferImageSiblingOhos.h"
 
 namespace rx

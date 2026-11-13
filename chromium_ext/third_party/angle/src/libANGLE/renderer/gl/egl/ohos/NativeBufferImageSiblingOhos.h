@@ -19,7 +19,7 @@
 #ifndef LIBANGLE_RENDERER_GL_EGL_NATIVEBUFFERIMAGESIBLINGOHOS_H_
 #define LIBANGLE_RENDERER_GL_EGL_NATIVEBUFFERIMAGESIBLINGOHOS_H_
 
-#include "../../../../../../../../src/third_party/angle/src/libANGLE/renderer/gl/egl/ExternalImageSiblingEGL.h"
+#include "libANGLE/renderer/gl/egl/ExternalImageSiblingEGL.h"
 
 namespace rx
 {

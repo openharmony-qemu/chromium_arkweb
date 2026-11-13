@@ -66,7 +66,7 @@ void HiTraceAdapterImpl::StartTrace(const std::string& value, float limit)
     OH_HiTrace_StartTrace(value.c_str());
 }
 
-void HiTraceAdapterImpl::StartTraceEx(HiTrace_Output_Level level, const std::string& name,
+void HiTraceAdapter::StartTraceEx(HiTrace_Output_Level level, const std::string& name,
     const std::string& value, float limit)
 {
     OH_HiTrace_StartTraceEx(level, name.c_str(), value.c_str());

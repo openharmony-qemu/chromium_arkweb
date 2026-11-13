@@ -32,9 +32,15 @@ class FrameAvailableListenerImpl : public FrameAvailableListener {
   public:
     FrameAvailableListenerImpl(base::RepeatingClosure frame_available_cb);
 
-    void OnFrameAvailableListener() override;
+    void* GetContext() override;
+
+    OnFrameAvailableCb GetOnFrameAvailableCb() override;
 
   private:
+    static void OnFrameAvailable(void* context);
+
+    void OnFrameAvailableListener();
+
     base::RepeatingClosure frame_available_cb_;  // For immediate signal on callback thread
 };
 

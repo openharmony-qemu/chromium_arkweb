@@ -103,12 +103,15 @@ is_official_build=1
 build_debug_version=0
 build_legacy=0
 debug_args="is_debug=false"
+# Explicit public SDK preparation also owns its locked host tool configuration.
+if [ "${ARKWEB_PREPARED_SDK:-0}" != 1 ]; then
 npm config set registry http://mirrors.tools.huawei.com/npm/
 npm config set @ohpm-test:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
 npm config set @ohos:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
 npm config set @baize:registry https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/
 npm config set strict-ssl false
 cat ${HOME}/.npmrc | grep 'lockfile=false' || echo 'lockfile=false' >> ${HOME}/.npmrc
+fi
 cp -rf ./src/upper_level/include_vector_patch.py ./
 cp -rf ./src/upper_level/.cloudbuild ./
 cp -rf ./src/upper_level/.codecheck ./
@@ -454,7 +457,7 @@ if [[ "${build_type}" != "rk3568" ]] && [ ${build_hwasan} -ne 1 ]; then
 fi
 
 # Extract ohos-sdk.
-if [ -f "src/ohos_sdk/.install" ]; then
+if [ -f "src/ohos_sdk/.install" ] && [ "${ARKWEB_PREPARED_SDK:-0}" != 1 ]; then
   bash "src/ohos_sdk/.install"
   if [ $? -ne 0 ]; then
     echo "ERROR: Failed to install ohos-sdk, abort!"
@@ -560,6 +563,11 @@ source arkweb/build/prepare.sh $build_dir
 cd cef/tools
 bash ./translator.sh
 cd -
+
+# Keep additional build-edge patches after generated Chromium/CEF inputs.
+if [ -n "${ARKWEB_EXTRA_BUILD_PATCH_SCRIPT:-}" ]; then
+  bash "${ARKWEB_EXTRA_BUILD_PATCH_SCRIPT}" --source-root "${ROOT_DIR%/src}"
+fi
 
 time_start_for_build=$(date +%s)
 time_start_for_gn=$time_start_for_build

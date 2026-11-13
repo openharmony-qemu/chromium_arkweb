@@ -24,9 +24,6 @@ namespace OHOS::NWeb {
 
 NativeImageAdapterImpl::~NativeImageAdapterImpl()
 {
-    if (callback_index_ > 0) {
-        callback_wrapper_.Clear(callback_index_);
-    }
     DestroyNativeImage();
 }
 
@@ -104,25 +101,33 @@ void NativeImageAdapterImpl::OnFrameAvailable(void *context) {
         WVLOG_E("NativeImageAdapterImpl OnFrameAvailable fail");
         return;
     }
-    listener->OnFrameAvailableListener();
+    auto callback = listener->GetOnFrameAvailableCb();
+    if (callback != nullptr) {
+        callback(listener->GetContext());
+    }
 }
 
 int32_t NativeImageAdapterImpl::SetOnFrameAvailableListener(std::shared_ptr<FrameAvailableListener> listener)
 {
-    if (ohNativeImage_ == nullptr || listener == nullptr) {
+    if (ohNativeImage_ == nullptr || listener == nullptr || listener->GetOnFrameAvailableCb() == nullptr) {
         return NATIVE_ERROR_UNKNOWN;
     }
 
-    if (callback_index_ > 0) {
-        callback_wrapper_.Clear(callback_index_);
-    }
-
-    callback_index_ = callback_wrapper_.AddCallback(listener);
+    size_t newIndex = callback_wrapper_.AddCallback(listener);
 
     OH_OnFrameAvailableListener callback;
     callback.onFrameAvailable = OnFrameAvailable;
-    callback.context = reinterpret_cast<void*>(callback_index_);
-    return OH_NativeImage_SetOnFrameAvailableListener(ohNativeImage_, callback);
+    callback.context = reinterpret_cast<void*>(newIndex);
+    int32_t ret = OH_NativeImage_SetOnFrameAvailableListener(ohNativeImage_, callback);
+    if (ret != NATIVE_ERROR_OK) {
+        callback_wrapper_.Clear(newIndex);
+        return ret;
+    }
+    if (callback_index_ > 0) {
+        callback_wrapper_.Clear(callback_index_);
+    }
+    callback_index_ = newIndex;
+    return ret;
 }
 
 int32_t NativeImageAdapterImpl::UnsetOnFrameAvailableListener()
@@ -130,17 +135,23 @@ int32_t NativeImageAdapterImpl::UnsetOnFrameAvailableListener()
     if (ohNativeImage_ == nullptr) {
         return NATIVE_ERROR_UNKNOWN;
     }
-    return OH_NativeImage_UnsetOnFrameAvailableListener(ohNativeImage_);
+    int32_t ret = OH_NativeImage_UnsetOnFrameAvailableListener(ohNativeImage_);
+    if (ret == NATIVE_ERROR_OK) {
+        callback_wrapper_.Clear(callback_index_);
+        callback_index_ = 0;
+    }
+    return ret;
 }
 
 void NativeImageAdapterImpl::DestroyNativeImage()
 {
-    if (ohNativeImage_ == nullptr) {
-        return;
+    if (ohNativeImage_ != nullptr) {
+        OH_NativeImage* raw = ohNativeImage_.get();
+        OH_NativeImage_Destroy(&raw);
+        ohNativeImage_ = nullptr;
     }
-    OH_NativeImage* raw = ohNativeImage_.get();
-    OH_NativeImage_Destroy(&raw);
-    ohNativeImage_ = nullptr;
+    callback_wrapper_.Clear(callback_index_);
+    callback_index_ = 0;
 }
 
 

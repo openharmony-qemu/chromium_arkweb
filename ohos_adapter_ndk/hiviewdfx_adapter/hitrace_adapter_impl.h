@@ -31,9 +31,6 @@ public:
 
     void StartAsyncTrace(const std::string& value, int32_t taskId, float limit = -1) override;
 
-    void StartTraceEx(HiTrace_Output_Level level, const std::string& name,
-      const std::string& value, float limit = -1) override; 
-
     void FinishAsyncTrace(const std::string& value, int32_t taskId) override;
 
     void CountTrace(const std::string& name, int64_t count) override;

@@ -36,7 +36,7 @@ template("ohos_hap") {
       "--sdk-root",
       rebase_path("//ohos_sdk", root_build_dir),
       "--node-root",
-      rebase_path("//third_party/node/linux/node-linux-x64/", root_build_dir),
+      rebase_path("//ohos_sdk/nodejs/", root_build_dir),
     ]
 
     _project_root_dir =
@@ -132,7 +132,7 @@ template("ohos_har") {
       "--sdk-root",
       rebase_path("//ohos_sdk", root_build_dir),
       "--node-root",
-      rebase_path("//third_party/node/linux/node-linux-x64/", root_build_dir),
+      rebase_path("//ohos_sdk/nodejs/", root_build_dir),
     ]
 
     _project_root_dir =

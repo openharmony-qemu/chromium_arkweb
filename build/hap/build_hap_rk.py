@@ -25,14 +25,14 @@ class HapProject:
     self.abi = abi
     self.hars = []
     self.hvigor_wrapper = os.path.join(self.root, 'hvigorw')
-    self.env = {
-        "HOME": os.environ['HOME'],
+    self.env = os.environ.copy()
+    self.env.update({
         "OHOS_BASE_SDK_HOME": self.sdk,
         "NODE_HOME": self.node,
         "PATH":
         ":".join([os.path.join(self.node, "bin"),
                   os.environ.get("PATH")])
-    }
+    })
 
   def WriteDepfile(self, depfile):
     action_helpers.write_depfile(depfile,
@@ -96,30 +96,20 @@ class HapProject:
 
   def Hvigor(self, cmd_array):
     cmd = [self.hvigor_wrapper] + cmd_array
-    try:
-      process = subprocess.Popen(cmd,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE,
-                               env=self.env)
-      stdout, stderr = process.communicate()
-    except Exception as e:
-      print(f"An error occurred: {e}")
-    print("***********************************")
-    print(self.root)
-    os.chdir(self.root)
-    command = ['./hvigorw', '--mode=module', 'clean', '-p', 'debuggable=false', 'assembleHap', '--no-daemon']
-    try:
-      result = subprocess.run(command, capture_output=True, text=True)
-      print("Standard output:", result.stdout)
-      print("Standard error:", result.stderr)
-    except Exception as e:
-      print(f"An error occurred: {e}")
-    print("***********************************")
-    return stdout
+    result = subprocess.run(cmd,
+                            cwd=self.root,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            env=self.env)
+    if result.returncode != 0:
+      err = result.stderr if result.stderr else result.stdout
+      raise RuntimeError('Command \'%s\' failed\n%s' % (' '.join(cmd), err))
+    return result.stdout
 
   def Build(self, auto_signed):
     self._build([
-        '--mode=module', 'clean', '-p', 'debuggable=false', 'assembleHap',
+        '--mode=module', '-p', 'module=entry@default', '-p', 'product=default',
+        'clean', '-p', 'debuggable=false', 'assembleHap',
         '--no-daemon'
     ])
 

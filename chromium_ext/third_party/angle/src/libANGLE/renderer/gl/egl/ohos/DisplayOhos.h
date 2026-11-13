@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "../../../../../../../../src/third_party/angle/src/libANGLE/renderer/gl/egl/DisplayEGL.h"
+#include "libANGLE/renderer/gl/egl/DisplayEGL.h"
 
 namespace rx
 {

@@ -40,7 +40,7 @@ source_set("adapter_ndk_wrapper") {
     "ndk_version.cc",
   ]
 
-  deps = [":adapter_ndk_gen"]
+  deps = [":adapter_ndk_gen", ":adapter_ndk_stub"]
   public_configs = [ ":adapter_ndk_config" ]
 
   lib_dirs = [ root_build_dir ]

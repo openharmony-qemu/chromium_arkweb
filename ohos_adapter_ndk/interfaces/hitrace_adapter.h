@@ -26,8 +26,9 @@ class HiTraceAdapter {
 public:
     virtual void StartTrace(const std::string& value, float limit = -1) = 0;
 
-    virtual void StartTraceEx(HiTrace_Output_Level level, const std::string& name,
-        const std::string& value, float limit = -1) = 0;
+    // Local NDK extension: do not insert a slot into the release adapter vtable.
+    void StartTraceEx(HiTrace_Output_Level level, const std::string& name,
+        const std::string& value, float limit = -1);
 
     virtual void FinishTrace() = 0;
 

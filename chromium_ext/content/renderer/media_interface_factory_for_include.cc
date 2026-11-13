@@ -31,6 +31,21 @@ void MediaInterfaceFactory::CreateCustomMediaPlayerRenderer(
     return;
   }
 
+  if (interface_broker_) {
+    // The browser media proxy is document-scoped, but this factory survives
+    // same-frame navigation. Its cached pipe can still be bound to the old
+    // document while its asynchronous disconnect notification is pending.
+    // Custom players initialize immediately, without a network-load delay.
+    // Ask the current document broker for this one-way creation request; the
+    // transferred renderer endpoint owns the resulting player's lifetime.
+    // Do not reset the shared decoder/CDM factory or reuse an old-document
+    // pipe when binding is rejected by the current browser document.
+    mojo::Remote<media::mojom::InterfaceFactory> document_factory;
+    interface_broker_->GetInterface(document_factory.BindNewPipeAndPassReceiver());
+    document_factory->CreateCustomMediaPlayerRenderer(
+        std::move(client_extension_remote), std::move(receiver), player_id, params);
+    return;
+  }
   GetMediaInterfaceFactory()->CreateCustomMediaPlayerRenderer(
       std::move(client_extension_remote), std::move(receiver),
       player_id, params);

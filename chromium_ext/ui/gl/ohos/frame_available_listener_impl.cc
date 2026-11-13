@@ -23,6 +23,22 @@ FrameAvailableListenerImpl::FrameAvailableListenerImpl(
         base::RepeatingClosure frame_available_cb)
         : frame_available_cb_(std::move(frame_available_cb)) {}
 
+void* FrameAvailableListenerImpl::GetContext() {
+  // The native adapter keeps the shared listener alive while invoking its callback.
+  return this;
+}
+
+OnFrameAvailableCb FrameAvailableListenerImpl::GetOnFrameAvailableCb() {
+  return &FrameAvailableListenerImpl::OnFrameAvailable;
+}
+
+void FrameAvailableListenerImpl::OnFrameAvailable(void* context) {
+  if (context == nullptr) {
+    return;
+  }
+  static_cast<FrameAvailableListenerImpl*>(context)->OnFrameAvailableListener();
+}
+
 void FrameAvailableListenerImpl::OnFrameAvailableListener() {
   // Immediately signal the wait coordinator on the callback thread to avoid timeout.
   // This is critical for timely wakeup of WaitForFrameAvailable() which has a

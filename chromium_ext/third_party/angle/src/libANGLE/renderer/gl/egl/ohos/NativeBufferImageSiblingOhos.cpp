@@ -17,7 +17,7 @@
 
 #include "NativeBufferImageSiblingOhos.h"
 #include "../../../../../common/ohos_util.h"
-#include "../../../../../../../../../src/third_party/ohos_ndk/includes/ohos_adapter/hilog_adapter.h"
+#include "../../../../../../../../../../third_party/ohos_ndk/includes/ohos_adapter/hilog_adapter.h"
 
 namespace rx
 {

@@ -17,6 +17,7 @@
 #define GRAPHIC_ADAPTER_H
 
 #include <functional>
+#include <memory>
 
 namespace OHOS::NWeb {
 
@@ -147,8 +148,6 @@ public:
     virtual ColorGamutAdapter GetColorGamut() = 0;
 
     virtual TransformTypeAdapter GetTransformType() = 0;
-
-    virtual int64_t GetTimestamp() = 0;
 };
 
 class BufferFlushConfigAdapter {
@@ -256,7 +255,9 @@ public:
 
     virtual ~FrameAvailableListener() = default;
 
-    virtual void OnFrameAvailableListener() = 0;
+    virtual void* GetContext() = 0;
+
+    virtual OnFrameAvailableCb GetOnFrameAvailableCb() = 0;
 };
 
 class OhosNativeImageAdapter {

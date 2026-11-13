@@ -13,12 +13,12 @@
  * limitations under the License.
  */
 
-#include "../../../../../../../../../src/third_party/angle/src/common/platform.h"
+#include "common/platform.h"
 #include "ohos_util.h"
 
 #if defined(ANGLE_PLATFORM_OHOS)
-#include "../../../../../../../../../src/third_party/ohos_ndk/includes/ohos_adapter/hilog_adapter.h"
-#include "../../../../../../../../../src/third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
+#include "../../../../../../third_party/ohos_ndk/includes/ohos_adapter/hilog_adapter.h"
+#include "../../../../../../third_party/ohos_ndk/includes/ohos_adapter/ohos_adapter_helper.h"
 #endif
 
 namespace angle

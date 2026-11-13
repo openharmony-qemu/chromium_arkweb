@@ -14,20 +14,31 @@
 
 set -e
 
-WORK_SPACE=$(cd $(dirname $0); pwd)
+ARKWEB_BUILD_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
+ARKWEB_ROOT=$(cd "${ARKWEB_BUILD_DIR}/.."; pwd)
+WORK_SPACE=$(cd "${ARKWEB_ROOT}/.."; pwd)
 
-OHOS_GLUE_DIR=${WORK_SPACE}/ohos_glue
-OHOS_GLUE_REVISION=${WORK_SPACE}/ohos_glue/Revision.txt
+OHOS_GLUE_DIR=${ARKWEB_ROOT}/glue
+OHOS_GLUE_REVISION=${OHOS_GLUE_DIR}/Revision.txt
 OHOS_GLUE_LOG_DIR=${1}
-INTERFACE_DIR=${WORK_SPACE}/../deps_code/webview/ohos_interface
+INTERFACE_DIR=${ARKWEB_ROOT}/deps_code/webview/ohos_interface
 
 INTERFACE_INCLUDE_DIR=${INTERFACE_DIR}/include
 INTERFACE_OHOS_GLUE_DIR=${INTERFACE_DIR}/ohos_glue
 
-CLANG_FORMAT_DIR=${WORK_SPACE}/buildtools/linux64
+CLANG_FORMAT_DIR=${WORK_SPACE}/buildtools/linux64-format
 
 NEED_PROCESS=1
 NEW_REVISION=
+
+interface_headers_sha256() {
+  {
+   (cd "${INTERFACE_INCLUDE_DIR}";
+   find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) |
+     sha256sum | awk '{print $1}'
+   sha256sum "${CLANG_FORMAT_DIR}/clang-format" | awk '{print $1}'
+  } | sha256sum | awk '{print $1}'
+}
 
 need_processed() {
   if [ ! -d ${INTERFACE_DIR} ]; then
@@ -46,7 +57,9 @@ need_processed() {
   fi
 
   local_revision=`head -n 1 ${OHOS_GLUE_REVISION}`
-  if [ "X$deps_code_revision" == "X$local_revision" ]; then
+  local_header_sha256=$(sed -n '2p' "${OHOS_GLUE_REVISION}")
+  if [ "X$deps_code_revision" == "X$local_revision" ] &&
+     [ "$(interface_headers_sha256)" = "${local_header_sha256}" ]; then
     echo "deps_code/webview's revision not changed, no need prepare ohos_glue."
     NEED_PROCESS=0
   else
@@ -60,7 +73,7 @@ need_processed() {
 update_local_revision() {
   if [ "X$NEW_REVISION" != "X" ]; then
     echo "write deps_code/webview's revision into ${OHOS_GLUE_REVISION}:${NEW_REVISION}"
-    echo "${NEW_REVISION}" > ${OHOS_GLUE_REVISION}
+    printf '%s\n%s\n' "${NEW_REVISION}" "$(interface_headers_sha256)" > "${OHOS_GLUE_REVISION}"
   fi
 }
 
@@ -271,7 +284,7 @@ handle_patch_apply() {
 handle_patch_apply
 need_processed
 #临时遍历引用的头文件，添加#include <vector>
-python3 ${WORK_SPACE}/arkweb/build/include_vector_patch.py ${INTERFACE_DIR}
+python3 ${ARKWEB_BUILD_DIR}/include_vector_patch.py ${INTERFACE_DIR}
 if [ "$NEED_PROCESS" -eq 1 ]; then
   #胶水层代码支持配置化自动生成impl文件和wrapper文件
   ${INTERFACE_OHOS_GLUE_DIR}/scripts/bridge_gen.sh --log-dir ${OHOS_GLUE_LOG_DIR}

@@ -29,7 +29,8 @@ class BufferRequestConfigAdapterImpl : public BufferRequestConfigAdapter {
 
   TransformTypeAdapter GetTransformType() override;
 
-  int64_t GetTimestamp() override;
+  // The release request interface has no timestamp slot; flush carries PTS.
+  int64_t GetTimestamp();
 
   void SetWidth(int32_t);
 
